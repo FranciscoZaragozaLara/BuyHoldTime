@@ -37,7 +37,7 @@ export class SyncTickersUseCase {
         let summary: any = {};
         try {
           summary = (await this.yahooFinance.quoteSummary(symbol, {
-            modules: ['defaultKeyStatistics', 'summaryDetail', 'earnings', 'incomeStatementHistory'],
+            modules: ['defaultKeyStatistics', 'summaryDetail', 'earnings', 'incomeStatementHistory', 'earningsHistory'],
           })) as any;
         } catch (summaryErr) {
           this.logger.warn(`Failed to fetch quoteSummary for ${symbol}, falling back to basic quote details.`);
@@ -208,59 +208,72 @@ export class SyncTickersUseCase {
         // =========================================================
         // Calculate historical EPS: Real data + Mathematical CAGR estimation
         // =========================================================
+        // NOTE: incomeStatementHistory.dilutedEPS stopped working in Yahoo Finance Nov 2024.
+        // Real data sources available:
+        //   1. earningsHistory: last 4 quarters with real epsActual (summed by fiscal year)
+        //   2. earnings.financialsChart.yearly: Net Income / shares for 4 fiscal years
+        //   3. quote.epsTrailingTwelveMonths: TTM EPS (most current real value)
+        //
         // Format: { year: { value: number, source: 'real' | 'estimated' } }
         const historicalEpsRaw: Record<string, { value: number; source: 'real' | 'estimated' }> = {};
 
-        // Source 1: incomeStatementHistory (annual EPS - most reliable, up to 4-5 years)
-        const incomeStatements = summary?.incomeStatementHistory?.incomeStatementHistory || [];
-        for (const stmt of incomeStatements) {
-          try {
-            const year = stmt.endDate
-              ? String(new Date(stmt.endDate).getFullYear())
-              : null;
-            if (!year) continue;
-            // Prefer dilutedEPS, fallback to basicEPS
-            const epsValue = stmt.dilutedEPS ?? stmt.basicEPS ?? null;
-            if (epsValue !== null && typeof epsValue === 'number' && !isNaN(epsValue)) {
-              historicalEpsRaw[year] = { value: parseFloat(epsValue.toFixed(2)), source: 'real' };
-            }
-          } catch (e) {
-            this.logger.debug(`EPS parse error from incomeStatement: ${e}`);
+        // Source 1: earningsHistory — sum quarterly EPS by fiscal year
+        // Each quarter has a `quarter` date and `epsActual` (real reported value)
+        const earningsHistory = summary?.earningsHistory?.history || [];
+        const quarterlyByYear: Record<string, number[]> = {};
+        for (const q of earningsHistory) {
+          if (q.epsActual !== null && q.epsActual !== undefined && typeof q.epsActual === 'number') {
+            const qDate = q.quarter ? new Date(q.quarter) : null;
+            if (!qDate) continue;
+            // Group by fiscal year based on calendar year (approximation)
+            const yr = String(qDate.getFullYear());
+            if (!quarterlyByYear[yr]) quarterlyByYear[yr] = [];
+            quarterlyByYear[yr].push(q.epsActual);
+          }
+        }
+        // Aggregate: only count years with all 4 quarters (or 3+ to avoid partial years)
+        for (const [yr, quarters] of Object.entries(quarterlyByYear)) {
+          if (quarters.length >= 3) {
+            const annualEps = parseFloat(quarters.reduce((a, b) => a + b, 0).toFixed(2));
+            historicalEpsRaw[yr] = { value: annualEps, source: 'real' };
+            this.logger.debug(`${ticker.symbol} EPS ${yr} from earningsHistory (${quarters.length} qtrs): $${annualEps}`);
           }
         }
 
-        // Source 2: earnings.financialsChart.yearly (Net Income / Shares) - fills gaps
+        // Source 2: earnings.financialsChart.yearly (Net Income / current shares)
+        // This gives real net income by fiscal year — shares are approximate (current)
         const yearlyEarnings = summary?.earnings?.financialsChart?.yearly || [];
         const sharesOutstanding = summary?.defaultKeyStatistics?.sharesOutstanding || quote.sharesOutstanding || null;
         if (yearlyEarnings.length > 0 && sharesOutstanding) {
           for (const item of yearlyEarnings) {
             const year = String(item.date);
-            if (!historicalEpsRaw[year] && item.earnings && sharesOutstanding) {
+            if (!historicalEpsRaw[year] && item.earnings && sharesOutstanding > 0) {
               const calculatedEps = parseFloat((item.earnings / sharesOutstanding).toFixed(2));
-              if (!isNaN(calculatedEps)) {
+              if (!isNaN(calculatedEps) && calculatedEps > 0) {
                 historicalEpsRaw[year] = { value: calculatedEps, source: 'real' };
+                this.logger.debug(`${ticker.symbol} EPS ${year} from financialsChart: $${calculatedEps}`);
               }
             }
           }
         }
 
-        // Source 3: Current EPS (most recent year)
+        // Source 3: Current TTM EPS from quote (most accurate for current/recent year)
         const currentYear = new Date().getFullYear();
-        const currentEps = quote.epsTrailingTwelveMonths ?? null;
-        if (currentEps !== null && typeof currentEps === 'number' && !isNaN(currentEps)) {
+        const currentEps = quote.epsTrailingTwelveMonths ?? summary?.defaultKeyStatistics?.trailingEps ?? null;
+        if (currentEps !== null && typeof currentEps === 'number' && !isNaN(currentEps) && currentEps > 0) {
+          // TTM EPS covers the most recent 12 months — assign to current year
           if (!historicalEpsRaw[String(currentYear)]) {
             historicalEpsRaw[String(currentYear)] = { value: parseFloat(currentEps.toFixed(2)), source: 'real' };
+            this.logger.debug(`${ticker.symbol} EPS ${currentYear} from TTM: $${currentEps}`);
           }
         }
 
-        // === CAGR-based backward estimation ===
-        // Sort real years to find the oldest anchor point
-        const realYears = Object.keys(historicalEpsRaw)
-          .map(Number)
-          .sort((a, b) => a - b);
+        // Log real data found
+        const realYears = Object.keys(historicalEpsRaw).map(Number).sort((a, b) => a - b);
+        this.logger.log(`${ticker.symbol}: found ${realYears.length} real EPS years: [${realYears.join(', ')}]`);
 
+        // === CAGR-based backward estimation for years before real data ===
         if (realYears.length >= 2) {
-          // Compute CAGR from oldest to newest real data
           const oldestRealYear = realYears[0];
           const newestRealYear = realYears[realYears.length - 1];
           const oldestEps = historicalEpsRaw[String(oldestRealYear)].value;
@@ -291,15 +304,15 @@ export class SyncTickersUseCase {
           }
 
           this.logger.log(
-            `${ticker.symbol} EPS CAGR: ${(cagr * 100).toFixed(1)}% (${realYears.length} real years, estimated back to ${startEstimateYear})`
+            `${ticker.symbol} EPS CAGR: ${(cagr * 100).toFixed(1)}% (${realYears.length} real years → estimated back to ${startEstimateYear})`
           );
         } else if (realYears.length === 1) {
           // Only one data point: use sector-based growth rate for estimation
-          const sector = (ticker.sector || '').toLowerCase();
+          const sectorLower = (ticker.sector || '').toLowerCase();
           const sym = ticker.symbol.toUpperCase();
           let sectorCagr = 0.08;
-          if (sector.includes('technology') || sym === 'QQQ' || sym === 'TQQQ') sectorCagr = 0.12;
-          else if (sector.includes('financial') || sector.includes('energy')) sectorCagr = 0.06;
+          if (sectorLower.includes('technology') || sym === 'QQQ' || sym === 'TQQQ') sectorCagr = 0.12;
+          else if (sectorLower.includes('financial') || sectorLower.includes('energy')) sectorCagr = 0.06;
 
           const anchorYear = realYears[0];
           const anchorEps = historicalEpsRaw[String(anchorYear)].value;
