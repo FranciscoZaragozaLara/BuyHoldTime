@@ -1,6 +1,25 @@
 version: '3.8'
 
 services:
+  # Traefik: Edge Router & Reverse Proxy
+  router:
+    image: traefik:v2.10
+    container_name: buyholdtime-router
+    restart: always
+    command:
+      - "--api.insecure=true" # Habilita el dashboard en el puerto 8080
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+    ports:
+      - "80:80"
+      - "8080:8080" # Traefik Dashboard (http://localhost:8080)
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - buyholdtime-network
+
+  # Database: PostgreSQL 15
   database:
     image: postgres:15-alpine
     container_name: buyholdtime-db
@@ -13,13 +32,26 @@ services:
       POSTGRES_DB: buyholdtime
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    networks:
+      - buyholdtime-network
 
+  # Cache: Redis 7
+  cache:
+    image: redis:7-alpine
+    container_name: buyholdtime-cache
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - buyholdtime-network
+
+  # pgAdmin: Database Client Console (enrutado a través de Traefik)
   pgadmin:
     image: dpage/pgadmin4:latest
     container_name: buyholdtime-pgadmin
     restart: always
-    ports:
-      - "5050:80"
     environment:
       PGADMIN_DEFAULT_EMAIL: admin@buyholdtime.com
       PGADMIN_DEFAULT_PASSWORD: admin_secure_password
@@ -27,7 +59,37 @@ services:
       - database
     volumes:
       - pgadmin_data:/var/lib/pgadmin
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.pgadmin.rule=Host(`pgadmin.buyholdtime.localhost`)"
+      - "traefik.http.routers.pgadmin.entrypoints=web"
+      - "traefik.http.services.pgadmin.loadbalancer.server.port=80"
+    networks:
+      - buyholdtime-network
+
+# NOTA: En el futuro, cuando agreguemos los contenedores de producción del Frontend (Next.js) y Backend (NestJS), 
+# se añadirán a este archivo con las siguientes etiquetas de Traefik:
+#
+#  frontend:
+#    ...
+#    labels:
+#      - "traefik.enable=true"
+#      - "traefik.http.routers.frontend.rule=Host(`buyholdtime.localhost`)"
+#      - "traefik.http.routers.frontend.entrypoints=web"
+#
+#  backend:
+#    ...
+#    labels:
+#      - "traefik.enable=true"
+#      - "traefik.http.routers.backend.rule=Host(`api.buyholdtime.localhost`)"
+#      - "traefik.http.routers.backend.entrypoints=web"
+
+networks:
+  buyholdtime-network:
+    name: buyholdtime-network
+    driver: bridge
 
 volumes:
   postgres_data:
+  redis_data:
   pgadmin_data:
