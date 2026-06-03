@@ -24,6 +24,8 @@ export interface Ticker {
   fiftyTwoWeekLow?: number | null;
   dividendRate?: number | null;
   bookValue?: number | null;
+  historicalEps?: Record<string, { value: number; source: 'real' | 'estimated' }> | null;
+  historicalDividends?: Record<string, number> | null;
 }
 
 export interface HistoricalPrice {

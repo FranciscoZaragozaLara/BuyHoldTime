@@ -25,5 +25,7 @@ export class Ticker {
     public readonly fiftyTwoWeekLow?: number | null,
     public readonly dividendRate?: number | null,
     public readonly bookValue?: number | null,
+    public readonly historicalEps?: any | null,
+    public readonly historicalDividends?: any | null,
   ) {}
 }

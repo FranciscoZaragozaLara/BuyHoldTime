@@ -31,12 +31,14 @@ model Ticker {
   avgVolume        Float?            @map("avg_volume")
   fiftyTwoWeekHigh Float?            @map("fifty_two_week_high")
   fiftyTwoWeekLow  Float?            @map("fifty_two_week_low")
-  dividendRate     Float?            @map("dividend_rate")
-  bookValue        Float?            @map("book_value")
+  dividendRate        Float?            @map("dividend_rate")
+  bookValue           Float?            @map("book_value")
+  historicalEps       Json?             @map("historical_eps")
+  historicalDividends Json?             @map("historical_dividends")
   
-  createdAt        DateTime          @default(now()) @map("created_at")
-  updatedAt        DateTime          @updatedAt @map("updated_at")
-  historicalPrices HistoricalPrice[]
+  createdAt           DateTime          @default(now()) @map("created_at")
+  updatedAt           DateTime          @updatedAt @map("updated_at")
+  historicalPrices    HistoricalPrice[]
 
   @@map("tickers")
 }
