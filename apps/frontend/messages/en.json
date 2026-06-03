@@ -1,0 +1,90 @@
+{
+  "Navigation": {
+    "home": "Home",
+    "prices": "Historical Prices",
+    "indicators": "Indicators",
+    "backtester": "Backtester",
+    "heatmap": "Market Heatmap",
+    "ctaSubscribe": "Subscribe to Alerts",
+    "title": "BuyHoldTime"
+  },
+  "Common": {
+    "buy": "Buy",
+    "sell": "Sell",
+    "hold": "Hold",
+    "strongBuy": "Strong Buy",
+    "strongSell": "Strong Sell",
+    "neutral": "Neutral",
+    "loading": "Loading...",
+    "searchPlaceholder": "Search ticker (e.g. AAPL, MSFT)...",
+    "index": "Index",
+    "ticker": "Ticker",
+    "price": "Price",
+    "change": "Change",
+    "recommendation": "Recommendation",
+    "buyHoldIndex": "Buy/Hold Index"
+  },
+  "LandingPage": {
+    "heroTitle": "The Best Time to Invest in the Stock Market",
+    "heroSubtitle": "Maximize your returns by combining macroeconomic indicators, valuation metrics, and technical analysis into a single clear index.",
+    "ctaStart": "Explore Tickers",
+    "ctaSubscribe": "Subscribe to Alerts",
+    "featuredTitle": "Recommended Tickers",
+    "subscribersTitle": "Join 10,000+ Smart Investors",
+    "subscribersSubtitle": "Get weekly alerts when major indicators change their buy/hold recommendations.",
+    "subscribeButton": "Subscribe",
+    "subscribeSuccess": "Successfully subscribed!",
+    "nameLabel": "Name",
+    "emailLabel": "Email"
+  },
+  "Indicators": {
+    "title": "Macroeconomic & Market Indicators",
+    "subtitle": "Track key economic gauges that dictate long-term market trends.",
+    "fearGreed": "Fear & Greed Index",
+    "shillerPe": "Shiller PE Ratio (CAPE)",
+    "sp500Pe": "S&P 500 PE Ratio",
+    "vix": "VIX Volatility Index",
+    "fedRate": "FED Interest Rate",
+    "inflation": "Inflation (CPI YoY)",
+    "coreInflation": "Core Inflation",
+    "treasury30y": "30-Year Treasury Yield",
+    "statuslabel": "Status",
+    "valueLabel": "Current Value"
+  },
+  "HistoricalPrices": {
+    "title": "Interactive Stock Charts",
+    "subtitle": "Visualize daily stock prices with buy/hold indicators overlaid on the candlestick chart.",
+    "pe": "P/E Ratio",
+    "dy": "Dividend Yield",
+    "cap": "Market Cap",
+    "sector": "Sector",
+    "timeRange": "Time Range",
+    "chartInstructions": "Use the chart controls to zoom and pan. The colored index line represents the Buy/Hold strength."
+  },
+  "PortfolioBacktester": {
+    "title": "Portfolio Backtester",
+    "subtitle": "Simulate and compare investment strategies based on the Buy/Hold index rules.",
+    "tickersLabel": "Tickers to Include",
+    "initialCapital": "Initial Investment",
+    "startDate": "Start Date",
+    "endDate": "End Date",
+    "runTest": "Run Backtest",
+    "resultsTitle": "Backtest Results",
+    "buyHoldStrategy": "Buy/Hold Index Strategy",
+    "buyAndHold": "Buy & Hold (Benchmark)",
+    "totalReturn": "Total Return",
+    "annualizedReturn": "Annualized Return",
+    "maxDrawdown": "Max Drawdown"
+  },
+  "Heatmap": {
+    "title": "Market Heatmap",
+    "subtitle": "Visual representation of stock recommendations and index strength across different sectors.",
+    "technology": "Technology",
+    "financials": "Financials",
+    "healthcare": "Healthcare",
+    "energy": "Energy",
+    "consumer": "Consumer Cyclical",
+    "defensive": "Consumer Defensive",
+    "communication": "Communication Services"
+  }
+}

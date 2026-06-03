@@ -1,0 +1,90 @@
+{
+  "Navigation": {
+    "home": "Inicio",
+    "prices": "Precios Históricos",
+    "indicators": "Indicadores",
+    "backtester": "Simulador",
+    "heatmap": "Mapa de Calor",
+    "ctaSubscribe": "Suscribirse a Alertas",
+    "title": "BuyHoldTime"
+  },
+  "Common": {
+    "buy": "Comprar",
+    "sell": "Vender",
+    "hold": "Mantener",
+    "strongBuy": "Compra Fuerte",
+    "strongSell": "Venta Fuerte",
+    "neutral": "Neutral",
+    "loading": "Cargando...",
+    "searchPlaceholder": "Buscar ticker (ej. AAPL, MSFT)...",
+    "index": "Índice",
+    "ticker": "Acción",
+    "price": "Precio",
+    "change": "Cambio",
+    "recommendation": "Recomendación",
+    "buyHoldIndex": "Índice Buy/Hold"
+  },
+  "LandingPage": {
+    "heroTitle": "El Mejor Momento para Invertir en Bolsa",
+    "heroSubtitle": "Maximiza tus rendimientos combinando indicadores macroeconómicos, métricas de valuación y análisis técnico en un solo índice claro.",
+    "ctaStart": "Explorar Acciones",
+    "ctaSubscribe": "Suscribirse a Alertas",
+    "featuredTitle": "Acciones Recomendadas",
+    "subscribersTitle": "Únete a más de 10,000 Inversores",
+    "subscribersSubtitle": "Recibe alertas semanales cuando los principales indicadores cambien sus recomendaciones de compra/venta.",
+    "subscribeButton": "Suscribirse",
+    "subscribeSuccess": "¡Suscripción exitosa!",
+    "nameLabel": "Nombre",
+    "emailLabel": "Correo electrónico"
+  },
+  "Indicators": {
+    "title": "Indicadores Macroeconómicos y de Mercado",
+    "subtitle": "Monitorea las métricas clave que definen las tendencias del mercado a largo plazo.",
+    "fearGreed": "Índice Fear & Greed",
+    "shillerPe": "Shiller PE Ratio (CAPE)",
+    "sp500Pe": "S&P 500 PE Ratio",
+    "vix": "Índice de Volatilidad VIX",
+    "fedRate": "Tasa de Interés de la FED",
+    "inflation": "Inflación (IPC Anual)",
+    "coreInflation": "Inflación Subyacente",
+    "treasury30y": "Rendimiento Bono a 30 Años",
+    "statuslabel": "Estado",
+    "valueLabel": "Valor Actual"
+  },
+  "HistoricalPrices": {
+    "title": "Gráficas Interactivas de Acciones",
+    "subtitle": "Visualiza precios diarios de acciones con indicadores de compra/venta superpuestos en la gráfica de velas.",
+    "pe": "Relación P/E",
+    "dy": "Rendimiento por Dividendo",
+    "cap": "Capitalización",
+    "sector": "Sector",
+    "timeRange": "Rango de Tiempo",
+    "chartInstructions": "Usa los controles de la gráfica para hacer zoom y arrastrar. La línea de color representa la fuerza del índice Buy/Hold."
+  },
+  "PortfolioBacktester": {
+    "title": "Simulador de Portafolio",
+    "subtitle": "Simula y compara estrategias de inversión basadas en las reglas de nuestro índice Buy/Hold.",
+    "tickersLabel": "Acciones a Incluir",
+    "initialCapital": "Inversión Inicial",
+    "startDate": "Fecha de Inicio",
+    "endDate": "Fecha Fin",
+    "runTest": "Ejecutar Simulación",
+    "resultsTitle": "Resultados de Simulación",
+    "buyHoldStrategy": "Estrategia Índice Buy/Hold",
+    "buyAndHold": "Comprar y Mantener (Benchmark)",
+    "totalReturn": "Retorno Total",
+    "annualizedReturn": "Retorno Anualizado",
+    "maxDrawdown": "Caída Máxima (Drawdown)"
+  },
+  "Heatmap": {
+    "title": "Mapa de Calor del Mercado",
+    "subtitle": "Representación visual de recomendaciones y fuerza del índice en diferentes sectores.",
+    "technology": "Tecnología",
+    "financials": "Finanzas",
+    "healthcare": "Salud",
+    "energy": "Energía",
+    "consumer": "Consumo Cíclico",
+    "defensive": "Consumo Defensivo",
+    "communication": "Servicios de Comunicación"
+  }
+}

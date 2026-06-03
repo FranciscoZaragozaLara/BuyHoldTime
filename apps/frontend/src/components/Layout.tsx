@@ -1,99 +1,72 @@
+'use client';
+
 import React, { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { TrendingUp, BarChart3, Compass, Briefcase, LayoutGrid, Menu, X, Mail } from 'lucide-react';
+import Link from 'next/link';
+import { usePathname, useRouter } from 'next/navigation';
+import { useLocale, useTranslations } from 'next-intl';
+import { TrendingUp, BarChart3, Compass, Briefcase, LayoutGrid, Menu, X, Mail, Globe } from 'lucide-react';
 
 interface LayoutProps {
   children: React.ReactNode;
 }
 
 export const Layout: React.FC<LayoutProps> = ({ children }) => {
-  const location = useLocation();
+  const t = useTranslations('Navigation');
+  const locale = useLocale();
+  const pathname = usePathname();
+  const router = useRouter();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const navItems = [
-    { name: 'Home', path: '/', icon: <Compass size={18} /> },
-    { name: 'Precios & Tickers', path: '/prices', icon: <TrendingUp size={18} /> },
-    { name: 'Indicadores', path: '/indicators', icon: <BarChart3 size={18} /> },
-    { name: 'Backtester', path: '/backtester', icon: <Briefcase size={18} /> },
-    { name: 'Heatmap', path: '/heatmap', icon: <LayoutGrid size={18} /> },
+    { name: t('home'), path: `/${locale}`, icon: <Compass size={18} /> },
+    { name: t('prices'), path: `/${locale}/prices`, icon: <TrendingUp size={18} /> },
+    { name: t('indicators'), path: `/${locale}/indicators`, icon: <BarChart3 size={18} /> },
+    { name: t('backtester'), path: `/${locale}/backtester`, icon: <Briefcase size={18} /> },
+    { name: t('heatmap'), path: `/${locale}/heatmap`, icon: <LayoutGrid size={18} /> },
   ];
 
+  // Extracts current page path without locale, and switches the locale prefix
+  const switchLocale = (newLocale: string) => {
+    if (newLocale === locale) return;
+    const parts = pathname.split('/');
+    parts[1] = newLocale; // replace locale segment
+    router.push(parts.join('/'));
+  };
+
+  const currentPathWithoutLocale = pathname.replace(`/${locale}`, '') || '/';
+
   return (
-    <div className="app-container">
+    <div className="flex flex-col min-h-screen bg-slate-950 text-slate-100 font-sans">
       {/* Premium Navbar */}
-      <header style={{
-        borderBottom: '1px solid var(--glass-border)',
-        background: 'rgba(7, 10, 19, 0.8)',
-        backdropFilter: 'var(--backdrop-blur)',
-        position: 'sticky',
-        top: 0,
-        zIndex: 50,
-        transition: 'var(--transition-smooth)'
-      }}>
-        <div style={{
-          maxWidth: '1400px',
-          margin: '0 auto',
-          padding: '0 1.5rem',
-          height: '4.5rem',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between'
-        }}>
+      <header className="sticky top-0 z-50 border-b border-slate-900 bg-slate-950/80 backdrop-blur-md transition-all duration-300">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 h-18 flex items-center justify-between">
+          
           {/* Logo */}
-          <Link to="/" style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.5rem',
-            textDecoration: 'none',
-            color: 'inherit'
-          }}>
-            <TrendingUp size={28} style={{ color: '#3b82f6' }} />
-            <span style={{
-              fontSize: '1.4rem',
-              fontWeight: 800,
-              letterSpacing: '-0.03em',
-              background: 'linear-gradient(135deg, #fff 40%, #94a3b8 100%)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent'
-            }}>
-              BuyHold<span style={{ color: '#3b82f6', WebkitTextFillColor: '#3b82f6' }}>Time</span>.com
+          <Link href={`/${locale}`} className="flex items-center gap-2">
+            <TrendingUp size={28} className="text-teal-500" />
+            <span className="text-xl font-extrabold tracking-tight bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">
+              BuyHold<span className="text-teal-500">Time</span>.com
             </span>
           </Link>
 
-          {/* Desktop Nav */}
-          <nav style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }} className="desktop-only">
+          {/* Desktop Nav Links */}
+          <nav className="hidden md:flex items-center gap-1">
             {navItems.map((item) => {
-              const isActive = location.pathname === item.path;
+              // Exact or start-with matching for active state
+              const isHome = item.path === `/${locale}`;
+              const isActive = isHome 
+                ? pathname === `/${locale}`
+                : pathname.startsWith(item.path);
+
               return (
                 <Link
                   key={item.name}
-                  to={item.path}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.5rem',
-                    padding: '0.5rem 1rem',
-                    borderRadius: '8px',
-                    fontSize: '0.9rem',
-                    fontWeight: 500,
-                    textDecoration: 'none',
-                    color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)',
-                    background: isActive ? 'rgba(59, 130, 246, 0.1)' : 'transparent',
-                    border: isActive ? '1px solid rgba(59, 130, 246, 0.2)' : '1px solid transparent',
-                    transition: 'var(--transition-smooth)'
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!isActive) {
-                      e.currentTarget.style.color = 'var(--text-primary)';
-                      e.currentTarget.style.background = 'rgba(255, 255, 255, 0.03)';
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!isActive) {
-                      e.currentTarget.style.color = 'var(--text-secondary)';
-                      e.currentTarget.style.background = 'transparent';
-                    }
-                  }}
+                  href={item.path}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 border ${
+                    isActive
+                      ? 'bg-teal-500/10 text-teal-400 border-teal-500/20'
+                      : 'text-slate-400 hover:text-slate-100 hover:bg-slate-900/50 border-transparent'
+                  }`}
                 >
                   {item.icon}
                   {item.name}
@@ -102,124 +75,123 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
             })}
           </nav>
 
-          {/* Subscribe CTA Button */}
-          <a href="#subscribe" className="desktop-only btn btn-primary" style={{ padding: '0.5rem 1.25rem', fontSize: '0.85rem' }}>
-            <Mail size={16} />
-            Suscripción Gratis
-          </a>
+          {/* Right Header Actions */}
+          <div className="hidden md:flex items-center gap-4">
+            {/* Language Selector */}
+            <div className="flex items-center gap-1 text-slate-400 border border-slate-800 rounded-lg px-2.5 py-1.5 bg-slate-900/30 text-xs">
+              <Globe size={14} className="text-slate-500" />
+              <button 
+                onClick={() => switchLocale('en')}
+                className={`hover:text-slate-100 font-semibold px-1 py-0.5 rounded transition ${locale === 'en' ? 'text-teal-400 bg-slate-800' : ''}`}
+              >
+                EN
+              </button>
+              <span className="text-slate-800">|</span>
+              <button 
+                onClick={() => switchLocale('es')}
+                className={`hover:text-slate-100 font-semibold px-1 py-0.5 rounded transition ${locale === 'es' ? 'text-teal-400 bg-slate-800' : ''}`}
+              >
+                ES
+              </button>
+            </div>
 
-          {/* Mobile Menu Button */}
-          <button 
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            style={{
-              background: 'transparent',
-              border: 'none',
-              color: 'var(--text-primary)',
-              cursor: 'pointer',
-              display: 'none'
-            }}
-            className="mobile-only-btn"
-          >
-            {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
-          </button>
+            {/* Subscribe Action */}
+            <a 
+              href="#subscribe" 
+              className="flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold text-slate-950 bg-teal-400 hover:bg-teal-300 transition-colors shadow-lg shadow-teal-500/10"
+            >
+              <Mail size={14} />
+              {t('ctaSubscribe')}
+            </a>
+          </div>
+
+          {/* Mobile Actions Container */}
+          <div className="flex items-center gap-2 md:hidden">
+            {/* Mobile Lang Selector */}
+            <div className="flex items-center gap-1 text-slate-400 border border-slate-800 rounded-lg px-2 py-1 bg-slate-900/30 text-xs">
+              <button 
+                onClick={() => switchLocale('en')}
+                className={`hover:text-slate-100 px-1 py-0.5 rounded ${locale === 'en' ? 'text-teal-400 bg-slate-800 font-bold' : ''}`}
+              >
+                EN
+              </button>
+              <button 
+                onClick={() => switchLocale('es')}
+                className={`hover:text-slate-100 px-1 py-0.5 rounded ${locale === 'es' ? 'text-teal-400 bg-slate-800 font-bold' : ''}`}
+              >
+                ES
+              </button>
+            </div>
+
+            {/* Hamburger Button */}
+            <button 
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="p-2 rounded-lg text-slate-400 hover:text-slate-100 bg-slate-900/50"
+              aria-label="Toggle Menu"
+            >
+              {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+            </button>
+          </div>
+
         </div>
       </header>
 
-      {/* Mobile Drawer Nav */}
+      {/* Mobile Sidebar / Drawer */}
       {mobileMenuOpen && (
-        <div style={{
-          position: 'fixed',
-          top: '4.5rem',
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'var(--bg-primary)',
-          zIndex: 40,
-          padding: '2rem 1.5rem',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '1.5rem',
-          borderTop: '1px solid var(--glass-border)'
-        }}>
-          {navItems.map((item) => {
-            const isActive = location.pathname === item.path;
-            return (
-              <Link
-                key={item.name}
-                to={item.path}
-                onClick={() => setMobileMenuOpen(false)}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.75rem',
-                  padding: '1rem',
-                  borderRadius: '12px',
-                  fontSize: '1.1rem',
-                  fontWeight: 600,
-                  textDecoration: 'none',
-                  color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)',
-                  background: isActive ? 'rgba(59, 130, 246, 0.1)' : 'rgba(255, 255, 255, 0.02)',
-                  border: isActive ? '1px solid rgba(59, 130, 246, 0.2)' : '1px solid var(--glass-border)',
-                }}
-              >
-                {item.icon}
-                {item.name}
-              </Link>
-            );
-          })}
+        <div className="fixed inset-y-0 right-0 z-40 w-full max-w-xs bg-slate-950 border-l border-slate-900 shadow-2xl p-6 pt-24 flex flex-col gap-4 animate-in slide-in-from-right duration-250">
+          <nav className="flex flex-col gap-2">
+            {navItems.map((item) => {
+              const isHome = item.path === `/${locale}`;
+              const isActive = isHome 
+                ? pathname === `/${locale}`
+                : pathname.startsWith(item.path);
+
+              return (
+                <Link
+                  key={item.name}
+                  href={item.path}
+                  onClick={() => setMobileMenuOpen(false)}
+                  className={`flex items-center gap-3 p-3 rounded-xl text-sm font-semibold transition-all border ${
+                    isActive
+                      ? 'bg-teal-500/10 text-teal-400 border-teal-500/20'
+                      : 'text-slate-400 hover:text-slate-100 hover:bg-slate-900/30 border-transparent'
+                  }`}
+                >
+                  {item.icon}
+                  {item.name}
+                </Link>
+              );
+            })}
+          </nav>
           <a 
             href="#subscribe" 
             onClick={() => setMobileMenuOpen(false)} 
-            className="btn btn-primary" 
-            style={{ width: '100%', padding: '1rem' }}
+            className="flex items-center justify-center gap-2 p-3 mt-4 rounded-xl text-sm font-bold text-slate-950 bg-teal-400 hover:bg-teal-300 transition"
           >
-            <Mail size={18} />
-            Suscripción Gratis
+            <Mail size={16} />
+            {t('ctaSubscribe')}
           </a>
         </div>
       )}
 
       {/* Main Content Area */}
-      <main className="main-content">
+      <main className="flex-grow">
         {children}
       </main>
 
       {/* Footer */}
-      <footer style={{
-        borderTop: '1px solid var(--glass-border)',
-        padding: '2.5rem 1.5rem',
-        marginTop: 'auto',
-        background: 'rgba(7, 10, 19, 0.95)',
-        fontSize: '0.85rem',
-        color: 'var(--text-secondary)'
-      }}>
-        <div style={{
-          maxWidth: '1400px',
-          margin: '0 auto',
-          display: 'flex',
-          flexWrap: 'wrap',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          gap: '1.5rem'
-        }}>
-          <div>
-            <p style={{ fontWeight: 700, color: 'var(--text-primary)', marginBottom: '0.25rem' }}>BuyHoldTime.com</p>
-            <p>El momento ideal para invertir con convicción y paciencia.</p>
+      <footer className="border-t border-slate-900 bg-slate-950/40 py-12 text-slate-500 text-xs">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row justify-between items-center gap-6">
+          <div className="text-center md:text-left">
+            <p className="font-bold text-slate-300 text-sm mb-1">BuyHoldTime.com</p>
+            <p className="text-slate-500">Combining indicators and stock metrics to pinpoint investing windows.</p>
           </div>
-          <p>© 2026 BuyHoldTime.com. Prototipo Visual. Todos los derechos reservados.</p>
+          <div className="text-center md:text-right">
+            <p>© {new Date().getFullYear()} BuyHoldTime.com. All rights reserved. Demo Version.</p>
+            <p className="mt-1 text-slate-600">Built using Next.js & NestJS Clean Architecture.</p>
+          </div>
         </div>
       </footer>
-
-      {/* CSS overrides for desktop/mobile display */}
-      <style>{`
-        @media (min-width: 769px) {
-          .mobile-only-btn { display: none !important; }
-        }
-        @media (max-width: 768px) {
-          .desktop-only { display: none !important; }
-          .mobile-only-btn { display: block !important; }
-        }
-      `}</style>
     </div>
   );
 };

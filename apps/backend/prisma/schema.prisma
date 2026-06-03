@@ -14,13 +14,26 @@ model Ticker {
   symbol           String            @unique
   name             String
   price            Float
-  changePercent    Float
+  changePercent    Float             @map("change_percent")
   sector           String
   buyHoldIndex     Int               @map("buy_hold_index")
   recommendation   String
   pe               Float
   dy               Float
   cap              String
+  
+  // === Financial Valuation Fields (Yahoo Finance API) ===
+  eps              Float?
+  forwardPe        Float?            @map("forward_pe")
+  trailingPe       Float?            @map("trailing_pe")
+  pegRatio         Float?            @map("peg_ratio")
+  enterpriseValue  Float?            @map("enterprise_value")
+  avgVolume        Float?            @map("avg_volume")
+  fiftyTwoWeekHigh Float?            @map("fifty_two_week_high")
+  fiftyTwoWeekLow  Float?            @map("fifty_two_week_low")
+  dividendRate     Float?            @map("dividend_rate")
+  bookValue        Float?            @map("book_value")
+  
   createdAt        DateTime          @default(now()) @map("created_at")
   updatedAt        DateTime          @updatedAt @map("updated_at")
   historicalPrices HistoricalPrice[]
@@ -36,6 +49,7 @@ model HistoricalPrice {
   high     Float
   low      Float
   close    Float
+  adjClose Float    @map("adj_close")
   volume   BigInt
   ticker   Ticker   @relation(fields: [tickerId], references: [id], onDelete: Cascade)
 
