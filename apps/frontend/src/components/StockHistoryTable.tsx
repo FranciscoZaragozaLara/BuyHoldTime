@@ -290,10 +290,47 @@ export const StockHistoryTable: React.FC<StockHistoryTableProps> = ({ prices, ti
               
               const changeSign = priceChange > 0 ? '+' : '';
 
+              // Determine growth rates based on sector
+              const sector = (ticker.sector || '').toLowerCase();
+              const symbol = (ticker.symbol || '').toUpperCase();
+              let epsGrowth = 0.08; // 8% default
+              let divGrowth = 0.05; // 5% default
+              if (sector.includes('technology') || symbol === 'QQQ' || symbol === 'TQQQ') {
+                epsGrowth = 0.12;
+                divGrowth = 0.08;
+              } else if (sector.includes('index') || symbol === 'SPY' || symbol === 'VOO') {
+                epsGrowth = 0.07;
+                divGrowth = 0.04;
+              } else if (sector.includes('financial') || sector.includes('energy')) {
+                epsGrowth = 0.06;
+                divGrowth = 0.05;
+              } else if (symbol === 'SCHD') {
+                epsGrowth = 0.06;
+                divGrowth = 0.09;
+              }
+
+              // Calculate years diff continuously based on row date vs current base date
+              const rowDateStr = activeTab === 'daily' 
+                ? row.date 
+                : (activeTab === 'monthly' ? `${row.dateLabel}-15` : `${row.dateLabel}-06-30`);
+              const rowDate = new Date(rowDateStr);
+              const baseDate = ticker.updatedAt ? new Date(ticker.updatedAt) : new Date('2026-06-03');
+              const timeDiff = baseDate.getTime() - rowDate.getTime();
+              const yearsDiff = Math.max(0, timeDiff / (365.25 * 24 * 60 * 60 * 1000));
+
+              // Project EPS and Dividend Rate backwards
+              const estimatedEps = ticker.eps && ticker.eps > 0 
+                ? ticker.eps / Math.pow(1 + epsGrowth, yearsDiff) 
+                : null;
+              const estimatedDivRate = ticker.dividendRate && ticker.dividendRate > 0 
+                ? ticker.dividendRate / Math.pow(1 + divGrowth, yearsDiff) 
+                : null;
+              const finalDivRate = estimatedDivRate || 0;
+
               // Dynamic calculations based on date close price
               const scaledCap = parsedCurrentCap * (row.close / ticker.price);
-              const peRatio = ticker.eps && ticker.eps > 0 ? (row.close / ticker.eps) : null;
-              const divYield = ticker.dividendRate && ticker.dividendRate > 0 ? (ticker.dividendRate / row.close) * 100 : null;
+              const peRatio = estimatedEps && estimatedEps > 0 ? (row.close / estimatedEps) : null;
+              const divYield = row.close > 0 ? (finalDivRate / row.close) * 100 : 0;
 
               return (
                 <tr key={idx} className="hover:bg-slate-900/10 transition-colors">
@@ -306,10 +343,10 @@ export const StockHistoryTable: React.FC<StockHistoryTableProps> = ({ prices, ti
                     {nextRow ? `${changeSign}${percentChange.toFixed(2)}%` : '-'}
                   </td>
                   <td className="p-4 text-slate-300">{formatMarketCap(scaledCap)}</td>
-                  <td className="p-4 text-slate-400">{ticker.eps ? `$${ticker.eps.toFixed(2)}` : 'N/A'}</td>
+                  <td className="p-4 text-slate-400">{estimatedEps ? `$${estimatedEps.toFixed(2)}` : 'N/A'}</td>
                   <td className="p-4 text-slate-300 font-bold">{peRatio ? `${peRatio.toFixed(2)}x` : 'N/A'}</td>
-                  <td className="p-4 text-slate-400">{ticker.dividendRate ? `$${ticker.dividendRate.toFixed(2)}` : '$0.00'}</td>
-                  <td className="p-4 text-emerald-400/90 font-bold">{divYield ? `${divYield.toFixed(2)}%` : '0.00%'}</td>
+                  <td className="p-4 text-slate-400">{finalDivRate > 0 ? `$${finalDivRate.toFixed(2)}` : '$0.00'}</td>
+                  <td className="p-4 text-emerald-400/90 font-bold">{divYield > 0 ? `${divYield.toFixed(2)}%` : '0.00%'}</td>
                   <td className="p-4 text-slate-400">{row.volume.toLocaleString()}</td>
                   <td className={`p-4 font-extrabold text-sm ${rating.score >= 75 ? 'text-teal-400' : 'text-amber-400'}`}>
                     {rating.score}
