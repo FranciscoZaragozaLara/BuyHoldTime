@@ -60,9 +60,31 @@ apps/frontend/
 * **Diseño Responsivo**: Seguir la estrategia *Mobile First*. Utilizar los modificadores de pantalla de Tailwind (`md:`, `lg:`, etc.) para adaptar las interfaces.
 
 ### 2.4. Multi-idioma (i18n)
-* **Librería**: `next-intl` o `react-i18next` integrada con middleware de Next.js.
-* **Estructura de traducciones**: Los textos deben almacenarse en archivos JSON dentro de `/messages` o `/public/locales` (`es.json`, `en.json`).
-* **Regla**: No codificar textos estáticos directamente en componentes. Toda cadena visible debe pasar por la función de traducción `t('clave')`.
+* **Estrategia por Defecto**: Soporte para Español (`es`) e Inglés (`en`).
+* **Librería recomendada**: `next-intl` (diseñada para Next.js App Router).
+* **Detección Automática**: Middleware que analice la cabecera `Accept-Language` y cookies de preferencia del usuario para redirigir automáticamente (ej. `/es/dashboard` o `/en/dashboard`).
+* **Estructura**:
+  * `/messages/es.json` y `/messages/en.json` en la raíz del frontend.
+* **Regla**: No codificar textos estáticos directamente en componentes. Toda cadena visible debe pasar por hooks de i18n (`const t = useTranslations('Namespace')`).
+
+### 2.5. Estrategias de SEO y Tráfico Orgánico
+Para maximizar el posicionamiento en buscadores (Google, Bing) y generar tráfico orgánico:
+* **Rendimiento e Indexación**: Utilizar Server-Side Rendering (SSR) en páginas de consulta de tickers y Generación Estática (SSG/ISR) en páginas informativas y la Landing Page. Esto garantiza que los buscadores analicen el HTML estructurado inmediatamente.
+* **Next.js Metadata API**: Definir metadatos estáticos o dinámicos mediante `generateMetadata()` en cada página, incluyendo:
+    * `<title>` dinámico y único.
+    * `<meta name="description">` corto y descriptivo.
+    * Etiquetas Open Graph (`og:title`, `og:description`, `og:image`) y Twitter Cards.
+* **Rutas Dinámicas de Sitemap y Robots**:
+    * Generar el sitemap de forma dinámica en `src/app/sitemap.ts` para indexar automáticamente todas las páginas de los 50 tickers e indicadores.
+    * Configurar `public/robots.txt` enlazado al sitemap y bloqueando secciones no indexables (ej. `/dashboard`, `/admin`).
+* **Datos Estructurados (JSON-LD)**: Incorporar esquemas tipo `FinancialProduct` o `Dataset` mediante bloques `<script type="application/ld+json">` en las páginas de consulta de precios para lograr Rich Snippets en Google.
+
+### 2.6. Integración de Publicidad (Monetización Controlada)
+El soporte para redes de publicidad recomendadas (ej. Google AdSense) debe ser discreto y controlado:
+* **Prevención de CLS (Cumulative Layout Shift)**: Todo bloque publicitario debe tener un contenedor padre con dimensiones explícitas predefinidas (ancho y alto mínimo) para evitar saltos de diseño mientras se carga el anuncio, protegiendo la métrica Core Web Vitals de Google.
+* **Componente Publicitario Aislado**: Crear un componente reactivo `<AdBanner slot="xxxx" type="banner|native" />` con un placeholder animado (Skeleton) que solo monte los scripts de anuncios en producción (`process.env.NODE_ENV === 'production'`).
+* **Control de Activación**: Archivo centralizado de configuración (`src/config/ads.ts`) para encender/apagar anuncios a nivel global.
+* **Archivo ads.txt**: Ubicar de forma obligatoria el archivo `ads.txt` en `public/ads.txt` para autorizar a los vendedores de publicidad.
 
 ---
 
