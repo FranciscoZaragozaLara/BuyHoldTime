@@ -1,0 +1,79 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Ticker {
+  id               String            @id @default(uuid())
+  symbol           String            @unique
+  name             String
+  price            Float
+  changePercent    Float
+  sector           String
+  buyHoldIndex     Int               @map("buy_hold_index")
+  recommendation   String
+  pe               Float
+  dy               Float
+  cap              String
+  createdAt        DateTime          @default(now()) @map("created_at")
+  updatedAt        DateTime          @updatedAt @map("updated_at")
+  historicalPrices HistoricalPrice[]
+
+  @@map("tickers")
+}
+
+model HistoricalPrice {
+  id       String   @id @default(uuid())
+  tickerId String   @map("ticker_id")
+  date     DateTime @db.Date
+  open     Float
+  high     Float
+  low      Float
+  close    Float
+  volume   BigInt
+  ticker   Ticker   @relation(fields: [tickerId], references: [id], onDelete: Cascade)
+
+  @@unique([tickerId, date])
+  @@map("historical_prices")
+}
+
+model Indicator {
+  id           String             @id @default(uuid())
+  key          String             @unique
+  name         String
+  currentValue Float              @map("current_value")
+  unit         String
+  status       String
+  description  String
+  createdAt    DateTime           @default(now()) @map("created_at")
+  updatedAt    DateTime           @updatedAt @map("updated_at")
+  history      IndicatorHistory[]
+
+  @@map("indicators")
+}
+
+model IndicatorHistory {
+  id          String    @id @default(uuid())
+  indicatorId String    @map("indicator_id")
+  date        DateTime  @db.Date
+  value       Float
+  indicator   Indicator @relation(fields: [indicatorId], references: [id], onDelete: Cascade)
+
+  @@unique([indicatorId, date])
+  @@map("indicator_histories")
+}
+
+model Subscription {
+  id        String   @id @default(uuid())
+  name      String
+  email     String   @unique
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("subscriptions")
+}
