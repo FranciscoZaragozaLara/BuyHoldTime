@@ -189,7 +189,35 @@ export default async function TickerDetailsPage({
   }
 
   const { ticker, historicalPrices } = details;
-  const annualReturns = calculateAnnualReturns(historicalPrices);
+
+  // Dynamically append intraday price candle for today if not already present in the database series
+  const updatedPrices = [...historicalPrices];
+  if (updatedPrices.length > 0) {
+    const latestPrice = updatedPrices[updatedPrices.length - 1];
+    const latestDateStr = new Date(latestPrice.date).toISOString().split('T')[0];
+    const todayStr = new Date().toISOString().split('T')[0];
+    
+    // Only append if market is open/active and today is a weekday (Monday-Friday) and the date is not already saved
+    const todayDay = new Date().getDay();
+    const isWeekday = todayDay >= 1 && todayDay <= 5;
+    
+    if (latestDateStr !== todayStr && isWeekday) {
+      const openPrice = ticker.price / (1 + (ticker.changePercent || 0) / 100);
+      updatedPrices.push({
+        id: 'temp-today',
+        tickerId: ticker.id,
+        date: new Date().toISOString(), // Use current time so it resolves to today
+        open: openPrice,
+        high: Math.max(openPrice, ticker.price),
+        low: Math.min(openPrice, ticker.price),
+        close: ticker.price,
+        adjClose: ticker.price,
+        volume: 0, // indicates partial/live day
+      });
+    }
+  }
+
+  const annualReturns = calculateAnnualReturns(updatedPrices);
 
   // Speedometer styling metrics
   const score = ticker.buyHoldIndex;
@@ -217,7 +245,7 @@ export default async function TickerDetailsPage({
 
   return (
     <Layout>
-      <div className="py-12 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col gap-10">
+      <div className="py-8 w-full max-w-none px-4 sm:px-8 lg:px-12 flex flex-col gap-8">
         
         {/* Navigation Breadcrumb */}
         <div>
@@ -278,90 +306,21 @@ export default async function TickerDetailsPage({
         {/* Core Layout Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           
-          {/* Main Left Content Column */}
+          {/* Main Left Content Column: Chart */}
           <div className="lg:col-span-2 flex flex-col gap-8">
-            
             {/* Interactive Candle Chart */}
             <StockChart 
-              prices={historicalPrices} 
+              prices={updatedPrices} 
               buyHoldIndex={ticker.buyHoldIndex} 
               recommendation={ticker.recommendation} 
             />
-
-            {/* Historical data table with Daily, Monthly and Annual tabs */}
-            <StockHistoryTable 
-              prices={historicalPrices} 
-              ticker={ticker} 
-            />
-
-            {/* Quarterly financials from our database */}
-            <QuarterlyDataTable 
-              quarters={ticker.historicalEpsQuarterly} 
-              historicalPrices={historicalPrices}
-            />
-
-            {/* Annual Simulated Returns Table */}
-            <div className="p-6 rounded-2xl border border-slate-900 bg-slate-950/60 backdrop-blur-xl shadow-2xl flex flex-col gap-6">
-              <div>
-                <h3 className="text-base font-bold text-white flex items-center gap-2">
-                  <Scale size={18} className="text-teal-400" />
-                  {locale === 'es' ? 'Simulador de Rendimientos Anuales' : 'Annual Simulated Returns Table'}
-                </h3>
-                <p className="text-xs text-slate-400 mt-1">
-                  {locale === 'es'
-                    ? 'Comparación de rendimientos históricos de Comprar y Mantener (Benchmark) frente a la estrategia de Rotación del Índice Buy/Hold.'
-                    : 'Comparison of historical Buy & Hold returns (Benchmark) vs. the Buy/Hold Index active rotation strategy.'}
-                </p>
-              </div>
-
-              {annualReturns.length === 0 ? (
-                <div className="text-center py-8 text-xs text-slate-500">
-                  {locale === 'es' ? 'Datos históricos insuficientes para calcular retornos.' : 'Insufficient historical data to calculate annual returns.'}
-                </div>
-              ) : (
-                <div className="overflow-x-auto border border-slate-900 rounded-xl">
-                  <table className="w-full text-left text-xs">
-                    <thead className="bg-slate-900/80 text-slate-400 font-bold border-b border-slate-900">
-                      <tr>
-                        <th className="p-4">{locale === 'es' ? 'Año' : 'Year'}</th>
-                        <th className="p-4">{locale === 'es' ? 'Retorno Benchmark (Buy & Hold)' : 'Benchmark Return (Buy & Hold)'}</th>
-                        <th className="p-4">{locale === 'es' ? 'Estrategia Buy/Hold Index' : 'Buy/Hold Index Strategy'}</th>
-                        <th className="p-4 text-right">{locale === 'es' ? 'Diferencia (Alfa)' : 'Outperformance (Alpha)'}</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-900/60 bg-slate-950/20">
-                      {annualReturns.map((item) => {
-                        const alpha = item.activeReturn - item.benchmarkReturn;
-                        const alphaColor = alpha >= 0 ? 'text-emerald-400 font-bold' : 'text-slate-400';
-                        
-                        return (
-                          <tr key={item.year} className="hover:bg-slate-900/20 transition-colors">
-                            <td className="p-4 font-bold text-white">{item.year}</td>
-                            <td className={`p-4 font-semibold ${item.benchmarkReturn >= 0 ? 'text-emerald-400/90' : 'text-rose-400/90'}`}>
-                              {item.benchmarkReturn >= 0 ? '+' : ''}{item.benchmarkReturn.toFixed(2)}%
-                            </td>
-                            <td className={`p-4 font-bold ${item.activeReturn >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                              {item.activeReturn >= 0 ? '+' : ''}{item.activeReturn.toFixed(2)}%
-                            </td>
-                            <td className={`p-4 text-right ${alphaColor}`}>
-                              {alpha >= 0 ? '+' : ''}{alpha.toFixed(2)}%
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-
           </div>
 
-          {/* Right Sidebar Column */}
-          <div className="flex flex-col gap-8">
+          {/* Right Sidebar Column: Gauge & Valuation Stats */}
+          <div className="flex flex-col md:flex-row lg:flex-col gap-8 lg:col-span-1">
             
             {/* Speedometer Index Gauge */}
-            <div className="p-6 rounded-2xl border border-slate-900 bg-slate-950/60 backdrop-blur-xl shadow-2xl flex flex-col items-center text-center gap-6">
+            <div className="p-6 rounded-2xl border border-slate-900 bg-slate-950/60 backdrop-blur-xl shadow-2xl flex-1 flex flex-col items-center text-center gap-6">
               <div className="w-full border-b border-slate-900/60 pb-3 flex justify-between items-center">
                 <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
                   Buy/Hold Index Score
@@ -432,7 +391,7 @@ export default async function TickerDetailsPage({
             </div>
 
             {/* Key Valuation / Statistics Cards */}
-            <div className="p-6 rounded-2xl border border-slate-900 bg-slate-950/60 backdrop-blur-xl shadow-2xl flex flex-col gap-6">
+            <div className="p-6 rounded-2xl border border-slate-900 bg-slate-950/60 backdrop-blur-xl shadow-2xl flex-1 flex flex-col gap-6">
               <div className="border-b border-slate-900/60 pb-3">
                 <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
                   {locale === 'es' ? 'Estadísticas de Valuación' : 'Key Valuation Stats'}
@@ -549,6 +508,77 @@ export default async function TickerDetailsPage({
 
           </div>
 
+        </div>
+
+        {/* Full-width section below for long wide tables */}
+        <div className="flex flex-col gap-8 w-full">
+          
+          {/* Historical data table with Daily, Monthly and Annual tabs */}
+          <StockHistoryTable 
+            prices={updatedPrices} 
+            ticker={ticker} 
+          />
+
+          {/* Quarterly financials from our database */}
+          <QuarterlyDataTable 
+            quarters={ticker.historicalEpsQuarterly} 
+            historicalPrices={updatedPrices}
+          />
+
+          {/* Annual Simulated Returns Table */}
+          <div className="p-6 rounded-2xl border border-slate-900 bg-slate-950/60 backdrop-blur-xl shadow-2xl flex flex-col gap-6">
+            <div>
+              <h3 className="text-base font-bold text-white flex items-center gap-2">
+                <Scale size={18} className="text-teal-400" />
+                {locale === 'es' ? 'Simulador de Rendimientos Anuales' : 'Annual Simulated Returns Table'}
+              </h3>
+              <p className="text-xs text-slate-400 mt-1">
+                {locale === 'es'
+                  ? 'Comparación de rendimientos históricos de Comprar y Mantener (Benchmark) frente a la estrategia de Rotación del Índice Buy/Hold.'
+                  : 'Comparison of historical Buy & Hold returns (Benchmark) vs. the Buy/Hold Index active rotation strategy.'}
+              </p>
+            </div>
+
+            {annualReturns.length === 0 ? (
+              <div className="text-center py-8 text-xs text-slate-500">
+                {locale === 'es' ? 'Datos históricos insuficientes para calcular retornos.' : 'Insufficient historical data to calculate annual returns.'}
+              </div>
+            ) : (
+              <div className="overflow-x-auto border border-slate-900 rounded-xl">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-900/80 text-slate-400 font-bold border-b border-slate-900">
+                    <tr>
+                      <th className="p-4">{locale === 'es' ? 'Año' : 'Year'}</th>
+                      <th className="p-4">{locale === 'es' ? 'Retorno Benchmark (Buy & Hold)' : 'Benchmark Return (Buy & Hold)'}</th>
+                      <th className="p-4">{locale === 'es' ? 'Estrategia Buy/Hold Index' : 'Buy/Hold Index Strategy'}</th>
+                      <th className="p-4 text-right">{locale === 'es' ? 'Diferencia (Alfa)' : 'Outperformance (Alpha)'}</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-900/60 bg-slate-950/20">
+                    {annualReturns.map((item) => {
+                      const alpha = item.activeReturn - item.benchmarkReturn;
+                      const alphaColor = alpha >= 0 ? 'text-emerald-400 font-bold' : 'text-slate-400';
+                      
+                      return (
+                        <tr key={item.year} className="hover:bg-slate-900/20 transition-colors">
+                          <td className="p-4 font-bold text-white">{item.year}</td>
+                          <td className={`p-4 font-semibold ${item.benchmarkReturn >= 0 ? 'text-emerald-400/90' : 'text-rose-400/90'}`}>
+                            {item.benchmarkReturn >= 0 ? '+' : ''}{item.benchmarkReturn.toFixed(2)}%
+                          </td>
+                          <td className={`p-4 font-bold ${item.activeReturn >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                            {item.activeReturn >= 0 ? '+' : ''}{item.activeReturn.toFixed(2)}%
+                          </td>
+                          <td className={`p-4 text-right ${alphaColor}`}>
+                            {alpha >= 0 ? '+' : ''}{alpha.toFixed(2)}%
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
         </div>
 
       </div>

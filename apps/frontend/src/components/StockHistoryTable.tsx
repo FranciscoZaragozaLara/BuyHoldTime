@@ -210,6 +210,7 @@ export const StockHistoryTable: React.FC<StockHistoryTableProps> = ({ prices, ti
       year: 'numeric',
       month: 'short',
       day: 'numeric',
+      timeZone: 'UTC',
     });
   };
 
@@ -413,8 +414,15 @@ export const StockHistoryTable: React.FC<StockHistoryTableProps> = ({ prices, ti
                 : locale === 'es' ? 'Calculado dinámicamente' : 'Calculated dynamically';
 
               return (
-                <tr key={idx} className="hover:bg-slate-900/10 transition-colors">
-                  <td className="p-4 font-sans font-bold text-white whitespace-nowrap">{formatDate(label)}</td>
+                <tr key={idx} className={`hover:bg-slate-900/10 transition-colors ${row.id === 'temp-today' ? 'bg-teal-500/5 border-l-2 border-teal-500' : ''}`}>
+                  <td className="p-4 font-sans font-bold text-white whitespace-nowrap flex items-center gap-2">
+                    {formatDate(label)}
+                    {row.id === 'temp-today' && (
+                      <span className="inline-flex items-center text-[9px] font-extrabold bg-teal-500/10 text-teal-400 border border-teal-500/20 rounded px-1.5 py-0.5 animate-pulse uppercase tracking-wider">
+                        {locale === 'es' ? 'EN VIVO' : 'LIVE'}
+                      </span>
+                    )}
+                  </td>
                   <td className="p-4 text-slate-100 font-bold">${row.close.toFixed(2)}</td>
                   <td className={`p-4 text-right ${changeColor}`}>
                     {nextRow ? `${changeSign}${priceChange.toFixed(2)}` : '-'}

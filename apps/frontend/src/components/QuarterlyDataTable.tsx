@@ -100,6 +100,7 @@ export const QuarterlyDataTable: React.FC<QuarterlyDataTableProps> = ({ quarters
       year: 'numeric',
       month: 'short',
       day: 'numeric',
+      timeZone: 'UTC',
     });
   };
 

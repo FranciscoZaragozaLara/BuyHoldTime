@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
-import { createChart, ColorType, IChartApi, ISeriesApi, CandlestickSeries, AreaSeries } from 'lightweight-charts';
+import { createChart, ColorType, IChartApi, ISeriesApi, CandlestickSeries, AreaSeries, LineSeries } from 'lightweight-charts';
 import { HistoricalPrice } from '@/services/api';
 import { Maximize2, Minimize2, BarChart2, TrendingUp } from 'lucide-react';
 
@@ -38,6 +38,56 @@ export const StockChart: React.FC<StockChartProps> = ({ prices, buyHoldIndex, re
       })
       .sort((a, b) => a.time.localeCompare(b.time));
   }, [prices]);
+
+  // Calculate Exponential Moving Average (EMA) of 200 periods
+  const emaData = React.useMemo(() => {
+    const period = 200;
+    if (chartData.length < period) return [];
+    
+    const ema: { time: string; value: number }[] = [];
+    const multiplier = 2 / (period + 1);
+    
+    // Initial SMA
+    let sum = 0;
+    for (let i = 0; i < period; i++) {
+      sum += chartData[i].close;
+    }
+    let prevEma = sum / period;
+    
+    ema.push({ time: chartData[period - 1].time, value: Number(prevEma.toFixed(2)) });
+    
+    for (let i = period; i < chartData.length; i++) {
+      const currentEma = (chartData[i].close - prevEma) * multiplier + prevEma;
+      ema.push({ time: chartData[i].time, value: Number(currentEma.toFixed(2)) });
+      prevEma = currentEma;
+    }
+    return ema;
+  }, [chartData]);
+
+  // Calculate Exponential Moving Average (EMA) of 50 periods
+  const ema50Data = React.useMemo(() => {
+    const period = 50;
+    if (chartData.length < period) return [];
+    
+    const ema: { time: string; value: number }[] = [];
+    const multiplier = 2 / (period + 1);
+    
+    // Initial SMA
+    let sum = 0;
+    for (let i = 0; i < period; i++) {
+      sum += chartData[i].close;
+    }
+    let prevEma = sum / period;
+    
+    ema.push({ time: chartData[period - 1].time, value: Number(prevEma.toFixed(2)) });
+    
+    for (let i = period; i < chartData.length; i++) {
+      const currentEma = (chartData[i].close - prevEma) * multiplier + prevEma;
+      ema.push({ time: chartData[i].time, value: Number(currentEma.toFixed(2)) });
+      prevEma = currentEma;
+    }
+    return ema;
+  }, [chartData]);
 
   // Determine chart theme colors based on recommendation
   const themeColor = React.useMemo(() => {
@@ -108,6 +158,24 @@ export const StockChart: React.FC<StockChartProps> = ({ prices, buyHoldIndex, re
     });
     areaSeriesRef.current = areaSeries;
 
+    // Create EMA 200 line series
+    const emaSeries = chart.addSeries(LineSeries, {
+      color: '#10b981', // Premium green/emerald color matching indicators
+      lineWidth: 2,
+      priceLineVisible: false,
+      lastValueVisible: true,
+      title: 'EMA 200',
+    });
+
+    // Create EMA 50 line series
+    const ema50Series = chart.addSeries(LineSeries, {
+      color: '#f97316', // Orange color for EMA 50 support
+      lineWidth: 2,
+      priceLineVisible: false,
+      lastValueVisible: true,
+      title: 'EMA 50',
+    });
+
     // Apply data based on active chartType
     if (chartType === 'candle') {
       candlestickSeries.setData(chartData);
@@ -117,6 +185,14 @@ export const StockChart: React.FC<StockChartProps> = ({ prices, buyHoldIndex, re
       areaSeries.setData(chartData.map((d) => ({ time: d.time, value: d.close })));
       chart.removeSeries(candlestickSeries);
       candlestickSeriesRef.current = null;
+    }
+
+    // Load calculated EMA data points if available
+    if (emaData.length > 0) {
+      emaSeries.setData(emaData);
+    }
+    if (ema50Data.length > 0) {
+      ema50Series.setData(ema50Data);
     }
 
     chart.timeScale().fitContent();
