@@ -171,9 +171,9 @@ export const QuarterlyDataTable: React.FC<QuarterlyDataTableProps> = ({ quarters
       </div>
 
       {/* Table Container */}
-      <div className="overflow-x-auto border border-slate-900 rounded-xl">
-        <table className="w-full text-left text-xs">
-          <thead className="bg-slate-900/80 text-slate-400 font-bold border-b border-slate-900">
+      <div className="overflow-x-auto overflow-y-auto max-h-[400px] border border-slate-900 rounded-xl custom-scrollbar">
+        <table className="w-full text-left text-xs relative">
+          <thead className="bg-slate-900 text-slate-400 font-bold border-b border-slate-900 sticky top-0 z-10 shadow-[0_1px_0_0_rgba(15,23,42,0.6)]">
             <tr>
               <th className="p-4">{locale === 'es' ? 'Cierre de Periodo' : 'Period End'}</th>
               <th className="p-4">{locale === 'es' ? 'Periodo / Año' : 'Period / Year'}</th>
