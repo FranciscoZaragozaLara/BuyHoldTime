@@ -148,6 +148,7 @@ export const QuarterlyDataTable: React.FC<QuarterlyDataTableProps> = ({ quarters
             <tr>
               <th className="p-4">{locale === 'es' ? 'Cierre de Periodo' : 'Period End'}</th>
               <th className="p-4">{locale === 'es' ? 'Periodo / Año' : 'Period / Year'}</th>
+              <th className="p-4 text-right">{locale === 'es' ? 'Precio' : 'Price'}</th>
               <th className="p-4 text-right">Market Cap</th>
               <th className="p-4 text-right">{locale === 'es' ? 'Ingresos' : 'Revenue'}</th>
               <th className="p-4 text-right">{locale === 'es' ? 'Utilidad Neta' : 'Net Income'}</th>
@@ -181,6 +182,9 @@ export const QuarterlyDataTable: React.FC<QuarterlyDataTableProps> = ({ quarters
                       {q.period}
                     </span>
                     {q.fiscalYear}
+                  </td>
+                  <td className="p-4 text-right text-slate-100 font-bold">
+                    {quarterPrice ? `$${quarterPrice.toFixed(2)}` : 'N/A'}
                   </td>
                   <td className="p-4 text-right text-slate-300">
                     {qMarketCap > 0 ? formatCurrency(qMarketCap) : 'N/A'}
