@@ -26,6 +26,17 @@ export interface Ticker {
   bookValue?: number | null;
   historicalEps?: Record<string, { value: number; source: 'real' | 'estimated' }> | null;
   historicalDividends?: Record<string, number> | null;
+  historicalEpsQuarterly?: Array<{
+    date: string;
+    period: string;
+    fiscalYear: string;
+    revenue: number;
+    netIncome: number;
+    eps: number;
+    epsDiluted: number;
+    sharesOutstanding: number;
+    source: 'real' | 'estimated';
+  }> | null;
 }
 
 export interface HistoricalPrice {

@@ -27,5 +27,6 @@ export class Ticker {
     public readonly bookValue?: number | null,
     public readonly historicalEps?: any | null,
     public readonly historicalDividends?: any | null,
+    public readonly historicalEpsQuarterly?: Array<{ date: string; eps: number; source: 'real' | 'estimated' }> | null,
   ) {}
 }

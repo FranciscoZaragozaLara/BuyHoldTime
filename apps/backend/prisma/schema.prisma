@@ -33,8 +33,9 @@ model Ticker {
   fiftyTwoWeekLow  Float?            @map("fifty_two_week_low")
   dividendRate        Float?            @map("dividend_rate")
   bookValue           Float?            @map("book_value")
-  historicalEps       Json?             @map("historical_eps")
-  historicalDividends Json?             @map("historical_dividends")
+  historicalEps            Json?             @map("historical_eps")
+  historicalDividends      Json?             @map("historical_dividends")
+  historicalEpsQuarterly   Json?             @map("historical_eps_quarterly")
   
   createdAt           DateTime          @default(now()) @map("created_at")
   updatedAt           DateTime          @updatedAt @map("updated_at")

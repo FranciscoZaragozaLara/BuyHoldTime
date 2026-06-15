@@ -40,6 +40,7 @@ export class TickerRepositoryImpl implements ITickerRepository {
           t.bookValue,
           t.historicalEps,
           t.historicalDividends,
+          t.historicalEpsQuarterly as any,
         ),
     );
   }
@@ -75,6 +76,7 @@ export class TickerRepositoryImpl implements ITickerRepository {
       t.bookValue,
       t.historicalEps,
       t.historicalDividends,
+      t.historicalEpsQuarterly as any,
     );
   }
 
@@ -123,6 +125,7 @@ export class TickerRepositoryImpl implements ITickerRepository {
     if (data.bookValue !== undefined) updateData.bookValue = data.bookValue;
     if (data.historicalEps !== undefined) updateData.historicalEps = data.historicalEps;
     if (data.historicalDividends !== undefined) updateData.historicalDividends = data.historicalDividends;
+    if (data.historicalEpsQuarterly !== undefined) updateData.historicalEpsQuarterly = data.historicalEpsQuarterly;
 
     await this.prisma.ticker.update({
       where: { id: tickerId },

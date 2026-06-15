@@ -303,39 +303,62 @@ export const StockHistoryTable: React.FC<StockHistoryTableProps> = ({ prices, ti
               const changeSign = priceChange > 0 ? '+' : '';
 
               // ============================================================
-              // EPS Resolution: prefer real data from historicalEps, fallback to legacy CAGR
+              // EPS Resolution: Compute TTM dynamically by summing the 4 most
+              // recent quarters with date <= target date.
               // ============================================================
-              const rowYear = activeTab === 'daily'
-                ? new Date(row.date).getFullYear()
-                : activeTab === 'monthly'
-                  ? parseInt(row.dateLabel.split('-')[0], 10)
-                  : parseInt(row.dateLabel, 10);
+              const rowDateStr = activeTab === 'daily'
+                ? row.date
+                : activeTab === 'monthly' ? `${row.dateLabel}-28` : `${row.dateLabel}-12-31`;
+              const rowDate = new Date(rowDateStr);
 
               let resolvedEps: number | null = null;
-              let epsSource: 'real' | 'estimated' | null = null;
+              let epsSource: 'real' | 'estimated' | 'mixed' | null = null;
+              let quartersUsed: any[] = [];
 
-              if (ticker.historicalEps && ticker.historicalEps[String(rowYear)]) {
-                const entry = ticker.historicalEps[String(rowYear)];
-                resolvedEps = entry.value;
-                epsSource = entry.source;
-              } else {
-                // Legacy fallback: CAGR backwards from current EPS
-                const sector = (ticker.sector || '').toLowerCase();
-                const symbol = (ticker.symbol || '').toUpperCase();
-                let epsGrowth = 0.08;
-                if (sector.includes('technology') || symbol === 'QQQ' || symbol === 'TQQQ') epsGrowth = 0.12;
-                else if (sector.includes('financial') || sector.includes('energy')) epsGrowth = 0.06;
+              if (ticker.historicalEpsQuarterly && Array.isArray(ticker.historicalEpsQuarterly) && ticker.historicalEpsQuarterly.length > 0) {
+                // Get quarters ending on or before rowDate
+                const relevantQuarters = ticker.historicalEpsQuarterly
+                  .filter(q => new Date(q.date) <= rowDate)
+                  .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                  .slice(0, 4);
 
-                const rowDateStr = activeTab === 'daily'
-                  ? row.date
-                  : activeTab === 'monthly' ? `${row.dateLabel}-15` : `${row.dateLabel}-06-30`;
-                const rowDate = new Date(rowDateStr);
-                const baseDate = ticker.updatedAt ? new Date(ticker.updatedAt) : new Date();
-                const yearsDiff = Math.max(0, (baseDate.getTime() - rowDate.getTime()) / (365.25 * 24 * 60 * 60 * 1000));
+                if (relevantQuarters.length === 4) {
+                  quartersUsed = relevantQuarters;
+                  const ttmSum = relevantQuarters.reduce((sum, q) => sum + (q.epsDiluted || q.eps || 0), 0);
+                  resolvedEps = parseFloat(ttmSum.toFixed(2));
+                  
+                  const allReal = relevantQuarters.every(q => q.source === 'real');
+                  const allEst = relevantQuarters.every(q => q.source === 'estimated');
+                  epsSource = allReal ? 'real' : allEst ? 'estimated' : 'mixed';
+                }
+              }
 
-                if (ticker.eps && ticker.eps > 0) {
-                  resolvedEps = ticker.eps / Math.pow(1 + epsGrowth, yearsDiff);
-                  epsSource = 'estimated';
+              // Fallback to CAGR calculations if no quarterly data matches
+              if (resolvedEps === null) {
+                const rowYear = activeTab === 'daily'
+                  ? new Date(row.date).getFullYear()
+                  : activeTab === 'monthly'
+                    ? parseInt(row.dateLabel.split('-')[0], 10)
+                    : parseInt(row.dateLabel, 10);
+
+                if (ticker.historicalEps && ticker.historicalEps[String(rowYear)]) {
+                  const entry = ticker.historicalEps[String(rowYear)];
+                  resolvedEps = entry.value;
+                  epsSource = entry.source;
+                } else {
+                  const sector = (ticker.sector || '').toLowerCase();
+                  const symbol = (ticker.symbol || '').toUpperCase();
+                  let epsGrowth = 0.08;
+                  if (sector.includes('technology') || symbol === 'QQQ' || symbol === 'TQQQ') epsGrowth = 0.12;
+                  else if (sector.includes('financial') || sector.includes('energy')) epsGrowth = 0.06;
+
+                  const baseDate = ticker.updatedAt ? new Date(ticker.updatedAt) : new Date();
+                  const yearsDiff = Math.max(0, (baseDate.getTime() - rowDate.getTime()) / (365.25 * 24 * 60 * 60 * 1000));
+
+                  if (ticker.eps && ticker.eps > 0) {
+                    resolvedEps = ticker.eps / Math.pow(1 + epsGrowth, yearsDiff);
+                    epsSource = 'estimated';
+                  }
                 }
               }
 
@@ -349,12 +372,8 @@ export const StockHistoryTable: React.FC<StockHistoryTableProps> = ({ prices, ti
               else if (sector.includes('index') || symbol === 'SPY' || symbol === 'VOO') divGrowth = 0.04;
               else if (symbol === 'SCHD') divGrowth = 0.09;
 
-              const rowDateStr2 = activeTab === 'daily'
-                ? row.date
-                : activeTab === 'monthly' ? `${row.dateLabel}-15` : `${row.dateLabel}-06-30`;
-              const rowDate2 = new Date(rowDateStr2);
               const baseDate2 = ticker.updatedAt ? new Date(ticker.updatedAt) : new Date();
-              const yearsDiff2 = Math.max(0, (baseDate2.getTime() - rowDate2.getTime()) / (365.25 * 24 * 60 * 60 * 1000));
+              const yearsDiff2 = Math.max(0, (baseDate2.getTime() - rowDate.getTime()) / (365.25 * 24 * 60 * 60 * 1000));
 
               const estimatedDivRate = ticker.dividendRate && ticker.dividendRate > 0
                 ? ticker.dividendRate / Math.pow(1 + divGrowth, yearsDiff2)
@@ -365,6 +384,11 @@ export const StockHistoryTable: React.FC<StockHistoryTableProps> = ({ prices, ti
               const scaledCap = parsedCurrentCap * (row.close / ticker.price);
               const peRatio = estimatedEps && estimatedEps > 0 ? (row.close / estimatedEps) : null;
               const divYield = row.close > 0 ? (finalDivRate / row.close) * 100 : 0;
+
+              // Generate Tooltip showing summation details
+              const tooltipText = quartersUsed.length === 4
+                ? quartersUsed.map(q => `${q.period}/${q.fiscalYear}: $${(q.epsDiluted || q.eps || 0).toFixed(2)} (${q.source === 'real' ? 'R' : 'E'})`).join(' + ') + ` = TTM $${estimatedEps?.toFixed(2)}`
+                : locale === 'es' ? 'Calculado dinámicamente' : 'Calculated dynamically';
 
               return (
                 <tr key={idx} className="hover:bg-slate-900/10 transition-colors">
@@ -381,20 +405,27 @@ export const StockHistoryTable: React.FC<StockHistoryTableProps> = ({ prices, ti
                     {estimatedEps !== null && estimatedEps !== undefined ? (
                       <div className="flex items-center gap-1.5">
                         <span className={`font-mono ${
-                          epsSource === 'real' ? 'text-sky-300' : 'text-amber-300/80'
+                          epsSource === 'real' ? 'text-sky-300' : epsSource === 'mixed' ? 'text-purple-300' : 'text-amber-300/80'
                         }`}>
                           ${estimatedEps.toFixed(2)}
                         </span>
                         {epsSource === 'real' ? (
                           <span
-                            title={locale === 'es' ? 'Dato Real de Yahoo Finance' : 'Real data from Yahoo Finance'}
+                            title={tooltipText}
                             className="inline-flex items-center gap-0.5 text-[8px] font-bold bg-sky-500/10 text-sky-400 border border-sky-500/20 rounded px-1 py-0.5 cursor-help"
                           >
                             <Database size={7} /> R
                           </span>
+                        ) : epsSource === 'mixed' ? (
+                          <span
+                            title={tooltipText}
+                            className="inline-flex items-center gap-0.5 text-[8px] font-bold bg-purple-500/10 text-purple-400 border border-purple-500/20 rounded px-1 py-0.5 cursor-help"
+                          >
+                            <Layers size={7} /> M
+                          </span>
                         ) : (
                           <span
-                            title={locale === 'es' ? 'Estimado matemáticamente (CAGR)' : 'Mathematically estimated (CAGR)'}
+                            title={tooltipText}
                             className="inline-flex items-center gap-0.5 text-[8px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded px-1 py-0.5 cursor-help"
                           >
                             <TrendingUp size={7} /> E
