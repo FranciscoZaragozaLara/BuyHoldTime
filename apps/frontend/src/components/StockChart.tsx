@@ -18,6 +18,7 @@ export const StockChart: React.FC<StockChartProps> = ({ prices, buyHoldIndex, re
   const areaSeriesRef = useRef<ISeriesApi<'Area'> | null>(null);
 
   const [chartType, setChartType] = useState<'candle' | 'line'>('candle');
+  const [timeRange, setTimeRange] = useState<'1M' | '6M' | 'YTD' | '1Y' | '5Y' | 'ALL'>('1Y');
   const [isLoaded, setIsLoaded] = useState(false);
 
   // Format data for lightweight-charts (date must be in YYYY-MM-DD or Unix timestamp)
@@ -220,6 +221,71 @@ export const StockChart: React.FC<StockChartProps> = ({ prices, buyHoldIndex, re
     };
   }, [chartData, chartType, themeColor]);
 
+  // Handle active time range changes and update chart visible bounds
+  useEffect(() => {
+    const chart = chartRef.current;
+    if (!chart || chartData.length === 0 || !isLoaded) return;
+
+    const latestPrice = chartData[chartData.length - 1];
+    if (!latestPrice) return;
+    
+    const latestDate = new Date(latestPrice.time);
+    let fromDate: Date | null = null;
+    
+    switch (timeRange) {
+      case '1M':
+        fromDate = new Date(latestDate);
+        fromDate.setMonth(fromDate.getMonth() - 1);
+        break;
+      case '6M':
+        fromDate = new Date(latestDate);
+        fromDate.setMonth(fromDate.getMonth() - 6);
+        break;
+      case 'YTD':
+        fromDate = new Date(latestDate.getFullYear(), 0, 1);
+        break;
+      case '1Y':
+        fromDate = new Date(latestDate);
+        fromDate.setFullYear(fromDate.getFullYear() - 1);
+        break;
+      case '5Y':
+        fromDate = new Date(latestDate);
+        fromDate.setFullYear(fromDate.getFullYear() - 5);
+        break;
+      case 'ALL':
+      default:
+        fromDate = null;
+        break;
+    }
+    
+    if (fromDate) {
+      const fromStr = fromDate.toISOString().split('T')[0];
+      const toStr = latestPrice.time;
+      
+      // Wrap in short timeout to ensure the chart has layouted
+      const timer = setTimeout(() => {
+        try {
+          chart.timeScale().setVisibleRange({
+            from: fromStr as any,
+            to: toStr as any,
+          });
+        } catch (err) {
+          console.warn('Failed to set chart visible range:', err);
+        }
+      }, 50);
+      return () => clearTimeout(timer);
+    } else {
+      const timer = setTimeout(() => {
+        try {
+          chart.timeScale().fitContent();
+        } catch (err) {
+          console.warn('Failed to fit chart content:', err);
+        }
+      }, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [timeRange, chartData, isLoaded]);
+
   const toggleChartType = (type: 'candle' | 'line') => {
     if (type === chartType) return;
     setChartType(type);
@@ -230,13 +296,31 @@ export const StockChart: React.FC<StockChartProps> = ({ prices, buyHoldIndex, re
       
       {/* Chart Headers & Controls */}
       <div className="flex justify-between items-center flex-wrap gap-4 border-b border-slate-900/60 pb-4">
-        <div>
-          <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-            {chartType === 'candle' ? 'Candlestick Chart' : 'Close Price Area Chart'}
-          </span>
-          <p className="text-[10px] text-slate-500">
-            Drag to pan, scroll to zoom. Powered by TradingView.
-          </p>
+        
+        {/* Title & Time Range Tabs */}
+        <div className="flex flex-col gap-2.5">
+          <div>
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              {chartType === 'candle' ? 'Candlestick Chart' : 'Close Price Area Chart'}
+            </span>
+          </div>
+          
+          {/* Time Range Selector Tabs */}
+          <div className="flex bg-slate-900/60 border border-slate-800/80 rounded-lg p-0.5 text-[10px] font-bold">
+            {(['1M', '6M', 'YTD', '1Y', '5Y', 'ALL'] as const).map((range) => (
+              <button
+                key={range}
+                onClick={() => setTimeRange(range)}
+                className={`px-2.5 py-1.5 rounded transition-all cursor-pointer ${
+                  timeRange === range
+                    ? 'bg-slate-800 text-teal-400 font-extrabold shadow-sm'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                {range}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Toggle buttons */}
