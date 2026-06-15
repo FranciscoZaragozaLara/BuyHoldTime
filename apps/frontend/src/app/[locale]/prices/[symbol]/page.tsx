@@ -5,6 +5,7 @@ import { getTickerDetails, getTickers, TickerDetails, HistoricalPrice } from '@/
 import { Layout } from '@/components/Layout';
 import { StockChart } from '@/components/StockChart';
 import { StockHistoryTable } from '@/components/StockHistoryTable';
+import { QuarterlyDataTable } from '@/components/QuarterlyDataTable';
 import { 
   ArrowLeft, Star, TrendingUp, DollarSign, Calendar, BarChart3, 
   Activity, ShieldAlert, BadgeInfo, Scale 
@@ -291,6 +292,12 @@ export default async function TickerDetailsPage({
             <StockHistoryTable 
               prices={historicalPrices} 
               ticker={ticker} 
+            />
+
+            {/* Quarterly financials from our database */}
+            <QuarterlyDataTable 
+              quarters={ticker.historicalEpsQuarterly} 
+              historicalPrices={historicalPrices}
             />
 
             {/* Annual Simulated Returns Table */}
