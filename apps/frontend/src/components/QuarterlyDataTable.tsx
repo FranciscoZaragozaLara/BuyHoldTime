@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Database, Layers, BarChart3 } from 'lucide-react';
 import { useLocale } from 'next-intl';
 
@@ -35,8 +35,11 @@ interface QuarterlyDataTableProps {
 
 export const QuarterlyDataTable: React.FC<QuarterlyDataTableProps> = ({ quarters, historicalPrices = [] }) => {
   const locale = useLocale();
-  const [showAll, setShowAll] = useState(false);
   const [filterSource, setFilterSource] = useState<'all' | 'real' | 'estimated'>('all');
+  
+  // Infinite scroll limit state
+  const [visibleCount, setVisibleCount] = useState(10);
+  const observerRef = useRef<HTMLTableRowElement | null>(null);
 
   if (!quarters || quarters.length === 0) {
     return (
@@ -55,8 +58,34 @@ export const QuarterlyDataTable: React.FC<QuarterlyDataTableProps> = ({ quarters
     return true;
   });
 
-  // Limit items shown initially (e.g. show 8 quarters initially, let user toggle for all 117)
-  const displayList = showAll ? filteredList : filteredList.slice(0, 8);
+  // Limit items shown initially (e.g. show 10 quarters initially)
+  const displayList = filteredList.slice(0, visibleCount);
+
+  // Intersection observer to load more when reaching the bottom of the table
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && visibleCount < filteredList.length) {
+          setVisibleCount((prev) => Math.min(filteredList.length, prev + 10));
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    if (observerRef.current) {
+      observer.observe(observerRef.current);
+    }
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [visibleCount, filteredList.length]);
+
+  // Reset page count on filter changes
+  const handleFilterChange = (filter: 'all' | 'real' | 'estimated') => {
+    setFilterSource(filter);
+    setVisibleCount(10);
+  };
 
   const formatCurrency = (val: number) => {
     if (val === 0) return 'N/A';
@@ -113,7 +142,7 @@ export const QuarterlyDataTable: React.FC<QuarterlyDataTableProps> = ({ quarters
         {/* Filter buttons */}
         <div className="flex bg-slate-900/80 border border-slate-800 rounded-lg p-0.5 text-xs font-semibold">
           <button
-            onClick={() => setFilterSource('all')}
+            onClick={() => handleFilterChange('all')}
             className={`px-3 py-1.5 rounded-md transition cursor-pointer ${
               filterSource === 'all' ? 'bg-slate-800 text-teal-400' : 'text-slate-400 hover:text-slate-200'
             }`}
@@ -121,7 +150,7 @@ export const QuarterlyDataTable: React.FC<QuarterlyDataTableProps> = ({ quarters
             {locale === 'es' ? 'Todos' : 'All'} ({quarters.length})
           </button>
           <button
-            onClick={() => setFilterSource('real')}
+            onClick={() => handleFilterChange('real')}
             className={`px-3 py-1.5 rounded-md transition cursor-pointer flex items-center gap-1 ${
               filterSource === 'real' ? 'bg-slate-800 text-sky-400' : 'text-slate-400 hover:text-slate-200'
             }`}
@@ -130,7 +159,7 @@ export const QuarterlyDataTable: React.FC<QuarterlyDataTableProps> = ({ quarters
             {locale === 'es' ? 'Reales' : 'Real'} ({quarters.filter(q => q.source === 'real').length})
           </button>
           <button
-            onClick={() => setFilterSource('estimated')}
+            onClick={() => handleFilterChange('estimated')}
             className={`px-3 py-1.5 rounded-md transition cursor-pointer flex items-center gap-1 ${
               filterSource === 'estimated' ? 'bg-slate-800 text-amber-400' : 'text-slate-400 hover:text-slate-200'
             }`}
@@ -224,23 +253,18 @@ export const QuarterlyDataTable: React.FC<QuarterlyDataTableProps> = ({ quarters
                 </tr>
               );
             })}
+            
+            {/* Observer element target for infinite scrolling */}
+            {visibleCount < filteredList.length && (
+              <tr ref={observerRef}>
+                <td colSpan={12} className="p-4 text-center text-[10px] text-slate-500 font-sans tracking-wide animate-pulse">
+                  {locale === 'es' ? 'Cargando más trimestres...' : 'Loading more quarters...'}
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>
-
-      {/* Show all toggle button */}
-      {filteredList.length > 8 && (
-        <div className="flex justify-center">
-          <button
-            onClick={() => setShowAll(!showAll)}
-            className="px-4 py-2 border border-slate-800 hover:border-slate-700 bg-slate-900/60 hover:bg-slate-900 text-teal-400 hover:text-teal-300 text-xs font-bold rounded-lg transition cursor-pointer"
-          >
-            {showAll 
-              ? (locale === 'es' ? 'Ver Menos Trimestres' : 'Show Less Quarters') 
-              : (locale === 'es' ? `Ver Todos los Trimestres (${filteredList.length})` : `Show All Quarters (${filteredList.length})`)}
-          </button>
-        </div>
-      )}
     </div>
   );
 };

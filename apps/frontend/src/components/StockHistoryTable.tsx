@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
-import { Calendar, Layers, Clock, ArrowLeftRight, ChevronLeft, ChevronRight, Database, TrendingUp } from 'lucide-react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { Calendar, Layers, Clock, ArrowLeftRight, Database, TrendingUp } from 'lucide-react';
 import { HistoricalPrice, Ticker } from '@/services/api';
 import { useLocale } from 'next-intl';
 
@@ -15,8 +15,10 @@ type PeriodTab = 'daily' | 'monthly' | 'annual';
 export const StockHistoryTable: React.FC<StockHistoryTableProps> = ({ prices, ticker }) => {
   const locale = useLocale();
   const [activeTab, setActiveTab] = useState<PeriodTab>('annual');
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
+  
+  // Infinite scroll limit state
+  const [visibleCount, setVisibleCount] = useState(15);
+  const observerRef = useRef<HTMLTableRowElement | null>(null);
 
   const baseIndex = ticker.buyHoldIndex;
 
@@ -159,17 +161,37 @@ export const StockHistoryTable: React.FC<StockHistoryTableProps> = ({ prices, ti
     return dailyData;
   }, [activeTab, dailyData, monthlyData, annualData]);
 
-  // Pagination bounds
-  const totalPages = Math.ceil(activeList.length / itemsPerPage);
+  // List to display under dynamic loading
   const paginatedList = useMemo(() => {
-    if (activeTab === 'annual') return activeList; // No pagination for annual (too short)
-    const startIndex = (currentPage - 1) * itemsPerPage;
-    return activeList.slice(startIndex, startIndex + itemsPerPage);
-  }, [activeList, activeTab, currentPage]);
+    if (activeTab === 'annual') return activeList;
+    return activeList.slice(0, visibleCount);
+  }, [activeList, activeTab, visibleCount]);
+
+  // Intersection observer to load more when reaching the bottom of the table
+  useEffect(() => {
+    if (activeTab === 'annual') return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && visibleCount < activeList.length) {
+          setVisibleCount((prev) => Math.min(activeList.length, prev + 15));
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    if (observerRef.current) {
+      observer.observe(observerRef.current);
+    }
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [activeTab, visibleCount, activeList.length]);
 
   const handleTabChange = (tab: PeriodTab) => {
     setActiveTab(tab);
-    setCurrentPage(1);
+    setVisibleCount(15);
   };
 
   const formatDate = (dateStr: string) => {
@@ -283,7 +305,7 @@ export const StockHistoryTable: React.FC<StockHistoryTableProps> = ({ prices, ti
               const rating = calculateHistoricalRating(row.close);
 
               // Find the index of this row in the activeList to look up previous chronological element
-              const globalIndex = activeTab === 'annual' ? idx : (currentPage - 1) * itemsPerPage + idx;
+              const globalIndex = idx;
               const nextRow = activeList[globalIndex + 1];
 
               let priceChange = 0;
@@ -451,35 +473,18 @@ export const StockHistoryTable: React.FC<StockHistoryTableProps> = ({ prices, ti
                 </tr>
               );
             })}
+            
+            {/* Observer element target for infinite scrolling */}
+            {activeTab !== 'annual' && visibleCount < activeList.length && (
+              <tr ref={observerRef}>
+                <td colSpan={12} className="p-4 text-center text-[10px] text-slate-500 font-sans tracking-wide animate-pulse">
+                  {locale === 'es' ? 'Cargando más registros...' : 'Loading more records...'}
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>
-
-      {/* Pagination Controls */}
-      {activeTab !== 'annual' && totalPages > 1 && (
-        <div className="flex justify-between items-center border-t border-slate-900/40 pt-4 text-xs text-slate-400">
-          <div>
-            {locale === 'es' ? 'Página' : 'Page'} <strong className="text-slate-200">{currentPage}</strong> {locale === 'es' ? 'de' : 'of'} <strong className="text-slate-200">{totalPages}</strong>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-              disabled={currentPage === 1}
-              className="p-1.5 border border-slate-800 rounded-lg bg-slate-900/40 text-slate-400 hover:text-slate-100 hover:bg-slate-900 disabled:opacity-30 disabled:hover:text-slate-400 disabled:hover:bg-slate-900/40 transition cursor-pointer"
-            >
-              <ChevronLeft size={16} />
-            </button>
-            <button
-              onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
-              disabled={currentPage === totalPages}
-              className="p-1.5 border border-slate-800 rounded-lg bg-slate-900/40 text-slate-400 hover:text-slate-100 hover:bg-slate-900 disabled:opacity-30 disabled:hover:text-slate-400 disabled:hover:bg-slate-900/40 transition cursor-pointer"
-            >
-              <ChevronRight size={16} />
-            </button>
-          </div>
-        </div>
-      )}
-
     </div>
   );
 };
