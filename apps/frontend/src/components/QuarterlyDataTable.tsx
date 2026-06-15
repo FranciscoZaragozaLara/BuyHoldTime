@@ -148,6 +148,7 @@ export const QuarterlyDataTable: React.FC<QuarterlyDataTableProps> = ({ quarters
             <tr>
               <th className="p-4">{locale === 'es' ? 'Cierre de Periodo' : 'Period End'}</th>
               <th className="p-4">{locale === 'es' ? 'Periodo / Año' : 'Period / Year'}</th>
+              <th className="p-4 text-right">Market Cap</th>
               <th className="p-4 text-right">{locale === 'es' ? 'Ingresos' : 'Revenue'}</th>
               <th className="p-4 text-right">{locale === 'es' ? 'Utilidad Neta' : 'Net Income'}</th>
               <th className="p-4 text-right">{locale === 'es' ? 'Margen Neto' : 'Net Margin'}</th>
@@ -167,6 +168,9 @@ export const QuarterlyDataTable: React.FC<QuarterlyDataTableProps> = ({ quarters
               const epsVal = q.epsDiluted || q.eps || 0;
               const peRatio = quarterPrice && epsVal > 0 ? quarterPrice / (epsVal * 4) : null;
 
+              // Calculate historical Market Cap: Shares Outstanding * closest Quarter Close Price
+              const qMarketCap = quarterPrice && q.sharesOutstanding ? quarterPrice * q.sharesOutstanding : 0;
+
               return (
                 <tr key={idx} className="hover:bg-slate-900/10 transition-colors">
                   <td className="p-4 font-sans font-bold text-white whitespace-nowrap">
@@ -177,6 +181,9 @@ export const QuarterlyDataTable: React.FC<QuarterlyDataTableProps> = ({ quarters
                       {q.period}
                     </span>
                     {q.fiscalYear}
+                  </td>
+                  <td className="p-4 text-right text-slate-300">
+                    {qMarketCap > 0 ? formatCurrency(qMarketCap) : 'N/A'}
                   </td>
                   <td className="p-4 text-right text-slate-300">
                     {formatCurrency(q.revenue)}
