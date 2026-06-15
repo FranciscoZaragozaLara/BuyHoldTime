@@ -304,139 +304,23 @@ export default async function TickerDetailsPage({
         </div>
 
         {/* Core Layout Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           
-          {/* Main Left Content Column: Chart & Stats */}
-          <div className="lg:col-span-2 flex flex-col gap-8">
+          {/* Main Left Content Column: Chart */}
+          <div className="lg:col-span-9 flex flex-col gap-8">
             {/* Interactive Candle Chart */}
             <StockChart 
               prices={updatedPrices} 
               buyHoldIndex={ticker.buyHoldIndex} 
               recommendation={ticker.recommendation} 
             />
-
-            {/* Key Valuation / Statistics Cards (Moved here to utilize full width grid layout) */}
-            <div className="p-6 rounded-2xl border border-slate-900 bg-slate-950/60 backdrop-blur-xl shadow-2xl flex flex-col gap-6">
-              <div className="border-b border-slate-900/60 pb-3">
-                <h3 className="text-sm font-bold text-slate-200 uppercase tracking-wider">
-                  {locale === 'es' ? 'Estadísticas de Valuación' : 'Key Valuation Stats'}
-                </h3>
-              </div>
-
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 text-xs">
-                
-                {/* Market Cap */}
-                <div className="flex flex-col gap-1.5 p-3 rounded-xl border border-slate-900 bg-slate-900/10">
-                  <span className="text-slate-500 text-[10px] uppercase font-bold tracking-wider">Market Cap</span>
-                  <span className="text-base font-black text-white">{ticker.cap}</span>
-                </div>
-
-                {/* Trailing P/E */}
-                <div className="flex flex-col gap-1.5 p-3 rounded-xl border border-slate-900 bg-slate-900/10">
-                  <span className="text-slate-500 text-[10px] uppercase font-bold tracking-wider">P/E Ratio (Trailing)</span>
-                  <span className="text-base font-black text-white">
-                    {ticker.pe ? `${ticker.pe.toFixed(2)}x` : 'N/A'}
-                  </span>
-                </div>
-
-                {/* Forward P/E */}
-                <div className="flex flex-col gap-1.5 p-3 rounded-xl border border-slate-900 bg-slate-900/10">
-                  <span className="text-slate-500 text-[10px] uppercase font-bold tracking-wider">Forward P/E</span>
-                  <span className="text-base font-black text-white">
-                    {ticker.forwardPe ? `${ticker.forwardPe.toFixed(2)}x` : 'N/A'}
-                  </span>
-                </div>
-
-                {/* PEG Ratio */}
-                <div className="flex flex-col gap-1.5 p-3 rounded-xl border border-slate-900 bg-slate-900/10">
-                  <span className="text-slate-500 text-[10px] uppercase font-bold tracking-wider">PEG Ratio</span>
-                  <span className="text-base font-black text-white">
-                    {ticker.pegRatio ? `${ticker.pegRatio.toFixed(2)}x` : 'N/A'}
-                  </span>
-                </div>
-
-                {/* EPS (ttm) */}
-                <div className="flex flex-col gap-1.5 p-3 rounded-xl border border-slate-900 bg-slate-900/10">
-                  <span className="text-slate-500 text-[10px] uppercase font-bold tracking-wider">EPS (TTM)</span>
-                  <span className="text-base font-black text-white">
-                    {ticker.eps ? `$${ticker.eps.toFixed(2)}` : 'N/A'}
-                  </span>
-                </div>
-
-                {/* Enterprise Value */}
-                <div className="flex flex-col gap-1.5 p-3 rounded-xl border border-slate-900 bg-slate-900/10">
-                  <span className="text-slate-500 text-[10px] uppercase font-bold tracking-wider">Enterprise Value</span>
-                  <span className="text-base font-black text-white">
-                    {formatFinancialValue(ticker.enterpriseValue)}
-                  </span>
-                </div>
-
-                {/* Average Volume */}
-                <div className="flex flex-col gap-1.5 p-3 rounded-xl border border-slate-900 bg-slate-900/10">
-                  <span className="text-slate-500 text-[10px] uppercase font-bold tracking-wider">Avg. Volume (3M)</span>
-                  <span className="text-base font-black text-white">
-                    {formatVolumeValue(ticker.avgVolume)}
-                  </span>
-                </div>
-
-                {/* Book Value */}
-                <div className="flex flex-col gap-1.5 p-3 rounded-xl border border-slate-900 bg-slate-900/10">
-                  <span className="text-slate-500 text-[10px] uppercase font-bold tracking-wider">Book Value</span>
-                  <span className="text-base font-black text-white">
-                    {ticker.bookValue ? `$${ticker.bookValue.toFixed(2)}` : 'N/A'}
-                  </span>
-                </div>
-
-                {/* Dividend Rate */}
-                <div className="flex flex-col gap-1.5 p-3 rounded-xl border border-slate-900 bg-slate-900/10">
-                  <span className="text-slate-500 text-[10px] uppercase font-bold tracking-wider">Dividend Rate</span>
-                  <span className="text-base font-black text-white">
-                    {ticker.dividendRate ? `$${ticker.dividendRate.toFixed(2)}` : '$0.00'}
-                  </span>
-                </div>
-
-                {/* Dividend Yield */}
-                <div className="flex flex-col gap-1.5 p-3 rounded-xl border border-slate-900 bg-slate-900/10">
-                  <span className="text-slate-500 text-[10px] uppercase font-bold tracking-wider">Dividend Yield</span>
-                  <span className="text-base font-black text-white">
-                    {ticker.dy ? `${ticker.dy.toFixed(2)}%` : '0.00%'}
-                  </span>
-                </div>
-
-                {/* 52 Week Range */}
-                <div className="col-span-2 flex flex-col gap-1.5 p-3 rounded-xl border border-slate-900 bg-slate-900/10 justify-between">
-                  <div className="flex justify-between items-center">
-                    <span className="text-slate-500 text-[10px] uppercase font-bold tracking-wider">52-Week Range</span>
-                    <span className="font-bold text-slate-300 text-xs">
-                      {ticker.fiftyTwoWeekLow && ticker.fiftyTwoWeekHigh
-                        ? `$${ticker.fiftyTwoWeekLow.toFixed(2)} - $${ticker.fiftyTwoWeekHigh.toFixed(2)}`
-                        : 'N/A'}
-                    </span>
-                  </div>
-                  {/* Visual slider track */}
-                  {ticker.fiftyTwoWeekLow && ticker.fiftyTwoWeekHigh && (
-                    <div className="relative w-full h-1.5 bg-slate-900 rounded-full mt-1.5 overflow-hidden">
-                      <div 
-                        className="absolute h-full bg-teal-500" 
-                        style={{
-                          left: `${Math.max(0, Math.min(100, ((ticker.price - ticker.fiftyTwoWeekLow) / (ticker.fiftyTwoWeekHigh - ticker.fiftyTwoWeekLow)) * 100))}%`,
-                          width: '4px',
-                          marginLeft: '-2px'
-                        }}
-                      />
-                    </div>
-                  )}
-                </div>
-
-              </div>
-            </div>
           </div>
 
           {/* Right Sidebar Column: Gauge */}
-          <div className="flex flex-col gap-8 lg:col-span-1">
+          <div className="flex flex-col gap-8 lg:col-span-3">
             
             {/* Speedometer Index Gauge */}
-            <div className="p-6 rounded-2xl border border-slate-900 bg-slate-950/60 backdrop-blur-xl shadow-2xl flex flex-col items-center text-center gap-6">
+            <div className="p-6 rounded-2xl border border-slate-900 bg-slate-950/60 backdrop-blur-xl shadow-2xl flex-1 flex flex-col items-center justify-center text-center gap-6">
               <div className="w-full border-b border-slate-900/60 pb-3 flex justify-between items-center">
                 <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
                   Buy/Hold Index Score
@@ -508,6 +392,122 @@ export default async function TickerDetailsPage({
 
           </div>
 
+        </div>
+
+        {/* Key Valuation / Statistics Cards (Moved here to utilize 100% viewport width) */}
+        <div className="p-6 rounded-2xl border border-slate-900 bg-slate-950/60 backdrop-blur-xl shadow-2xl flex flex-col gap-6">
+          <div className="border-b border-slate-900/60 pb-3">
+            <h3 className="text-sm font-bold text-slate-200 uppercase tracking-wider">
+              {locale === 'es' ? 'Estadísticas de Valuación' : 'Key Valuation Stats'}
+            </h3>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-12 gap-4 text-xs">
+            
+            {/* Market Cap */}
+            <div className="flex flex-col gap-1.5 p-3 rounded-xl border border-slate-900 bg-slate-900/10">
+              <span className="text-slate-500 text-[10px] uppercase font-bold tracking-wider">Market Cap</span>
+              <span className="text-base font-black text-white">{ticker.cap}</span>
+            </div>
+
+            {/* Trailing P/E */}
+            <div className="flex flex-col gap-1.5 p-3 rounded-xl border border-slate-900 bg-slate-900/10">
+              <span className="text-slate-500 text-[10px] uppercase font-bold tracking-wider">P/E (Trailing)</span>
+              <span className="text-base font-black text-white">
+                {ticker.pe ? `${ticker.pe.toFixed(1)}x` : 'N/A'}
+              </span>
+            </div>
+
+            {/* Forward P/E */}
+            <div className="flex flex-col gap-1.5 p-3 rounded-xl border border-slate-900 bg-slate-900/10">
+              <span className="text-slate-500 text-[10px] uppercase font-bold tracking-wider">Forward P/E</span>
+              <span className="text-base font-black text-white">
+                {ticker.forwardPe ? `${ticker.forwardPe.toFixed(1)}x` : 'N/A'}
+              </span>
+            </div>
+
+            {/* PEG Ratio */}
+            <div className="flex flex-col gap-1.5 p-3 rounded-xl border border-slate-900 bg-slate-900/10">
+              <span className="text-slate-500 text-[10px] uppercase font-bold tracking-wider">PEG Ratio</span>
+              <span className="text-base font-black text-white">
+                {ticker.pegRatio ? `${ticker.pegRatio.toFixed(1)}x` : 'N/A'}
+              </span>
+            </div>
+
+            {/* EPS (ttm) */}
+            <div className="flex flex-col gap-1.5 p-3 rounded-xl border border-slate-900 bg-slate-900/10">
+              <span className="text-slate-500 text-[10px] uppercase font-bold tracking-wider">EPS (TTM)</span>
+              <span className="text-base font-black text-white">
+                {ticker.eps ? `$${ticker.eps.toFixed(2)}` : 'N/A'}
+              </span>
+            </div>
+
+            {/* Enterprise Value */}
+            <div className="flex flex-col gap-1.5 p-3 rounded-xl border border-slate-900 bg-slate-900/10">
+              <span className="text-slate-500 text-[10px] uppercase font-bold tracking-wider">Enterprise Val.</span>
+              <span className="text-base font-black text-white">
+                {formatFinancialValue(ticker.enterpriseValue)}
+              </span>
+            </div>
+
+            {/* Average Volume */}
+            <div className="flex flex-col gap-1.5 p-3 rounded-xl border border-slate-900 bg-slate-900/10">
+              <span className="text-slate-500 text-[10px] uppercase font-bold tracking-wider">Avg. Volume</span>
+              <span className="text-base font-black text-white">
+                {formatVolumeValue(ticker.avgVolume)}
+              </span>
+            </div>
+
+            {/* Book Value */}
+            <div className="flex flex-col gap-1.5 p-3 rounded-xl border border-slate-900 bg-slate-900/10">
+              <span className="text-slate-500 text-[10px] uppercase font-bold tracking-wider">Book Value</span>
+              <span className="text-base font-black text-white">
+                {ticker.bookValue ? `$${ticker.bookValue.toFixed(2)}` : 'N/A'}
+              </span>
+            </div>
+
+            {/* Dividend Rate */}
+            <div className="flex flex-col gap-1.5 p-3 rounded-xl border border-slate-900 bg-slate-900/10">
+              <span className="text-slate-500 text-[10px] uppercase font-bold tracking-wider">Div. Rate</span>
+              <span className="text-base font-black text-white">
+                {ticker.dividendRate ? `$${ticker.dividendRate.toFixed(2)}` : '$0.00'}
+              </span>
+            </div>
+
+            {/* Dividend Yield */}
+            <div className="flex flex-col gap-1.5 p-3 rounded-xl border border-slate-900 bg-slate-900/10">
+              <span className="text-slate-500 text-[10px] uppercase font-bold tracking-wider">Div. Yield</span>
+              <span className="text-base font-black text-white">
+                {ticker.dy ? `${ticker.dy.toFixed(2)}%` : '0.00%'}
+              </span>
+            </div>
+
+            {/* 52 Week Range */}
+            <div className="col-span-2 flex flex-col gap-1.5 p-3 rounded-xl border border-slate-900 bg-slate-900/10 justify-between">
+              <div className="flex justify-between items-center">
+                <span className="text-slate-500 text-[10px] uppercase font-bold tracking-wider">52-Week Range</span>
+                <span className="font-bold text-slate-300 text-xs">
+                  {ticker.fiftyTwoWeekLow && ticker.fiftyTwoWeekHigh
+                    ? `$${ticker.fiftyTwoWeekLow.toFixed(1)} - $${ticker.fiftyTwoWeekHigh.toFixed(1)}`
+                    : 'N/A'}
+                </span>
+              </div>
+              {/* Visual slider track */}
+              {ticker.fiftyTwoWeekLow && ticker.fiftyTwoWeekHigh && (
+                <div className="relative w-full h-1.5 bg-slate-900 rounded-full mt-1.5 overflow-hidden">
+                  <div 
+                    className="absolute h-full bg-teal-500" 
+                    style={{
+                      left: `${Math.max(0, Math.min(100, ((ticker.price - ticker.fiftyTwoWeekLow) / (ticker.fiftyTwoWeekHigh - ticker.fiftyTwoWeekLow)) * 100))}%`,
+                      width: '4px',
+                      marginLeft: '-2px'
+                    }}
+                  />
+                </div>
+              )}
+            </div>
+
+          </div>
         </div>
 
         {/* Full-width section below for long wide tables */}
