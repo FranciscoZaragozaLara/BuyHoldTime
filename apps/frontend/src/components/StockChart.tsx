@@ -17,8 +17,8 @@ export const StockChart: React.FC<StockChartProps> = ({ prices, buyHoldIndex, re
   const candlestickSeriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
   const areaSeriesRef = useRef<ISeriesApi<'Area'> | null>(null);
 
-  const [chartType, setChartType] = useState<'candle' | 'line'>('candle');
-  const [timeRange, setTimeRange] = useState<'1M' | '6M' | 'YTD' | '1Y' | '5Y' | 'ALL'>('1Y');
+  const [chartType, setChartType] = useState<'candle' | 'line'>('line');
+  const [timeRange, setTimeRange] = useState<'1M' | '6M' | 'YTD' | '1Y' | '5Y' | 'ALL'>('5Y');
   const [isLoaded, setIsLoaded] = useState(false);
 
   // Format data for lightweight-charts (date must be in YYYY-MM-DD or Unix timestamp)
