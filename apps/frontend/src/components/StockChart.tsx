@@ -22,23 +22,106 @@ export const StockChart: React.FC<StockChartProps> = ({ prices, buyHoldIndex, re
   const [isLoaded, setIsLoaded] = useState(false);
 
   // Format data for lightweight-charts (date must be in YYYY-MM-DD or Unix timestamp)
+  // Format data for lightweight-charts (date must be in YYYY-MM-DD or Unix timestamp)
+  // Group dynamically if timeRange is 5Y (weekly) or ALL (monthly)
   const chartData = React.useMemo(() => {
-    return prices
+    const sortedPrices = [...prices]
       .map((p) => {
-        // Ensure date is formatted as YYYY-MM-DD
         const d = new Date(p.date);
         const dateStr = d.toISOString().split('T')[0];
         return {
           time: dateStr,
+          dateObj: d,
           open: p.open,
           high: p.high,
           low: p.low,
           close: p.close,
-          // adjClose used as fallback or secondary metrics
         };
       })
       .sort((a, b) => a.time.localeCompare(b.time));
-  }, [prices]);
+
+    if (sortedPrices.length === 0) return [];
+
+    if (timeRange === '5Y') {
+      // Group into Weekly candles
+      const weeklyGroups: { [key: string]: typeof sortedPrices } = {};
+      
+      sortedPrices.forEach((p) => {
+        const d = p.dateObj;
+        const tempDate = new Date(d.getTime());
+        const day = tempDate.getDay();
+        const diff = tempDate.getDate() - day + (day === 0 ? -6 : 1); // Monday of the week
+        tempDate.setDate(diff);
+        const weekKey = tempDate.toISOString().split('T')[0];
+        
+        if (!weeklyGroups[weekKey]) weeklyGroups[weekKey] = [];
+        weeklyGroups[weekKey].push(p);
+      });
+      
+      return Object.keys(weeklyGroups)
+        .sort((a, b) => a.localeCompare(b))
+        .map((key) => {
+          const list = weeklyGroups[key];
+          list.sort((a, b) => a.time.localeCompare(b.time));
+          
+          const open = list[0].open;
+          const close = list[list.length - 1].close;
+          const high = Math.max(...list.map((l) => l.high));
+          const low = Math.min(...list.map((l) => l.low));
+          
+          return {
+            time: key,
+            open,
+            high,
+            low,
+            close,
+          };
+        });
+    }
+    
+    if (timeRange === 'ALL') {
+      // Group into Monthly candles
+      const monthlyGroups: { [key: string]: typeof sortedPrices } = {};
+      
+      sortedPrices.forEach((p) => {
+        const monthKey = p.time.substring(0, 7) + '-01'; // e.g. "2026-06-01"
+        if (!monthlyGroups[monthKey]) monthlyGroups[monthKey] = [];
+        monthlyGroups[monthKey].push(p);
+      });
+      
+      return Object.keys(monthlyGroups)
+        .sort((a, b) => a.localeCompare(b))
+        .map((key) => {
+          const list = monthlyGroups[key];
+          list.sort((a, b) => a.time.localeCompare(b.time));
+          
+          const open = list[0].open;
+          const close = list[list.length - 1].close;
+          const high = Math.max(...list.map((l) => l.high));
+          const low = Math.min(...list.map((l) => l.low));
+          
+          // Use the date of the last transaction in the month as the candle timestamp
+          const finalTime = list[list.length - 1].time;
+          
+          return {
+            time: finalTime,
+            open,
+            high,
+            low,
+            close,
+          };
+        });
+    }
+
+    // Default: Daily candles
+    return sortedPrices.map((p) => ({
+      time: p.time,
+      open: p.open,
+      high: p.high,
+      low: p.low,
+      close: p.close,
+    }));
+  }, [prices, timeRange]);
 
   // Calculate Exponential Moving Average (EMA) of 200 periods
   const emaData = React.useMemo(() => {
