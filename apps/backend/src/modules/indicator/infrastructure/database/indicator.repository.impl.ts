@@ -49,10 +49,12 @@ export class IndicatorRepositoryImpl implements IIndicatorRepository {
   async findHistory(indicatorId: string, limit?: number): Promise<IndicatorHistory[]> {
     const history = await this.prisma.indicatorHistory.findMany({
       where: { indicatorId },
-      orderBy: { date: 'asc' },
+      orderBy: { date: 'desc' },
       take: limit,
     });
-    return history.map(
+    // Reverse to chronological order (ascending) for charting compatibility
+    const reversed = [...history].reverse();
+    return reversed.map(
       (h) =>
         new IndicatorHistory(
           h.id,
