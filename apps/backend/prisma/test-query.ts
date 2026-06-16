@@ -32,17 +32,22 @@ async function main() {
   console.table(tickers);
 
   const indicators = await prisma.indicator.findMany({
-    take: 5,
-    select: {
-      key: true,
-      name: true,
-      currentValue: true,
-      status: true,
+    include: {
+      history: {
+        take: 3,
+        orderBy: { date: 'desc' }
+      }
     }
   });
 
-  console.log('\nTop 5 Indicators:');
-  console.table(indicators);
+  console.log('\nAll Indicators and histories:');
+  for (const ind of indicators) {
+    const totalCount = await prisma.indicatorHistory.count({
+      where: { indicatorId: ind.id }
+    });
+    console.log(`Key: ${ind.key}, Name: ${ind.name}, CurrentValue: ${ind.currentValue}, Real History Entries in DB: ${totalCount}`);
+    console.log('Sample history:', ind.history);
+  }
 
   await prisma.$disconnect();
   await pool.end();
