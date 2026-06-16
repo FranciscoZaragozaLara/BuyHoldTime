@@ -21,6 +21,7 @@ export const StockChart: React.FC<StockChartProps> = ({ prices, buyHoldIndex, re
   const candlestickSeriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
   const areaSeriesRef = useRef<ISeriesApi<'Area'> | null>(null);
   const hoveredTimeRef = useRef<string | null>(null);
+  const lastHoveredTimeRef = useRef<string | null>(null); // Persistent: never reset to null
 
   const [chartType, setChartType] = useState<'candle' | 'line'>('line');
   const [timeRange, setTimeRange] = useState<'1M' | '6M' | 'YTD' | '1Y' | '5Y' | 'ALL'>('5Y');
@@ -289,27 +290,17 @@ export const StockChart: React.FC<StockChartProps> = ({ prices, buyHoldIndex, re
     chart.timeScale().fitContent();
     setIsLoaded(true);
 
-    // Crosshair move handler
+    // Crosshair move handler — keep lastHoveredTimeRef always set to last known date
     chart.subscribeCrosshairMove((param) => {
       if (param.time) {
-        hoveredTimeRef.current = param.time as string;
+        const t = param.time as string;
+        hoveredTimeRef.current = t;
+        lastHoveredTimeRef.current = t; // Never reset — survives mouse leaving chart
       } else {
         hoveredTimeRef.current = null;
+        // lastHoveredTimeRef.current intentionally NOT reset
       }
     });
-
-    // Double click handler
-    const container = chartContainerRef.current;
-    const handleDblClick = () => {
-      if (hoveredTimeRef.current) {
-        setSelectedDate(hoveredTimeRef.current);
-        setIsModalOpen(true);
-      }
-    };
-
-    if (container) {
-      container.addEventListener('dblclick', handleDblClick);
-    }
 
     // Responsive Resize Handler
     const handleResize = () => {
@@ -325,9 +316,6 @@ export const StockChart: React.FC<StockChartProps> = ({ prices, buyHoldIndex, re
     resizeObserver.observe(chartContainerRef.current);
 
     return () => {
-      if (container) {
-        container.removeEventListener('dblclick', handleDblClick);
-      }
       resizeObserver.disconnect();
       chart.remove();
       chartRef.current = null;
@@ -675,8 +663,18 @@ export const StockChart: React.FC<StockChartProps> = ({ prices, buyHoldIndex, re
         </div>
       </div>
 
-      {/* Chart Render Canvas Container */}
-      <div className="relative w-full h-[320px] md:h-[400px]" style={{ minHeight: '320px' }}>
+      {/* Chart Render Canvas Container — onDoubleClick here bypasses canvas event swallowing */}
+      <div
+        className="relative w-full h-[320px] md:h-[400px]"
+        style={{ minHeight: '320px' }}
+        onDoubleClick={() => {
+          const time = lastHoveredTimeRef.current;
+          if (time) {
+            setSelectedDate(time);
+            setIsModalOpen(true);
+          }
+        }}
+      >
         {!isLoaded && (
           <div className="absolute inset-0 flex items-center justify-center bg-slate-950/80 z-10 text-slate-500 text-xs">
             <span className="animate-spin rounded-full h-5 w-5 border-b-2 border-teal-500 mr-2"></span>
