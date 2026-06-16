@@ -261,8 +261,13 @@ export class SyncTickersUseCase {
         let realQuartersCount = 0;
 
         if (isTickerFund) {
-          // Fund sector mapping to fetch real P/E ratios from FMP historical sector P/E
-          let sectorsToFetch: string[] = [];
+          // Keep existing historicalEpsQuarterly if it was already seeded/populated manually for QQQ and TQQQ
+          if ((sym === 'QQQ' || sym === 'TQQQ') && ticker.historicalEpsQuarterly && (ticker.historicalEpsQuarterly as any[]).length > 0) {
+            historicalEpsQuarterly = ticker.historicalEpsQuarterly as any[];
+            realQuartersCount = historicalEpsQuarterly.length;
+          } else {
+            // Fund sector mapping to fetch real P/E ratios from FMP historical sector P/E
+            let sectorsToFetch: string[] = [];
           if (sym === 'QQQ' || sym === 'TQQQ') {
             sectorsToFetch = ['Technology'];
           } else if (sym === 'SCHD') {
@@ -342,6 +347,7 @@ export class SyncTickersUseCase {
             (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
           );
           realQuartersCount = historicalEpsQuarterly.length;
+          }
         } else {
           // Standard corporate ticker income statements from FMP
           const quarterMap: Map<string, QuarterEntry> = new Map();
