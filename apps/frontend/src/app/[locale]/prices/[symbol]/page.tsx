@@ -313,6 +313,7 @@ export default async function TickerDetailsPage({
               prices={updatedPrices} 
               buyHoldIndex={ticker.buyHoldIndex} 
               recommendation={ticker.recommendation} 
+              ticker={ticker}
             />
           </div>
 
