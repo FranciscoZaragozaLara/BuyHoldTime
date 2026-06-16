@@ -10,7 +10,6 @@ import {
   Tooltip,
   ResponsiveContainer,
   CartesianGrid,
-  Legend,
 } from 'recharts';
 import { Eye, EyeOff, Calendar, Table, LineChart as ChartIcon, Sparkles } from 'lucide-react';
 import { IndicatorDetails } from '@/services/api';
@@ -19,16 +18,26 @@ interface MarketValueIndicatorClientProps {
   shillerPeData: IndicatorDetails;
   peRatioData: IndicatorDetails;
   sp500PriceData: IndicatorDetails;
+  sp500DividendData: IndicatorDetails;
+  sp500EarningsData: IndicatorDetails;
+  cpiData: IndicatorDetails;
+  rateGs10Data: IndicatorDetails;
+  excessCapeYieldData: IndicatorDetails;
 }
 
 export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProps> = ({
   shillerPeData,
   peRatioData,
   sp500PriceData,
+  sp500DividendData,
+  sp500EarningsData,
+  cpiData,
+  rateGs10Data,
+  excessCapeYieldData,
 }) => {
   const locale = useLocale();
   
-  // Visibility states for the 3 chart lines
+  // Visibility states for the 3 main chart lines
   const [showSp500Price, setShowSp500Price] = useState(true);
   const [showPeRatio, setShowPeRatio] = useState(true);
   const [showShillerPe, setShowShillerPe] = useState(true);
@@ -40,14 +49,26 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 20;
 
-  // Merge the 3 datasets by month/date key
+  // Merge the 8 datasets by month/date key
   const mergedData = useMemo(() => {
-    const map: Record<string, { date: string; sp500Price?: number; peRatio?: number; shillerPe?: number }> = {};
+    const map: Record<string, { 
+      date: string; 
+      sp500Price?: number; 
+      peRatio?: number; 
+      shillerPe?: number;
+      sp500Dividend?: number;
+      sp500Earnings?: number;
+      cpi?: number;
+      rateGs10?: number;
+      excessCapeYield?: number;
+    }> = {};
 
     // Helper to extract clean YYYY-MM
-    const addEntries = (entries: typeof shillerPeData.history, key: 'shillerPe' | 'peRatio' | 'sp500Price') => {
+    const addEntries = (
+      entries: typeof shillerPeData.history, 
+      key: 'shillerPe' | 'peRatio' | 'sp500Price' | 'sp500Dividend' | 'sp500Earnings' | 'cpi' | 'rateGs10' | 'excessCapeYield'
+    ) => {
       for (const entry of entries) {
-        // format to YYYY-MM
         const dateObj = new Date(entry.date);
         const y = dateObj.getUTCFullYear();
         const m = String(dateObj.getUTCMonth() + 1).padStart(2, '0');
@@ -63,10 +84,19 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
     addEntries(sp500PriceData.history, 'sp500Price');
     addEntries(peRatioData.history, 'peRatio');
     addEntries(shillerPeData.history, 'shillerPe');
+    addEntries(sp500DividendData.history, 'sp500Dividend');
+    addEntries(sp500EarningsData.history, 'sp500Earnings');
+    addEntries(cpiData.history, 'cpi');
+    addEntries(rateGs10Data.history, 'rateGs10');
+    addEntries(excessCapeYieldData.history, 'excessCapeYield');
 
     // Convert to sorted array
     return Object.values(map).sort((a, b) => a.date.localeCompare(b.date));
-  }, [shillerPeData, peRatioData, sp500PriceData]);
+  }, [
+    shillerPeData, peRatioData, sp500PriceData, 
+    sp500DividendData, sp500EarningsData, cpiData, 
+    rateGs10Data, excessCapeYieldData
+  ]);
 
   // Filter data based on selected timeframe
   const filteredChartData = useMemo(() => {
@@ -81,7 +111,16 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
   // Data for the table (sorted newest first)
   const tableData = useMemo(() => {
     return [...mergedData]
-      .filter(item => item.sp500Price !== undefined || item.peRatio !== undefined || item.shillerPe !== undefined)
+      .filter(item => 
+        item.sp500Price !== undefined || 
+        item.peRatio !== undefined || 
+        item.shillerPe !== undefined ||
+        item.sp500Dividend !== undefined ||
+        item.sp500Earnings !== undefined ||
+        item.cpi !== undefined ||
+        item.rateGs10 !== undefined ||
+        item.excessCapeYield !== undefined
+      )
       .reverse();
   }, [mergedData]);
 
@@ -331,32 +370,52 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
         </div>
 
         <div className="overflow-x-auto rounded-xl border border-slate-900">
-          <table className="w-full text-left border-collapse text-xs sm:text-sm">
+          <table className="w-full text-left border-collapse text-[11px] sm:text-xs">
             <thead>
-              <tr className="bg-slate-900/60 border-b border-slate-900 text-slate-400 font-bold">
-                <th className="p-4">{locale === 'es' ? 'Fecha' : 'Date'}</th>
-                <th className="p-4">{locale === 'es' ? 'Valor S&P 500' : 'S&P 500 Value'}</th>
-                <th className="p-4">{locale === 'es' ? 'PE Ratio Regular' : 'Regular PE Ratio'}</th>
-                <th className="p-4">{locale === 'es' ? 'Shiller PE Ratio' : 'Shiller PE Ratio'}</th>
+              <tr className="bg-slate-900/60 border-b border-slate-900 text-slate-400 font-bold whitespace-nowrap">
+                <th className="p-3">{locale === 'es' ? 'Fecha' : 'Date'}</th>
+                <th className="p-3">{locale === 'es' ? 'S&P 500' : 'S&P 500 Price'}</th>
+                <th className="p-3">{locale === 'es' ? 'P/E Regular' : 'Regular PE'}</th>
+                <th className="p-3">{locale === 'es' ? 'Shiller PE (CAPE)' : 'Shiller PE'}</th>
+                <th className="p-3">{locale === 'es' ? 'Dividendo Anual' : 'Dividend'}</th>
+                <th className="p-3">{locale === 'es' ? 'Ganancia Anual' : 'Earnings'}</th>
+                <th className="p-3">CPI</th>
+                <th className="p-3">{locale === 'es' ? 'Bono 10A (GS10)' : 'GS10 Yield'}</th>
+                <th className="p-3">{locale === 'es' ? 'Excess CAPE Yield' : 'Excess CAPE Yield'}</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-900 bg-slate-950/20">
+            <tbody className="divide-y divide-slate-900 bg-slate-950/20 whitespace-nowrap">
               {paginatedTableData.map((item, index) => (
                 <tr key={index} className="hover:bg-slate-900/20 transition-colors">
-                  <td className="p-4 font-medium text-slate-300 flex items-center gap-1.5">
-                    <Calendar size={14} className="text-slate-500" />
+                  <td className="p-3 font-medium text-slate-300 flex items-center gap-1">
+                    <Calendar size={13} className="text-slate-500" />
                     {formatDateLabel(item.date)}
                   </td>
-                  <td className="p-4 text-teal-400 font-semibold">
+                  <td className="p-3 text-teal-400 font-semibold">
                     {item.sp500Price !== undefined 
                       ? `$${item.sp500Price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                       : '-'}
                   </td>
-                  <td className="p-4 text-amber-500 font-semibold">
+                  <td className="p-3 text-amber-500 font-semibold">
                     {item.peRatio !== undefined ? `${item.peRatio.toFixed(2)}x` : '-'}
                   </td>
-                  <td className="p-4 text-rose-500 font-semibold">
+                  <td className="p-3 text-rose-500 font-semibold">
                     {item.shillerPe !== undefined ? `${item.shillerPe.toFixed(2)}x` : '-'}
+                  </td>
+                  <td className="p-3 text-slate-300">
+                    {item.sp500Dividend !== undefined ? `$${item.sp500Dividend.toFixed(2)}` : '-'}
+                  </td>
+                  <td className="p-3 text-slate-300">
+                    {item.sp500Earnings !== undefined ? `$${item.sp500Earnings.toFixed(2)}` : '-'}
+                  </td>
+                  <td className="p-3 text-slate-400">
+                    {item.cpi !== undefined ? item.cpi.toFixed(2) : '-'}
+                  </td>
+                  <td className="p-3 text-teal-500 font-medium">
+                    {item.rateGs10 !== undefined ? `${item.rateGs10.toFixed(2)}%` : '-'}
+                  </td>
+                  <td className="p-3 text-emerald-500 font-semibold">
+                    {item.excessCapeYield !== undefined ? `${item.excessCapeYield.toFixed(3)}%` : '-'}
                   </td>
                 </tr>
               ))}

@@ -21,14 +21,33 @@ export default async function IndicatorsPage({
   let shillerPeData: IndicatorDetails;
   let peRatioData: IndicatorDetails;
   let sp500PriceData: IndicatorDetails;
+  let sp500DividendData: IndicatorDetails;
+  let sp500EarningsData: IndicatorDetails;
+  let cpiData: IndicatorDetails;
+  let rateGs10Data: IndicatorDetails;
+  let excessCapeYieldData: IndicatorDetails;
   let errorState = false;
 
   try {
     // Fetch data with high limit for comprehensive historical charts (e.g. 1500 months ~ 125 years)
-    [shillerPeData, peRatioData, sp500PriceData] = await Promise.all([
+    [
+      shillerPeData,
+      peRatioData,
+      sp500PriceData,
+      sp500DividendData,
+      sp500EarningsData,
+      cpiData,
+      rateGs10Data,
+      excessCapeYieldData,
+    ] = await Promise.all([
       getIndicatorDetails('schiller_pe', 1500),
       getIndicatorDetails('pe_ratio', 1500),
       getIndicatorDetails('sp500_price', 1500),
+      getIndicatorDetails('sp500_dividend', 1500),
+      getIndicatorDetails('sp500_earnings', 1500),
+      getIndicatorDetails('cpi', 1500),
+      getIndicatorDetails('rate_gs10', 1500),
+      getIndicatorDetails('excess_cape_yield', 1500),
     ]);
   } catch (err) {
     console.error('Failed to fetch indicators in Server Component, utilizing mock fallback:', err);
@@ -48,7 +67,7 @@ export default async function IndicatorsPage({
           id: `mock-${i}`,
           indicatorId: 'mock-id',
           date: dateStr,
-          value: parseFloat(Math.max(1, current).toFixed(4)),
+          value: parseFloat(Math.max(0.1, current).toFixed(4)),
         });
       }
       return history;
@@ -67,6 +86,31 @@ export default async function IndicatorsPage({
     sp500PriceData = {
       indicator: { id: 'mock-sp500', key: 'sp500_price', name: 'S&P 500 Price', currentValue: 7609.78, unit: '', status: 'Normal', description: '', createdAt: '', updatedAt: '' },
       history: generateMockHistory(3500, 15, 80, 200),
+    };
+
+    sp500DividendData = {
+      indicator: { id: 'mock-dividend', key: 'sp500_dividend', name: 'S&P 500 Dividend', currentValue: 80.37, unit: '', status: 'Normal', description: '', createdAt: '', updatedAt: '' },
+      history: generateMockHistory(65, 0.1, 1.5, 200),
+    };
+
+    sp500EarningsData = {
+      indicator: { id: 'mock-earnings', key: 'sp500_earnings', name: 'S&P 500 Earnings', currentValue: 293.58, unit: '', status: 'Normal', description: '', createdAt: '', updatedAt: '' },
+      history: generateMockHistory(200, 0.5, 5.0, 200),
+    };
+
+    cpiData = {
+      indicator: { id: 'mock-cpi', key: 'cpi', name: 'Consumer Price Index (CPI)', currentValue: 335.13, unit: '', status: 'Normal', description: '', createdAt: '', updatedAt: '' },
+      history: generateMockHistory(250, 0.3, 2.0, 200),
+    };
+
+    rateGs10Data = {
+      indicator: { id: 'mock-gs10', key: 'rate_gs10', name: '10-Year Treasury Yield (GS10)', currentValue: 4.47, unit: '%', status: 'Normal', description: '', createdAt: '', updatedAt: '' },
+      history: generateMockHistory(3.5, 0.005, 0.15, 200),
+    };
+
+    excessCapeYieldData = {
+      indicator: { id: 'mock-excess', key: 'excess_cape_yield', name: 'Excess CAPE Yield', currentValue: 1.32, unit: '%', status: 'Normal', description: '', createdAt: '', updatedAt: '' },
+      history: generateMockHistory(2.0, -0.005, 0.1, 200),
     };
   }
 
@@ -106,6 +150,11 @@ export default async function IndicatorsPage({
           shillerPeData={shillerPeData}
           peRatioData={peRatioData}
           sp500PriceData={sp500PriceData}
+          sp500DividendData={sp500DividendData}
+          sp500EarningsData={sp500EarningsData}
+          cpiData={cpiData}
+          rateGs10Data={rateGs10Data}
+          excessCapeYieldData={excessCapeYieldData}
         />
 
       </div>
