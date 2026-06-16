@@ -3,7 +3,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createChart, ColorType, IChartApi, ISeriesApi, CandlestickSeries, AreaSeries, LineSeries } from 'lightweight-charts';
 import { HistoricalPrice, Ticker } from '@/services/api';
-import { BarChart2, TrendingUp, X, Calendar, Activity } from 'lucide-react';
+import { BarChart2, TrendingUp, X, Calendar, Activity, Info } from 'lucide-react';
 import { useLocale } from 'next-intl';
 
 interface StockChartProps {
@@ -13,6 +13,13 @@ interface StockChartProps {
   ticker: Ticker;
 }
 
+// Floating badge shown after a single click on the chart
+interface ClickedPoint {
+  time: string;
+  x: number; // pixels from left of chart container
+  y: number; // pixels from top of chart container
+}
+
 export const StockChart: React.FC<StockChartProps> = ({ prices, buyHoldIndex, recommendation, ticker }) => {
   const locale = useLocale();
   const chartContainerRef = useRef<HTMLDivElement>(null);
@@ -20,13 +27,12 @@ export const StockChart: React.FC<StockChartProps> = ({ prices, buyHoldIndex, re
   const candlestickSeriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
   const areaSeriesRef = useRef<ISeriesApi<'Area'> | null>(null);
 
-  // Double-click detection via subscribeClick: track last click time & time value
-  const lastClickTimeRef = useRef<number>(0);
-  const lastClickDateRef = useRef<string | null>(null);
-
   const [chartType, setChartType] = useState<'candle' | 'line'>('line');
   const [timeRange, setTimeRange] = useState<'1M' | '6M' | 'YTD' | '1Y' | '5Y' | 'ALL'>('5Y');
   const [isLoaded, setIsLoaded] = useState(false);
+
+  // Single-click → show floating badge; click badge → open modal
+  const [clickedPoint, setClickedPoint] = useState<ClickedPoint | null>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
   // ─── Chart Data Grouping ────────────────────────────────────────────────────
@@ -42,32 +48,31 @@ export const StockChart: React.FC<StockChartProps> = ({ prices, buyHoldIndex, re
     if (sortedPrices.length === 0) return [];
 
     if (timeRange === '5Y') {
-      const weeklyGroups: { [key: string]: typeof sortedPrices } = {};
+      const groups: { [k: string]: typeof sortedPrices } = {};
       sortedPrices.forEach((p) => {
-        const tempDate = new Date(p.dateObj.getTime());
-        const day = tempDate.getDay();
-        const diff = tempDate.getDate() - day + (day === 0 ? -6 : 1);
-        tempDate.setDate(diff);
-        const weekKey = tempDate.toISOString().split('T')[0];
-        if (!weeklyGroups[weekKey]) weeklyGroups[weekKey] = [];
-        weeklyGroups[weekKey].push(p);
+        const td = new Date(p.dateObj.getTime());
+        const day = td.getDay();
+        td.setDate(td.getDate() - day + (day === 0 ? -6 : 1));
+        const key = td.toISOString().split('T')[0];
+        if (!groups[key]) groups[key] = [];
+        groups[key].push(p);
       });
-      return Object.keys(weeklyGroups).sort().map((key) => {
-        const list = weeklyGroups[key].sort((a, b) => a.time.localeCompare(b.time));
-        return { time: key, open: list[0].open, close: list[list.length - 1].close, high: Math.max(...list.map(l => l.high)), low: Math.min(...list.map(l => l.low)) };
+      return Object.keys(groups).sort().map((k) => {
+        const l = groups[k].sort((a, b) => a.time.localeCompare(b.time));
+        return { time: k, open: l[0].open, close: l[l.length - 1].close, high: Math.max(...l.map(x => x.high)), low: Math.min(...l.map(x => x.low)) };
       });
     }
 
     if (timeRange === 'ALL') {
-      const monthlyGroups: { [key: string]: typeof sortedPrices } = {};
+      const groups: { [k: string]: typeof sortedPrices } = {};
       sortedPrices.forEach((p) => {
-        const monthKey = p.time.substring(0, 7) + '-01';
-        if (!monthlyGroups[monthKey]) monthlyGroups[monthKey] = [];
-        monthlyGroups[monthKey].push(p);
+        const key = p.time.substring(0, 7) + '-01';
+        if (!groups[key]) groups[key] = [];
+        groups[key].push(p);
       });
-      return Object.keys(monthlyGroups).sort().map((key) => {
-        const list = monthlyGroups[key].sort((a, b) => a.time.localeCompare(b.time));
-        return { time: list[list.length - 1].time, open: list[0].open, close: list[list.length - 1].close, high: Math.max(...list.map(l => l.high)), low: Math.min(...list.map(l => l.low)) };
+      return Object.keys(groups).sort().map((k) => {
+        const l = groups[k].sort((a, b) => a.time.localeCompare(b.time));
+        return { time: l[l.length - 1].time, open: l[0].open, close: l[l.length - 1].close, high: Math.max(...l.map(x => x.high)), low: Math.min(...l.map(x => x.low)) };
       });
     }
 
@@ -79,12 +84,12 @@ export const StockChart: React.FC<StockChartProps> = ({ prices, buyHoldIndex, re
     const period = 200;
     if (chartData.length < period) return [];
     const ema: { time: string; value: number }[] = [];
-    const multiplier = 2 / (period + 1);
-    let prevEma = chartData.slice(0, period).reduce((s, d) => s + d.close, 0) / period;
-    ema.push({ time: chartData[period - 1].time, value: Number(prevEma.toFixed(2)) });
+    const m = 2 / (period + 1);
+    let prev = chartData.slice(0, period).reduce((s, d) => s + d.close, 0) / period;
+    ema.push({ time: chartData[period - 1].time, value: +prev.toFixed(2) });
     for (let i = period; i < chartData.length; i++) {
-      prevEma = (chartData[i].close - prevEma) * multiplier + prevEma;
-      ema.push({ time: chartData[i].time, value: Number(prevEma.toFixed(2)) });
+      prev = (chartData[i].close - prev) * m + prev;
+      ema.push({ time: chartData[i].time, value: +prev.toFixed(2) });
     }
     return ema;
   }, [chartData]);
@@ -93,12 +98,12 @@ export const StockChart: React.FC<StockChartProps> = ({ prices, buyHoldIndex, re
     const period = 50;
     if (chartData.length < period) return [];
     const ema: { time: string; value: number }[] = [];
-    const multiplier = 2 / (period + 1);
-    let prevEma = chartData.slice(0, period).reduce((s, d) => s + d.close, 0) / period;
-    ema.push({ time: chartData[period - 1].time, value: Number(prevEma.toFixed(2)) });
+    const m = 2 / (period + 1);
+    let prev = chartData.slice(0, period).reduce((s, d) => s + d.close, 0) / period;
+    ema.push({ time: chartData[period - 1].time, value: +prev.toFixed(2) });
     for (let i = period; i < chartData.length; i++) {
-      prevEma = (chartData[i].close - prevEma) * multiplier + prevEma;
-      ema.push({ time: chartData[i].time, value: Number(prevEma.toFixed(2)) });
+      prev = (chartData[i].close - prev) * m + prev;
+      ema.push({ time: chartData[i].time, value: +prev.toFixed(2) });
     }
     return ema;
   }, [chartData]);
@@ -129,10 +134,14 @@ export const StockChart: React.FC<StockChartProps> = ({ prices, buyHoldIndex, re
     });
     chartRef.current = chart;
 
-    const candlestickSeries = chart.addSeries(CandlestickSeries, { upColor: '#10b981', downColor: '#ef4444', borderVisible: false, wickUpColor: '#10b981', wickDownColor: '#ef4444' });
+    const candlestickSeries = chart.addSeries(CandlestickSeries, {
+      upColor: '#10b981', downColor: '#ef4444', borderVisible: false, wickUpColor: '#10b981', wickDownColor: '#ef4444',
+    });
     candlestickSeriesRef.current = candlestickSeries;
 
-    const areaSeries = chart.addSeries(AreaSeries, { topColor: `${themeColor}4d`, bottomColor: `${themeColor}00`, lineColor: themeColor, lineWidth: 2 });
+    const areaSeries = chart.addSeries(AreaSeries, {
+      topColor: `${themeColor}4d`, bottomColor: `${themeColor}00`, lineColor: themeColor, lineWidth: 2,
+    });
     areaSeriesRef.current = areaSeries;
 
     const emaSeries = chart.addSeries(LineSeries, { color: '#10b981', lineWidth: 2, priceLineVisible: false, lastValueVisible: true, title: 'EMA 200' });
@@ -154,26 +163,27 @@ export const StockChart: React.FC<StockChartProps> = ({ prices, buyHoldIndex, re
     chart.timeScale().fitContent();
     setIsLoaded(true);
 
-    // ── Double-click via subscribeClick (most reliable with lightweight-charts) ──
-    // chart.subscribeClick fires for every single click on the chart canvas.
-    // We detect a double-click by checking if two clicks happen within 400ms.
+    // Single click → show floating detail badge at clicked coordinates
     chart.subscribeClick((param) => {
-      const now = Date.now();
-      const clickedTime = param.time ? (param.time as string) : lastClickDateRef.current;
-
-      if (now - lastClickTimeRef.current < 400 && clickedTime) {
-        // Double-click detected!
-        setSelectedDate(clickedTime);
-      }
-      lastClickTimeRef.current = now;
-      if (param.time) {
-        lastClickDateRef.current = param.time as string;
+      if (param.time && param.point) {
+        setClickedPoint({
+          time: param.time as string,
+          x: param.point.x,
+          y: param.point.y,
+        });
+        setSelectedDate(null); // close modal if open
+      } else {
+        // Clicked outside data area → dismiss badge
+        setClickedPoint(null);
       }
     });
 
     const handleResize = () => {
       if (chartContainerRef.current && chartRef.current) {
-        chartRef.current.applyOptions({ width: chartContainerRef.current.clientWidth, height: chartContainerRef.current.clientHeight });
+        chartRef.current.applyOptions({
+          width: chartContainerRef.current.clientWidth,
+          height: chartContainerRef.current.clientHeight,
+        });
       }
     };
     const resizeObserver = new ResizeObserver(handleResize);
@@ -192,9 +202,9 @@ export const StockChart: React.FC<StockChartProps> = ({ prices, buyHoldIndex, re
   useEffect(() => {
     const chart = chartRef.current;
     if (!chart || chartData.length === 0 || !isLoaded) return;
-    const latestPrice = chartData[chartData.length - 1];
-    if (!latestPrice) return;
-    const latestDate = new Date(latestPrice.time);
+    const latest = chartData[chartData.length - 1];
+    if (!latest) return;
+    const latestDate = new Date(latest.time);
     let fromDate: Date | null = null;
     switch (timeRange) {
       case '1M': fromDate = new Date(latestDate); fromDate.setMonth(fromDate.getMonth() - 1); break;
@@ -207,24 +217,24 @@ export const StockChart: React.FC<StockChartProps> = ({ prices, buyHoldIndex, re
     const timer = setTimeout(() => {
       try {
         if (fromDate) {
-          chart.timeScale().setVisibleRange({ from: fromDate.toISOString().split('T')[0] as any, to: latestPrice.time as any });
+          chart.timeScale().setVisibleRange({ from: fromDate.toISOString().split('T')[0] as any, to: latest.time as any });
         } else {
           chart.timeScale().fitContent();
         }
-      } catch (e) { /* ignore */ }
+      } catch (_) { /* ignore */ }
     }, 50);
     return () => clearTimeout(timer);
   }, [timeRange, chartData, isLoaded]);
 
+  // ─── Helpers ────────────────────────────────────────────────────────────────
   const toggleChartType = (type: 'candle' | 'line') => { if (type !== chartType) setChartType(type); };
 
-  // ─── Helpers ────────────────────────────────────────────────────────────────
-  const formatMarketCap = (num: number) => {
-    if (num === 0) return 'N/A';
-    if (num >= 1e12) return `${(num / 1e12).toFixed(2)}T`;
-    if (num >= 1e9) return `${(num / 1e9).toFixed(2)}B`;
-    if (num >= 1e6) return `${(num / 1e6).toFixed(2)}M`;
-    return num.toLocaleString();
+  const formatMarketCap = (n: number) => {
+    if (!n) return 'N/A';
+    if (n >= 1e12) return `${(n / 1e12).toFixed(2)}T`;
+    if (n >= 1e9) return `${(n / 1e9).toFixed(2)}B`;
+    if (n >= 1e6) return `${(n / 1e6).toFixed(2)}M`;
+    return n.toLocaleString();
   };
 
   const formatDateLabel = (dateStr: string) => {
@@ -235,7 +245,10 @@ export const StockChart: React.FC<StockChartProps> = ({ prices, buyHoldIndex, re
         : ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
       return `${names[parseInt(month, 10) - 1]} ${year}`;
     }
-    return new Date(dateStr).toLocaleDateString(locale === 'es' ? 'es-MX' : 'en-US', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'UTC' });
+    return new Date(dateStr).toLocaleDateString(
+      locale === 'es' ? 'es-MX' : 'en-US',
+      { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'UTC' }
+    );
   };
 
   // ─── Modal Data Computation ──────────────────────────────────────────────────
@@ -264,7 +277,7 @@ export const StockChart: React.FC<StockChartProps> = ({ prices, buyHoldIndex, re
           if (isFund) return qd.getFullYear() < rowDate.getFullYear() || (qd.getFullYear() === rowDate.getFullYear() && qd.getMonth() <= rowDate.getMonth());
           return qd <= rowDate;
         })
-        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        .sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
       if (isFund && relevant.length > 0) {
         resolvedPe = relevant[0].peRatio ?? null;
@@ -272,9 +285,9 @@ export const StockChart: React.FC<StockChartProps> = ({ prices, buyHoldIndex, re
       } else {
         const sliced = relevant.slice(0, 4);
         if (sliced.length === 4) {
-          const ttm = sliced.reduce((s, q) => s + (q.epsDiluted || q.eps || 0), 0);
+          const ttm = sliced.reduce((s: number, q: any) => s + (q.epsDiluted || q.eps || 0), 0);
           resolvedEps = parseFloat(ttm.toFixed(2));
-          epsSource = sliced.every(q => q.source === 'real') ? 'real' : sliced.every(q => q.source === 'estimated') ? 'estimated' : 'mixed';
+          epsSource = sliced.every((q: any) => q.source === 'real') ? 'real' : sliced.every((q: any) => q.source === 'estimated') ? 'estimated' : 'mixed';
         }
       }
     }
@@ -285,9 +298,9 @@ export const StockChart: React.FC<StockChartProps> = ({ prices, buyHoldIndex, re
         resolvedEps = ticker.historicalEps[String(yr)].value;
         epsSource = ticker.historicalEps[String(yr)].source;
       } else if (ticker.eps && ticker.eps > 0) {
-        const sector = (ticker.sector ?? '').toLowerCase();
+        const sec = (ticker.sector ?? '').toLowerCase();
         const sym = (ticker.symbol ?? '').toUpperCase();
-        const g = sector.includes('technology') || sym === 'QQQ' ? 0.12 : sector.includes('financial') || sector.includes('energy') ? 0.06 : 0.08;
+        const g = sec.includes('technology') || sym === 'QQQ' ? 0.12 : sec.includes('financial') || sec.includes('energy') ? 0.06 : 0.08;
         const base = ticker.updatedAt ? new Date(ticker.updatedAt) : new Date();
         const yrs = Math.max(0, (base.getTime() - rowDate.getTime()) / (365.25 * 86400000));
         resolvedEps = ticker.eps / Math.pow(1 + g, yrs);
@@ -323,7 +336,12 @@ export const StockChart: React.FC<StockChartProps> = ({ prices, buyHoldIndex, re
     const divYield = priceRecord.close > 0 ? (finalDivRate / priceRecord.close) * 100 : 0;
     const volume = prices.find(p => new Date(p.date).toISOString().split('T')[0] === selectedDate)?.volume ?? 0;
 
-    return { date: selectedDate, close: priceRecord.close, open: priceRecord.open, high: priceRecord.high, low: priceRecord.low, ema50: ema50Val, ema200: ema200Val, eps: resolvedEps, epsSource, pe: peRatio, divRate: finalDivRate, divYield, marketCap: scaledCap, ratingScore, recommendation: rec, badgeClass: badge, volume };
+    return {
+      date: selectedDate, close: priceRecord.close, open: priceRecord.open,
+      high: priceRecord.high, low: priceRecord.low, ema50: ema50Val, ema200: ema200Val,
+      eps: resolvedEps, epsSource, pe: peRatio, divRate: finalDivRate, divYield,
+      marketCap: scaledCap, ratingScore, recommendation: rec, badgeClass: badge, volume,
+    };
   }, [selectedDate, chartData, emaData, ema50Data, ticker, prices, locale]);
 
   // ─── Render ─────────────────────────────────────────────────────────────────
@@ -336,12 +354,12 @@ export const StockChart: React.FC<StockChartProps> = ({ prices, buyHoldIndex, re
           <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
             {chartType === 'candle' ? 'Candlestick Chart' : 'Close Price Area Chart'}
             <span className="ml-3 text-[10px] text-teal-500/60 font-normal normal-case">
-              {locale === 'es' ? '· Doble clic en la gráfica para ver detalle' : '· Double-click chart to view snapshot'}
+              {locale === 'es' ? '· Clic en la gráfica para ver detalle del punto' : '· Click chart to inspect any data point'}
             </span>
           </span>
           <div className="flex bg-slate-900/60 border border-slate-800/80 rounded-lg p-0.5 text-[10px] font-bold">
             {(['1M', '6M', 'YTD', '1Y', '5Y', 'ALL'] as const).map((range) => (
-              <button key={range} onClick={() => setTimeRange(range)}
+              <button key={range} onClick={() => { setTimeRange(range); setClickedPoint(null); }}
                 className={`px-2.5 py-1.5 rounded transition-all cursor-pointer ${timeRange === range ? 'bg-slate-800 text-teal-400 font-extrabold shadow-sm' : 'text-slate-400 hover:text-slate-200'}`}>
                 {range}
               </button>
@@ -361,18 +379,54 @@ export const StockChart: React.FC<StockChartProps> = ({ prices, buyHoldIndex, re
         </div>
       </div>
 
-      {/* Chart Canvas */}
+      {/* Chart Canvas — chart.subscribeClick gives us pixel coords for the badge */}
       <div className="relative w-full h-[320px] md:h-[400px]" style={{ minHeight: '320px' }}>
         {!isLoaded && (
           <div className="absolute inset-0 flex items-center justify-center bg-slate-950/80 z-10 text-slate-500 text-xs">
-            <span className="animate-spin rounded-full h-5 w-5 border-b-2 border-teal-500 mr-2"></span>
-            Loading TradingView Chart...
+            <span className="animate-spin rounded-full h-5 w-5 border-b-2 border-teal-500 mr-2" />
+            Loading chart...
           </div>
         )}
+
         <div ref={chartContainerRef} className="w-full h-full" />
+
+        {/* ── Floating Detail Badge (appears on single click) ── */}
+        {clickedPoint && (
+          <div
+            className="absolute z-20 pointer-events-none"
+            style={{
+              left: `${clickedPoint.x}px`,
+              top: `${clickedPoint.y}px`,
+              transform: 'translate(-50%, -110%)',
+            }}
+          >
+            {/* Vertical stem */}
+            <div className="flex flex-col items-center gap-0">
+              <button
+                className="pointer-events-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold text-white cursor-pointer shadow-xl border border-teal-500/60 whitespace-nowrap"
+                style={{
+                  background: 'linear-gradient(135deg, #0f766e 0%, #0d9488 100%)',
+                  boxShadow: '0 4px 20px rgba(20,184,166,0.4)',
+                }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSelectedDate(clickedPoint.time);
+                  setClickedPoint(null);
+                }}
+              >
+                <Info size={12} />
+                {locale === 'es' ? 'Ver Detalle' : 'View Detail'}
+              </button>
+              {/* Date label */}
+              <div className="text-[9px] font-bold text-teal-400/80 mt-0.5 bg-slate-950/90 px-2 py-0.5 rounded-full border border-slate-800/60">
+                {formatDateLabel(clickedPoint.time)}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* ── Modal Overlay (fixed div — no native dialog issues) ── */}
+      {/* ── Modal Overlay ── */}
       {selectedDate && modalData && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center p-4"
@@ -393,8 +447,10 @@ export const StockChart: React.FC<StockChartProps> = ({ prices, buyHoldIndex, re
                 <h3 className="text-lg font-black text-white">{formatDateLabel(modalData.date)}</h3>
                 <span className="text-xs text-slate-400 font-semibold">{ticker.symbol} · {ticker.name}</span>
               </div>
-              <button onClick={() => setSelectedDate(null)}
-                className="p-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer">
+              <button
+                onClick={() => setSelectedDate(null)}
+                className="p-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer"
+              >
                 <X size={16} />
               </button>
             </div>
@@ -416,40 +472,29 @@ export const StockChart: React.FC<StockChartProps> = ({ prices, buyHoldIndex, re
 
             {/* Metrics Grid */}
             <div className="grid grid-cols-2 gap-3 text-xs">
-              {[
+              {([
                 { label: locale === 'es' ? 'Precio Cierre' : 'Close Price', value: `$${modalData.close.toFixed(2)}`, color: 'text-white' },
                 { label: locale === 'es' ? 'Volumen' : 'Volume', value: modalData.volume > 0 ? modalData.volume.toLocaleString() : 'N/A', color: 'text-slate-200' },
                 { label: 'High', value: `$${modalData.high.toFixed(2)}`, color: 'text-emerald-400' },
                 { label: 'Low', value: `$${modalData.low.toFixed(2)}`, color: 'text-rose-400' },
-                {
-                  label: 'EMA 50',
-                  value: modalData.ema50 ? `$${modalData.ema50.toFixed(2)}` : 'N/A',
-                  color: 'text-orange-400',
-                  icon: <Activity size={10} className="text-orange-400" />,
-                },
-                {
-                  label: 'EMA 200',
-                  value: modalData.ema200 ? `$${modalData.ema200.toFixed(2)}` : 'N/A',
-                  color: 'text-emerald-400',
-                  icon: <Activity size={10} className="text-emerald-400" />,
-                },
-                {
-                  label: 'EPS (TTM)',
-                  value: modalData.eps ? `$${modalData.eps.toFixed(2)}` : 'N/A',
-                  color: modalData.epsSource === 'real' ? 'text-sky-300' : 'text-amber-300',
-                  badge: modalData.epsSource?.substring(0, 3).toUpperCase(),
-                },
+                { label: 'EMA 50', value: modalData.ema50 ? `$${modalData.ema50.toFixed(2)}` : 'N/A', color: 'text-orange-400', icon: <Activity size={10} className="text-orange-400" /> },
+                { label: 'EMA 200', value: modalData.ema200 ? `$${modalData.ema200.toFixed(2)}` : 'N/A', color: 'text-emerald-400', icon: <Activity size={10} className="text-emerald-400" /> },
+                { label: 'EPS (TTM)', value: modalData.eps ? `$${modalData.eps.toFixed(2)}` : 'N/A', color: modalData.epsSource === 'real' ? 'text-sky-300' : 'text-amber-300', badge: modalData.epsSource?.substring(0, 3).toUpperCase() },
                 { label: 'P/E Ratio', value: modalData.pe ? `${modalData.pe.toFixed(2)}x` : 'N/A', color: 'text-slate-200' },
                 { label: 'Div. Rate', value: modalData.divRate > 0 ? `$${modalData.divRate.toFixed(2)}` : '$0.00', color: 'text-slate-200' },
                 { label: 'Div. Yield', value: modalData.divYield > 0 ? `${modalData.divYield.toFixed(2)}%` : '0.00%', color: 'text-emerald-400' },
-              ].map(({ label, value, color, icon, badge }: any) => (
+              ] as any[]).map(({ label, value, color, icon, badge }: any) => (
                 <div key={label} className="flex flex-col gap-1 p-3 rounded-xl border border-slate-800/60 bg-slate-900/20">
                   <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider flex items-center gap-1">
                     {icon}{label}
                   </span>
                   <span className={`text-sm font-black font-mono ${color}`}>
                     {value}
-                    {badge && <span className="ml-1.5 text-[8px] font-bold px-1 py-0.5 rounded bg-slate-800 border border-slate-700 text-slate-400">{badge}</span>}
+                    {badge && (
+                      <span className="ml-1.5 text-[8px] font-bold px-1 py-0.5 rounded bg-slate-800 border border-slate-700 text-slate-400">
+                        {badge}
+                      </span>
+                    )}
                   </span>
                 </div>
               ))}
@@ -461,7 +506,7 @@ export const StockChart: React.FC<StockChartProps> = ({ prices, buyHoldIndex, re
             </div>
 
             <p className="text-center text-[10px] text-slate-600">
-              {locale === 'es' ? 'Clic fuera del panel para cerrar · ESC para cerrar' : 'Click outside to close · ESC to close'}
+              {locale === 'es' ? 'Clic fuera del panel para cerrar' : 'Click outside to close'}
             </p>
           </div>
         </div>
