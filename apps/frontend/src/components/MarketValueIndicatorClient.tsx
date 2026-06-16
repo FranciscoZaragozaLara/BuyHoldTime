@@ -289,7 +289,7 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
                 stroke="#475569"
                 fontSize={10}
                 tickLine={false}
-                domain={[0, 'auto']}
+                domain={[10, 50]}
                 label={{ value: 'Multiples (P/E)', angle: -90, position: 'insideLeft', fill: '#94a3b8', style: { fontSize: 10 } }}
               />
 
