@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -10,36 +7,33 @@ datasource db {
 }
 
 model Ticker {
-  id               String            @id @default(uuid())
-  symbol           String            @unique
-  name             String
-  price            Float
-  changePercent    Float             @map("change_percent")
-  sector           String
-  buyHoldIndex     Int               @map("buy_hold_index")
-  recommendation   String
-  pe               Float
-  dy               Float
-  cap              String
-  
-  // === Financial Valuation Fields (Yahoo Finance API) ===
-  eps              Float?
-  forwardPe        Float?            @map("forward_pe")
-  trailingPe       Float?            @map("trailing_pe")
-  pegRatio         Float?            @map("peg_ratio")
-  enterpriseValue  Float?            @map("enterprise_value")
-  avgVolume        Float?            @map("avg_volume")
-  fiftyTwoWeekHigh Float?            @map("fifty_two_week_high")
-  fiftyTwoWeekLow  Float?            @map("fifty_two_week_low")
-  dividendRate        Float?            @map("dividend_rate")
-  bookValue           Float?            @map("book_value")
-  historicalEps            Json?             @map("historical_eps")
-  historicalDividends      Json?             @map("historical_dividends")
-  historicalEpsQuarterly   Json?             @map("historical_eps_quarterly")
-  
-  createdAt           DateTime          @default(now()) @map("created_at")
-  updatedAt           DateTime          @updatedAt @map("updated_at")
-  historicalPrices    HistoricalPrice[]
+  id                     String            @id @default(uuid())
+  symbol                 String            @unique
+  name                   String
+  price                  Float
+  sector                 String
+  buyHoldIndex           Int               @map("buy_hold_index")
+  recommendation         String
+  pe                     Float
+  dy                     Float
+  cap                    String
+  createdAt              DateTime          @default(now()) @map("created_at")
+  updatedAt              DateTime          @updatedAt @map("updated_at")
+  avgVolume              Float?            @map("avg_volume")
+  bookValue              Float?            @map("book_value")
+  changePercent          Float             @map("change_percent")
+  dividendRate           Float?            @map("dividend_rate")
+  enterpriseValue        Float?            @map("enterprise_value")
+  eps                    Float?
+  fiftyTwoWeekHigh       Float?            @map("fifty_two_week_high")
+  fiftyTwoWeekLow        Float?            @map("fifty_two_week_low")
+  forwardPe              Float?            @map("forward_pe")
+  pegRatio               Float?            @map("peg_ratio")
+  trailingPe             Float?            @map("trailing_pe")
+  historicalDividends    Json?             @map("historical_dividends")
+  historicalEps          Json?             @map("historical_eps")
+  historicalEpsQuarterly Json?             @map("historical_eps_quarterly")
+  historicalPrices       HistoricalPrice[]
 
   @@map("tickers")
 }
@@ -52,8 +46,8 @@ model HistoricalPrice {
   high     Float
   low      Float
   close    Float
-  adjClose Float    @map("adj_close")
   volume   BigInt
+  adjClose Float    @map("adj_close")
   ticker   Ticker   @relation(fields: [tickerId], references: [id], onDelete: Cascade)
 
   @@unique([tickerId, date])

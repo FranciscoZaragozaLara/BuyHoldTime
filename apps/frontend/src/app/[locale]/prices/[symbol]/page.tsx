@@ -521,6 +521,7 @@ export default async function TickerDetailsPage({
 
           {/* Quarterly financials from our database */}
           <QuarterlyDataTable 
+            ticker={ticker}
             quarters={ticker.historicalEpsQuarterly} 
             historicalPrices={updatedPrices}
           />

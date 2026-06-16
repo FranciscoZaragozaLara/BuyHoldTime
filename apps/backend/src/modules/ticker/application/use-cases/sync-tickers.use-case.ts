@@ -7,6 +7,31 @@ import YahooFinance from 'yahoo-finance2';
 export class SyncTickersUseCase {
   private readonly logger = new Logger(SyncTickersUseCase.name);
   private readonly yahooFinance: any;
+  private readonly sectorPeCache: Record<string, Array<{ date: string; peRatio: number }>> = {};
+
+  private async getSectorPe(sectorName: string, apiKey: string): Promise<Array<{ date: string; peRatio: number }>> {
+    if (this.sectorPeCache[sectorName]) {
+      return this.sectorPeCache[sectorName];
+    }
+    const todayStr = new Date().toISOString().split('T')[0];
+    const url = `https://financialmodelingprep.com/stable/historical-sector-pe?sector=${encodeURIComponent(sectorName)}&from=1997-01-01&to=${todayStr}&apikey=${apiKey}`;
+    try {
+      this.logger.log(`Fetching historical sector PE for ${sectorName}...`);
+      const response = await fetch(url);
+      const data = await response.json();
+      if (Array.isArray(data)) {
+        const mapped = data.map((item: any) => ({
+          date: item.date,
+          peRatio: Number(item.pe || item.peRatio || 0),
+        }));
+        this.sectorPeCache[sectorName] = mapped;
+        return mapped;
+      }
+    } catch (err) {
+      this.logger.error(`Failed to fetch sector PE for ${sectorName}: ${err.message}`);
+    }
+    return [];
+  }
 
   constructor(
     @Inject(ITickerRepositorySymbol)
@@ -209,9 +234,6 @@ export class SyncTickersUseCase {
         // Build historicalEpsQuarterly: [{date, eps, source}] sorted desc
         // The frontend will compute TTM for any date by summing the 4
         // most recent quarters with date <= target date.
-        //
-        // Real data source: Financial Modeling Prep (FMP) Stable API (limit: 5 quarters)
-        // Estimation: CAGR backward from oldest FMP real quarter -> back to 1997-Q1
         // =========================================================
         type QuarterEntry = {
           date: string;
@@ -222,127 +244,218 @@ export class SyncTickersUseCase {
           eps: number;
           epsDiluted: number;
           sharesOutstanding: number;
+          peRatio?: number | null;
           source: 'real' | 'estimated';
         };
-        const quarterMap: Map<string, QuarterEntry> = new Map();
 
-        // 1. Fetch from FMP API
         const fmpApiKey = 'aHWvhgdKuBbca6TnHQyXFDwe4w5I6ja5';
-        const fmpUrl = `https://financialmodelingprep.com/stable/income-statement?symbol=${symbol}&period=quarter&apikey=${fmpApiKey}`;
-        
-        try {
-          this.logger.log(`Fetching quarterly income statement from FMP for ${ticker.symbol}`);
-          const response = await fetch(fmpUrl);
-          const fmpData = await response.json() as any;
-
-          if (Array.isArray(fmpData)) {
-            for (const item of fmpData) {
-              if (item.date && item.eps !== undefined) {
-                const dateStr = item.date;
-                quarterMap.set(dateStr, {
-                  date: dateStr,
-                  period: item.period || 'Q',
-                  fiscalYear: String(item.fiscalYear || ''),
-                  revenue: Number(item.revenue || 0),
-                  netIncome: Number(item.netIncome || 0),
-                  eps: Number(item.eps || 0),
-                  epsDiluted: Number(item.epsDiluted || item.eps || 0),
-                  sharesOutstanding: Number(item.weightedAverageShsOutDil || item.weightedAverageShsOut || 0),
-                  source: 'real',
-                });
-              }
-            }
-          } else if (fmpData && fmpData.Error) {
-            this.logger.warn(`FMP API returned an error for ${ticker.symbol}: ${fmpData.Error}`);
-          }
-        } catch (fmpErr: any) {
-          this.logger.error(`Failed to fetch quarterly statement from FMP for ${ticker.symbol}: ${fmpErr.message}`);
-        }
-
-        const realQuarters = Array.from(quarterMap.values()).sort(
-          (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
-        );
-        this.logger.log(`${ticker.symbol}: ${realQuarters.length} FMP real quarters [${realQuarters.map(q => q.date).join(', ')}]`);
-
-        // 2. Backward estimation using CAGR
-        // Calculate CAGR from real data to fill backwards to 1997
-        let quarterlyGrowthRate = 0.02; // default 2%/quarter (~8%/year)
-        const sectorLower = (ticker.sector || '').toLowerCase();
         const sym = ticker.symbol.toUpperCase();
-        let annualRate = 0.08;
-        if (sectorLower.includes('technology') || sym === 'QQQ' || sym === 'TQQQ') annualRate = 0.12;
-        else if (sectorLower.includes('financial') || sectorLower.includes('energy')) annualRate = 0.06;
-        quarterlyGrowthRate = Math.pow(1 + annualRate, 0.25) - 1;
+        const isTickerFund = 
+          ticker.sector === 'Index' || 
+          ticker.sector === 'ETF' || 
+          ticker.sector?.toLowerCase().includes('etf') || 
+          ticker.sector?.toLowerCase().includes('fund') || 
+          sym === 'QQQ' || sym === 'VOO' || sym === 'SCHD';
 
-        if (realQuarters.length >= 2) {
-          const oldestReal = realQuarters[0];
-          const newestReal = realQuarters[realQuarters.length - 1];
-          const quartersSpan = (new Date(newestReal.date).getTime() - new Date(oldestReal.date).getTime()) / (90 * 24 * 60 * 60 * 1000);
-          if (quartersSpan > 0 && oldestReal.epsDiluted > 0 && newestReal.epsDiluted > 0) {
-            const calculatedGrowth = Math.pow(newestReal.epsDiluted / oldestReal.epsDiluted, 1 / quartersSpan) - 1;
-            quarterlyGrowthRate = Math.max(-0.04, Math.min(0.08, calculatedGrowth));
+        let historicalEpsQuarterly: QuarterEntry[] = [];
+        let realQuartersCount = 0;
+
+        if (isTickerFund) {
+          // Fund sector mapping to fetch real P/E ratios from FMP historical sector P/E
+          let sectorsToFetch: string[] = [];
+          if (sym === 'QQQ' || sym === 'TQQQ') {
+            sectorsToFetch = ['Technology'];
+          } else if (sym === 'SCHD') {
+            sectorsToFetch = ['Financial Services', 'Industrials', 'Healthcare'];
+          } else if (sym === 'VOO' || sym === 'SPY' || ticker.sector === 'Index') {
+            sectorsToFetch = ['Technology', 'Financial Services', 'Healthcare', 'Consumer Cyclical'];
+          } else {
+            sectorsToFetch = [ticker.sector || 'Technology'];
           }
-        }
 
-        this.logger.log(`${ticker.symbol} quarterly growth rate: ${(quarterlyGrowthRate * 100).toFixed(2)}%/qtr`);
+          // Fetch sector lists
+          const sectorLists: Array<Array<{ date: string; peRatio: number }>> = [];
+          for (const sect of sectorsToFetch) {
+            const list = await this.getSectorPe(sect, fmpApiKey);
+            if (list.length > 0) {
+              sectorLists.push(list);
+            }
+          }
 
-        if (realQuarters.length > 0) {
-          const oldestReal = realQuarters[0];
-          const oldestRealDate = new Date(oldestReal.date);
-          const startDate = new Date('1997-03-31');
+          const getPeForDate = (targetDateStr: string): number => {
+            if (sectorLists.length === 0) return 0;
+            const targetTime = new Date(targetDateStr).getTime();
+            let sumPe = 0;
+            let count = 0;
+            
+            for (const list of sectorLists) {
+              let closestPe = list[0].peRatio;
+              let minDiff = Math.abs(new Date(list[0].date).getTime() - targetTime);
+              
+              for (const item of list) {
+                const diff = Math.abs(new Date(item.date).getTime() - targetTime);
+                if (diff < minDiff) {
+                  minDiff = diff;
+                  closestPe = item.peRatio;
+                }
+              }
+              if (closestPe > 0) {
+                sumPe += closestPe;
+                count++;
+              }
+            }
+            return count > 0 ? sumPe / count : 0;
+          };
 
-          // Walk back quarter by quarter
-          const estimatedDates: Date[] = [];
-          let d = new Date(oldestRealDate);
-          d.setMonth(d.getMonth() - 3);
-          while (d >= startDate) {
-            estimatedDates.push(new Date(d));
+          const generatedQuarters: QuarterEntry[] = [];
+          const today = new Date();
+          const currentYear = today.getFullYear();
+          
+          for (let yr = 1997; yr <= currentYear; yr++) {
+            const qConfigs = [
+              { period: 'Q1', dateStr: `${yr}-03-31` },
+              { period: 'Q2', dateStr: `${yr}-06-30` },
+              { period: 'Q3', dateStr: `${yr}-09-30` },
+              { period: 'Q4', dateStr: `${yr}-12-31` }
+            ];
+            for (const q of qConfigs) {
+              const qDate = new Date(q.dateStr + 'T12:00:00');
+              if (qDate > today) continue;
+              
+              const realSectorPe = getPeForDate(q.dateStr);
+              
+              generatedQuarters.push({
+                date: q.dateStr,
+                period: q.period,
+                fiscalYear: String(yr),
+                revenue: 0,
+                netIncome: 0,
+                eps: 0,
+                epsDiluted: 0,
+                sharesOutstanding: 0,
+                peRatio: realSectorPe > 0 ? parseFloat(realSectorPe.toFixed(4)) : null,
+                source: 'real',
+              });
+            }
+          }
+          historicalEpsQuarterly = generatedQuarters.sort(
+            (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+          );
+          realQuartersCount = historicalEpsQuarterly.length;
+        } else {
+          // Standard corporate ticker income statements from FMP
+          const quarterMap: Map<string, QuarterEntry> = new Map();
+          const fmpUrl = `https://financialmodelingprep.com/stable/income-statement?symbol=${symbol}&period=quarter&apikey=${fmpApiKey}`;
+          
+          try {
+            this.logger.log(`Fetching quarterly income statement from FMP for ${ticker.symbol}`);
+            const response = await fetch(fmpUrl);
+            const fmpData = await response.json() as any;
+
+            if (Array.isArray(fmpData)) {
+              for (const item of fmpData) {
+                if (item.date && item.eps !== undefined) {
+                  const dateStr = item.date;
+                  quarterMap.set(dateStr, {
+                    date: dateStr,
+                    period: item.period || 'Q',
+                    fiscalYear: String(item.fiscalYear || ''),
+                    revenue: Number(item.revenue || 0),
+                    netIncome: Number(item.netIncome || 0),
+                    eps: Number(item.eps || 0),
+                    epsDiluted: Number(item.epsDiluted || item.eps || 0),
+                    sharesOutstanding: Number(item.weightedAverageShsOutDil || item.weightedAverageShsOut || 0),
+                    source: 'real',
+                  });
+                }
+              }
+            } else if (fmpData && fmpData.Error) {
+              this.logger.warn(`FMP API returned an error for ${ticker.symbol}: ${fmpData.Error}`);
+            }
+          } catch (fmpErr: any) {
+            this.logger.error(`Failed to fetch quarterly statement from FMP for ${ticker.symbol}: ${fmpErr.message}`);
+          }
+
+          const realQuarters = Array.from(quarterMap.values()).sort(
+            (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+          );
+          this.logger.log(`${ticker.symbol}: ${realQuarters.length} FMP real quarters [${realQuarters.map(q => q.date).join(', ')}]`);
+          realQuartersCount = realQuarters.length;
+
+          // CAGR backward estimation for corporate pre-FMP quarters
+          let quarterlyGrowthRate = 0.02;
+          const sectorLower = (ticker.sector || '').toLowerCase();
+          let annualRate = 0.08;
+          if (sectorLower.includes('technology')) annualRate = 0.12;
+          else if (sectorLower.includes('financial') || sectorLower.includes('energy')) annualRate = 0.06;
+          quarterlyGrowthRate = Math.pow(1 + annualRate, 0.25) - 1;
+
+          if (realQuarters.length >= 2) {
+            const oldestReal = realQuarters[0];
+            const newestReal = realQuarters[realQuarters.length - 1];
+            const quartersSpan = (new Date(newestReal.date).getTime() - new Date(oldestReal.date).getTime()) / (90 * 24 * 60 * 60 * 1000);
+            if (quartersSpan > 0 && oldestReal.epsDiluted > 0 && newestReal.epsDiluted > 0) {
+              const calculatedGrowth = Math.pow(newestReal.epsDiluted / oldestReal.epsDiluted, 1 / quartersSpan) - 1;
+              quarterlyGrowthRate = Math.max(-0.04, Math.min(0.08, calculatedGrowth));
+            }
+          }
+
+          if (realQuarters.length > 0) {
+            const oldestReal = realQuarters[0];
+            const oldestRealDate = new Date(oldestReal.date);
+            const startDate = new Date('1997-03-31');
+
+            const estimatedDates: Date[] = [];
+            let d = new Date(oldestRealDate);
             d.setMonth(d.getMonth() - 3);
-          }
+            while (d >= startDate) {
+              estimatedDates.push(new Date(d));
+              d.setMonth(d.getMonth() - 3);
+            }
 
-          for (let i = 0; i < estimatedDates.length; i++) {
-            const qDate = estimatedDates[i];
-            const dateStr = qDate.toISOString().split('T')[0];
-            if (!quarterMap.has(dateStr)) {
-              const quartersBack = i + 1;
-              const estimatedEpsDil = oldestReal.epsDiluted / Math.pow(1 + quarterlyGrowthRate, quartersBack);
-              const estimatedEpsBas = oldestReal.eps / Math.pow(1 + quarterlyGrowthRate, quartersBack);
-              const estimatedRev = oldestReal.revenue / Math.pow(1 + quarterlyGrowthRate, quartersBack);
-              const estimatedNet = oldestReal.netIncome / Math.pow(1 + quarterlyGrowthRate, quartersBack);
+            for (let i = 0; i < estimatedDates.length; i++) {
+              const qDate = estimatedDates[i];
+              const dateStr = qDate.toISOString().split('T')[0];
+              if (!quarterMap.has(dateStr)) {
+                const quartersBack = i + 1;
+                const estimatedEpsDil = oldestReal.epsDiluted / Math.pow(1 + quarterlyGrowthRate, quartersBack);
+                const estimatedEpsBas = oldestReal.eps / Math.pow(1 + quarterlyGrowthRate, quartersBack);
+                const estimatedRev = oldestReal.revenue / Math.pow(1 + quarterlyGrowthRate, quartersBack);
+                const estimatedNet = oldestReal.netIncome / Math.pow(1 + quarterlyGrowthRate, quartersBack);
 
-              // Determine period name (Q1, Q2, Q3, Q4) based on month
-              const month = qDate.getMonth() + 1;
-              let period = 'Q4';
-              if (month <= 3) period = 'Q1';
-              else if (month <= 6) period = 'Q2';
-              else if (month <= 9) period = 'Q3';
+                const month = qDate.getMonth() + 1;
+                let period = 'Q4';
+                if (month <= 3) period = 'Q1';
+                else if (month <= 6) period = 'Q2';
+                else if (month <= 9) period = 'Q3';
 
-              if (estimatedEpsDil > 0 && isFinite(estimatedEpsDil)) {
-                quarterMap.set(dateStr, {
-                  date: dateStr,
-                  period,
-                  fiscalYear: String(qDate.getFullYear()),
-                  revenue: Math.round(estimatedRev),
-                  netIncome: Math.round(estimatedNet),
-                  eps: parseFloat(estimatedEpsBas.toFixed(4)),
-                  epsDiluted: parseFloat(estimatedEpsDil.toFixed(4)),
-                  sharesOutstanding: oldestReal.sharesOutstanding,
-                  source: 'estimated',
-                });
+                if (estimatedEpsDil > 0 && isFinite(estimatedEpsDil)) {
+                  quarterMap.set(dateStr, {
+                    date: dateStr,
+                    period,
+                    fiscalYear: String(qDate.getFullYear()),
+                    revenue: Math.round(estimatedRev),
+                    netIncome: Math.round(estimatedNet),
+                    eps: parseFloat(estimatedEpsBas.toFixed(4)),
+                    epsDiluted: parseFloat(estimatedEpsDil.toFixed(4)),
+                    sharesOutstanding: oldestReal.sharesOutstanding,
+                    source: 'estimated',
+                  });
+                }
               }
             }
           }
+
+          historicalEpsQuarterly = Array.from(quarterMap.values()).sort(
+            (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+          );
         }
 
-        // Final sorted array newest→oldest
-        const historicalEpsQuarterly = Array.from(quarterMap.values()).sort(
-          (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
-        );
         this.logger.log(`${ticker.symbol}: total quarters stored: ${historicalEpsQuarterly.length}`);
 
         // Keep historicalEps (annual) for backwards compatibility
         const historicalEps: Record<string, { value: number; source: 'real' | 'estimated' }> = {};
-        if (realQuarters.length > 0) {
+        if (realQuartersCount > 0) {
           // Build annual TTM EPS from quarterly data for recent years
           for (let yr = 1997; yr <= new Date().getFullYear(); yr++) {
             // TTM at Dec 31 of each year
@@ -361,11 +474,8 @@ export class SyncTickersUseCase {
         const historicalDividends: Record<string, number> = {};
         if (historicalDividendsList && historicalDividendsList.length > 0) {
           for (const item of historicalDividendsList) {
-            const year = String(new Date(item.date).getFullYear());
-            if (!historicalDividends[year]) {
-              historicalDividends[year] = 0;
-            }
-            historicalDividends[year] = parseFloat((historicalDividends[year] + item.dividends).toFixed(2));
+            const dateStr = new Date(item.date).toISOString().split('T')[0];
+            historicalDividends[dateStr] = parseFloat(item.dividends.toFixed(4));
           }
         }
 

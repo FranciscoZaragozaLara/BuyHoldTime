@@ -35,6 +35,7 @@ export interface Ticker {
     eps: number;
     epsDiluted: number;
     sharesOutstanding: number;
+    peRatio?: number | null;
     source: 'real' | 'estimated';
   }> | null;
 }

@@ -331,28 +331,52 @@ export const StockHistoryTable: React.FC<StockHistoryTableProps> = ({ prices, ti
               // ============================================================
               const rowDateStr = activeTab === 'daily'
                 ? row.date
-                : activeTab === 'monthly' ? `${row.dateLabel}-28` : `${row.dateLabel}-12-31`;
+                : activeTab === 'monthly' 
+                  ? (() => {
+                      const [yr, mo] = row.dateLabel.split('-');
+                      const lastDay = new Date(parseInt(yr, 10), parseInt(mo, 10), 0).getDate();
+                      return `${row.dateLabel}-${String(lastDay).padStart(2, '0')}`;
+                    })()
+                  : `${row.dateLabel}-12-31`;
               const rowDate = new Date(rowDateStr);
 
               let resolvedEps: number | null = null;
               let epsSource: 'real' | 'estimated' | 'mixed' | null = null;
               let quartersUsed: any[] = [];
+              let resolvedPe: number | null = null;
+
+              const isFund = ticker.sector === 'Index' || 
+                             ticker.sector === 'ETF' || 
+                             ticker.sector?.toLowerCase().includes('etf') || 
+                             ticker.sector?.toLowerCase().includes('fund') || 
+                             ticker.symbol === 'QQQ' || ticker.symbol === 'VOO' || ticker.symbol === 'SCHD';
 
               if (ticker.historicalEpsQuarterly && Array.isArray(ticker.historicalEpsQuarterly) && ticker.historicalEpsQuarterly.length > 0) {
-                // Get quarters ending on or before rowDate
+                // Get quarters/months ending on or before rowDate
                 const relevantQuarters = ticker.historicalEpsQuarterly
                   .filter(q => new Date(q.date) <= rowDate)
-                  .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-                  .slice(0, 4);
+                  .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
-                if (relevantQuarters.length === 4) {
-                  quartersUsed = relevantQuarters;
-                  const ttmSum = relevantQuarters.reduce((sum, q) => sum + (q.epsDiluted || q.eps || 0), 0);
-                  resolvedEps = parseFloat(ttmSum.toFixed(2));
-                  
-                  const allReal = relevantQuarters.every(q => q.source === 'real');
-                  const allEst = relevantQuarters.every(q => q.source === 'estimated');
-                  epsSource = allReal ? 'real' : allEst ? 'estimated' : 'mixed';
+                if (isFund) {
+                  if (relevantQuarters.length > 0) {
+                    resolvedPe = relevantQuarters[0].peRatio || null;
+                    if (resolvedPe && resolvedPe > 0) {
+                      // Implied EPS is dynamically calculated for display as price/pe
+                      resolvedEps = row.close / resolvedPe;
+                      epsSource = 'real';
+                    }
+                  }
+                } else {
+                  const sliced = relevantQuarters.slice(0, 4);
+                  if (sliced.length === 4) {
+                    quartersUsed = sliced;
+                    const ttmSum = sliced.reduce((sum, q) => sum + (q.epsDiluted || q.eps || 0), 0);
+                    resolvedEps = parseFloat(ttmSum.toFixed(2));
+                    
+                    const allReal = sliced.every(q => q.source === 'real');
+                    const allEst = sliced.every(q => q.source === 'estimated');
+                    epsSource = allReal ? 'real' : allEst ? 'estimated' : 'mixed';
+                  }
                 }
               }
 
@@ -364,7 +388,7 @@ export const StockHistoryTable: React.FC<StockHistoryTableProps> = ({ prices, ti
                     ? parseInt(row.dateLabel.split('-')[0], 10)
                     : parseInt(row.dateLabel, 10);
 
-                if (ticker.historicalEps && ticker.historicalEps[String(rowYear)]) {
+                if (!isFund && ticker.historicalEps && ticker.historicalEps[String(rowYear)]) {
                   const entry = ticker.historicalEps[String(rowYear)];
                   resolvedEps = entry.value;
                   epsSource = entry.source;
@@ -405,7 +429,7 @@ export const StockHistoryTable: React.FC<StockHistoryTableProps> = ({ prices, ti
 
               // Dynamic calculations based on date close price
               const scaledCap = parsedCurrentCap * (row.close / ticker.price);
-              const peRatio = estimatedEps && estimatedEps > 0 ? (row.close / estimatedEps) : null;
+              const peRatio = isFund ? resolvedPe : (estimatedEps && estimatedEps > 0 ? (row.close / estimatedEps) : null);
               const divYield = row.close > 0 ? (finalDivRate / row.close) * 100 : 0;
 
               // Generate Tooltip showing summation details
