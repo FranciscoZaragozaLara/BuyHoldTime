@@ -353,8 +353,17 @@ export const StockHistoryTable: React.FC<StockHistoryTableProps> = ({ prices, ti
 
               if (ticker.historicalEpsQuarterly && Array.isArray(ticker.historicalEpsQuarterly) && ticker.historicalEpsQuarterly.length > 0) {
                 // Get quarters/months ending on or before rowDate
+                // For funds, we can match the exact calendar month of the rowDate to avoid end-of-month day offsets
                 const relevantQuarters = ticker.historicalEpsQuarterly
-                  .filter(q => new Date(q.date) <= rowDate)
+                  .filter(q => {
+                    const qDate = new Date(q.date);
+                    if (isFund) {
+                      // Allow matching the current month's PE ratio on any day of that month
+                      return qDate.getFullYear() < rowDate.getFullYear() || 
+                             (qDate.getFullYear() === rowDate.getFullYear() && qDate.getMonth() <= rowDate.getMonth());
+                    }
+                    return qDate <= rowDate;
+                  })
                   .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
                 if (isFund) {
