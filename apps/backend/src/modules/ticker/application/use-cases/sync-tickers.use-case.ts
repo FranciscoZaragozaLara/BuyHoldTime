@@ -261,8 +261,9 @@ export class SyncTickersUseCase {
         let realQuartersCount = 0;
 
         if (isTickerFund) {
-          // Keep existing historicalEpsQuarterly if it was already seeded/populated manually for QQQ and TQQQ
-          if ((sym === 'QQQ' || sym === 'TQQQ') && ticker.historicalEpsQuarterly && (ticker.historicalEpsQuarterly as any[]).length > 0) {
+          // Keep existing historicalEpsQuarterly if it was already seeded/populated manually for QQQ, TQQQ, VOO, SPY
+          const manuallySeeded = ['QQQ', 'TQQQ', 'VOO', 'SPY'];
+          if (manuallySeeded.includes(sym) && ticker.historicalEpsQuarterly && (ticker.historicalEpsQuarterly as any[]).length > 0) {
             historicalEpsQuarterly = ticker.historicalEpsQuarterly as any[];
             realQuartersCount = historicalEpsQuarterly.length;
           } else {
