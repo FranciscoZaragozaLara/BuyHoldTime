@@ -91,7 +91,27 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
     addEntries(excessCapeYieldData.history, 'excessCapeYield');
 
     // Convert to sorted array
-    return Object.values(map).sort((a, b) => a.date.localeCompare(b.date));
+    const sorted = Object.values(map).sort((a, b) => a.date.localeCompare(b.date));
+
+    // Forward fill (carry forward) missing sp500Dividend and sp500Earnings
+    let lastDividend: number | undefined = undefined;
+    let lastEarnings: number | undefined = undefined;
+
+    for (const item of sorted) {
+      if (item.sp500Dividend !== undefined) {
+        lastDividend = item.sp500Dividend;
+      } else if (lastDividend !== undefined) {
+        item.sp500Dividend = lastDividend;
+      }
+
+      if (item.sp500Earnings !== undefined) {
+        lastEarnings = item.sp500Earnings;
+      } else if (lastEarnings !== undefined) {
+        item.sp500Earnings = lastEarnings;
+      }
+    }
+
+    return sorted;
   }, [
     shillerPeData, peRatioData, sp500PriceData, 
     sp500DividendData, sp500EarningsData, cpiData, 
