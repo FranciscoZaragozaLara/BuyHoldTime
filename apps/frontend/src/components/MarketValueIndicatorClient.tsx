@@ -1,16 +1,8 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useLocale } from 'next-intl';
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  CartesianGrid,
-} from 'recharts';
+import { createChart, ColorType, LineSeries, IChartApi, createSeriesMarkers } from 'lightweight-charts';
 import { Eye, EyeOff, Calendar, Table, LineChart as ChartIcon, Sparkles } from 'lucide-react';
 import { IndicatorDetails } from '@/services/api';
 
@@ -41,9 +33,24 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
   const [showSp500Price, setShowSp500Price] = useState(true);
   const [showPeRatio, setShowPeRatio] = useState(true);
   const [showShillerPe, setShowShillerPe] = useState(true);
+  const [showMa50, setShowMa50] = useState(false);
+  const [showMa200, setShowMa200] = useState(false);
 
-  // Timeframe selection: 5Y, 10Y, 25Y, ALL
-  const [timeframe, setTimeframe] = useState<'5Y' | '10Y' | '25Y' | 'ALL'>('10Y');
+  const chartContainerRef = useRef<HTMLDivElement>(null);
+  const chartRef = useRef<IChartApi | null>(null);
+
+  // Hovered data state for interactive legend displays
+  const [hoveredData, setHoveredData] = useState<{
+    date: string | null;
+    sp500Price: number | null;
+    sp500Ema50: number | null;
+    sp500Ema200: number | null;
+    peRatio: number | null;
+    shillerPe: number | null;
+  } | null>(null);
+
+  // Timeframe selection: 1Y, 3Y, 5Y, 10Y, 25Y, ALL
+  const [timeframe, setTimeframe] = useState<'1Y' | '3Y' | '5Y' | '10Y' | '25Y' | 'ALL'>('10Y');
 
   // Pagination for the table
   const [currentPage, setCurrentPage] = useState(1);
@@ -118,15 +125,369 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
     rateGs10Data, excessCapeYieldData
   ]);
 
-  // Filter data based on selected timeframe
-  const filteredChartData = useMemo(() => {
-    if (timeframe === 'ALL') return mergedData;
+  // Compute moving averages on the full dataset so they remain accurate when zoomed
+  const dataWithMa = useMemo(() => {
+    if (mergedData.length === 0) return [];
 
-    const limitYear = new Date().getFullYear() - (timeframe === '5Y' ? 5 : timeframe === '10Y' ? 10 : 25);
-    const limitDateStr = `${limitYear}-01`;
+    const ema50: (number | undefined)[] = new Array(mergedData.length);
+    const ema200: (number | undefined)[] = new Array(mergedData.length);
 
-    return mergedData.filter((item) => item.date >= limitDateStr);
-  }, [mergedData, timeframe]);
+    // S&P 500 prices are monthly, so 50 days approx 2.4 months, 200 days approx 9.5 months
+    const m50 = 2 / (2.4 + 1);
+    const m200 = 2 / (9.5 + 1);
+
+    // Initialize first elements
+    let prev50 = mergedData[0].sp500Price;
+    let prev200 = mergedData[0].sp500Price;
+
+    ema50[0] = prev50 !== undefined ? parseFloat(prev50.toFixed(2)) : undefined;
+    ema200[0] = prev200 !== undefined ? parseFloat(prev200.toFixed(2)) : undefined;
+
+    for (let i = 1; i < mergedData.length; i++) {
+      const val = mergedData[i].sp500Price;
+
+      if (val !== undefined && val !== null) {
+        if (prev50 === undefined || prev50 === null) {
+          prev50 = val;
+          ema50[i] = parseFloat(val.toFixed(2));
+        } else {
+          prev50 = (val - prev50) * m50 + prev50;
+          ema50[i] = parseFloat(prev50.toFixed(2));
+        }
+
+        if (prev200 === undefined || prev200 === null) {
+          prev200 = val;
+          ema200[i] = parseFloat(val.toFixed(2));
+        } else {
+          prev200 = (val - prev200) * m200 + prev200;
+          ema200[i] = parseFloat(prev200.toFixed(2));
+        }
+      } else {
+        ema50[i] = undefined;
+        ema200[i] = undefined;
+      }
+    }
+
+    return mergedData.map((item, index) => ({
+      ...item,
+      sp500PriceMa50: ema50[index],
+      sp500PriceMa200: ema200[index],
+    }));
+  }, [mergedData]);
+
+  // Compute 15-day rolling opportunity markers for the S&P 500 Price series
+  const opportunityMarkers = useMemo(() => {
+    const markers: any[] = [];
+    let lastBasicTime: string | null = null;
+    let lastSuperTime: string | null = null;
+    let lastUltraTime: string | null = null;
+
+    const getDaysDiff = (d1: string, d2: string) => {
+      const t1 = new Date(d1).getTime();
+      const t2 = new Date(d2).getTime();
+      return Math.abs(t1 - t2) / (1000 * 60 * 60 * 24);
+    };
+
+    for (let i = 0; i < dataWithMa.length; i++) {
+      const d = dataWithMa[i];
+      if (!d || !d.date || d.sp500Price === undefined || d.sp500PriceMa50 === undefined || d.sp500PriceMa200 === undefined) continue;
+
+      const price = d.sp500Price;
+      const ema50Val = d.sp500PriceMa50;
+      const ema200Val = d.sp500PriceMa200;
+      const mid = (ema50Val + ema200Val) / 2;
+      const markerTime = `${d.date}-01`;
+
+      if (price > ema200Val && price < mid) {
+        if (!lastBasicTime || getDaysDiff(markerTime, lastBasicTime) >= 15) {
+          markers.push({
+            time: markerTime,
+            position: 'aboveBar',
+            color: '#3b82f6', // Blue
+            shape: 'circle',
+            text: '$',
+            size: 1,
+          });
+          lastBasicTime = markerTime;
+        }
+      } else if (price <= ema200Val && price > ema200Val * 0.9) {
+        if (!lastSuperTime || getDaysDiff(markerTime, lastSuperTime) >= 15) {
+          markers.push({
+            time: markerTime,
+            position: 'aboveBar',
+            color: '#10b981', // Green
+            shape: 'circle',
+            text: '$$',
+            size: 1.15,
+          });
+          lastSuperTime = markerTime;
+        }
+      } else if (price <= ema200Val * 0.9) {
+        if (!lastUltraTime || getDaysDiff(markerTime, lastUltraTime) >= 15) {
+          markers.push({
+            time: markerTime,
+            position: 'aboveBar',
+            color: '#eab308', // Gold
+            shape: 'circle',
+            text: '$$ 🌟',
+            size: 1.15,
+          });
+          lastUltraTime = markerTime;
+        }
+      }
+    }
+    return markers;
+  }, [dataWithMa]);
+
+  // Lightweight charts initialization and synchronization
+  useEffect(() => {
+    if (!chartContainerRef.current || dataWithMa.length === 0) return;
+
+    const chart = createChart(chartContainerRef.current, {
+      layout: {
+        background: { type: ColorType.Solid, color: '#020617' },
+        textColor: '#94a3b8',
+        fontSize: 11,
+      },
+      grid: {
+        vertLines: { color: 'rgba(30,41,59,0.1)' },
+        horzLines: { color: 'rgba(30,41,59,0.1)' },
+      },
+      rightPriceScale: {
+        borderColor: 'rgba(30,41,59,0.3)',
+        visible: showSp500Price || showMa50 || showMa200,
+      },
+      leftPriceScale: {
+        borderColor: 'rgba(30,41,59,0.3)',
+        visible: showPeRatio || showShillerPe,
+      },
+      timeScale: {
+        borderColor: 'rgba(30,41,59,0.3)',
+        rightOffset: 5,
+        barSpacing: 6,
+      },
+      crosshair: {
+        mode: 1,
+      },
+    });
+    chartRef.current = chart;
+
+    // Create Series
+    const sp500Series = chart.addSeries(LineSeries, {
+      color: '#14b8a6',
+      lineWidth: 2,
+      priceScaleId: 'right',
+      priceLineVisible: false,
+      title: 'S&P 500',
+    });
+
+    const ema50Series = chart.addSeries(LineSeries, {
+      color: '#f97316', // Orange
+      lineWidth: 2,
+      lineStyle: 1, // dashed
+      priceScaleId: 'right',
+      priceLineVisible: false,
+      visible: showMa50,
+      title: 'EMA 50',
+    });
+
+    const ema200Series = chart.addSeries(LineSeries, {
+      color: '#10b981', // Emerald
+      lineWidth: 2,
+      lineStyle: 1, // dashed
+      priceScaleId: 'right',
+      priceLineVisible: false,
+      visible: showMa200,
+      title: 'EMA 200',
+    });
+
+    const peSeries = chart.addSeries(LineSeries, {
+      color: '#f59e0b',
+      lineWidth: 2,
+      priceScaleId: 'left',
+      priceLineVisible: false,
+      visible: showPeRatio,
+      title: 'PE Ratio',
+    });
+
+    const shillerPeSeries = chart.addSeries(LineSeries, {
+      color: '#f43f5e',
+      lineWidth: 2,
+      priceScaleId: 'left',
+      priceLineVisible: false,
+      visible: showShillerPe,
+      title: 'Shiller PE',
+    });
+
+    // Populate data format suitable for lightweight charts
+    const chartPoints = dataWithMa.map((d) => ({
+      time: `${d.date}-01`,
+      sp500Price: d.sp500Price,
+      peRatio: d.peRatio,
+      shillerPe: d.shillerPe,
+      sp500PriceMa50: d.sp500PriceMa50,
+      sp500PriceMa200: d.sp500PriceMa200,
+    }));
+
+    if (showSp500Price) {
+      sp500Series.setData(chartPoints.map(p => ({ time: p.time, value: p.sp500Price ?? 0 })));
+      createSeriesMarkers(sp500Series, opportunityMarkers);
+    }
+    
+    if (showMa50) ema50Series.setData(chartPoints.map(p => ({ time: p.time, value: p.sp500PriceMa50 ?? 0 })));
+    if (showMa200) ema200Series.setData(chartPoints.map(p => ({ time: p.time, value: p.sp500PriceMa200 ?? 0 })));
+    if (showPeRatio) peSeries.setData(chartPoints.map(p => ({ time: p.time, value: p.peRatio ?? 0 })));
+    if (showShillerPe) shillerPeSeries.setData(chartPoints.map(p => ({ time: p.time, value: p.shillerPe ?? 0 })));
+
+    // Reference lines
+    let overvaluedLine: any = null;
+    let maxPriceLine: any = null;
+
+    if (showShillerPe) {
+      overvaluedLine = shillerPeSeries.createPriceLine({
+        price: 39,
+        color: '#f97316',
+        lineWidth: 2,
+        lineStyle: 1, // dashed
+        axisLabelVisible: true,
+        title: locale === 'es' ? 'Mercado Sobrevalorado' : 'Overvalued Market',
+      });
+    }
+
+    const updateMaxLine = () => {
+      if (!showShillerPe) {
+        if (maxPriceLine) {
+          shillerPeSeries.removePriceLine(maxPriceLine);
+          maxPriceLine = null;
+        }
+        return;
+      }
+
+      const range = chart.timeScale().getVisibleRange();
+      if (!range || !range.from || !range.to) return;
+
+      const fromStr = typeof range.from === 'string' ? range.from : new Date((range.from as any) * 1000).toISOString().split('T')[0];
+      const toStr = typeof range.to === 'string' ? range.to : new Date((range.to as any) * 1000).toISOString().split('T')[0];
+
+      const visiblePoints = chartPoints.filter(p => p.time >= fromStr && p.time <= toStr);
+      const values = visiblePoints.map(p => p.shillerPe).filter((v): v is number => v !== undefined && v !== null);
+
+      if (values.length > 0) {
+        const maxVal = Math.max(...values);
+        if (maxPriceLine) {
+          shillerPeSeries.removePriceLine(maxPriceLine);
+        }
+        maxPriceLine = shillerPeSeries.createPriceLine({
+          price: maxVal,
+          color: '#ef4444',
+          lineWidth: 2,
+          lineStyle: 1, // dashed
+          axisLabelVisible: true,
+          title: locale === 'es' ? `Máx: ${maxVal.toFixed(2)}x` : `Max: ${maxVal.toFixed(2)}x`,
+        });
+      }
+    };
+
+    // Subscriptions
+    chart.timeScale().subscribeVisibleTimeRangeChange(updateMaxLine);
+    
+    chart.subscribeCrosshairMove((param) => {
+      if (!param.time || !param.point) {
+        setHoveredData(null);
+        return;
+      }
+      
+      let timeStr = '';
+      if (typeof param.time === 'string') {
+        timeStr = param.time;
+      } else if (typeof param.time === 'number') {
+        timeStr = new Date(param.time * 1000).toISOString().split('T')[0];
+      } else if (param.time && typeof param.time === 'object') {
+        const t = param.time as any;
+        timeStr = `${t.year}-${String(t.month).padStart(2, '0')}-${String(t.day).padStart(2, '0')}`;
+      }
+
+      if (!timeStr) {
+        setHoveredData(null);
+        return;
+      }
+
+      const dateKey = timeStr.substring(0, 7);
+      const matched = dataWithMa.find(d => d.date === dateKey);
+      if (matched) {
+        setHoveredData({
+          date: dateKey,
+          sp500Price: matched.sp500Price ?? null,
+          sp500Ema50: matched.sp500PriceMa50 ?? null,
+          sp500Ema200: matched.sp500PriceMa200 ?? null,
+          peRatio: matched.peRatio ?? null,
+          shillerPe: matched.shillerPe ?? null,
+        });
+      } else {
+        setHoveredData(null);
+      }
+    });
+
+    // Handle timeframe bounds
+    const latest = chartPoints[chartPoints.length - 1];
+    if (latest) {
+      const latestDate = new Date(latest.time);
+      let fromDate: Date | null = null;
+      if (timeframe === '1Y') {
+        fromDate = new Date(latestDate);
+        fromDate.setFullYear(fromDate.getFullYear() - 1);
+      } else if (timeframe === '3Y') {
+        fromDate = new Date(latestDate);
+        fromDate.setFullYear(fromDate.getFullYear() - 3);
+      } else if (timeframe === '5Y') {
+        fromDate = new Date(latestDate);
+        fromDate.setFullYear(fromDate.getFullYear() - 5);
+      } else if (timeframe === '10Y') {
+        fromDate = new Date(latestDate);
+        fromDate.setFullYear(fromDate.getFullYear() - 10);
+      } else if (timeframe === '25Y') {
+        fromDate = new Date(latestDate);
+        fromDate.setFullYear(fromDate.getFullYear() - 25);
+      }
+
+      if (fromDate) {
+        chart.timeScale().setVisibleRange({
+          from: fromDate.toISOString().split('T')[0] as any,
+          to: latest.time as any,
+        });
+      } else {
+        chart.timeScale().fitContent();
+      }
+    }
+
+    setTimeout(updateMaxLine, 100);
+
+    const handleResize = () => {
+      if (chartContainerRef.current && chartRef.current) {
+        chartRef.current.applyOptions({
+          width: chartContainerRef.current.clientWidth,
+          height: chartContainerRef.current.clientHeight,
+        });
+      }
+    };
+    const resizeObserver = new ResizeObserver(handleResize);
+    resizeObserver.observe(chartContainerRef.current);
+
+    return () => {
+      resizeObserver.disconnect();
+      chart.remove();
+      chartRef.current = null;
+    };
+  }, [
+    dataWithMa,
+    showSp500Price,
+    showPeRatio,
+    showShillerPe,
+    showMa50,
+    showMa200,
+    timeframe,
+    locale,
+  ]);
 
   // Data for the table (sorted newest first)
   const tableData = useMemo(() => {
@@ -168,7 +529,6 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
       
       {/* Visual Header / Summary Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* S&P 500 Card */}
         <div className="p-6 rounded-2xl border border-slate-900 bg-slate-900/30 backdrop-blur-sm relative overflow-hidden group">
           <div className="absolute top-0 right-0 p-3 opacity-10 text-teal-400 group-hover:scale-110 transition duration-300">
             <Sparkles size={48} />
@@ -184,7 +544,6 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
           </p>
         </div>
 
-        {/* Regular PE Card */}
         <div className="p-6 rounded-2xl border border-slate-900 bg-slate-900/30 backdrop-blur-sm relative overflow-hidden group">
           <div className="absolute top-0 right-0 p-3 opacity-10 text-amber-500 group-hover:scale-110 transition duration-300">
             <Sparkles size={48} />
@@ -200,7 +559,6 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
           </p>
         </div>
 
-        {/* Shiller PE Card */}
         <div className="p-6 rounded-2xl border border-slate-900 bg-slate-900/30 backdrop-blur-sm relative overflow-hidden group">
           <div className="absolute top-0 right-0 p-3 opacity-10 text-rose-500 group-hover:scale-110 transition duration-300">
             <Sparkles size={48} />
@@ -227,10 +585,9 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
             </h2>
           </div>
 
-          {/* Timeframe Selector & Line Toggles */}
           <div className="flex flex-wrap items-center gap-3">
             <div className="flex bg-slate-900 border border-slate-800 rounded-lg p-0.5">
-              {(['5Y', '10Y', '25Y', 'ALL'] as const).map((t) => (
+              {(['1Y', '3Y', '5Y', '10Y', '25Y', 'ALL'] as const).map((t) => (
                 <button
                   key={t}
                   onClick={() => setTimeframe(t)}
@@ -248,7 +605,7 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
         </div>
 
         {/* Legend / Line toggles */}
-        <div className="flex flex-wrap gap-4 text-xs bg-slate-900/40 p-4 rounded-xl border border-slate-900">
+        <div className="flex flex-wrap gap-4 text-xs bg-slate-900/40 p-4 rounded-xl border border-slate-900 min-h-[104px] md:h-[104px] content-start">
           <button
             onClick={() => setShowSp500Price(!showSp500Price)}
             className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border transition ${
@@ -259,7 +616,7 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
           >
             {showSp500Price ? <Eye size={14} /> : <EyeOff size={14} />}
             <span className="w-2.5 h-2.5 rounded-full bg-teal-400" />
-            <span>S&P 500 Index Price</span>
+            <span>S&P 500 Index Price{hoveredData?.sp500Price ? `: $${hoveredData.sp500Price.toLocaleString(undefined, { minimumFractionDigits: 2 })}` : ''}</span>
           </button>
 
           <button
@@ -272,7 +629,7 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
           >
             {showPeRatio ? <Eye size={14} /> : <EyeOff size={14} />}
             <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
-            <span>Regular P/E Ratio</span>
+            <span>Regular P/E Ratio{hoveredData?.peRatio ? `: ${hoveredData.peRatio.toFixed(2)}x` : ''}</span>
           </button>
 
           <button
@@ -285,98 +642,44 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
           >
             {showShillerPe ? <Eye size={14} /> : <EyeOff size={14} />}
             <span className="w-2.5 h-2.5 rounded-full bg-rose-500" />
-            <span>Shiller P/E Ratio (CAPE)</span>
+            <span>Shiller P/E Ratio (CAPE){hoveredData?.shillerPe ? `: ${hoveredData.shillerPe.toFixed(2)}x` : ''}</span>
+          </button>
+
+          <button
+            onClick={() => setShowMa50(!showMa50)}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border transition ${
+              showMa50
+                ? 'bg-orange-500/10 border-orange-500/30 text-orange-300'
+                : 'bg-slate-950 border-slate-900 text-slate-600'
+            }`}
+          >
+            {showMa50 ? <Eye size={14} /> : <EyeOff size={14} />}
+            <span className="w-2.5 h-2.5 rounded-full bg-orange-500" />
+            <span>S&P 500 EMA 50{hoveredData?.sp500Ema50 ? `: $${hoveredData.sp500Ema50.toFixed(2)}` : ''}</span>
+          </button>
+
+          <button
+            onClick={() => setShowMa200(!showMa200)}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border transition ${
+              showMa200
+                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+                : 'bg-slate-950 border-slate-900 text-slate-600'
+            }`}
+          >
+            {showMa200 ? <Eye size={14} /> : <EyeOff size={14} />}
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+            <span>S&P 500 EMA 200{hoveredData?.sp500Ema200 ? `: $${hoveredData.sp500Ema200.toFixed(2)}` : ''}</span>
           </button>
         </div>
 
-        {/* Responsive Line Chart */}
-        <div className="h-[400px] w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={filteredChartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#0f172a" vertical={false} />
-              
-              <XAxis
-                dataKey="date"
-                stroke="#475569"
-                fontSize={10}
-                tickLine={false}
-                tickFormatter={formatDateLabel}
-              />
-              
-              {/* Left Axis for multiples */}
-              <YAxis
-                yAxisId="left"
-                stroke="#475569"
-                fontSize={10}
-                tickLine={false}
-                domain={[10, 50]}
-                label={{ value: 'Multiples (P/E)', angle: -90, position: 'insideLeft', fill: '#94a3b8', style: { fontSize: 10 } }}
-              />
-
-              {/* Right Axis for S&P Price */}
-              <YAxis
-                yAxisId="right"
-                orientation="right"
-                stroke="#475569"
-                fontSize={10}
-                tickLine={false}
-                domain={['auto', 'auto']}
-                label={{ value: 'S&P 500 Price ($)', angle: 90, position: 'insideRight', fill: '#94a3b8', style: { fontSize: 10 } }}
-              />
-
-              <Tooltip
-                contentStyle={{
-                  background: '#020617',
-                  borderColor: '#1e293b',
-                  borderRadius: '12px',
-                  boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.5)',
-                }}
-                labelFormatter={formatDateLabel}
-                formatter={(value: any, name: any) => {
-                  if (name === 'sp500Price') return [`$${Number(value).toFixed(2)}`, 'S&P 500 Price'];
-                  if (name === 'peRatio') return [`${Number(value).toFixed(2)}x`, 'Regular PE Ratio'];
-                  if (name === 'shillerPe') return [`${Number(value).toFixed(2)}x`, 'Shiller PE Ratio'];
-                  return [value, String(name)];
-                }}
-              />
-
-              {showSp500Price && (
-                <Line
-                  yAxisId="right"
-                  type="monotone"
-                  dataKey="sp500Price"
-                  stroke="#14b8a6"
-                  strokeWidth={2}
-                  dot={false}
-                  activeDot={{ r: 4 }}
-                />
-              )}
-
-              {showPeRatio && (
-                <Line
-                  yAxisId="left"
-                  type="monotone"
-                  dataKey="peRatio"
-                  stroke="#f59e0b"
-                  strokeWidth={2}
-                  dot={false}
-                  activeDot={{ r: 4 }}
-                />
-              )}
-
-              {showShillerPe && (
-                <Line
-                  yAxisId="left"
-                  type="monotone"
-                  dataKey="shillerPe"
-                  stroke="#f43f5e"
-                  strokeWidth={2}
-                  dot={false}
-                  activeDot={{ r: 4 }}
-                />
-              )}
-            </LineChart>
-          </ResponsiveContainer>
+        {/* Responsive Line Chart using TradingView's Lightweight Charts */}
+        <div className="relative">
+          {hoveredData?.date && (
+            <div className="absolute top-2 left-2 z-10 text-[10px] sm:text-xs font-semibold px-2.5 py-1 rounded bg-slate-950/80 text-slate-300 border border-slate-800 backdrop-blur-sm pointer-events-none">
+              <span className="text-teal-400 font-bold">{formatDateLabel(hoveredData.date)}</span>
+            </div>
+          )}
+          <div ref={chartContainerRef} className="h-[400px] w-full" />
         </div>
       </div>
 

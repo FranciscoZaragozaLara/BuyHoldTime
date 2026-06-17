@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
-import { createChart, ColorType, IChartApi, ISeriesApi, CandlestickSeries, AreaSeries, LineSeries } from 'lightweight-charts';
+import { createChart, ColorType, IChartApi, ISeriesApi, CandlestickSeries, AreaSeries, LineSeries, createSeriesMarkers } from 'lightweight-charts';
 import { HistoricalPrice, Ticker } from '@/services/api';
 import { BarChart2, TrendingUp, X, Calendar, Activity, Info } from 'lucide-react';
 import { useLocale } from 'next-intl';
@@ -81,32 +81,116 @@ export const StockChart: React.FC<StockChartProps> = ({ prices, buyHoldIndex, re
 
   // ─── EMA Calculations ───────────────────────────────────────────────────────
   const emaData = React.useMemo(() => {
+    if (!chartData || chartData.length === 0) return [];
     const period = 200;
-    if (chartData.length < period) return [];
     const ema: { time: string; value: number }[] = [];
     const m = 2 / (period + 1);
-    let prev = chartData.slice(0, period).reduce((s, d) => s + d.close, 0) / period;
-    ema.push({ time: chartData[period - 1].time, value: +prev.toFixed(2) });
-    for (let i = period; i < chartData.length; i++) {
-      prev = (chartData[i].close - prev) * m + prev;
+    
+    let prev = chartData[0]?.close;
+    if (prev === undefined || prev === null || isNaN(prev)) {
+      return [];
+    }
+    
+    ema.push({ time: chartData[0].time, value: +prev.toFixed(2) });
+    for (let i = 1; i < chartData.length; i++) {
+      const close = chartData[i]?.close;
+      if (close === undefined || close === null || isNaN(close)) continue;
+      prev = (close - prev) * m + prev;
       ema.push({ time: chartData[i].time, value: +prev.toFixed(2) });
     }
     return ema;
   }, [chartData]);
 
   const ema50Data = React.useMemo(() => {
+    if (!chartData || chartData.length === 0) return [];
     const period = 50;
-    if (chartData.length < period) return [];
     const ema: { time: string; value: number }[] = [];
     const m = 2 / (period + 1);
-    let prev = chartData.slice(0, period).reduce((s, d) => s + d.close, 0) / period;
-    ema.push({ time: chartData[period - 1].time, value: +prev.toFixed(2) });
-    for (let i = period; i < chartData.length; i++) {
-      prev = (chartData[i].close - prev) * m + prev;
+    
+    let prev = chartData[0]?.close;
+    if (prev === undefined || prev === null || isNaN(prev)) {
+      return [];
+    }
+    
+    ema.push({ time: chartData[0].time, value: +prev.toFixed(2) });
+    for (let i = 1; i < chartData.length; i++) {
+      const close = chartData[i]?.close;
+      if (close === undefined || close === null || isNaN(close)) continue;
+      prev = (close - prev) * m + prev;
       ema.push({ time: chartData[i].time, value: +prev.toFixed(2) });
     }
     return ema;
   }, [chartData]);
+
+  // ─── Opportunity Markers Calculation ─────────────────────────────────────────
+  const opportunityMarkers = React.useMemo(() => {
+    const markers: any[] = [];
+    let lastBasicTime: string | null = null;
+    let lastSuperTime: string | null = null;
+    let lastUltraTime: string | null = null;
+
+    const ema50Map = new Map((ema50Data || []).map((e) => [e.time, e.value]));
+    const ema200Map = new Map((emaData || []).map((e) => [e.time, e.value]));
+
+    const getDaysDiff = (d1: string, d2: string) => {
+      const t1 = new Date(d1).getTime();
+      const t2 = new Date(d2).getTime();
+      return Math.abs(t1 - t2) / (1000 * 60 * 60 * 24);
+    };
+
+    for (let i = 0; i < chartData.length; i++) {
+      const d = chartData[i];
+      if (!d || !d.time) continue;
+
+      const ema50Val = ema50Map.get(d.time);
+      const ema200Val = ema200Map.get(d.time);
+
+      if (ema50Val !== undefined && ema200Val !== undefined) {
+        const price = d.close;
+        if (price === undefined || price === null) continue;
+        const mid = (ema50Val + ema200Val) / 2;
+
+        if (price > ema200Val && price < mid) {
+          if (!lastBasicTime || getDaysDiff(d.time, lastBasicTime) >= 15) {
+            markers.push({
+              time: d.time,
+              position: 'aboveBar',
+              color: '#3b82f6', // Blue
+              shape: 'circle',
+              text: '$',
+              size: 1,
+            });
+            lastBasicTime = d.time;
+          }
+        } else if (price <= ema200Val && price > ema200Val * 0.9) {
+          if (!lastSuperTime || getDaysDiff(d.time, lastSuperTime) >= 15) {
+            markers.push({
+              time: d.time,
+              position: 'aboveBar',
+              color: '#10b981', // Green
+              shape: 'circle',
+              text: '$$',
+              size: 1.15,
+            });
+            lastSuperTime = d.time;
+          }
+        } else if (price <= ema200Val * 0.9) {
+          if (!lastUltraTime || getDaysDiff(d.time, lastUltraTime) >= 15) {
+            markers.push({
+              time: d.time,
+              position: 'aboveBar',
+              color: '#eab308', // Gold
+              shape: 'circle',
+              text: '$$ 🌟',
+              size: 1.15,
+            });
+            lastUltraTime = d.time;
+          }
+        }
+      }
+    }
+    return markers;
+  }, [chartData, ema50Data, emaData]);
 
   // ─── Theme Color ────────────────────────────────────────────────────────────
   const themeColor = React.useMemo(() => {
@@ -149,10 +233,12 @@ export const StockChart: React.FC<StockChartProps> = ({ prices, buyHoldIndex, re
 
     if (chartType === 'candle') {
       candlestickSeries.setData(chartData);
+      createSeriesMarkers(candlestickSeries, opportunityMarkers);
       chart.removeSeries(areaSeries);
       areaSeriesRef.current = null;
     } else {
       areaSeries.setData(chartData.map((d) => ({ time: d.time, value: d.close })));
+      createSeriesMarkers(areaSeries, opportunityMarkers);
       chart.removeSeries(candlestickSeries);
       candlestickSeriesRef.current = null;
     }
