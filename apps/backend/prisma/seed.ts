@@ -48,7 +48,8 @@ const TICKER_SEEDS = [
   { symbol: 'SOXX', name: 'iShares Semiconductor ETF', price: 220.00, changePercent: 0.0, sector: 'Index', buyHoldIndex: 75, recommendation: 'Buy', pe: 30.0, dy: 0.8, cap: '15B' },
   { symbol: 'SMH', name: 'VanEck Semiconductor ETF', price: 230.00, changePercent: 0.0, sector: 'Index', buyHoldIndex: 75, recommendation: 'Buy', pe: 30.0, dy: 0.5, cap: '18B' },
   { symbol: 'IBB', name: 'iShares Biotechnology ETF', price: 135.00, changePercent: 0.0, sector: 'Index', buyHoldIndex: 70, recommendation: 'Hold', pe: 25.0, dy: 1.2, cap: '7B' },
-  { symbol: 'NLR', name: 'VanEck Uranium+Nuclear Energy ETF', price: 80.00, changePercent: 0.0, sector: 'Index', buyHoldIndex: 70, recommendation: 'Hold', pe: 20.0, dy: 1.8, cap: '2B' }
+  { symbol: 'NLR', name: 'VanEck Uranium+Nuclear Energy ETF', price: 80.00, changePercent: 0.0, sector: 'Index', buyHoldIndex: 70, recommendation: 'Hold', pe: 20.0, dy: 1.8, cap: '2B' },
+  { symbol: 'SOXL', name: 'Direxion Daily Semiconductor Bull 3X Shares', price: 45.00, changePercent: 0.0, sector: 'Index', buyHoldIndex: 60, recommendation: 'Hold', pe: 35.0, dy: 0.07, cap: '8B' }
 ];
 
 const INDICATOR_SEEDS = [
