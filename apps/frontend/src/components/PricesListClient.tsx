@@ -89,25 +89,8 @@ export const PricesListClient: React.FC<PricesListClientProps> = ({ initialTicke
       }
     });
 
-    // Sort ETFs by selected SortOption
-    etfList.sort((a, b) => {
-      switch (sortBy) {
-        case 'score-desc':
-          return b.buyHoldIndex - a.buyHoldIndex;
-        case 'score-asc':
-          return a.buyHoldIndex - b.buyHoldIndex;
-        case 'symbol-asc':
-          return a.symbol.localeCompare(b.symbol);
-        case 'symbol-desc':
-          return b.symbol.localeCompare(a.symbol);
-        case 'price-desc':
-          return b.price - a.price;
-        case 'price-asc':
-          return a.price - b.price;
-        default:
-          return 0;
-      }
-    });
+    // Sort ETFs by MarketCap descending
+    etfList.sort((a, b) => parseMarketCap(b.cap) - parseMarketCap(a.cap));
 
     // Sort Companies by MarketCap descending
     companyList.sort((a, b) => parseMarketCap(b.cap) - parseMarketCap(a.cap));
