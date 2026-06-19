@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useLocale, useTranslations } from 'next-intl';
 import { Search, ArrowUpDown, SlidersHorizontal, Star, Activity, Sparkles, Filter, LayoutGrid, List } from 'lucide-react';
 import { Ticker } from '@/services/api';
+import precalculatedPerformance from '../data/precalculated_performance.json';
 
 interface PricesListClientProps {
   initialTickers: Ticker[];
@@ -140,6 +141,18 @@ export const PricesListClient: React.FC<PricesListClientProps> = ({ initialTicke
         ring: 'stroke-red-500',
       };
     }
+  };
+
+  const renderPerfCell = (symbol: string, key: 'perf1M' | 'perfYTD' | 'perf1Y' | 'perf5Y') => {
+    const data = (precalculatedPerformance as any)[symbol];
+    const val = data ? data[key] : null;
+    if (val === null || val === undefined) return <td className="p-4 text-right text-slate-500 font-mono">-</td>;
+    const color = val >= 0 ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold';
+    return (
+      <td className={`p-4 text-right font-mono ${color}`}>
+        {val >= 0 ? '+' : ''}{val.toFixed(2)}%
+      </td>
+    );
   };
 
   const getLocalizedRecommendation = (rec: string) => {
@@ -449,6 +462,10 @@ export const PricesListClient: React.FC<PricesListClientProps> = ({ initialTicke
                       <th className="p-4">{tPrices('sector')}</th>
                       <th className="p-4 text-right">{tCommon('price')}</th>
                       <th className="p-4 text-right">{tCommon('change')}</th>
+                      <th className="p-4 text-right">Perf 1M</th>
+                      <th className="p-4 text-right">Perf YTD</th>
+                      <th className="p-4 text-right">Perf 1Y</th>
+                      <th className="p-4 text-right">Perf 5Y</th>
                       <th className="p-4 text-right">{tPrices('cap')}</th>
                       <th className="p-4 text-right">{tPrices('pe')}</th>
                       <th className="p-4 text-right">Forward P/E</th>
@@ -483,6 +500,10 @@ export const PricesListClient: React.FC<PricesListClientProps> = ({ initialTicke
                             {stock.changePercent >= 0 ? '+' : ''}
                             {stock.changePercent.toFixed(2)}%
                           </td>
+                          {renderPerfCell(stock.symbol, 'perf1M')}
+                          {renderPerfCell(stock.symbol, 'perfYTD')}
+                          {renderPerfCell(stock.symbol, 'perf1Y')}
+                          {renderPerfCell(stock.symbol, 'perf5Y')}
                           <td className="p-4 text-right text-slate-300 font-mono">{stock.cap || 'N/A'}</td>
                           <td className="p-4 text-right text-slate-300 font-bold font-mono">{stock.pe ? `${stock.pe.toFixed(2)}x` : 'N/A'}</td>
                           <td className="p-4 text-right text-slate-400 font-mono">{stock.forwardPe ? `${stock.forwardPe.toFixed(2)}x` : 'N/A'}</td>
@@ -525,6 +546,10 @@ export const PricesListClient: React.FC<PricesListClientProps> = ({ initialTicke
                       <th className="p-4">{tPrices('sector')}</th>
                       <th className="p-4 text-right">{tCommon('price')}</th>
                       <th className="p-4 text-right">{tCommon('change')}</th>
+                      <th className="p-4 text-right">Perf 1M</th>
+                      <th className="p-4 text-right">Perf YTD</th>
+                      <th className="p-4 text-right">Perf 1Y</th>
+                      <th className="p-4 text-right">Perf 5Y</th>
                       <th className="p-4 text-right">{tPrices('cap')}</th>
                       <th className="p-4 text-right">{tPrices('pe')}</th>
                       <th className="p-4 text-right">Forward P/E</th>
@@ -559,6 +584,10 @@ export const PricesListClient: React.FC<PricesListClientProps> = ({ initialTicke
                             {stock.changePercent >= 0 ? '+' : ''}
                             {stock.changePercent.toFixed(2)}%
                           </td>
+                          {renderPerfCell(stock.symbol, 'perf1M')}
+                          {renderPerfCell(stock.symbol, 'perfYTD')}
+                          {renderPerfCell(stock.symbol, 'perf1Y')}
+                          {renderPerfCell(stock.symbol, 'perf5Y')}
                           <td className="p-4 text-right text-slate-300 font-mono">{stock.cap || 'N/A'}</td>
                           <td className="p-4 text-right text-slate-300 font-bold font-mono">{stock.pe ? `${stock.pe.toFixed(2)}x` : 'N/A'}</td>
                           <td className="p-4 text-right text-slate-400 font-mono">{stock.forwardPe ? `${stock.forwardPe.toFixed(2)}x` : 'N/A'}</td>
