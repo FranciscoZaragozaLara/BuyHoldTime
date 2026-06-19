@@ -43,7 +43,12 @@ const TICKER_SEEDS = [
   { symbol: 'UNH', name: 'UnitedHealth Group Inc.', price: 510.20, changePercent: -0.85, sector: 'Healthcare', buyHoldIndex: 72, recommendation: 'Hold', pe: 19.5, dy: 1.48, cap: '470B' },
   { symbol: 'AVGO', name: 'Broadcom Inc.', price: 1350.50, changePercent: 2.80, sector: 'Technology', buyHoldIndex: 87, recommendation: 'Strong Buy', pe: 45.3, dy: 1.56, cap: '630B' },
   { symbol: 'XOM', name: 'Exxon Mobil Corporation', price: 118.20, changePercent: 0.45, sector: 'Energy', buyHoldIndex: 74, recommendation: 'Buy', pe: 13.1, dy: 3.21, cap: '470B' },
-  { symbol: 'WMT', name: 'Walmart Inc.', price: 60.15, changePercent: -0.10, sector: 'Consumer Defensive', buyHoldIndex: 76, recommendation: 'Buy', pe: 27.5, dy: 1.39, cap: '480B' }
+  { symbol: 'WMT', name: 'Walmart Inc.', price: 60.15, changePercent: -0.10, sector: 'Consumer Defensive', buyHoldIndex: 76, recommendation: 'Buy', pe: 27.5, dy: 1.39, cap: '480B' },
+  { symbol: 'MA', name: 'Mastercard Incorporated', price: 450.00, changePercent: 0.0, sector: 'Financial', buyHoldIndex: 75, recommendation: 'Buy', pe: 30.0, dy: 0.6, cap: '420B' },
+  { symbol: 'SOXX', name: 'iShares Semiconductor ETF', price: 220.00, changePercent: 0.0, sector: 'Index', buyHoldIndex: 75, recommendation: 'Buy', pe: 30.0, dy: 0.8, cap: '15B' },
+  { symbol: 'SMH', name: 'VanEck Semiconductor ETF', price: 230.00, changePercent: 0.0, sector: 'Index', buyHoldIndex: 75, recommendation: 'Buy', pe: 30.0, dy: 0.5, cap: '18B' },
+  { symbol: 'IBB', name: 'iShares Biotechnology ETF', price: 135.00, changePercent: 0.0, sector: 'Index', buyHoldIndex: 70, recommendation: 'Hold', pe: 25.0, dy: 1.2, cap: '7B' },
+  { symbol: 'NLR', name: 'VanEck Uranium+Nuclear Energy ETF', price: 80.00, changePercent: 0.0, sector: 'Index', buyHoldIndex: 70, recommendation: 'Hold', pe: 20.0, dy: 1.8, cap: '2B' }
 ];
 
 const INDICATOR_SEEDS = [

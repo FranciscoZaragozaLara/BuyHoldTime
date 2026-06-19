@@ -61,7 +61,7 @@ export const PricesListClient: React.FC<PricesListClientProps> = ({ initialTicke
     const isEtf = (ticker: Ticker) => {
       const sector = (ticker.sector || '').toLowerCase();
       const symbol = (ticker.symbol || '').toUpperCase();
-      return sector === 'index' || sector === 'etf' || ['SPY', 'VOO', 'QQQ', 'SCHD', 'TQQQ'].includes(symbol);
+      return sector === 'index' || sector === 'etf' || ['SPY', 'VOO', 'QQQ', 'SCHD', 'TQQQ', 'SOXX', 'SMH', 'IBB', 'NLR'].includes(symbol);
     };
 
     const parseMarketCap = (capStr: string | null | undefined): number => {
