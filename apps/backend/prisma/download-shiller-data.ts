@@ -3,28 +3,48 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { execSync } from 'child_process';
 
-const SHILLER_URL = 'http://www.econ.yale.edu/~shiller/data/ie_data.xls';
+const LANDING_PAGE_URL = 'https://shillerdata.com/';
+const FALLBACK_DOWNLOAD_URL = 'https://img1.wsimg.com/blobby/go/e5e77e0b-59d1-44d9-ab25-4763ac982e53/downloads/907c87f4-4176-4a13-9487-abddeadceb1b/ie_data.xls?ver=1783525168910';
 const DEST_PATH = path.join(__dirname, '../../../source/SchillePERatio.xls');
 
 async function main() {
-  console.log(`Downloading latest Robert Shiller data from: ${SHILLER_URL}`);
+  let downloadUrl = FALLBACK_DOWNLOAD_URL;
+
+  console.log(`Querying ${LANDING_PAGE_URL} via curl to find latest download link...`);
   try {
-    const response = await fetch(SHILLER_URL);
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+    const html = execSync(`curl -sL "${LANDING_PAGE_URL}"`, { encoding: 'utf-8', maxBuffer: 10 * 1024 * 1024 });
+    
+    // Regex to match the GoDaddy wsimg download link for ie_data.xls
+    const regex = /https:\/\/img1\.wsimg\.com\/blobby\/go\/[a-f0-9-]+\/downloads\/[a-f0-9-]+\/ie_data\.xls\?ver=[0-9]+/i;
+    const match = html.match(regex);
+
+    if (match) {
+      downloadUrl = match[0];
+      console.log(`Found latest dynamic URL: ${downloadUrl}`);
+    } else {
+      console.log(`Dynamic URL not matched in HTML, using fallback: ${downloadUrl}`);
     }
+  } catch (err: any) {
+    console.warn(`Failed to scrape landing page: ${err.message}. Proceeding with fallback URL.`);
+  }
 
-    const arrayBuffer = await response.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-
+  console.log(`Downloading spreadsheet from: ${downloadUrl}`);
+  try {
     // Make sure destination folder exists
     const dir = path.dirname(DEST_PATH);
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
     }
 
-    fs.writeFileSync(DEST_PATH, buffer);
-    console.log(`File successfully saved to: ${DEST_PATH} (${(buffer.length / 1024 / 1024).toFixed(2)} MB)`);
+    // Download file using curl to follow redirects and bypass TLS connect blockages
+    execSync(`curl -sL "${downloadUrl}" -o "${DEST_PATH}"`);
+    
+    if (fs.existsSync(DEST_PATH)) {
+      const stats = fs.statSync(DEST_PATH);
+      console.log(`File successfully saved to: ${DEST_PATH} (${(stats.size / 1024 / 1024).toFixed(2)} MB)`);
+    } else {
+      throw new Error('Downloaded file not found on disk');
+    }
 
     // Run the seed script automatically to import updated data
     console.log('Executing seed-shiller-pe.ts to load the downloaded data into the database...');
