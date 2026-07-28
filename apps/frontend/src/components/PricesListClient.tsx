@@ -155,7 +155,7 @@ export const PricesListClient: React.FC<PricesListClientProps> = ({ initialTicke
     );
   };
 
-  const renderFromHighCell = (stock: Ticker) => {
+  const renderFromHighCell = (stock: Ticker, index: number = 0, total: number = 10) => {
     const data = (precalculatedPerformance as any)[stock.symbol];
     const storedHighestPrice = data?.highestPrice ?? 0;
     const storedHighestDate = data?.highestDate ?? '';
@@ -190,6 +190,8 @@ export const PricesListClient: React.FC<PricesListClientProps> = ({ initialTicke
         })
       : 'N/A';
 
+    const isNearBottom = total > 2 && index >= total - 2;
+
     return (
       <td className="p-4 text-right font-mono relative group/ath hover:z-30 cursor-help">
         <div className="inline-flex items-center gap-1 justify-end">
@@ -199,9 +201,9 @@ export const PricesListClient: React.FC<PricesListClientProps> = ({ initialTicke
           <span className="text-[10px] text-slate-500 group-hover/ath:text-teal-400 transition-colors ml-0.5">ℹ</span>
         </div>
 
-        {/* Hover Popover Tooltip */}
-        <div className="pointer-events-none absolute right-2 top-full mt-2.5 hidden group-hover/ath:flex flex-col gap-2 w-64 p-3.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-200 text-xs shadow-[0_10px_25px_-5px_rgba(0,0,0,0.8)] z-50 text-left font-sans animate-in fade-in zoom-in-95 duration-150">
-          <div className="absolute -top-1.5 right-4 w-3 h-3 bg-slate-950 border-t border-l border-slate-800 rotate-45"></div>
+        {/* Hover Popover Tooltip (Smart positioning: opens UP if near bottom, DOWN if near top) */}
+        <div className={`pointer-events-none absolute right-2 ${isNearBottom ? 'bottom-full mb-2.5' : 'top-full mt-2.5'} hidden group-hover/ath:flex flex-col gap-2 w-64 p-3.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-200 text-xs shadow-[0_10px_25px_-5px_rgba(0,0,0,0.8)] z-50 text-left font-sans animate-in fade-in zoom-in-95 duration-150`}>
+          <div className={`absolute ${isNearBottom ? '-bottom-1.5 border-b border-r' : '-top-1.5 border-t border-l'} right-4 w-3 h-3 bg-slate-950 border-slate-800 rotate-45`}></div>
           
           <div className="flex items-center justify-between border-b border-slate-900 pb-2 font-extrabold text-teal-400 relative z-10">
             <span>{locale === 'es' ? 'Caída desde Máximo' : 'From High Calculation'}</span>
@@ -566,7 +568,7 @@ export const PricesListClient: React.FC<PricesListClientProps> = ({ initialTicke
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-900/60 font-mono">
-                    {filteredEtfs.map((stock) => {
+                    {filteredEtfs.map((stock, index) => {
                       const styles = getRecommendationStyle(stock.recommendation, stock.buyHoldIndex);
                       const isBuy = stock.buyHoldIndex >= 75;
                       const changeColor = stock.changePercent >= 0 ? 'text-emerald-400' : 'text-rose-400';
@@ -596,7 +598,7 @@ export const PricesListClient: React.FC<PricesListClientProps> = ({ initialTicke
                           {renderPerfCell(stock.symbol, 'perfYTD')}
                           {renderPerfCell(stock.symbol, 'perf1Y')}
                           {renderPerfCell(stock.symbol, 'perf5Y')}
-                          {renderFromHighCell(stock)}
+                          {renderFromHighCell(stock, index, filteredEtfs.length)}
                           <td className="p-4 text-right text-slate-300 font-mono">{stock.cap || 'N/A'}</td>
                           <td className="p-4 text-right text-slate-300 font-bold font-mono">{stock.pe ? `${stock.pe.toFixed(2)}x` : 'N/A'}</td>
                           <td className="p-4 text-right text-slate-400 font-mono">{stock.forwardPe ? `${stock.forwardPe.toFixed(2)}x` : 'N/A'}</td>
@@ -655,7 +657,7 @@ export const PricesListClient: React.FC<PricesListClientProps> = ({ initialTicke
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-900/60 font-mono">
-                    {filteredCompanies.map((stock) => {
+                    {filteredCompanies.map((stock, index) => {
                       const styles = getRecommendationStyle(stock.recommendation, stock.buyHoldIndex);
                       const isBuy = stock.buyHoldIndex >= 75;
                       const changeColor = stock.changePercent >= 0 ? 'text-emerald-400' : 'text-rose-400';
@@ -685,7 +687,7 @@ export const PricesListClient: React.FC<PricesListClientProps> = ({ initialTicke
                           {renderPerfCell(stock.symbol, 'perfYTD')}
                           {renderPerfCell(stock.symbol, 'perf1Y')}
                           {renderPerfCell(stock.symbol, 'perf5Y')}
-                          {renderFromHighCell(stock)}
+                          {renderFromHighCell(stock, index, filteredCompanies.length)}
                           <td className="p-4 text-right text-slate-300 font-mono">{stock.cap || 'N/A'}</td>
                           <td className="p-4 text-right text-slate-300 font-bold font-mono">{stock.pe ? `${stock.pe.toFixed(2)}x` : 'N/A'}</td>
                           <td className="p-4 text-right text-slate-400 font-mono">{stock.forwardPe ? `${stock.forwardPe.toFixed(2)}x` : 'N/A'}</td>
