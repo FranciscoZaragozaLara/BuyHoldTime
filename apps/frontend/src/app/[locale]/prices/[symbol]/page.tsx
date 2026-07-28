@@ -6,6 +6,8 @@ import { Layout } from '@/components/Layout';
 import { StockChart } from '@/components/StockChart';
 import { StockHistoryTable } from '@/components/StockHistoryTable';
 import { QuarterlyDataTable } from '@/components/QuarterlyDataTable';
+import { FundamentalAnalysisCard } from '@/components/FundamentalAnalysisCard';
+import { FundamentalTablesTab } from '@/components/FundamentalTablesTab';
 import { 
   ArrowLeft, Star, TrendingUp, DollarSign, Calendar, BarChart3, 
   Activity, ShieldAlert, BadgeInfo, Scale 
@@ -511,6 +513,14 @@ export default async function TickerDetailsPage({
           </div>
         </div>
 
+        {/* GuruFocus Fundamental Analysis Card (Companies only) */}
+        {details.snapshot && (
+          <FundamentalAnalysisCard 
+            snapshot={details.snapshot} 
+            currentPrice={ticker.price} 
+          />
+        )}
+
         {/* Full-width section below for long wide tables */}
         <div className="flex flex-col gap-8 w-full">
           
@@ -526,6 +536,13 @@ export default async function TickerDetailsPage({
             quarters={ticker.historicalEpsQuarterly} 
             historicalPrices={updatedPrices}
           />
+
+          {/* Tabbed Fundamental Tables (GuruFocus Scraped JSON Tables & Analyst Estimates) */}
+          {details.snapshot && (
+            <FundamentalTablesTab 
+              snapshot={details.snapshot} 
+            />
+          )}
 
           {/* Annual Simulated Returns Table */}
           <div className="p-6 rounded-2xl border border-slate-900 bg-slate-950/60 backdrop-blur-xl shadow-2xl flex flex-col gap-6">

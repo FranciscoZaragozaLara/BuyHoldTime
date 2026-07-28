@@ -7,6 +7,7 @@ import { HistoricalPrice } from '../../domain/historical-price.entity';
 export interface TickerDetailsDto {
   ticker: Ticker;
   historicalPrices: HistoricalPrice[];
+  snapshot?: any;
 }
 
 @Injectable()
@@ -23,9 +24,12 @@ export class GetTickerDetailsUseCase {
     }
 
     const historicalPrices = await this.tickerRepository.findHistoricalPrices(ticker.id, limit);
+    const snapshot = await this.tickerRepository.findLatestSnapshot(symbol);
+
     return {
       ticker,
       historicalPrices,
+      snapshot: snapshot || null,
     };
   }
 }

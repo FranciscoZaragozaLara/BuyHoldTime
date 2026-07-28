@@ -157,4 +157,33 @@ export class TickerRepositoryImpl implements ITickerRepository {
       where: { tickerId },
     });
   }
+
+  async findLatestSnapshot(symbol: string): Promise<any | null> {
+    const stock = await this.prisma.stock.findFirst({
+      where: { ticker: { equals: symbol, mode: 'insensitive' } },
+    });
+    if (!stock) return null;
+
+    const snapshot = await this.prisma.snapshot.findFirst({
+      where: { stockId: stock.id },
+      orderBy: { scrapeDate: 'desc' },
+    });
+
+    if (!snapshot) return null;
+
+    return {
+      ...snapshot,
+      price: snapshot.price ? Number(snapshot.price) : null,
+      gfValue: snapshot.gfValue ? Number(snapshot.gfValue) : null,
+      pe: snapshot.pe ? Number(snapshot.pe) : null,
+      pb: snapshot.pb ? Number(snapshot.pb) : null,
+      forwardPe: snapshot.forwardPe ? Number(snapshot.forwardPe) : null,
+      pegRatio: snapshot.pegRatio ? Number(snapshot.pegRatio) : null,
+      psRatio: snapshot.psRatio ? Number(snapshot.psRatio) : null,
+      shillerPe: snapshot.shillerPe ? Number(snapshot.shillerPe) : null,
+      dividendYield: snapshot.dividendYield ? Number(snapshot.dividendYield) : null,
+      earningsYield: snapshot.earningsYield ? Number(snapshot.earningsYield) : null,
+      evToEbitda: snapshot.evToEbitda ? Number(snapshot.evToEbitda) : null,
+    };
+  }
 }

@@ -55,6 +55,7 @@ export interface HistoricalPrice {
 export interface TickerDetails {
   ticker: Ticker;
   historicalPrices: HistoricalPrice[];
+  snapshot?: any;
 }
 
 export interface Indicator {

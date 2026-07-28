@@ -88,3 +88,47 @@ model Subscription {
 
   @@map("subscriptions")
 }
+
+model Stock {
+  id          Int        @id @default(autoincrement())
+  ticker      String
+  companyName String?    @map("companyName")
+  exchange    String?
+  isActive    Boolean    @map("isActive")
+  revenue     Decimal?   @db.Decimal
+  eps         Decimal?   @db.Decimal
+  createdAt   DateTime   @map("createdAt")
+  updatedAt   DateTime   @updatedAt @map("updatedAt")
+  snapshots   Snapshot[]
+
+  @@map("stocks")
+}
+
+model Snapshot {
+  id               Int      @id @default(autoincrement())
+  stockId          Int      @map("stockId")
+  scrapeDate       DateTime @map("scrapeDate") @db.Date
+  price            Decimal? @db.Decimal
+  gfValue          Decimal? @db.Decimal
+  gfScore          Int?     @map("gfScore")
+  pe               Decimal? @db.Decimal
+  pb               Decimal? @db.Decimal
+  recommendation   String?
+  scores           Json?
+  tables           Json?
+  analystEstimates Json?    @map("analystEstimates")
+  todayChart       Json?    @map("todayChart")
+  status           String
+  errorMessage     String?  @map("errorMessage")
+  createdAt        DateTime @map("createdAt")
+  dividendYield    Decimal? @db.Decimal
+  earningsYield    Decimal? @db.Decimal
+  evToEbitda       Decimal? @db.Decimal
+  forwardPe        Decimal? @db.Decimal
+  pegRatio         Decimal? @db.Decimal
+  psRatio          Decimal? @db.Decimal
+  shillerPe        Decimal? @db.Decimal
+  stock            Stock    @relation(fields: [stockId], references: [id], onDelete: Cascade)
+
+  @@map("snapshots")
+}

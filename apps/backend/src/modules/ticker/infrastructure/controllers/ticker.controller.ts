@@ -32,6 +32,7 @@ export class TickerController {
         ...price,
         volume: Number(price.volume),
       })),
+      snapshot: details.snapshot || null,
     };
   }
 

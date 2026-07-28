@@ -8,6 +8,7 @@ export interface ITickerRepository {
   updateValuationMetrics(tickerId: string, data: Partial<Ticker>): Promise<void>;
   saveHistoricalPrices(tickerId: string, prices: { date: Date; open: number; high: number; low: number; close: number; adjClose: number; volume: bigint }[]): Promise<void>;
   clearHistoricalPrices(tickerId: string): Promise<void>;
+  findLatestSnapshot(symbol: string): Promise<any | null>;
 }
 
 export const ITickerRepositorySymbol = Symbol('ITickerRepository');
