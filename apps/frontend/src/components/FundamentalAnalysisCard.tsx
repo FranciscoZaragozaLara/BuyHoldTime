@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { useLocale } from 'next-intl';
-import { Sparkles, DollarSign, Award, Layers, TrendingUp, BarChart2, ShieldCheck } from 'lucide-react';
+import { Sparkles, DollarSign, Award, TrendingUp, BarChart2 } from 'lucide-react';
 import { Ticker } from '@/services/api';
 
 interface FundamentalAnalysisCardProps {
@@ -71,17 +71,6 @@ export const FundamentalAnalysisCard: React.FC<FundamentalAnalysisCardProps> = (
     }
     return 'bg-amber-500/10 text-amber-400 border-amber-500/30';
   };
-
-  // Scores breakdown from snapshot.scores
-  const scoresObj = snapshot?.scores && typeof snapshot.scores === 'object' ? snapshot.scores : {};
-
-  const scoreItems = [
-    { label: locale === 'es' ? 'Crecimiento' : 'Growth', value: scoresObj.growth },
-    { label: locale === 'es' ? 'Rentabilidad' : 'Profitability', value: scoresObj.profitability },
-    { label: locale === 'es' ? 'Fuerza Fin.' : 'Fin. Strength', value: scoresObj.financialStrength },
-    { label: locale === 'es' ? 'Momento' : 'Momentum', value: scoresObj.momentum },
-    { label: locale === 'es' ? 'Valuación' : 'Valuation', value: scoresObj.valuation },
-  ].filter((item) => item.value);
 
   // Consolidated non-repeating metrics organized by Broker category
   const valuationMetrics = [
@@ -236,24 +225,6 @@ export const FundamentalAnalysisCard: React.FC<FundamentalAnalysisCardProps> = (
             </div>
           </div>
 
-        </div>
-      )}
-
-      {/* Sub-Scores BHT Strip */}
-      {scoreItems.length > 0 && (
-        <div className="flex flex-col gap-1.5 pt-1">
-          <span className="text-[9.5px] uppercase font-extrabold tracking-wider text-slate-500 flex items-center gap-1">
-            <Layers size={11} className="text-teal-400" />
-            {locale === 'es' ? 'Sub-Scores BHT' : 'BHT Sub-Scores'}
-          </span>
-          <div className="flex flex-wrap gap-1.5">
-            {scoreItems.map((item) => (
-              <div key={item.label} className="px-2 py-1 rounded-md border border-slate-900 bg-slate-900/40 text-[10px] flex items-center gap-1.5">
-                <span className="text-slate-400 font-medium">{item.label}:</span>
-                <strong className="text-teal-300 font-black">{item.value}</strong>
-              </div>
-            ))}
-          </div>
         </div>
       )}
 

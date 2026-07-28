@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useLocale } from 'next-intl';
-import { Layers, Activity, TrendingUp, ShieldCheck, PieChart, Users, ChevronRight } from 'lucide-react';
+import { Layers, Activity, TrendingUp, ShieldCheck, PieChart, Users, ChevronRight, Zap } from 'lucide-react';
 
 interface FundamentalTablesTabProps {
   snapshot: any;
@@ -15,17 +15,54 @@ export const FundamentalTablesTab: React.FC<FundamentalTablesTabProps> = ({ snap
 
   const tablesObj = snapshot.tables && typeof snapshot.tables === 'object' ? snapshot.tables : {};
   const estimatesObj = snapshot.analystEstimates && typeof snapshot.analystEstimates === 'object' ? snapshot.analystEstimates : null;
+  const scoresObj = snapshot.scores && typeof snapshot.scores === 'object' ? snapshot.scores : {};
 
   const [activeTab, setActiveTab] = useState<string>('all');
 
-  // Define tab mapping
+  // Define tab mapping with embedded Sub-Scores badges
   const tabs = [
-    { id: 'all', label: locale === 'es' ? 'Todos los Datos' : 'All Data', icon: Layers },
-    { id: 'financialStrength', label: locale === 'es' ? 'Fuerza Financiera' : 'Financial Strength', icon: ShieldCheck },
-    { id: 'profitability', label: locale === 'es' ? 'Rentabilidad' : 'Profitability', icon: Activity },
-    { id: 'valuation', label: locale === 'es' ? 'Valuación' : 'Valuation', icon: PieChart },
-    { id: 'growth', label: locale === 'es' ? 'Crecimiento' : 'Growth', icon: TrendingUp },
-    { id: 'estimates', label: locale === 'es' ? 'Estimaciones Analistas' : 'Analyst Estimates', icon: Users },
+    { 
+      id: 'all', 
+      label: locale === 'es' ? 'Todos los Datos' : 'All Data', 
+      icon: Layers,
+      score: null,
+    },
+    { 
+      id: 'financialStrength', 
+      label: locale === 'es' ? 'Fuerza Financiera' : 'Financial Strength', 
+      icon: ShieldCheck,
+      score: scoresObj.financialStrength ?? null,
+    },
+    { 
+      id: 'profitability', 
+      label: locale === 'es' ? 'Rentabilidad' : 'Profitability', 
+      icon: Activity,
+      score: scoresObj.profitability ?? null,
+    },
+    { 
+      id: 'valuation', 
+      label: locale === 'es' ? 'Valuación' : 'Valuation', 
+      icon: PieChart,
+      score: scoresObj.valuation ?? null,
+    },
+    { 
+      id: 'growth', 
+      label: locale === 'es' ? 'Crecimiento' : 'Growth', 
+      icon: TrendingUp,
+      score: scoresObj.growth ?? null,
+    },
+    { 
+      id: 'momentum', 
+      label: locale === 'es' ? 'Momento' : 'Momentum', 
+      icon: Zap,
+      score: scoresObj.momentum ?? null,
+    },
+    { 
+      id: 'estimates', 
+      label: locale === 'es' ? 'Proyecciones Wall St.' : 'Wall St. Forecasts', 
+      icon: Users,
+      score: null,
+    },
   ];
 
   // Map category IDs to display names and keys inside tablesObj
@@ -45,6 +82,10 @@ export const FundamentalTablesTab: React.FC<FundamentalTablesTabProps> = ({ snap
     growth: {
       title: locale === 'es' ? 'Crecimiento (Growth Rank)' : 'Growth Rank',
       keys: ['growth'],
+    },
+    momentum: {
+      title: locale === 'es' ? 'Momento Técnico (Momentum)' : 'Technical Momentum',
+      keys: ['momentum'],
     },
   };
 
@@ -141,7 +182,7 @@ export const FundamentalTablesTab: React.FC<FundamentalTablesTabProps> = ({ snap
     if (!estimatesObj || !estimatesObj.years || !estimatesObj.estimates) {
       return (
         <div className="p-8 text-center border border-dashed border-slate-800 rounded-xl bg-slate-950/20 text-slate-500 text-xs">
-          {locale === 'es' ? 'No se encontraron estimaciones futuras de analistas para esta acción.' : 'No analyst projections available for this stock.'}
+          {locale === 'es' ? 'No se encontraron proyecciones futuras de analistas para esta acción.' : 'No analyst projections available for this stock.'}
         </div>
       );
     }
@@ -152,7 +193,7 @@ export const FundamentalTablesTab: React.FC<FundamentalTablesTabProps> = ({ snap
     return (
       <div className="flex flex-col gap-3">
         <h4 className="text-sm font-black uppercase tracking-wider text-emerald-400 flex items-center gap-2 border-l-4 border-emerald-400 pl-2.5 py-0.5">
-          {locale === 'es' ? 'Proyecciones Futuras de Analistas (Wall Street)' : 'Wall Street Financial Projections'}
+          {locale === 'es' ? 'Proyecciones Futuras de Wall Street (Multi-Year Forecasts)' : 'Wall Street Multi-Year Financial Forecasts'}
         </h4>
         <div className="overflow-x-auto border border-slate-900 rounded-xl bg-slate-950/40 shadow-xl">
           <table className="w-full text-left text-xs">
@@ -226,10 +267,10 @@ export const FundamentalTablesTab: React.FC<FundamentalTablesTabProps> = ({ snap
       {/* Navigation Tabs Header */}
       <div className="flex flex-col gap-3">
         <span className="text-[10px] uppercase font-bold tracking-wider text-slate-500">
-          {locale === 'es' ? 'Explorar Tablas Fundamentales' : 'Explore Fundamental Tables'}
+          {locale === 'es' ? 'Explorar Tablas Fundamentales BHT' : 'Explore BHT Fundamental Tables'}
         </span>
 
-        {/* Tab Buttons (Scrollable) */}
+        {/* Tab Buttons (Scrollable with Embedded Sub-Score Badges) */}
         <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-slate-800 border-b border-slate-900">
           {tabs.map((tab) => {
             const Icon = tab.icon;
@@ -238,14 +279,21 @@ export const FundamentalTablesTab: React.FC<FundamentalTablesTabProps> = ({ snap
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`px-4 py-2.5 rounded-xl text-xs font-extrabold whitespace-nowrap transition-all cursor-pointer flex items-center gap-2 border ${
+                className={`px-3.5 py-2 rounded-xl text-xs font-extrabold whitespace-nowrap transition-all cursor-pointer flex items-center gap-2 border ${
                   isActive
                     ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/40 shadow-[0_0_12px_rgba(16,185,129,0.15)]'
                     : 'bg-slate-900/40 text-slate-400 border-slate-900 hover:bg-slate-900 hover:text-slate-200'
                 }`}
               >
                 <Icon size={14} className={isActive ? 'text-emerald-400' : 'text-slate-500'} />
-                {tab.label}
+                <span>{tab.label}</span>
+                {tab.score && (
+                  <span className={`px-1.5 py-0.5 rounded text-[10px] font-black font-mono transition-colors ${
+                    isActive ? 'bg-emerald-500/20 text-emerald-300' : 'bg-slate-800 text-teal-400'
+                  }`}>
+                    {tab.score}
+                  </span>
+                )}
               </button>
             );
           })}
