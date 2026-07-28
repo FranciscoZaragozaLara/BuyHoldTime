@@ -311,10 +311,11 @@ export const PricesListClient: React.FC<PricesListClientProps> = ({ initialTicke
                       <div className="flex justify-between items-start gap-4">
                         <div>
                           <div className="flex items-center gap-2">
-                            <span className="text-xl font-extrabold text-white group-hover:text-teal-400 transition-colors">
+                            <span className="inline-flex items-center gap-1 px-3 py-1 rounded-lg text-sm font-black tracking-wider uppercase bg-teal-500/15 text-teal-300 border border-teal-500/30 group-hover:bg-teal-500 group-hover:text-slate-950 group-hover:border-teal-400 shadow-[0_0_12px_rgba(20,184,166,0.15)] group-hover:shadow-[0_0_16px_rgba(20,184,166,0.4)] transition-all duration-200">
                               {stock.symbol}
+                              <span className="text-xs opacity-70 group-hover:opacity-100 font-normal">→</span>
                             </span>
-                            <span className="text-[10px] font-bold text-slate-500 border border-slate-900 rounded bg-slate-900/60 px-1.5 py-0.5">
+                            <span className="text-[10px] font-bold text-slate-400 border border-slate-800 rounded bg-slate-900/60 px-2 py-0.5">
                               {stock.sector}
                             </span>
                           </div>
@@ -392,10 +393,11 @@ export const PricesListClient: React.FC<PricesListClientProps> = ({ initialTicke
                       <div className="flex justify-between items-start gap-4">
                         <div>
                           <div className="flex items-center gap-2">
-                            <span className="text-xl font-extrabold text-white group-hover:text-teal-400 transition-colors">
+                            <span className="inline-flex items-center gap-1 px-3 py-1 rounded-lg text-sm font-black tracking-wider uppercase bg-teal-500/15 text-teal-300 border border-teal-500/30 group-hover:bg-teal-500 group-hover:text-slate-950 group-hover:border-teal-400 shadow-[0_0_12px_rgba(20,184,166,0.15)] group-hover:shadow-[0_0_16px_rgba(20,184,166,0.4)] transition-all duration-200">
                               {stock.symbol}
+                              <span className="text-xs opacity-70 group-hover:opacity-100 font-normal">→</span>
                             </span>
-                            <span className="text-[10px] font-bold text-slate-500 border border-slate-900 rounded bg-slate-900/60 px-1.5 py-0.5">
+                            <span className="text-[10px] font-bold text-slate-400 border border-slate-800 rounded bg-slate-900/60 px-2 py-0.5">
                               {stock.sector}
                             </span>
                           </div>
@@ -485,9 +487,12 @@ export const PricesListClient: React.FC<PricesListClientProps> = ({ initialTicke
                       return (
                         <tr key={stock.symbol} className="hover:bg-slate-900/20 transition-colors">
                           <td className="p-4 font-sans font-bold text-white whitespace-nowrap">
-                            <Link href={`/${locale}/prices/${stock.symbol}`} className="hover:text-teal-400 transition-colors">
-                              <span className="text-sm font-extrabold text-slate-100 hover:text-teal-400">{stock.symbol}</span>
-                              <span className="block text-[10px] text-slate-500 font-medium normal-case truncate max-w-[150px] mt-0.5">{stock.name}</span>
+                            <Link href={`/${locale}/prices/${stock.symbol}`} className="group/ticker inline-flex flex-col items-start gap-1">
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-black tracking-wider uppercase bg-teal-500/15 text-teal-300 border border-teal-500/30 group-hover/ticker:bg-teal-500 group-hover/ticker:text-slate-950 group-hover/ticker:border-teal-400 shadow-[0_0_12px_rgba(20,184,166,0.15)] group-hover/ticker:shadow-[0_0_16px_rgba(20,184,166,0.4)] group-hover/ticker:scale-105 transition-all duration-200 cursor-pointer">
+                                {stock.symbol}
+                                <span className="text-[10px] opacity-70 group-hover/ticker:opacity-100 font-normal">→</span>
+                              </span>
+                              <span className="block text-[10px] text-slate-400 font-medium normal-case truncate max-w-[160px] group-hover/ticker:text-slate-200 transition-colors">{stock.name}</span>
                             </Link>
                           </td>
                           <td className="p-4 font-sans whitespace-nowrap">
@@ -569,9 +574,12 @@ export const PricesListClient: React.FC<PricesListClientProps> = ({ initialTicke
                       return (
                         <tr key={stock.symbol} className="hover:bg-slate-900/20 transition-colors">
                           <td className="p-4 font-sans font-bold text-white whitespace-nowrap">
-                            <Link href={`/${locale}/prices/${stock.symbol}`} className="hover:text-teal-400 transition-colors">
-                              <span className="text-sm font-extrabold text-slate-100 hover:text-teal-400">{stock.symbol}</span>
-                              <span className="block text-[10px] text-slate-500 font-medium normal-case truncate max-w-[150px] mt-0.5">{stock.name}</span>
+                            <Link href={`/${locale}/prices/${stock.symbol}`} className="group/ticker inline-flex flex-col items-start gap-1">
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-black tracking-wider uppercase bg-teal-500/15 text-teal-300 border border-teal-500/30 group-hover/ticker:bg-teal-500 group-hover/ticker:text-slate-950 group-hover/ticker:border-teal-400 shadow-[0_0_12px_rgba(20,184,166,0.15)] group-hover/ticker:shadow-[0_0_16px_rgba(20,184,166,0.4)] group-hover/ticker:scale-105 transition-all duration-200 cursor-pointer">
+                                {stock.symbol}
+                                <span className="text-[10px] opacity-70 group-hover/ticker:opacity-100 font-normal">→</span>
+                              </span>
+                              <span className="block text-[10px] text-slate-400 font-medium normal-case truncate max-w-[160px] group-hover/ticker:text-slate-200 transition-colors">{stock.name}</span>
                             </Link>
                           </td>
                           <td className="p-4 font-sans whitespace-nowrap">
