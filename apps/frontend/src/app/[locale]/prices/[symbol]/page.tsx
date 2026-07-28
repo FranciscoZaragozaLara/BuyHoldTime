@@ -513,7 +513,7 @@ export default async function TickerDetailsPage({
           </div>
         </div>
 
-        {/* GuruFocus Fundamental Analysis Card (Companies only) */}
+        {/* BHT Fundamental Analysis Card (Companies only) */}
         {details.snapshot && (
           <FundamentalAnalysisCard 
             snapshot={details.snapshot} 
@@ -537,7 +537,7 @@ export default async function TickerDetailsPage({
             historicalPrices={updatedPrices}
           />
 
-          {/* Tabbed Fundamental Tables (GuruFocus Scraped JSON Tables & Analyst Estimates) */}
+          {/* Tabbed Fundamental Tables (BHT Scraped JSON Tables & Analyst Estimates) */}
           {details.snapshot && (
             <FundamentalTablesTab 
               snapshot={details.snapshot} 
