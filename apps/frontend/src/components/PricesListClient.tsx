@@ -178,7 +178,7 @@ export const PricesListClient: React.FC<PricesListClientProps> = ({ initialTicke
       : 'N/A';
 
     return (
-      <td className="p-4 text-right font-mono relative group/ath cursor-help">
+      <td className="p-4 text-right font-mono relative group/ath hover:z-30 cursor-help">
         <div className="inline-flex items-center gap-1 justify-end">
           <span className={textColor}>
             {fromHighVal > 0 ? '+' : ''}{fromHighVal.toFixed(2)}%
@@ -187,13 +187,15 @@ export const PricesListClient: React.FC<PricesListClientProps> = ({ initialTicke
         </div>
 
         {/* Hover Popover Tooltip */}
-        <div className="pointer-events-none absolute right-2 bottom-full mb-2 hidden group-hover/ath:flex flex-col gap-2 w-64 p-3.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-200 text-xs shadow-2xl z-50 text-left font-sans animate-in fade-in zoom-in-95 duration-150">
-          <div className="flex items-center justify-between border-b border-slate-900 pb-2 font-extrabold text-teal-400">
+        <div className="pointer-events-none absolute right-2 top-full mt-2.5 hidden group-hover/ath:flex flex-col gap-2 w-64 p-3.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-200 text-xs shadow-[0_10px_25px_-5px_rgba(0,0,0,0.8)] z-50 text-left font-sans animate-in fade-in zoom-in-95 duration-150">
+          <div className="absolute -top-1.5 right-4 w-3 h-3 bg-slate-950 border-t border-l border-slate-800 rotate-45"></div>
+          
+          <div className="flex items-center justify-between border-b border-slate-900 pb-2 font-extrabold text-teal-400 relative z-10">
             <span>{locale === 'es' ? 'Caída desde Máximo' : 'From High Calculation'}</span>
             <span className="text-[10px] font-bold text-slate-400 bg-slate-900 px-1.5 py-0.5 rounded border border-slate-800">{stock.symbol}</span>
           </div>
           
-          <div className="flex flex-col gap-1 text-[11px] font-mono text-slate-300">
+          <div className="flex flex-col gap-1 text-[11px] font-mono text-slate-300 relative z-10">
             <div className="flex justify-between">
               <span className="text-slate-400">{locale === 'es' ? 'Máx. Histórico' : 'Highest Price'}:</span>
               <strong className="text-emerald-400">${highestPrice ? highestPrice.toFixed(2) : 'N/A'}</strong>
@@ -210,14 +212,14 @@ export const PricesListClient: React.FC<PricesListClientProps> = ({ initialTicke
             </div>
           </div>
 
-          <div className="text-[10px] text-slate-400 bg-slate-900/60 rounded px-2 py-1 border border-slate-800/80 flex flex-col gap-0.5 mt-0.5">
+          <div className="text-[10px] text-slate-400 bg-slate-900/60 rounded px-2 py-1 border border-slate-800/80 flex flex-col gap-0.5 mt-0.5 relative z-10">
             <span className="font-semibold text-slate-300">{locale === 'es' ? 'Cálculo de From High:' : 'Calculation:'}</span>
             <span className="font-mono text-[9.5px] text-slate-400">
               Highest Price - Actual Price = From High
             </span>
           </div>
 
-          <div className="text-[10px] pt-1 border-t border-slate-900 flex items-center justify-between">
+          <div className="text-[10px] pt-1 border-t border-slate-900 flex items-center justify-between relative z-10">
             <span className="text-slate-400">{locale === 'es' ? 'Fecha del Máximo' : 'Reached On'}:</span>
             <strong className="font-bold text-teal-300">{formattedDate}</strong>
           </div>
