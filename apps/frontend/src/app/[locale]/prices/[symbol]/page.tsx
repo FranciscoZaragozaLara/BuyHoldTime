@@ -8,6 +8,7 @@ import { StockHistoryTable } from '@/components/StockHistoryTable';
 import { QuarterlyDataTable } from '@/components/QuarterlyDataTable';
 import { FundamentalAnalysisCard } from '@/components/FundamentalAnalysisCard';
 import { FundamentalTablesTab } from '@/components/FundamentalTablesTab';
+import { StockValuationCalculator } from '@/components/StockValuationCalculator';
 import { 
   ArrowLeft, Star, TrendingUp, DollarSign, Calendar, BarChart3, 
   Activity, ShieldAlert, BadgeInfo, Scale 
@@ -425,6 +426,12 @@ export default async function TickerDetailsPage({
               snapshot={details.snapshot} 
             />
           )}
+
+          {/* 3-Way Valuation Multi-Scenario Calculator */}
+          <StockValuationCalculator 
+            ticker={ticker}
+            snapshot={details.snapshot}
+          />
 
           {/* Annual Simulated Returns Table */}
           <div className="p-6 rounded-2xl border border-slate-900 bg-slate-950/60 backdrop-blur-xl shadow-2xl flex flex-col gap-6">
