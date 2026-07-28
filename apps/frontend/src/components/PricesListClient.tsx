@@ -155,6 +155,77 @@ export const PricesListClient: React.FC<PricesListClientProps> = ({ initialTicke
     );
   };
 
+  const renderFromHighCell = (stock: Ticker) => {
+    const data = (precalculatedPerformance as any)[stock.symbol];
+    const fromHighVal = data?.fromHigh ?? null;
+    const highestPrice = data?.highestPrice ?? null;
+    const highestDate = data?.highestDate ?? null;
+    const currentPrice = stock.price;
+
+    if (fromHighVal === null || fromHighVal === undefined) {
+      return <td className="p-4 text-right text-slate-500 font-mono">-</td>;
+    }
+
+    const isAtHigh = Math.abs(fromHighVal) < 0.01;
+    const textColor = isAtHigh ? 'text-teal-400 font-bold' : 'text-rose-400 font-bold';
+
+    const formattedDate = highestDate
+      ? new Date(highestDate + 'T00:00:00').toLocaleDateString(locale === 'es' ? 'es-ES' : 'en-US', {
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric',
+        })
+      : 'N/A';
+
+    return (
+      <td className="p-4 text-right font-mono relative group/ath cursor-help">
+        <div className="inline-flex items-center gap-1 justify-end">
+          <span className={textColor}>
+            {fromHighVal > 0 ? '+' : ''}{fromHighVal.toFixed(2)}%
+          </span>
+          <span className="text-[10px] text-slate-500 group-hover/ath:text-teal-400 transition-colors ml-0.5">ℹ</span>
+        </div>
+
+        {/* Hover Popover Tooltip */}
+        <div className="pointer-events-none absolute right-2 bottom-full mb-2 hidden group-hover/ath:flex flex-col gap-2 w-64 p-3.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-200 text-xs shadow-2xl z-50 text-left font-sans animate-in fade-in zoom-in-95 duration-150">
+          <div className="flex items-center justify-between border-b border-slate-900 pb-2 font-extrabold text-teal-400">
+            <span>{locale === 'es' ? 'Caída desde Máximo' : 'From High Calculation'}</span>
+            <span className="text-[10px] font-bold text-slate-400 bg-slate-900 px-1.5 py-0.5 rounded border border-slate-800">{stock.symbol}</span>
+          </div>
+          
+          <div className="flex flex-col gap-1 text-[11px] font-mono text-slate-300">
+            <div className="flex justify-between">
+              <span className="text-slate-400">{locale === 'es' ? 'Máx. Histórico' : 'Highest Price'}:</span>
+              <strong className="text-emerald-400">${highestPrice ? highestPrice.toFixed(2) : 'N/A'}</strong>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-slate-400">{locale === 'es' ? 'Precio Actual' : 'Actual Price'}:</span>
+              <strong className="text-slate-100">${currentPrice.toFixed(2)}</strong>
+            </div>
+            <div className="flex justify-between pt-1 border-t border-slate-900">
+              <span className="text-slate-400">From High:</span>
+              <strong className={textColor}>
+                {fromHighVal > 0 ? '+' : ''}{fromHighVal.toFixed(2)}%
+              </strong>
+            </div>
+          </div>
+
+          <div className="text-[10px] text-slate-400 bg-slate-900/60 rounded px-2 py-1 border border-slate-800/80 flex flex-col gap-0.5 mt-0.5">
+            <span className="font-semibold text-slate-300">{locale === 'es' ? 'Cálculo de From High:' : 'Calculation:'}</span>
+            <span className="font-mono text-[9.5px] text-slate-400">
+              Highest Price - Actual Price = From High
+            </span>
+          </div>
+
+          <div className="text-[10px] pt-1 border-t border-slate-900 flex items-center justify-between">
+            <span className="text-slate-400">{locale === 'es' ? 'Fecha del Máximo' : 'Reached On'}:</span>
+            <strong className="font-bold text-teal-300">{formattedDate}</strong>
+          </div>
+        </div>
+      </td>
+    );
+  };
+
   const getLocalizedRecommendation = (rec: string) => {
     const norm = rec.toLowerCase();
     if (norm.includes('strong buy')) return locale === 'es' ? 'Compra Fuerte' : 'Strong Buy';
@@ -468,6 +539,7 @@ export const PricesListClient: React.FC<PricesListClientProps> = ({ initialTicke
                       <th className="p-4 text-right">Perf YTD</th>
                       <th className="p-4 text-right">Perf 1Y</th>
                       <th className="p-4 text-right">Perf 5Y</th>
+                      <th className="p-4 text-right">From High</th>
                       <th className="p-4 text-right">{tPrices('cap')}</th>
                       <th className="p-4 text-right">{tPrices('pe')}</th>
                       <th className="p-4 text-right">Forward P/E</th>
@@ -509,6 +581,7 @@ export const PricesListClient: React.FC<PricesListClientProps> = ({ initialTicke
                           {renderPerfCell(stock.symbol, 'perfYTD')}
                           {renderPerfCell(stock.symbol, 'perf1Y')}
                           {renderPerfCell(stock.symbol, 'perf5Y')}
+                          {renderFromHighCell(stock)}
                           <td className="p-4 text-right text-slate-300 font-mono">{stock.cap || 'N/A'}</td>
                           <td className="p-4 text-right text-slate-300 font-bold font-mono">{stock.pe ? `${stock.pe.toFixed(2)}x` : 'N/A'}</td>
                           <td className="p-4 text-right text-slate-400 font-mono">{stock.forwardPe ? `${stock.forwardPe.toFixed(2)}x` : 'N/A'}</td>
@@ -555,6 +628,7 @@ export const PricesListClient: React.FC<PricesListClientProps> = ({ initialTicke
                       <th className="p-4 text-right">Perf YTD</th>
                       <th className="p-4 text-right">Perf 1Y</th>
                       <th className="p-4 text-right">Perf 5Y</th>
+                      <th className="p-4 text-right">From High</th>
                       <th className="p-4 text-right">{tPrices('cap')}</th>
                       <th className="p-4 text-right">{tPrices('pe')}</th>
                       <th className="p-4 text-right">Forward P/E</th>
@@ -596,6 +670,7 @@ export const PricesListClient: React.FC<PricesListClientProps> = ({ initialTicke
                           {renderPerfCell(stock.symbol, 'perfYTD')}
                           {renderPerfCell(stock.symbol, 'perf1Y')}
                           {renderPerfCell(stock.symbol, 'perf5Y')}
+                          {renderFromHighCell(stock)}
                           <td className="p-4 text-right text-slate-300 font-mono">{stock.cap || 'N/A'}</td>
                           <td className="p-4 text-right text-slate-300 font-bold font-mono">{stock.pe ? `${stock.pe.toFixed(2)}x` : 'N/A'}</td>
                           <td className="p-4 text-right text-slate-400 font-mono">{stock.forwardPe ? `${stock.forwardPe.toFixed(2)}x` : 'N/A'}</td>
