@@ -157,12 +157,25 @@ export const PricesListClient: React.FC<PricesListClientProps> = ({ initialTicke
 
   const renderFromHighCell = (stock: Ticker) => {
     const data = (precalculatedPerformance as any)[stock.symbol];
-    const fromHighVal = data?.fromHigh ?? null;
-    const highestPrice = data?.highestPrice ?? null;
-    const highestDate = data?.highestDate ?? null;
+    const storedHighestPrice = data?.highestPrice ?? 0;
+    const storedHighestDate = data?.highestDate ?? '';
     const currentPrice = stock.price;
 
-    if (fromHighVal === null || fromHighVal === undefined) {
+    let highestPrice = Math.max(storedHighestPrice, currentPrice);
+    let highestDate = storedHighestDate;
+
+    // If current live price equals or exceeds stored historical high, today is the ATH!
+    const todayISO = new Date().toISOString().split('T')[0];
+    if (currentPrice >= storedHighestPrice || !storedHighestPrice) {
+      highestPrice = currentPrice;
+      if (!highestDate || storedHighestDate < todayISO) {
+        highestDate = todayISO;
+      }
+    }
+
+    const fromHighVal = highestPrice > 0 ? Math.min(0, ((currentPrice - highestPrice) / highestPrice) * 100) : 0;
+
+    if (highestPrice <= 0) {
       return <td className="p-4 text-right text-slate-500 font-mono">-</td>;
     }
 

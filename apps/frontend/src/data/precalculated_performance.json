@@ -7,7 +7,7 @@
     "perf5Y": 129.54963129705732,
     "highestPrice": 339.57,
     "highestDate": "2026-07-27",
-    "fromHigh": -0.78
+    "fromHigh": -0.02
   },
   "ADI": {
     "price": 371.8900146484375,
@@ -17,7 +17,7 @@
     "perf5Y": 128.72871826356683,
     "highestPrice": 445.91,
     "highestDate": "2026-06-22",
-    "fromHigh": -16.6
+    "fromHigh": -17.2
   },
   "AMAT": {
     "price": 516.8900146484375,
@@ -27,7 +27,7 @@
     "perf5Y": 283.1653358302399,
     "highestPrice": 739.67,
     "highestDate": "2026-06-30",
-    "fromHigh": -30.12
+    "fromHigh": -35.23
   },
   "AMD": {
     "price": 494.95001220703125,
@@ -37,7 +37,7 @@
     "perf5Y": 443.7218706407351,
     "highestPrice": 584.73,
     "highestDate": "2026-06-30",
-    "fromHigh": -15.35
+    "fromHigh": -21.57
   },
   "AMGN": {
     "price": 376.260009765625,
@@ -47,7 +47,7 @@
     "perf5Y": 53.77636955555938,
     "highestPrice": 391.29,
     "highestDate": "2026-03-02",
-    "fromHigh": -3.84
+    "fromHigh": 0
   },
   "AMZN": {
     "price": 231.38999938964844,
@@ -57,7 +57,7 @@
     "perf5Y": 27.61451171026062,
     "highestPrice": 278.56,
     "highestDate": "2026-05-05",
-    "fromHigh": -16.93
+    "fromHigh": -17
   },
   "APP": {
     "price": 412.7300109863281,
@@ -67,7 +67,7 @@
     "perf5Y": 558.7869129034917,
     "highestPrice": 745.61,
     "highestDate": "2025-09-29",
-    "fromHigh": -44.65
+    "fromHigh": -43.77
   },
   "ARM": {
     "price": 266.3299865722656,
@@ -77,7 +77,7 @@
     "perf5Y": null,
     "highestPrice": 452.7,
     "highestDate": "2026-06-18",
-    "fromHigh": -41.17
+    "fromHigh": -45.77
   },
   "ASML": {
     "price": 1655.260009765625,
@@ -87,7 +87,7 @@
     "perf5Y": 122.00376394390592,
     "highestPrice": 1999.96,
     "highestDate": "2026-06-30",
-    "fromHigh": -17.24
+    "fromHigh": -20.62
   },
   "AVGO": {
     "price": 383.2200012207031,
@@ -97,7 +97,7 @@
     "perf5Y": 706.1679713884861,
     "highestPrice": 495,
     "highestDate": "2026-06-03",
-    "fromHigh": -22.58
+    "fromHigh": -22.65
   },
   "BKNG": {
     "price": 186.7899932861328,
@@ -107,7 +107,7 @@
     "perf5Y": 107.89646843439544,
     "highestPrice": 233.58,
     "highestDate": "2025-07-08",
-    "fromHigh": -20.03
+    "fromHigh": -15.06
   },
   "BRK.B": {
     "price": 497.17999267578125,
@@ -117,7 +117,7 @@
     "perf5Y": 77.07101461546145,
     "highestPrice": 542.07,
     "highestDate": "2025-05-02",
-    "fromHigh": -8.28
+    "fromHigh": -5.6
   },
   "CDNS": {
     "price": 338.6099853515625,
@@ -127,7 +127,7 @@
     "perf5Y": 136.34394866605683,
     "highestPrice": 416.69,
     "highestDate": "2026-06-02",
-    "fromHigh": -18.74
+    "fromHigh": -16.92
   },
   "CEG": {
     "price": 270,
@@ -137,7 +137,7 @@
     "perf5Y": null,
     "highestPrice": 412.7,
     "highestDate": "2025-10-15",
-    "fromHigh": -34.58
+    "fromHigh": -37.01
   },
   "CME": {
     "price": 255.36000061035156,
@@ -147,7 +147,7 @@
     "perf5Y": 20.498302574906276,
     "highestPrice": 329.16,
     "highestDate": "2026-03-03",
-    "fromHigh": -22.42
+    "fromHigh": -21.23
   },
   "COST": {
     "price": 951.5800170898438,
@@ -157,7 +157,7 @@
     "perf5Y": 124.2494285954902,
     "highestPrice": 1096.5,
     "highestDate": "2026-05-19",
-    "fromHigh": -13.22
+    "fromHigh": -11.53
   },
   "CRWD": {
     "price": 180.11000061035156,
@@ -167,7 +167,7 @@
     "perf5Y": 179.41359473853464,
     "highestPrice": 217.5,
     "highestDate": "2026-07-15",
-    "fromHigh": -17.19
+    "fromHigh": -15.52
   },
   "CSCO": {
     "price": 114.56999969482422,
@@ -177,7 +177,7 @@
     "perf5Y": 107.25398376407394,
     "highestPrice": 130.37,
     "highestDate": "2026-06-04",
-    "fromHigh": -12.12
+    "fromHigh": -11.32
   },
   "EQIX": {
     "price": 1046.7900390625,
@@ -187,7 +187,7 @@
     "perf5Y": 24.346960527873648,
     "highestPrice": 1128.68,
     "highestDate": "2026-04-24",
-    "fromHigh": -7.26
+    "fromHigh": -7.22
   },
   "FTNT": {
     "price": 152.3800048828125,
@@ -197,7 +197,7 @@
     "perf5Y": 180.99875171862917,
     "highestPrice": 170.35,
     "highestDate": "2026-07-15",
-    "fromHigh": -10.55
+    "fromHigh": -10.15
   },
   "GILD": {
     "price": 130.52000427246094,
@@ -207,7 +207,7 @@
     "perf5Y": 89.35152139069484,
     "highestPrice": 157.29,
     "highestDate": "2026-02-11",
-    "fromHigh": -17.02
+    "fromHigh": -14.61
   },
   "GOOGL": {
     "price": 326.55999755859375,
@@ -217,7 +217,7 @@
     "perf5Y": 147.5815107428127,
     "highestPrice": 408.61,
     "highestDate": "2026-05-18",
-    "fromHigh": -20.08
+    "fromHigh": -17.93
   },
   "HON": {
     "price": 245.75,
@@ -227,7 +227,7 @@
     "perf5Y": 13.188382890072598,
     "highestPrice": 252,
     "highestDate": "2026-06-29",
-    "fromHigh": -2.48
+    "fromHigh": -1.68
   },
   "HOOD": {
     "price": 95.6500015258789,
@@ -237,7 +237,7 @@
     "perf5Y": 174.69845595689853,
     "highestPrice": 153.86,
     "highestDate": "2025-10-06",
-    "fromHigh": -37.83
+    "fromHigh": -40.2
   },
   "IBM": {
     "price": 216.27999877929688,
@@ -247,7 +247,7 @@
     "perf5Y": 58.479075055733844,
     "highestPrice": 332.46,
     "highestDate": "2026-06-02",
-    "fromHigh": -34.95
+    "fromHigh": -31.35
   },
   "INTC": {
     "price": 91.66999816894531,
@@ -257,7 +257,7 @@
     "perf5Y": 72.37682896369496,
     "highestPrice": 142.35,
     "highestDate": "2026-06-30",
-    "fromHigh": -35.6
+    "fromHigh": -38.93
   },
   "ISRG": {
     "price": 356.8299865722656,
@@ -267,7 +267,7 @@
     "perf5Y": 9.784832111697565,
     "highestPrice": 616,
     "highestDate": "2025-01-23",
-    "fromHigh": -42.07
+    "fromHigh": -41.18
   },
   "JPM": {
     "price": 356.20001220703125,
@@ -277,7 +277,7 @@
     "perf5Y": 135.19314584652128,
     "highestPrice": 359.05,
     "highestDate": "2026-07-27",
-    "fromHigh": -0.79
+    "fromHigh": -0.93
   },
   "KLAC": {
     "price": 203.36000061035156,
@@ -287,7 +287,7 @@
     "perf5Y": 558.1229874462509,
     "highestPrice": 307.37,
     "highestDate": "2026-06-30",
-    "fromHigh": -33.84
+    "fromHigh": -37.24
   },
   "LIN": {
     "price": 507.0199890136719,
@@ -297,7 +297,7 @@
     "perf5Y": 69.65701143002498,
     "highestPrice": 548.2,
     "highestDate": "2026-07-07",
-    "fromHigh": -7.51
+    "fromHigh": -5.92
   },
   "LLY": {
     "price": 1197.530029296875,
@@ -307,7 +307,7 @@
     "perf5Y": 391.63725276899913,
     "highestPrice": 1249.45,
     "highestDate": "2026-07-07",
-    "fromHigh": -4.16
+    "fromHigh": -2.14
   },
   "LRCX": {
     "price": 291.6099853515625,
@@ -317,7 +317,7 @@
     "perf5Y": 368.3820662720256,
     "highestPrice": 438.5,
     "highestDate": "2026-06-30",
-    "fromHigh": -33.5
+    "fromHigh": -37.88
   },
   "MAR": {
     "price": 383.05999755859375,
@@ -327,7 +327,7 @@
     "perf5Y": 167.033813668748,
     "highestPrice": 410.98,
     "highestDate": "2026-06-15",
-    "fromHigh": -6.79
+    "fromHigh": -7.04
   },
   "META": {
     "price": 593.8699951171875,
@@ -337,7 +337,7 @@
     "perf5Y": 61.4610801933358,
     "highestPrice": 796.25,
     "highestDate": "2025-08-15",
-    "fromHigh": -25.42
+    "fromHigh": -25.29
   },
   "MNST": {
     "price": 95.33000183105469,
@@ -347,7 +347,7 @@
     "perf5Y": 100.31519547257398,
     "highestPrice": 100.34,
     "highestDate": "2026-07-17",
-    "fromHigh": -4.99
+    "fromHigh": -2.87
   },
   "MRVL": {
     "price": 189.1699981689453,
@@ -357,7 +357,7 @@
     "perf5Y": 226.26767792769957,
     "highestPrice": 329.88,
     "highestDate": "2026-06-18",
-    "fromHigh": -42.65
+    "fromHigh": -46.73
   },
   "MSFT": {
     "price": 389.1000061035156,
@@ -367,7 +367,7 @@
     "perf5Y": 35.792557583634974,
     "highestPrice": 555.45,
     "highestDate": "2025-07-31",
-    "fromHigh": -29.95
+    "fromHigh": -28.64
   },
   "MU": {
     "price": 900.2000122070312,
@@ -377,7 +377,7 @@
     "perf5Y": 1112.8806216671512,
     "highestPrice": 1255,
     "highestDate": "2026-06-25",
-    "fromHigh": -28.27
+    "fromHigh": -34.14
   },
   "NFLX": {
     "price": 70.4000015258789,
@@ -387,7 +387,7 @@
     "perf5Y": 35.66900445007592,
     "highestPrice": 134.12,
     "highestDate": "2025-06-30",
-    "fromHigh": -47.51
+    "fromHigh": -45.58
   },
   "NVDA": {
     "price": 196.50999450683594,
@@ -397,7 +397,7 @@
     "perf5Y": 923.0632686044936,
     "highestPrice": 236.54,
     "highestDate": "2026-05-14",
-    "fromHigh": -16.92
+    "fromHigh": -16.48
   },
   "PANW": {
     "price": 317.32000732421875,
@@ -407,7 +407,7 @@
     "perf5Y": 378.9615716181211,
     "highestPrice": 368.8,
     "highestDate": "2026-07-17",
-    "fromHigh": -13.96
+    "fromHigh": -12.73
   },
   "PDD": {
     "price": 84.8499984741211,
@@ -417,7 +417,7 @@
     "perf5Y": 6.689299354307438,
     "highestPrice": 212.6,
     "highestDate": "2021-02-16",
-    "fromHigh": -60.09
+    "fromHigh": -59.7
   },
   "PLTR": {
     "price": 131.52999877929688,
@@ -427,7 +427,7 @@
     "perf5Y": 506.6881777113998,
     "highestPrice": 207.52,
     "highestDate": "2025-11-03",
-    "fromHigh": -36.62
+    "fromHigh": -40.33
   },
   "QCOM": {
     "price": 170.0399932861328,
@@ -437,7 +437,7 @@
     "perf5Y": 20.655646152853382,
     "highestPrice": 259.92,
     "highestDate": "2026-05-29",
-    "fromHigh": -34.58
+    "fromHigh": -37.18
   },
   "QQQ": {
     "price": 682.1199951171875,
@@ -447,7 +447,7 @@
     "perf5Y": 87.1744940938608,
     "highestPrice": 748.65,
     "highestDate": "2026-06-03",
-    "fromHigh": -8.89
+    "fromHigh": -9.46
   },
   "SBUX": {
     "price": 103.6500015258789,
@@ -457,7 +457,7 @@
     "perf5Y": -17.757674736321874,
     "highestPrice": 126.32,
     "highestDate": "2021-07-23",
-    "fromHigh": -17.95
+    "fromHigh": -18.47
   },
   "SCHD": {
     "price": 33.43000030517578,
@@ -465,9 +465,9 @@
     "perfYTD": 20.555358301602656,
     "perf1Y": 22.904409439299826,
     "perf5Y": 32.0647882673496,
-    "highestPrice": 33.6,
-    "highestDate": "2026-07-27",
-    "fromHigh": -0.51
+    "highestPrice": 33.88,
+    "highestDate": "2026-07-28",
+    "fromHigh": 0
   },
   "SHOP": {
     "price": 126.87999725341797,
@@ -477,7 +477,7 @@
     "perf5Y": -18.41039049883025,
     "highestPrice": 182.19,
     "highestDate": "2025-10-29",
-    "fromHigh": -30.36
+    "fromHigh": -28.34
   },
   "SPY": {
     "price": 739.0900268554688,
@@ -487,7 +487,7 @@
     "perf5Y": 68.35379841340018,
     "highestPrice": 760.4,
     "highestDate": "2026-06-02",
-    "fromHigh": -2.8
+    "fromHigh": -2.45
   },
   "STX": {
     "price": 816.989990234375,
@@ -497,7 +497,7 @@
     "perf5Y": 859.1335845354914,
     "highestPrice": 1145,
     "highestDate": "2026-06-18",
-    "fromHigh": -28.65
+    "fromHigh": -34.72
   },
   "TQQQ": {
     "price": 63.400001525878906,
@@ -507,7 +507,7 @@
     "perf5Y": 91.17980985465903,
     "highestPrice": 88.09,
     "highestDate": "2026-06-03",
-    "fromHigh": -28.03
+    "fromHigh": -29.48
   },
   "TSLA": {
     "price": 309.2200012207031,
@@ -517,7 +517,7 @@
     "perf5Y": 43.87232938651376,
     "highestPrice": 498.83,
     "highestDate": "2025-12-22",
-    "fromHigh": -38.01
+    "fromHigh": -38.59
   },
   "TSM": {
     "price": 399.0899963378906,
@@ -527,7 +527,7 @@
     "perf5Y": 251.49726362501062,
     "highestPrice": 479,
     "highestDate": "2026-06-30",
-    "fromHigh": -16.68
+    "fromHigh": -17.86
   },
   "TXN": {
     "price": 279.4100036621094,
@@ -537,7 +537,7 @@
     "perf5Y": 50.9263740575042,
     "highestPrice": 334.03,
     "highestDate": "2026-06-22",
-    "fromHigh": -16.35
+    "fromHigh": -16.47
   },
   "UNH": {
     "price": 417.6400146484375,
@@ -547,7 +547,7 @@
     "perf5Y": 0.6119027963320386,
     "highestPrice": 630.73,
     "highestDate": "2024-11-11",
-    "fromHigh": -33.78
+    "fromHigh": -31.89
   },
   "V": {
     "price": 362.5299987792969,
@@ -557,7 +557,7 @@
     "perf5Y": 44.47455838717155,
     "highestPrice": 375.51,
     "highestDate": "2025-06-11",
-    "fromHigh": -3.46
+    "fromHigh": -1.32
   },
   "VOO": {
     "price": 679.3099975585938,
@@ -567,7 +567,7 @@
     "perf5Y": 68.30852114991261,
     "highestPrice": 699.15,
     "highestDate": "2026-06-02",
-    "fromHigh": -2.84
+    "fromHigh": -2.46
   },
   "VRTX": {
     "price": 479,
@@ -577,7 +577,7 @@
     "perf5Y": 136.1350680736797,
     "highestPrice": 533.67,
     "highestDate": "2026-07-07",
-    "fromHigh": -10.24
+    "fromHigh": -8.75
   },
   "WDC": {
     "price": 497.9200134277344,
@@ -587,7 +587,7 @@
     "perf5Y": 956.3633132290448,
     "highestPrice": 799.87,
     "highestDate": "2026-06-18",
-    "fromHigh": -37.75
+    "fromHigh": -42.62
   },
   "WMT": {
     "price": 111.73999786376953,
@@ -597,7 +597,7 @@
     "perf5Y": 135.01121984763728,
     "highestPrice": 135.16,
     "highestDate": "2026-05-19",
-    "fromHigh": -17.33
+    "fromHigh": -16.16
   },
   "XOM": {
     "price": 154.77000427246094,
@@ -607,7 +607,7 @@
     "perf5Y": 167.62925708459775,
     "highestPrice": 176.41,
     "highestDate": "2026-03-30",
-    "fromHigh": -12.27
+    "fromHigh": -12.95
   },
   "IBB": {
     "price": 188.3300018310547,
@@ -617,7 +617,7 @@
     "perf5Y": 16.073961066905817,
     "highestPrice": 199.05,
     "highestDate": "2026-07-09",
-    "fromHigh": -5.39
+    "fromHigh": -4.66
   },
   "MA": {
     "price": 551.7100219726562,
@@ -627,7 +627,7 @@
     "perf5Y": 41.366243242784634,
     "highestPrice": 601.77,
     "highestDate": "2025-08-22",
-    "fromHigh": -8.32
+    "fromHigh": -6.77
   },
   "NLR": {
     "price": 109.76000213623047,
@@ -637,7 +637,7 @@
     "perf5Y": 109.70577343569899,
     "highestPrice": 168.12,
     "highestDate": "2025-10-15",
-    "fromHigh": -34.71
+    "fromHigh": -36.99
   },
   "SMH": {
     "price": 548.5499877929688,
@@ -647,7 +647,7 @@
     "perf5Y": 334.52946536400475,
     "highestPrice": 671.83,
     "highestDate": "2026-06-22",
-    "fromHigh": -18.35
+    "fromHigh": -20.82
   },
   "SOXX": {
     "price": 516.22998046875,
@@ -657,7 +657,7 @@
     "perf5Y": 254.39127856531633,
     "highestPrice": 655.95,
     "highestDate": "2026-06-22",
-    "fromHigh": -21.3
+    "fromHigh": -24.65
   },
   "SOXL": {
     "price": 128.14999389648438,
@@ -667,6 +667,6 @@
     "perf5Y": 227.3307507070587,
     "highestPrice": 302,
     "highestDate": "2026-06-22",
-    "fromHigh": -57.57
+    "fromHigh": -62.97
   }
 }

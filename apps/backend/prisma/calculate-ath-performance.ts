@@ -40,9 +40,9 @@ async function main() {
       const latestPrice = latestPriceObj.close;
       const latestDate = new Date(latestPriceObj.date);
 
-      // Find highest historical price and its date
-      let highestPrice = 0;
-      let highestDateStr = '';
+      // Find highest historical price and its date (considering both historical records & live ticker.price)
+      let highestPrice = ticker.price || 0;
+      let highestDateStr = new Date().toISOString().split('T')[0];
 
       for (const p of prices) {
         const val = p.high || p.close;
@@ -53,7 +53,8 @@ async function main() {
         }
       }
 
-      const fromHigh = highestPrice > 0 ? ((latestPrice - highestPrice) / highestPrice) * 100 : 0;
+      const effectivePrice = ticker.price || latestPriceObj.close;
+      const fromHigh = highestPrice > 0 ? Math.min(0, ((effectivePrice - highestPrice) / highestPrice) * 100) : 0;
 
       // Also compute period performances (1M, YTD, 1Y, 5Y)
       const findPriceClosestTo = (targetDate: Date): number | null => {
