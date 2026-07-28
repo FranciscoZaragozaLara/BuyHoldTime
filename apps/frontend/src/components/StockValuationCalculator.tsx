@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { useLocale } from 'next-intl';
-import { Calculator, TrendingUp, TrendingDown, RefreshCw, ShieldAlert, Zap, Sliders, ArrowUpRight } from 'lucide-react';
+import { Calculator, TrendingUp, TrendingDown, RefreshCw, ShieldAlert, Sliders, Info } from 'lucide-react';
 import { Ticker } from '@/services/api';
 
 interface StockValuationCalculatorProps {
@@ -30,6 +30,8 @@ export const StockValuationCalculator: React.FC<StockValuationCalculatorProps> =
   const adjPeFwd = peFwd * (1 + peVariancePct / 100);
   const adjPeMix = peMix * (1 + peVariancePct / 100);
 
+  const currentYearNum = new Date().getFullYear();
+
   // Extract or build annual projections array
   const rawProjections = useMemo(() => {
     const estimatesObj = snapshot?.analystEstimates;
@@ -43,7 +45,6 @@ export const StockValuationCalculator: React.FC<StockValuationCalculatorProps> =
         return years.map((year, idx) => {
           const valStr = epsEstimate.values[idx];
           const epsTtm = valStr && valStr !== '—' ? parseFloat(valStr) : 0;
-          // Next year's EPS if available, else projected at +10%
           const nextValStr = epsEstimate.values[idx + 1];
           const epsFwd = nextValStr && nextValStr !== '—' ? parseFloat(nextValStr) : (epsTtm > 0 ? epsTtm * 1.1 : epsTtm);
 
@@ -56,13 +57,12 @@ export const StockValuationCalculator: React.FC<StockValuationCalculatorProps> =
       }
     }
 
-    // Fallback if snapshot estimates are not available: Generate 4-year projection based on current EPS
+    // Fallback if snapshot estimates are not available
     const baseEps = ticker.eps && ticker.eps > 0 ? ticker.eps : currentPrice / Math.max(10, peTtm);
-    const currentYear = new Date().getFullYear();
     const fallbackList = [];
 
     for (let i = 1; i <= 4; i++) {
-      const yearStr = `${locale === 'es' ? 'Año' : 'Year'} ${currentYear + i}`;
+      const yearStr = `${locale === 'es' ? 'Año' : 'Year'} ${currentYearNum + i}`;
       const epsTtm = baseEps * Math.pow(1.12, i);
       const epsFwd = baseEps * Math.pow(1.12, i + 1);
       fallbackList.push({
@@ -73,45 +73,156 @@ export const StockValuationCalculator: React.FC<StockValuationCalculatorProps> =
     }
 
     return fallbackList;
-  }, [snapshot, ticker, currentPrice, peTtm, locale]);
+  }, [snapshot, ticker, currentPrice, peTtm, locale, currentYearNum]);
 
   // Paso C: Motor de Cálculo Multi-Escenario (3-Way Model Iteration)
   const scenarios = useMemo(() => {
-    return rawProjections.map((item) => {
+    const list = rawProjections.map((item) => {
+      // Parse year number for CAGR calculations
+      const yearMatch = item.year.match(/\b(20\d\d)\b/);
+      const targetYearNum = yearMatch ? parseInt(yearMatch[1], 10) : currentYearNum + 1;
+      const yearsDiff = Math.max(1, targetYearNum - currentYearNum);
+
       // 1. Escenario TTM
       const adjEpsTtm = item.epsBaseTtm * (1 + epsVariancePct / 100);
       const projectedPriceTtm = adjEpsTtm * adjPeTtm;
-      const returnTtm = ((projectedPriceTtm - currentPrice) / currentPrice) * 100;
+      const usdChangeTtm = projectedPriceTtm - currentPrice;
+      const returnTtm = (usdChangeTtm / currentPrice) * 100;
+      const cagrTtm = (Math.pow(Math.max(0.001, projectedPriceTtm / currentPrice), 1 / yearsDiff) - 1) * 100;
 
       // 2. Escenario Forward
       const adjEpsFwd = item.epsBaseFwd * (1 + epsVariancePct / 100);
       const projectedPriceFwd = adjEpsFwd * adjPeFwd;
-      const returnFwd = ((projectedPriceFwd - currentPrice) / currentPrice) * 100;
+      const usdChangeFwd = projectedPriceFwd - currentPrice;
+      const returnFwd = (usdChangeFwd / currentPrice) * 100;
+      const cagrFwd = (Math.pow(Math.max(0.001, projectedPriceFwd / currentPrice), 1 / yearsDiff) - 1) * 100;
 
       // 3. Escenario Mix (Híbrido Promedio)
       const epsMix = (item.epsBaseTtm + item.epsBaseFwd) / 2;
       const adjEpsMix = epsMix * (1 + epsVariancePct / 100);
       const projectedPriceMix = adjEpsMix * adjPeMix;
-      const returnMix = ((projectedPriceMix - currentPrice) / currentPrice) * 100;
+      const usdChangeMix = projectedPriceMix - currentPrice;
+      const returnMix = (usdChangeMix / currentPrice) * 100;
+      const cagrMix = (Math.pow(Math.max(0.001, projectedPriceMix / currentPrice), 1 / yearsDiff) - 1) * 100;
 
       return {
+        isBaseline: false,
         year: item.year,
+        yearsDiff,
         epsBaseTtm: item.epsBaseTtm,
         adjEpsTtm,
         projectedPriceTtm,
+        usdChangeTtm,
         returnTtm,
+        cagrTtm,
         projectedPriceFwd,
+        usdChangeFwd,
         returnFwd,
+        cagrFwd,
         projectedPriceMix,
+        usdChangeMix,
         returnMix,
+        cagrMix,
       };
     });
-  }, [rawProjections, epsVariancePct, peVariancePct, adjPeTtm, adjPeFwd, adjPeMix, currentPrice]);
+
+    // Baseline Row (Valor Actual del Stock antes de proyecciones)
+    const currentEps = ticker.eps && ticker.eps > 0 ? ticker.eps : (currentPrice / Math.max(1, peTtm));
+    const baselineRow = {
+      isBaseline: true,
+      year: locale === 'es' ? 'Actual (Hoy)' : 'Current (Today)',
+      yearsDiff: 0,
+      epsBaseTtm: currentEps,
+      adjEpsTtm: currentEps,
+      projectedPriceTtm: currentPrice,
+      usdChangeTtm: 0,
+      returnTtm: 0,
+      cagrTtm: 0,
+      projectedPriceFwd: currentPrice,
+      usdChangeFwd: 0,
+      returnFwd: 0,
+      cagrFwd: 0,
+      projectedPriceMix: currentPrice,
+      usdChangeMix: 0,
+      returnMix: 0,
+      cagrMix: 0,
+    };
+
+    return [baselineRow, ...list];
+  }, [rawProjections, epsVariancePct, peVariancePct, adjPeTtm, adjPeFwd, adjPeMix, currentPrice, currentYearNum, ticker.eps, peTtm, locale]);
 
   // Quick Preset Actions
   const applyPreset = (epsVar: number, peVar: number) => {
     setEpsVariancePct(epsVar);
     setPeVariancePct(peVar);
+  };
+
+  // Helper to render Scenario Cell with Hover Popover
+  const renderScenarioCell = (
+    price: number,
+    usdChange: number,
+    returnPct: number,
+    cagr: number,
+    year: string,
+    isBaseline: boolean,
+    isRecommended: boolean = false
+  ) => {
+    if (isBaseline) {
+      return (
+        <td className={`p-3.5 text-right font-mono ${isRecommended ? 'bg-teal-500/5' : ''}`}>
+          <div className="flex flex-col items-end">
+            <span className="font-extrabold text-slate-300 text-sm">${price.toFixed(2)}</span>
+            <span className="text-[10px] font-bold text-slate-500">Base</span>
+          </div>
+        </td>
+      );
+    }
+
+    return (
+      <td className={`p-3.5 text-right font-mono relative group cursor-help ${isRecommended ? 'bg-teal-500/5' : ''}`}>
+        {/* Cell Price & % Display */}
+        <div className="flex flex-col items-end">
+          <span className={`font-black ${isRecommended ? 'text-emerald-400 text-sm' : 'text-white font-bold'}`}>
+            ${price.toFixed(2)}
+          </span>
+          <span className={`text-[10px] font-extrabold px-1 py-0.5 rounded border ${
+            returnPct >= 0 
+              ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' 
+              : 'bg-rose-500/10 text-rose-400 border-rose-500/20'
+          }`}>
+            {returnPct >= 0 ? '+' : ''}{returnPct.toFixed(1)}%
+          </span>
+        </div>
+
+        {/* Hover Popover (Elemento Over) */}
+        <div className="absolute bottom-full right-0 mb-2 w-60 p-3.5 rounded-xl border border-slate-800 bg-slate-900/95 backdrop-blur-md shadow-2xl z-30 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none text-left">
+          <div className="text-[10px] font-extrabold text-teal-400 uppercase border-b border-slate-800 pb-1 mb-2 flex justify-between items-center">
+            <span>{locale === 'es' ? 'Desglose Proyección' : 'Forecast Breakdown'}</span>
+            <span className="text-slate-300 font-sans">{year}</span>
+          </div>
+          <div className="flex flex-col gap-2 text-xs font-sans">
+            <div className="flex justify-between items-center">
+              <span className="text-slate-400 text-[11px]">{locale === 'es' ? 'Cambio Nominal USD:' : 'Nominal USD Change:'}</span>
+              <span className={`font-mono font-extrabold ${usdChange >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                {usdChange >= 0 ? `+$${usdChange.toFixed(2)}` : `-$${Math.abs(usdChange).toFixed(2)}`} USD
+              </span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-slate-400 text-[11px]">{locale === 'es' ? 'Rend. Acumulado %:' : 'Cumulative Return %:'}</span>
+              <span className={`font-mono font-extrabold ${returnPct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                {returnPct >= 0 ? `+${returnPct.toFixed(1)}%` : `${returnPct.toFixed(1)}%`}
+              </span>
+            </div>
+            <div className="flex justify-between items-center pt-1.5 border-t border-slate-800/80">
+              <span className="text-slate-300 font-bold text-[11px]">{locale === 'es' ? 'Rend. Anual (CAGR):' : 'Annualized CAGR:'}</span>
+              <span className={`font-mono font-black ${cagr >= 0 ? 'text-teal-300' : 'text-rose-400'}`}>
+                {cagr >= 0 ? `+${cagr.toFixed(2)}% / año` : `${cagr.toFixed(2)}% / año`}
+              </span>
+            </div>
+          </div>
+        </div>
+      </td>
+    );
   };
 
   return (
@@ -250,7 +361,7 @@ export const StockValuationCalculator: React.FC<StockValuationCalculatorProps> =
         <table className="w-full text-left text-xs">
           <thead className="bg-slate-900/90 text-slate-400 font-bold border-b border-slate-900">
             <tr>
-              <th className="p-3.5 pl-4 min-w-[120px]">{locale === 'es' ? 'Año' : 'Year'}</th>
+              <th className="p-3.5 pl-4 min-w-[140px]">{locale === 'es' ? 'Año' : 'Year'}</th>
               <th className="p-3.5 text-right w-28">{locale === 'es' ? 'EPS Ajustado' : 'Adj. EPS'}</th>
               <th className="p-3.5 text-right">{locale === 'es' ? 'Escenario TTM' : 'TTM Scenario'}</th>
               <th className="p-3.5 text-right">{locale === 'es' ? 'Escenario Forward' : 'Forward Scenario'}</th>
@@ -259,9 +370,22 @@ export const StockValuationCalculator: React.FC<StockValuationCalculatorProps> =
           </thead>
           <tbody className="divide-y divide-slate-900/60 font-mono">
             {scenarios.map((sc, idx) => (
-              <tr key={idx} className="hover:bg-slate-900/30 transition-colors">
-                <td className="p-3.5 pl-4 font-sans font-extrabold text-white flex items-center gap-1">
-                  <span>{sc.year}</span>
+              <tr 
+                key={idx} 
+                className={`transition-colors ${
+                  sc.isBaseline 
+                    ? 'bg-slate-900/60 font-extrabold border-b-2 border-slate-800' 
+                    : 'hover:bg-slate-900/30'
+                }`}
+              >
+                {/* Year Label */}
+                <td className="p-3.5 pl-4 font-sans font-extrabold text-white flex items-center gap-1.5">
+                  <span className={sc.isBaseline ? 'text-teal-400 font-black' : ''}>{sc.year}</span>
+                  {sc.isBaseline && (
+                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-teal-500/10 text-teal-300 border border-teal-500/20 font-mono uppercase">
+                      {locale === 'es' ? 'Base' : 'Baseline'}
+                    </span>
+                  )}
                 </td>
                 
                 {/* EPS Ajustado */}
@@ -269,39 +393,38 @@ export const StockValuationCalculator: React.FC<StockValuationCalculatorProps> =
                   ${sc.adjEpsTtm.toFixed(2)}
                 </td>
 
-                {/* Escenario TTM */}
-                <td className="p-3.5 text-right">
-                  <div className="flex flex-col items-end">
-                    <span className="font-bold text-white">${sc.projectedPriceTtm.toFixed(2)}</span>
-                    <span className={`text-[10px] font-extrabold ${sc.returnTtm >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                      {sc.returnTtm >= 0 ? '+' : ''}{sc.returnTtm.toFixed(1)}%
-                    </span>
-                  </div>
-                </td>
+                {/* Escenario TTM Cell with Hover Popover */}
+                {renderScenarioCell(
+                  sc.projectedPriceTtm,
+                  sc.usdChangeTtm,
+                  sc.returnTtm,
+                  sc.cagrTtm,
+                  sc.year,
+                  sc.isBaseline,
+                  false
+                )}
 
-                {/* Escenario Forward */}
-                <td className="p-3.5 text-right">
-                  <div className="flex flex-col items-end">
-                    <span className="font-bold text-white">${sc.projectedPriceFwd.toFixed(2)}</span>
-                    <span className={`text-[10px] font-extrabold ${sc.returnFwd >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                      {sc.returnFwd >= 0 ? '+' : ''}{sc.returnFwd.toFixed(1)}%
-                    </span>
-                  </div>
-                </td>
+                {/* Escenario Forward Cell with Hover Popover */}
+                {renderScenarioCell(
+                  sc.projectedPriceFwd,
+                  sc.usdChangeFwd,
+                  sc.returnFwd,
+                  sc.cagrFwd,
+                  sc.year,
+                  sc.isBaseline,
+                  false
+                )}
 
-                {/* Escenario Mix (Recomendado) */}
-                <td className="p-3.5 text-right bg-teal-500/5">
-                  <div className="flex flex-col items-end">
-                    <span className="font-black text-emerald-400 text-sm">${sc.projectedPriceMix.toFixed(2)}</span>
-                    <span className={`text-[11px] font-black px-1.5 py-0.5 rounded border ${
-                      sc.returnMix >= 0 
-                        ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' 
-                        : 'bg-rose-500/10 text-rose-400 border-rose-500/20'
-                    }`}>
-                      {sc.returnMix >= 0 ? '+' : ''}{sc.returnMix.toFixed(1)}%
-                    </span>
-                  </div>
-                </td>
+                {/* Escenario Mix (Recomendado) Cell with Hover Popover */}
+                {renderScenarioCell(
+                  sc.projectedPriceMix,
+                  sc.usdChangeMix,
+                  sc.returnMix,
+                  sc.cagrMix,
+                  sc.year,
+                  sc.isBaseline,
+                  true
+                )}
               </tr>
             ))}
           </tbody>
