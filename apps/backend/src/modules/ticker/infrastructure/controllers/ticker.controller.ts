@@ -1,7 +1,8 @@
-import { Controller, Get, Post, Param, Query, Headers, HttpCode, HttpStatus, UnauthorizedException } from '@nestjs/common';
+import { Controller, Get, Post, Param, Query, Headers, HttpCode, HttpStatus, UnauthorizedException, Body } from '@nestjs/common';
 import { GetTickersUseCase } from '../../application/use-cases/get-tickers.use-case';
 import { GetTickerDetailsUseCase } from '../../application/use-cases/get-ticker-details.use-case';
 import { SyncTickersUseCase } from '../../application/use-cases/sync-tickers.use-case';
+import { FastSyncTickersUseCase } from '../../application/use-cases/fast-sync-tickers.use-case';
 
 @Controller('tickers')
 export class TickerController {
@@ -9,6 +10,7 @@ export class TickerController {
     private readonly getTickersUseCase: GetTickersUseCase,
     private readonly getTickerDetailsUseCase: GetTickerDetailsUseCase,
     private readonly syncTickersUseCase: SyncTickersUseCase,
+    private readonly fastSyncTickersUseCase: FastSyncTickersUseCase,
   ) {}
 
   @Get()
@@ -34,6 +36,19 @@ export class TickerController {
       })),
       snapshot: details.snapshot || null,
     };
+  }
+
+  @Post('fast-sync')
+  @HttpCode(HttpStatus.OK)
+  async fastSyncTickers(
+    @Headers('x-api-key') apiKey?: string,
+    @Body('symbols') symbols?: string[],
+  ) {
+    const expectedApiKey = process.env.SYNC_API_KEY || 'test-sync-key';
+    if (!apiKey || apiKey !== expectedApiKey) {
+      throw new UnauthorizedException('Invalid or missing x-api-key header');
+    }
+    return this.fastSyncTickersUseCase.executeAll(symbols);
   }
 
   @Post('sync')
