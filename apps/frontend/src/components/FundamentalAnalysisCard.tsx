@@ -78,7 +78,7 @@ export const FundamentalAnalysisCard: React.FC<FundamentalAnalysisCardProps> = (
     { label: 'Enterprise Val.', value: formatFinancialValue(ticker.enterpriseValue) },
     { 
       label: 'P/E (Trailing)', 
-      value: snapshot?.pe ? `${Number(snapshot.pe).toFixed(1)}x` : (ticker.pe ? `${ticker.pe.toFixed(1)}x` : 'N/A') 
+      value: (snapshot?.pe && Number(snapshot.pe) >= 3) ? `${Number(snapshot.pe).toFixed(1)}x` : (ticker.pe ? `${ticker.pe.toFixed(1)}x` : 'N/A') 
     },
     { 
       label: 'Forward P/E', 

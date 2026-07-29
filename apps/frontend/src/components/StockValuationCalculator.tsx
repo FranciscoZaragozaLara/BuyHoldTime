@@ -26,7 +26,8 @@ export const StockValuationCalculator: React.FC<StockValuationCalculatorProps> =
 
   // Extract base financial data with intelligent fallback chain
   const currentPrice = ticker.price || 1;
-  const peTtm = snapshot?.pe ? Number(snapshot.pe) : (ticker.pe && ticker.pe > 0 ? ticker.pe : 25);
+  const rawSnapshotPe = snapshot?.pe ? Number(snapshot.pe) : null;
+  const peTtm = (rawSnapshotPe && rawSnapshotPe >= 3) ? rawSnapshotPe : (ticker.pe && ticker.pe > 0 ? ticker.pe : 25);
   const peFwd = snapshot?.forwardPe ? Number(snapshot.forwardPe) : (ticker.forwardPe && ticker.forwardPe > 0 ? ticker.forwardPe : peTtm * 0.9);
 
   // Base Multiples
