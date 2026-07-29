@@ -332,7 +332,7 @@ export const StockValuationCalculator: React.FC<StockValuationCalculatorProps> =
         </div>
 
         {/* Adjusted Multiples Matrix (5 cols) */}
-        <div className="lg:col-span-5 grid grid-cols-3 gap-2 border-t lg:border-t-0 lg:border-l border-slate-900 pt-3 lg:pt-0 lg:pl-4 text-center">
+        <div className="lg:col-span-5 grid grid-cols-2 sm:grid-cols-4 gap-2 border-t lg:border-t-0 lg:border-l border-slate-900 pt-3 lg:pt-0 lg:pl-4 text-center">
           
           <div className="p-2.5 rounded-lg border border-slate-900 bg-slate-950/40 flex flex-col justify-center">
             <span className="text-[9px] text-slate-500 uppercase font-bold">P/E TTM</span>
@@ -350,6 +350,16 @@ export const StockValuationCalculator: React.FC<StockValuationCalculatorProps> =
             <span className="text-[9px] text-teal-400 uppercase font-extrabold">P/E MIX</span>
             <span className="text-xs font-black text-white font-mono mt-0.5">{peMix.toFixed(1)}x</span>
             <span className="text-[10px] text-emerald-400 font-mono font-bold">{adjPeMix.toFixed(1)}x</span>
+          </div>
+
+          <div className="p-2.5 rounded-lg border border-purple-500/20 bg-purple-500/5 flex flex-col justify-center">
+            <span className="text-[9px] text-purple-400 uppercase font-extrabold" title="P/E Terminal de Referencia del Sector a 5 Años">P/E SECTOR</span>
+            <span className="text-xs font-black text-white font-mono mt-0.5">
+              {ticker.sectorTerminalPe ? `${ticker.sectorTerminalPe.toFixed(1)}x` : 'N/A'}
+            </span>
+            <span className="text-[9px] text-purple-300 font-mono font-semibold truncate" title={ticker.sector || ''}>
+              {ticker.sector || 'Sector'}
+            </span>
           </div>
 
         </div>

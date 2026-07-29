@@ -38,6 +38,7 @@ export interface Ticker {
     peRatio?: number | null;
     source: 'real' | 'estimated';
   }> | null;
+  sectorTerminalPe?: number | null;
 }
 
 export interface HistoricalPrice {

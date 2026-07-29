@@ -74,6 +74,11 @@ export const FundamentalAnalysisCard: React.FC<FundamentalAnalysisCardProps> = (
 
   // Consolidated non-repeating metrics organized by Broker category
   const valuationMetrics = [
+    { label: 'Sector', value: ticker.sector || 'N/A' },
+    { 
+      label: 'P/E Term. Sector', 
+      value: ticker.sectorTerminalPe ? `${ticker.sectorTerminalPe.toFixed(1)}x` : 'N/A' 
+    },
     { label: 'Market Cap', value: ticker.cap || 'N/A' },
     { label: 'Enterprise Val.', value: formatFinancialValue(ticker.enterpriseValue) },
     { 

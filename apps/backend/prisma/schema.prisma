@@ -33,6 +33,7 @@ model Ticker {
   historicalDividends    Json?             @map("historical_dividends")
   historicalEps          Json?             @map("historical_eps")
   historicalEpsQuarterly Json?             @map("historical_eps_quarterly")
+  sectorTerminalPe       Float?            @map("sector_terminal_pe")
   historicalPrices       HistoricalPrice[]
 
   @@map("tickers")

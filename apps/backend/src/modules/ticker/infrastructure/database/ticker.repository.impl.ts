@@ -41,6 +41,7 @@ export class TickerRepositoryImpl implements ITickerRepository {
           t.historicalEps,
           t.historicalDividends,
           t.historicalEpsQuarterly as any,
+          t.sectorTerminalPe,
         ),
     );
   }
@@ -77,6 +78,7 @@ export class TickerRepositoryImpl implements ITickerRepository {
       t.historicalEps,
       t.historicalDividends,
       t.historicalEpsQuarterly as any,
+      t.sectorTerminalPe,
     );
   }
 
@@ -118,6 +120,8 @@ export class TickerRepositoryImpl implements ITickerRepository {
     if (data.trailingPe !== undefined) updateData.trailingPe = data.trailingPe;
     if (data.pegRatio !== undefined) updateData.pegRatio = data.pegRatio;
     if (data.enterpriseValue !== undefined) updateData.enterpriseValue = data.enterpriseValue;
+    if (data.sector !== undefined) updateData.sector = data.sector;
+    if (data.sectorTerminalPe !== undefined) updateData.sectorTerminalPe = data.sectorTerminalPe;
     if (data.avgVolume !== undefined) updateData.avgVolume = data.avgVolume;
     if (data.fiftyTwoWeekHigh !== undefined) updateData.fiftyTwoWeekHigh = data.fiftyTwoWeekHigh;
     if (data.fiftyTwoWeekLow !== undefined) updateData.fiftyTwoWeekLow = data.fiftyTwoWeekLow;
