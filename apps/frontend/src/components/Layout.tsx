@@ -4,7 +4,10 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
-import { TrendingUp, BarChart3, Compass, Briefcase, LayoutGrid, Menu, X, Mail, Globe } from 'lucide-react';
+import { TrendingUp, BarChart3, Compass, Briefcase, LayoutGrid, Menu, X, Mail, Globe, LogIn } from 'lucide-react';
+import { useAuth } from '@/context/AuthContext';
+import { UserMenu } from '@/components/UserMenu';
+import { AuthModal } from '@/components/AuthModal';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -15,7 +18,9 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const locale = useLocale();
   const pathname = usePathname();
   const router = useRouter();
+  const { user } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
   const navItems = [
     { name: t('home'), path: `/${locale}`, icon: <Compass size={18} /> },
@@ -37,6 +42,9 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
 
   return (
     <div className="flex flex-col min-h-screen bg-slate-950 text-slate-100 font-sans">
+      {/* Auth Modal Component */}
+      <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
+
       {/* Premium Navbar */}
       <header className="sticky top-0 z-50 border-b border-slate-900 bg-slate-950/80 backdrop-blur-md transition-all duration-300">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 h-18 flex items-center justify-between">
@@ -76,10 +84,10 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
           </nav>
 
           {/* Right Header Actions */}
-          <div className="hidden md:flex items-center gap-4">
+          <div className="hidden md:flex items-center gap-3">
             {/* Language Selector */}
-            <div className="flex items-center gap-1 text-slate-400 border border-slate-800 rounded-lg px-2.5 py-1.5 bg-slate-900/30 text-xs">
-              <Globe size={14} className="text-slate-500" />
+            <div className="flex items-center gap-1 text-slate-400 border border-slate-800 rounded-lg px-2 py-1.5 bg-slate-900/30 text-xs">
+              <Globe size={13} className="text-slate-500" />
               <button 
                 onClick={() => switchLocale('en')}
                 className={`hover:text-slate-100 font-semibold px-1 py-0.5 rounded transition ${locale === 'en' ? 'text-teal-400 bg-slate-800' : ''}`}
@@ -95,10 +103,23 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
               </button>
             </div>
 
+            {/* Auth Button or User Menu */}
+            {user ? (
+              <UserMenu />
+            ) : (
+              <button
+                onClick={() => setIsAuthModalOpen(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-teal-500/30 bg-teal-500/10 hover:bg-teal-500/20 text-teal-300 text-xs font-extrabold transition cursor-pointer"
+              >
+                <LogIn size={14} />
+                <span>{locale === 'es' ? 'Iniciar Sesión' : 'Sign In'}</span>
+              </button>
+            )}
+
             {/* Subscribe Action */}
             <a 
               href="#subscribe" 
-              className="flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold text-slate-950 bg-teal-400 hover:bg-teal-300 transition-colors shadow-lg shadow-teal-500/10"
+              className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold text-slate-950 bg-teal-400 hover:bg-teal-300 transition-colors shadow-lg shadow-teal-500/10"
             >
               <Mail size={14} />
               {t('ctaSubscribe')}

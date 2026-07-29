@@ -5,6 +5,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { TickerModule } from './modules/ticker/infrastructure/ticker.module';
 import { IndicatorModule } from './modules/indicator/infrastructure/indicator.module';
 import { SubscriptionModule } from './modules/subscription/infrastructure/subscription.module';
+import { AuthModule } from './modules/auth/auth.module';
 
 @Module({
   imports: [
@@ -12,6 +13,7 @@ import { SubscriptionModule } from './modules/subscription/infrastructure/subscr
     TickerModule,
     IndicatorModule,
     SubscriptionModule,
+    AuthModule,
   ],
   controllers: [AppController],
   providers: [AppService],
