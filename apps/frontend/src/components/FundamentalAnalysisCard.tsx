@@ -5,6 +5,8 @@ import { useLocale } from 'next-intl';
 import { Sparkles, DollarSign, Award, TrendingUp, BarChart2 } from 'lucide-react';
 import { Ticker } from '@/services/api';
 
+import precalculatedPerformance from '../data/precalculated_performance.json';
+
 interface FundamentalAnalysisCardProps {
   ticker: Ticker;
   snapshot?: any;
@@ -121,7 +123,14 @@ export const FundamentalAnalysisCard: React.FC<FundamentalAnalysisCardProps> = (
     { label: 'Book Value', value: ticker.bookValue ? `$${ticker.bookValue.toFixed(2)}` : 'N/A' },
   ];
 
+  const perfData = (precalculatedPerformance as any)[ticker.symbol];
+  const fromHighValCard = perfData?.fromHigh ?? (ticker.fiftyTwoWeekHigh ? Math.min(0, ((currentPrice - ticker.fiftyTwoWeekHigh) / ticker.fiftyTwoWeekHigh) * 100) : 0);
+  const isAtHighCard = Math.abs(fromHighValCard) < 0.01;
+  const fromHighFormattedCard = `${fromHighValCard > 0 ? '+' : ''}${fromHighValCard.toFixed(2)}%`;
+  const fromHighColorCard = isAtHighCard ? 'text-teal-400 font-bold' : 'text-rose-400 font-bold';
+
   const marketMetrics = [
+    { label: 'From High', value: fromHighFormattedCard, isCustomColor: true, colorClass: fromHighColorCard },
     { label: 'Div. Rate', value: ticker.dividendRate ? `$${ticker.dividendRate.toFixed(2)}` : '$0.00' },
     { 
       label: 'Div. Yield', 
@@ -261,11 +270,11 @@ export const FundamentalAnalysisCard: React.FC<FundamentalAnalysisCardProps> = (
               <BarChart2 size={11} className="text-teal-400" />
               {locale === 'es' ? 'Rentabilidad, Dividendos & Mercado' : 'Earnings, Dividends & Market'}
             </span>
-            <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5">
-              {[...earningsMetrics, ...marketMetrics].map((m) => (
+            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-1.5">
+              {[...earningsMetrics, ...marketMetrics].map((m: any) => (
                 <div key={m.label} className="p-2 rounded-lg border border-slate-900 bg-slate-900/30 text-center flex flex-col justify-center">
                   <span className="text-[8.5px] text-slate-500 uppercase font-bold truncate">{m.label}</span>
-                  <span className="text-xs font-bold font-mono text-slate-100 mt-0.5 truncate">{m.value}</span>
+                  <span className={`text-xs font-bold font-mono mt-0.5 truncate ${m.isCustomColor ? m.colorClass : 'text-slate-100'}`}>{m.value}</span>
                 </div>
               ))}
             </div>

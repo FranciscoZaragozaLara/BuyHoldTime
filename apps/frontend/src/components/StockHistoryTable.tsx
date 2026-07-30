@@ -154,6 +154,25 @@ export const StockHistoryTable: React.FC<StockHistoryTableProps> = ({ prices, ti
     return [...prices].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [prices]);
 
+  // Pre-calculate running All-Time Highs (ATH) up to each chronological date in the series
+  const athMap = useMemo(() => {
+    const sortedAsc = [...prices].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    const map = new Map<string, { highestPrice: number; highestDate: string }>();
+    let currentATH = 0;
+    let currentATHDate = '';
+
+    for (const p of sortedAsc) {
+      const priceVal = p.high || p.close;
+      const dStr = p.date.split('T')[0];
+      if (priceVal >= currentATH) {
+        currentATH = priceVal;
+        currentATHDate = dStr;
+      }
+      map.set(dStr, { highestPrice: currentATH, highestDate: currentATHDate });
+    }
+    return map;
+  }, [prices]);
+
   // Select active list
   const activeList = useMemo(() => {
     if (activeTab === 'monthly') return monthlyData;
@@ -278,6 +297,7 @@ export const StockHistoryTable: React.FC<StockHistoryTableProps> = ({ prices, ti
               <th className="p-4">{locale === 'es' ? 'Cierre' : 'Close'}</th>
               <th className="p-4 text-right">{locale === 'es' ? 'Var. ($)' : 'Var. ($)'}</th>
               <th className="p-4 text-right">{locale === 'es' ? 'Var. (%)' : 'Var. (%)'}</th>
+              <th className="p-4 text-right">{locale === 'es' ? 'From High' : 'From High'}</th>
               <th className="p-4">Market Cap</th>
               <th className="p-4">
                 <div className="flex items-center gap-2">
@@ -441,6 +461,39 @@ export const StockHistoryTable: React.FC<StockHistoryTableProps> = ({ prices, ti
               const peRatio = isFund ? resolvedPe : (estimatedEps && estimatedEps > 0 ? (row.close / estimatedEps) : null);
               const divYield = row.close > 0 ? (finalDivRate / row.close) * 100 : 0;
 
+              // From High calculation for this row
+              const rowDateKey = activeTab === 'daily' 
+                ? (row.date ? row.date.split('T')[0] : '')
+                : rowDateStr;
+              
+              let athInfo = athMap.get(rowDateKey);
+              if (!athInfo) {
+                let highest = 0;
+                let hDate = '';
+                for (const p of prices) {
+                  if (new Date(p.date) <= rowDate) {
+                    const pVal = p.high || p.close;
+                    if (pVal >= highest) {
+                      highest = pVal;
+                      hDate = p.date.split('T')[0];
+                    }
+                  }
+                }
+                athInfo = { highestPrice: highest || row.close, highestDate: hDate || rowDateKey };
+              }
+
+              const rowATHPrice = athInfo.highestPrice > 0 ? athInfo.highestPrice : row.close;
+              const fromHighVal = rowATHPrice > 0 ? Math.min(0, ((row.close - rowATHPrice) / rowATHPrice) * 100) : 0;
+              const isAtHigh = Math.abs(fromHighVal) < 0.01;
+              const fromHighTextColor = isAtHigh ? 'text-teal-400 font-bold' : 'text-rose-400 font-bold';
+              const formattedATHDate = athInfo.highestDate
+                ? new Date(athInfo.highestDate + 'T00:00:00').toLocaleDateString(locale === 'es' ? 'es-ES' : 'en-US', {
+                    day: '2-digit',
+                    month: 'short',
+                    year: 'numeric',
+                  })
+                : 'N/A';
+
               // Generate Tooltip showing summation details
               const tooltipText = quartersUsed.length === 4
                 ? quartersUsed.map(q => `${q.period}/${q.fiscalYear}: $${(q.epsDiluted || q.eps || 0).toFixed(2)} (${q.source === 'real' ? 'R' : 'E'})`).join(' + ') + ` = TTM $${estimatedEps?.toFixed(2)}`
@@ -462,6 +515,53 @@ export const StockHistoryTable: React.FC<StockHistoryTableProps> = ({ prices, ti
                   </td>
                   <td className={`p-4 text-right ${changeColor}`}>
                     {nextRow ? `${changeSign}${percentChange.toFixed(2)}%` : '-'}
+                  </td>
+                  <td className="p-4 text-right font-mono relative group/ath hover:z-30 cursor-help">
+                    <div className="inline-flex items-center gap-1 justify-end">
+                      <span className={fromHighTextColor}>
+                        {fromHighVal > 0 ? '+' : ''}{fromHighVal.toFixed(2)}%
+                      </span>
+                      <span className="text-[10px] text-slate-500 group-hover/ath:text-teal-400 transition-colors ml-0.5">ℹ</span>
+                    </div>
+
+                    {/* Hover Popover Tooltip */}
+                    <div className="pointer-events-none absolute right-2 bottom-full mb-2.5 hidden group-hover/ath:flex flex-col gap-2 w-64 p-3.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-200 text-xs shadow-[0_10px_25px_-5px_rgba(0,0,0,0.8)] z-50 text-left font-sans animate-in fade-in zoom-in-95 duration-150">
+                      <div className="absolute -bottom-1.5 border-b border-r right-4 w-3 h-3 bg-slate-950 border-slate-800 rotate-45"></div>
+                      
+                      <div className="flex items-center justify-between border-b border-slate-900 pb-2 font-extrabold text-teal-400 relative z-10">
+                        <span>{locale === 'es' ? 'Caída desde Máximo' : 'From High Calculation'}</span>
+                        <span className="text-[10px] font-bold text-slate-400 bg-slate-900 px-1.5 py-0.5 rounded border border-slate-800">{ticker.symbol}</span>
+                      </div>
+                      
+                      <div className="flex flex-col gap-1 text-[11px] font-mono text-slate-300 relative z-10">
+                        <div className="flex justify-between">
+                          <span className="text-slate-400">{locale === 'es' ? 'Máx. Histórico' : 'Highest Price'}:</span>
+                          <strong className="text-emerald-400">${rowATHPrice ? rowATHPrice.toFixed(2) : 'N/A'}</strong>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-400">{locale === 'es' ? 'Precio en esta fecha' : 'Price on Date'}:</span>
+                          <strong className="text-slate-100">${row.close.toFixed(2)}</strong>
+                        </div>
+                        <div className="flex justify-between pt-1 border-t border-slate-900">
+                          <span className="text-slate-400">From High:</span>
+                          <strong className={fromHighTextColor}>
+                            {fromHighVal > 0 ? '+' : ''}{fromHighVal.toFixed(2)}%
+                          </strong>
+                        </div>
+                      </div>
+
+                      <div className="text-[10px] text-slate-400 bg-slate-900/60 rounded px-2 py-1 border border-slate-800/80 flex flex-col gap-0.5 mt-0.5 relative z-10">
+                        <span className="font-semibold text-slate-300">{locale === 'es' ? 'Cálculo de From High:' : 'Calculation:'}</span>
+                        <span className="font-mono text-[9.5px] text-slate-400">
+                          ((Precio Cierre - Máx. Histórico) / Máx. Histórico) * 100
+                        </span>
+                      </div>
+
+                      <div className="text-[10px] pt-1 border-t border-slate-900 flex items-center justify-between relative z-10">
+                        <span className="text-slate-400">{locale === 'es' ? 'Fecha del Máximo' : 'Reached On'}:</span>
+                        <strong className="font-bold text-teal-300">{formattedATHDate}</strong>
+                      </div>
+                    </div>
                   </td>
                   <td className="p-4 text-slate-300">{formatMarketCap(scaledCap)}</td>
                   <td className="p-4">
@@ -518,7 +618,7 @@ export const StockHistoryTable: React.FC<StockHistoryTableProps> = ({ prices, ti
             {/* Observer element target for infinite scrolling */}
             {activeTab !== 'annual' && visibleCount < activeList.length && (
               <tr ref={observerRef}>
-                <td colSpan={12} className="p-4 text-center text-[10px] text-slate-500 font-sans tracking-wide animate-pulse">
+                <td colSpan={13} className="p-4 text-center text-[10px] text-slate-500 font-sans tracking-wide animate-pulse">
                   {locale === 'es' ? 'Cargando más registros...' : 'Loading more records...'}
                 </td>
               </tr>
