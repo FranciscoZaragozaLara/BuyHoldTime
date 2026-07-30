@@ -548,7 +548,7 @@ export const PricesListClient: React.FC<PricesListClientProps> = ({ initialTicke
                 <table className="w-full text-left text-xs border-collapse">
                   <thead className="sticky top-0 z-30 bg-slate-950 text-slate-400 font-bold border-b border-slate-900 shadow-md">
                     <tr>
-                      <th className="p-3.5 px-4 bg-slate-950 whitespace-nowrap">{tCommon('ticker')}</th>
+                      <th className="sticky left-0 top-0 z-40 bg-slate-950 p-3.5 px-4 whitespace-nowrap border-r border-slate-800/80 shadow-[4px_0_8px_-2px_rgba(0,0,0,0.5)]">{tCommon('ticker')}</th>
                       <th className="p-3.5 px-4 bg-slate-950 whitespace-nowrap">{tPrices('sector')}</th>
                       <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap">{tCommon('price')}</th>
                       <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap">{tCommon('change')}</th>
@@ -575,7 +575,7 @@ export const PricesListClient: React.FC<PricesListClientProps> = ({ initialTicke
                       
                       return (
                         <tr key={stock.symbol} className="hover:bg-slate-900/20 transition-colors">
-                          <td className="p-4 font-sans font-bold text-white whitespace-nowrap">
+                          <td className="sticky left-0 z-20 bg-slate-950 p-4 font-sans font-bold text-white whitespace-nowrap border-r border-slate-900 shadow-[4px_0_8px_-2px_rgba(0,0,0,0.5)]">
                             <Link href={`/${locale}/prices/${stock.symbol}`} className="group/ticker inline-flex flex-col items-start gap-1">
                               <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-black tracking-wider uppercase bg-teal-500/15 text-teal-300 border border-teal-500/30 group-hover/ticker:bg-teal-500 group-hover/ticker:text-slate-950 group-hover/ticker:border-teal-400 shadow-[0_0_12px_rgba(20,184,166,0.15)] group-hover/ticker:shadow-[0_0_16px_rgba(20,184,166,0.4)] group-hover/ticker:scale-105 transition-all duration-200 cursor-pointer">
                                 {stock.symbol}
@@ -637,7 +637,7 @@ export const PricesListClient: React.FC<PricesListClientProps> = ({ initialTicke
                 <table className="w-full text-left text-xs border-collapse">
                   <thead className="sticky top-0 z-30 bg-slate-950 text-slate-400 font-bold border-b border-slate-900 shadow-md">
                     <tr>
-                      <th className="p-3.5 px-4 bg-slate-950 whitespace-nowrap">{tCommon('ticker')}</th>
+                      <th className="sticky left-0 top-0 z-40 bg-slate-950 p-3.5 px-4 whitespace-nowrap border-r border-slate-800/80 shadow-[4px_0_8px_-2px_rgba(0,0,0,0.5)]">{tCommon('ticker')}</th>
                       <th className="p-3.5 px-4 bg-slate-950 whitespace-nowrap">{tPrices('sector')}</th>
                       <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap">{tCommon('price')}</th>
                       <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap">{tCommon('change')}</th>
@@ -664,7 +664,7 @@ export const PricesListClient: React.FC<PricesListClientProps> = ({ initialTicke
                       
                       return (
                         <tr key={stock.symbol} className="hover:bg-slate-900/20 transition-colors">
-                          <td className="p-4 font-sans font-bold text-white whitespace-nowrap">
+                          <td className="sticky left-0 z-20 bg-slate-950 p-4 font-sans font-bold text-white whitespace-nowrap border-r border-slate-900 shadow-[4px_0_8px_-2px_rgba(0,0,0,0.5)]">
                             <Link href={`/${locale}/prices/${stock.symbol}`} className="group/ticker inline-flex flex-col items-start gap-1">
                               <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-black tracking-wider uppercase bg-teal-500/15 text-teal-300 border border-teal-500/30 group-hover/ticker:bg-teal-500 group-hover/ticker:text-slate-950 group-hover/ticker:border-teal-400 shadow-[0_0_12px_rgba(20,184,166,0.15)] group-hover/ticker:shadow-[0_0_16px_rgba(20,184,166,0.4)] group-hover/ticker:scale-105 transition-all duration-200 cursor-pointer">
                                 {stock.symbol}
