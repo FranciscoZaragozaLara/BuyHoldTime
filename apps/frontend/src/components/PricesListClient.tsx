@@ -544,27 +544,27 @@ export const PricesListClient: React.FC<PricesListClientProps> = ({ initialTicke
                 <Sparkles size={14} className="text-teal-400 animate-pulse" />
                 ETFs & Fondos Indexados ({filteredEtfs.length})
               </h3>
-              <div className="overflow-x-auto border border-slate-900 rounded-xl bg-slate-950 shadow-xl">
+              <div className="max-h-[650px] overflow-auto border border-slate-900 rounded-xl bg-slate-950 shadow-xl">
                 <table className="w-full text-left text-xs border-collapse">
-                  <thead className="bg-slate-950 border-b border-slate-900">
+                  <thead className="sticky top-0 z-30 bg-slate-950 text-slate-400 font-bold border-b border-slate-900 shadow-md">
                     <tr>
-                      <th className="sticky top-[72px] z-30 bg-slate-950 py-3.5 px-4 text-slate-400 font-bold border-b border-slate-900 shadow-sm">{tCommon('ticker')}</th>
-                      <th className="sticky top-[72px] z-30 bg-slate-950 py-3.5 px-4 text-slate-400 font-bold border-b border-slate-900 shadow-sm">{tPrices('sector')}</th>
-                      <th className="sticky top-[72px] z-30 bg-slate-950 py-3.5 px-4 text-right text-slate-400 font-bold border-b border-slate-900 shadow-sm">{tCommon('price')}</th>
-                      <th className="sticky top-[72px] z-30 bg-slate-950 py-3.5 px-4 text-right text-slate-400 font-bold border-b border-slate-900 shadow-sm">{tCommon('change')}</th>
-                      <th className="sticky top-[72px] z-30 bg-slate-950 py-3.5 px-4 text-right text-slate-400 font-bold border-b border-slate-900 shadow-sm">Perf 1M</th>
-                      <th className="sticky top-[72px] z-30 bg-slate-950 py-3.5 px-4 text-right text-slate-400 font-bold border-b border-slate-900 shadow-sm">Perf YTD</th>
-                      <th className="sticky top-[72px] z-30 bg-slate-950 py-3.5 px-4 text-right text-slate-400 font-bold border-b border-slate-900 shadow-sm">Perf 1Y</th>
-                      <th className="sticky top-[72px] z-30 bg-slate-950 py-3.5 px-4 text-right text-slate-400 font-bold border-b border-slate-900 shadow-sm">Perf 5Y</th>
-                      <th className="sticky top-[72px] z-30 bg-slate-950 py-3.5 px-4 text-right text-slate-400 font-bold border-b border-slate-900 shadow-sm">From High</th>
-                      <th className="sticky top-[72px] z-30 bg-slate-950 py-3.5 px-4 text-right text-slate-400 font-bold border-b border-slate-900 shadow-sm">{tPrices('cap')}</th>
-                      <th className="sticky top-[72px] z-30 bg-slate-950 py-3.5 px-4 text-right text-slate-400 font-bold border-b border-slate-900 shadow-sm">{tPrices('pe')}</th>
-                      <th className="sticky top-[72px] z-30 bg-slate-950 py-3.5 px-4 text-right text-slate-400 font-bold border-b border-slate-900 shadow-sm">Forward P/E</th>
-                      <th className="sticky top-[72px] z-30 bg-slate-950 py-3.5 px-4 text-right text-slate-400 font-bold border-b border-slate-900 shadow-sm">EPS (TTM)</th>
-                      <th className="sticky top-[72px] z-30 bg-slate-950 py-3.5 px-4 text-right text-slate-400 font-bold border-b border-slate-900 shadow-sm">Div. Rate</th>
-                      <th className="sticky top-[72px] z-30 bg-slate-950 py-3.5 px-4 text-right text-slate-400 font-bold border-b border-slate-900 shadow-sm">{tPrices('dy')}</th>
-                      <th className="sticky top-[72px] z-30 bg-slate-950 py-3.5 px-4 text-center text-slate-400 font-bold border-b border-slate-900 shadow-sm">{tCommon('buyHoldIndex')}</th>
-                      <th className="sticky top-[72px] z-30 bg-slate-950 py-3.5 px-4 text-right text-slate-400 font-bold border-b border-slate-900 shadow-sm">{tCommon('recommendation')}</th>
+                      <th className="p-3.5 px-4 bg-slate-950 whitespace-nowrap">{tCommon('ticker')}</th>
+                      <th className="p-3.5 px-4 bg-slate-950 whitespace-nowrap">{tPrices('sector')}</th>
+                      <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap">{tCommon('price')}</th>
+                      <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap">{tCommon('change')}</th>
+                      <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap">Perf 1M</th>
+                      <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap">Perf YTD</th>
+                      <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap">Perf 1Y</th>
+                      <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap">Perf 5Y</th>
+                      <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap">From High</th>
+                      <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap">{tPrices('cap')}</th>
+                      <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap">{tPrices('pe')}</th>
+                      <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap">Forward P/E</th>
+                      <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap">EPS (TTM)</th>
+                      <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap">Div. Rate</th>
+                      <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap">{tPrices('dy')}</th>
+                      <th className="p-3.5 px-4 text-center bg-slate-950 whitespace-nowrap">{tCommon('buyHoldIndex')}</th>
+                      <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap">{tCommon('recommendation')}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-900/60 font-mono">
@@ -633,27 +633,27 @@ export const PricesListClient: React.FC<PricesListClientProps> = ({ initialTicke
                 <Sparkles size={14} className="text-teal-400 animate-pulse" />
                 {locale === 'es' ? 'Empresas' : 'Companies'} ({filteredCompanies.length})
               </h3>
-              <div className="overflow-x-auto border border-slate-900 rounded-xl bg-slate-950 shadow-xl">
+              <div className="max-h-[650px] overflow-auto border border-slate-900 rounded-xl bg-slate-950 shadow-xl">
                 <table className="w-full text-left text-xs border-collapse">
-                  <thead className="bg-slate-950 border-b border-slate-900">
+                  <thead className="sticky top-0 z-30 bg-slate-950 text-slate-400 font-bold border-b border-slate-900 shadow-md">
                     <tr>
-                      <th className="sticky top-[72px] z-30 bg-slate-950 py-3.5 px-4 text-slate-400 font-bold border-b border-slate-900 shadow-sm">{tCommon('ticker')}</th>
-                      <th className="sticky top-[72px] z-30 bg-slate-950 py-3.5 px-4 text-slate-400 font-bold border-b border-slate-900 shadow-sm">{tPrices('sector')}</th>
-                      <th className="sticky top-[72px] z-30 bg-slate-950 py-3.5 px-4 text-right text-slate-400 font-bold border-b border-slate-900 shadow-sm">{tCommon('price')}</th>
-                      <th className="sticky top-[72px] z-30 bg-slate-950 py-3.5 px-4 text-right text-slate-400 font-bold border-b border-slate-900 shadow-sm">{tCommon('change')}</th>
-                      <th className="sticky top-[72px] z-30 bg-slate-950 py-3.5 px-4 text-right text-slate-400 font-bold border-b border-slate-900 shadow-sm">Perf 1M</th>
-                      <th className="sticky top-[72px] z-30 bg-slate-950 py-3.5 px-4 text-right text-slate-400 font-bold border-b border-slate-900 shadow-sm">Perf YTD</th>
-                      <th className="sticky top-[72px] z-30 bg-slate-950 py-3.5 px-4 text-right text-slate-400 font-bold border-b border-slate-900 shadow-sm">Perf 1Y</th>
-                      <th className="sticky top-[72px] z-30 bg-slate-950 py-3.5 px-4 text-right text-slate-400 font-bold border-b border-slate-900 shadow-sm">Perf 5Y</th>
-                      <th className="sticky top-[72px] z-30 bg-slate-950 py-3.5 px-4 text-right text-slate-400 font-bold border-b border-slate-900 shadow-sm">From High</th>
-                      <th className="sticky top-[72px] z-30 bg-slate-950 py-3.5 px-4 text-right text-slate-400 font-bold border-b border-slate-900 shadow-sm">{tPrices('cap')}</th>
-                      <th className="sticky top-[72px] z-30 bg-slate-950 py-3.5 px-4 text-right text-slate-400 font-bold border-b border-slate-900 shadow-sm">{tPrices('pe')}</th>
-                      <th className="sticky top-[72px] z-30 bg-slate-950 py-3.5 px-4 text-right text-slate-400 font-bold border-b border-slate-900 shadow-sm">Forward P/E</th>
-                      <th className="sticky top-[72px] z-30 bg-slate-950 py-3.5 px-4 text-right text-slate-400 font-bold border-b border-slate-900 shadow-sm">EPS (TTM)</th>
-                      <th className="sticky top-[72px] z-30 bg-slate-950 py-3.5 px-4 text-right text-slate-400 font-bold border-b border-slate-900 shadow-sm">Div. Rate</th>
-                      <th className="sticky top-[72px] z-30 bg-slate-950 py-3.5 px-4 text-right text-slate-400 font-bold border-b border-slate-900 shadow-sm">{tPrices('dy')}</th>
-                      <th className="sticky top-[72px] z-30 bg-slate-950 py-3.5 px-4 text-center text-slate-400 font-bold border-b border-slate-900 shadow-sm">{tCommon('buyHoldIndex')}</th>
-                      <th className="sticky top-[72px] z-30 bg-slate-950 py-3.5 px-4 text-right text-slate-400 font-bold border-b border-slate-900 shadow-sm">{tCommon('recommendation')}</th>
+                      <th className="p-3.5 px-4 bg-slate-950 whitespace-nowrap">{tCommon('ticker')}</th>
+                      <th className="p-3.5 px-4 bg-slate-950 whitespace-nowrap">{tPrices('sector')}</th>
+                      <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap">{tCommon('price')}</th>
+                      <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap">{tCommon('change')}</th>
+                      <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap">Perf 1M</th>
+                      <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap">Perf YTD</th>
+                      <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap">Perf 1Y</th>
+                      <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap">Perf 5Y</th>
+                      <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap">From High</th>
+                      <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap">{tPrices('cap')}</th>
+                      <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap">{tPrices('pe')}</th>
+                      <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap">Forward P/E</th>
+                      <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap">EPS (TTM)</th>
+                      <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap">Div. Rate</th>
+                      <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap">{tPrices('dy')}</th>
+                      <th className="p-3.5 px-4 text-center bg-slate-950 whitespace-nowrap">{tCommon('buyHoldIndex')}</th>
+                      <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap">{tCommon('recommendation')}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-900/60 font-mono">
