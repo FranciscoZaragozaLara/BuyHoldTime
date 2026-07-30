@@ -546,25 +546,25 @@ export const PricesListClient: React.FC<PricesListClientProps> = ({ initialTicke
               </h3>
               <div className="overflow-x-auto border border-slate-900 rounded-xl bg-slate-950/20 shadow-xl">
                 <table className="w-full text-left text-xs">
-                  <thead className="bg-slate-900/80 text-slate-400 font-bold border-b border-slate-900">
+                  <thead className="sticky top-18 z-20 bg-slate-950/95 backdrop-blur-md text-slate-400 font-bold border-b border-slate-900 shadow-md">
                     <tr>
-                      <th className="p-4">{tCommon('ticker')}</th>
-                      <th className="p-4">{tPrices('sector')}</th>
-                      <th className="p-4 text-right">{tCommon('price')}</th>
-                      <th className="p-4 text-right">{tCommon('change')}</th>
-                      <th className="p-4 text-right">Perf 1M</th>
-                      <th className="p-4 text-right">Perf YTD</th>
-                      <th className="p-4 text-right">Perf 1Y</th>
-                      <th className="p-4 text-right">Perf 5Y</th>
-                      <th className="p-4 text-right">From High</th>
-                      <th className="p-4 text-right">{tPrices('cap')}</th>
-                      <th className="p-4 text-right">{tPrices('pe')}</th>
-                      <th className="p-4 text-right">Forward P/E</th>
-                      <th className="p-4 text-right">EPS (TTM)</th>
-                      <th className="p-4 text-right">Div. Rate</th>
-                      <th className="p-4 text-right">{tPrices('dy')}</th>
-                      <th className="p-4 text-center">{tCommon('buyHoldIndex')}</th>
-                      <th className="p-4 text-right">{tCommon('recommendation')}</th>
+                      <th className="p-4 bg-slate-950/95">{tCommon('ticker')}</th>
+                      <th className="p-4 bg-slate-950/95">{tPrices('sector')}</th>
+                      <th className="p-4 text-right bg-slate-950/95">{tCommon('price')}</th>
+                      <th className="p-4 text-right bg-slate-950/95">{tCommon('change')}</th>
+                      <th className="p-4 text-right bg-slate-950/95">Perf 1M</th>
+                      <th className="p-4 text-right bg-slate-950/95">Perf YTD</th>
+                      <th className="p-4 text-right bg-slate-950/95">Perf 1Y</th>
+                      <th className="p-4 text-right bg-slate-950/95">Perf 5Y</th>
+                      <th className="p-4 text-right bg-slate-950/95">From High</th>
+                      <th className="p-4 text-right bg-slate-950/95">{tPrices('cap')}</th>
+                      <th className="p-4 text-right bg-slate-950/95">{tPrices('pe')}</th>
+                      <th className="p-4 text-right bg-slate-950/95">Forward P/E</th>
+                      <th className="p-4 text-right bg-slate-950/95">EPS (TTM)</th>
+                      <th className="p-4 text-right bg-slate-950/95">Div. Rate</th>
+                      <th className="p-4 text-right bg-slate-950/95">{tPrices('dy')}</th>
+                      <th className="p-4 text-center bg-slate-950/95">{tCommon('buyHoldIndex')}</th>
+                      <th className="p-4 text-right bg-slate-950/95">{tCommon('recommendation')}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-900/60 font-mono">
@@ -635,25 +635,25 @@ export const PricesListClient: React.FC<PricesListClientProps> = ({ initialTicke
               </h3>
               <div className="overflow-x-auto border border-slate-900 rounded-xl bg-slate-950/20 shadow-xl">
                 <table className="w-full text-left text-xs">
-                  <thead className="bg-slate-900/80 text-slate-400 font-bold border-b border-slate-900">
+                  <thead className="sticky top-18 z-20 bg-slate-950/95 backdrop-blur-md text-slate-400 font-bold border-b border-slate-900 shadow-md">
                     <tr>
-                      <th className="p-4">{tCommon('ticker')}</th>
-                      <th className="p-4">{tPrices('sector')}</th>
-                      <th className="p-4 text-right">{tCommon('price')}</th>
-                      <th className="p-4 text-right">{tCommon('change')}</th>
-                      <th className="p-4 text-right">Perf 1M</th>
-                      <th className="p-4 text-right">Perf YTD</th>
-                      <th className="p-4 text-right">Perf 1Y</th>
-                      <th className="p-4 text-right">Perf 5Y</th>
-                      <th className="p-4 text-right">From High</th>
-                      <th className="p-4 text-right">{tPrices('cap')}</th>
-                      <th className="p-4 text-right">{tPrices('pe')}</th>
-                      <th className="p-4 text-right">Forward P/E</th>
-                      <th className="p-4 text-right">EPS (TTM)</th>
-                      <th className="p-4 text-right">Div. Rate</th>
-                      <th className="p-4 text-right">{tPrices('dy')}</th>
-                      <th className="p-4 text-center">{tCommon('buyHoldIndex')}</th>
-                      <th className="p-4 text-right">{tCommon('recommendation')}</th>
+                      <th className="p-4 bg-slate-950/95">{tCommon('ticker')}</th>
+                      <th className="p-4 bg-slate-950/95">{tPrices('sector')}</th>
+                      <th className="p-4 text-right bg-slate-950/95">{tCommon('price')}</th>
+                      <th className="p-4 text-right bg-slate-950/95">{tCommon('change')}</th>
+                      <th className="p-4 text-right bg-slate-950/95">Perf 1M</th>
+                      <th className="p-4 text-right bg-slate-950/95">Perf YTD</th>
+                      <th className="p-4 text-right bg-slate-950/95">Perf 1Y</th>
+                      <th className="p-4 text-right bg-slate-950/95">Perf 5Y</th>
+                      <th className="p-4 text-right bg-slate-950/95">From High</th>
+                      <th className="p-4 text-right bg-slate-950/95">{tPrices('cap')}</th>
+                      <th className="p-4 text-right bg-slate-950/95">{tPrices('pe')}</th>
+                      <th className="p-4 text-right bg-slate-950/95">Forward P/E</th>
+                      <th className="p-4 text-right bg-slate-950/95">EPS (TTM)</th>
+                      <th className="p-4 text-right bg-slate-950/95">Div. Rate</th>
+                      <th className="p-4 text-right bg-slate-950/95">{tPrices('dy')}</th>
+                      <th className="p-4 text-center bg-slate-950/95">{tCommon('buyHoldIndex')}</th>
+                      <th className="p-4 text-right bg-slate-950/95">{tCommon('recommendation')}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-900/60 font-mono">
