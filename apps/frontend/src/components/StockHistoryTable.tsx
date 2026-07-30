@@ -485,6 +485,37 @@ export const StockHistoryTable: React.FC<StockHistoryTableProps> = ({ prices, ti
                 cellColor = 'text-rose-400 font-bold';
               }
 
+              // Calculate CAGR (Compound Annual Growth Rate) from rowDate to today
+              const todayObj = new Date();
+              const rowDateObj = new Date(rowDateStr);
+              const diffDays = Math.max(1, (todayObj.getTime() - rowDateObj.getTime()) / (1000 * 60 * 60 * 24));
+              const diffYears = diffDays / 365.25;
+
+              let cagrFormatted = 'N/A';
+              let cagrColor = 'text-slate-400';
+              let cagrNote = '';
+
+              if (row.close > 0 && ticker.price > 0) {
+                if (diffYears < 1) {
+                  const absReturn = ((ticker.price - row.close) / row.close) * 100;
+                  cagrFormatted = `${absReturn >= 0 ? '+' : ''}${absReturn.toFixed(2)}% (Abs.)`;
+                  cagrColor = absReturn >= 0 ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold';
+                  cagrNote = locale === 'es' 
+                    ? '< 1 año: Rendimiento absoluto sin anualizar (evita distorsión por volatilidad).'
+                    : '< 1 year: Absolute non-annualized return (prevents short-term skew).';
+                } else {
+                  const ratio = ticker.price / row.close;
+                  if (ratio > 0) {
+                    const cagrVal = (Math.pow(ratio, 1 / diffYears) - 1) * 100;
+                    cagrFormatted = `${cagrVal >= 0 ? '+' : ''}${cagrVal.toFixed(2)}% / año`;
+                    cagrColor = cagrVal >= 0 ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold';
+                    cagrNote = locale === 'es'
+                      ? `CAGR Compuesto Anualizado en ${diffYears.toFixed(1)} años.`
+                      : `Annualized CAGR over ${diffYears.toFixed(1)} years.`;
+                  }
+                }
+              }
+
               const formattedATHDate = overallATHInfo.maxDate
                 ? new Date(overallATHInfo.maxDate + 'T00:00:00').toLocaleDateString(locale === 'es' ? 'es-ES' : 'en-US', {
                     day: '2-digit',
@@ -524,7 +555,7 @@ export const StockHistoryTable: React.FC<StockHistoryTableProps> = ({ prices, ti
                     </div>
 
                     {/* Hover Popover Tooltip */}
-                    <div className="pointer-events-none absolute right-2 bottom-full mb-2.5 hidden group-hover/ath:flex flex-col gap-2 w-64 p-3.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-200 text-xs shadow-[0_10px_25px_-5px_rgba(0,0,0,0.8)] z-50 text-left font-sans animate-in fade-in zoom-in-95 duration-150">
+                    <div className="pointer-events-none absolute right-2 bottom-full mb-2.5 hidden group-hover/ath:flex flex-col gap-2 w-72 p-3.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-200 text-xs shadow-[0_10px_25px_-5px_rgba(0,0,0,0.8)] z-50 text-left font-sans animate-in fade-in zoom-in-95 duration-150">
                       <div className="absolute -bottom-1.5 border-b border-r right-4 w-3 h-3 bg-slate-950 border-slate-800 rotate-45"></div>
                       
                       <div className="flex items-center justify-between border-b border-slate-900 pb-2 font-extrabold text-teal-400 relative z-10">
@@ -564,6 +595,15 @@ export const StockHistoryTable: React.FC<StockHistoryTableProps> = ({ prices, ti
                             {cellVal > 0 ? '+' : ''}{cellVal.toFixed(2)}%
                           </strong>
                         </div>
+
+                        {/* CAGR (Compound Annual Growth Rate) display */}
+                        <div className="flex justify-between items-center pt-1 border-t border-slate-900">
+                          <span className="text-slate-400 font-sans flex items-center gap-1">
+                            <TrendingUp size={11} className="text-teal-400 shrink-0" />
+                            {locale === 'es' ? 'CAGR (Anualizado):' : 'CAGR (Annualized):'}
+                          </span>
+                          <strong className={cagrColor}>{cagrFormatted}</strong>
+                        </div>
                       </div>
 
                       <div className="text-[10px] text-slate-400 bg-slate-900/60 rounded px-2 py-1 border border-slate-800/80 flex flex-col gap-0.5 mt-0.5 relative z-10">
@@ -574,6 +614,13 @@ export const StockHistoryTable: React.FC<StockHistoryTableProps> = ({ prices, ti
                             : '((Precio Cierre - Máx. Histórico) / Máx. Histórico) * 100'}
                         </span>
                       </div>
+
+                      {cagrNote && (
+                        <div className="text-[9.5px] text-teal-300/90 bg-teal-500/10 rounded px-2 py-1 border border-teal-500/20 flex flex-col gap-0.5 relative z-10">
+                          <span className="font-semibold text-teal-400">{locale === 'es' ? 'Nota sobre CAGR:' : 'CAGR Note:'}</span>
+                          <span>{cagrNote}</span>
+                        </div>
+                      )}
 
                       {cellMode !== 'growth' && (
                         <div className="text-[10px] pt-1 border-t border-slate-900 flex items-center justify-between relative z-10">
