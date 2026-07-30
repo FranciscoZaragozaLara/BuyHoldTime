@@ -90,10 +90,16 @@ export interface Subscription {
   createdAt: string;
 }
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+function getApiBaseUrl(): string {
+  if (process.env.NEXT_PUBLIC_API_URL) return process.env.NEXT_PUBLIC_API_URL;
+  if (typeof window !== 'undefined' && window.location?.hostname) {
+    return `http://${window.location.hostname}:4000`;
+  }
+  return 'http://localhost:4000';
+}
 
 export async function getTickers(): Promise<Ticker[]> {
-  const res = await fetch(`${API_BASE_URL}/tickers`, {
+  const res = await fetch(`${getApiBaseUrl()}/tickers`, {
     cache: 'no-store',
   });
   if (!res.ok) throw new Error('Failed to fetch tickers');
@@ -101,7 +107,7 @@ export async function getTickers(): Promise<Ticker[]> {
 }
 
 export async function getTickerDetails(symbol: string, limit = 500): Promise<TickerDetails> {
-  const res = await fetch(`${API_BASE_URL}/tickers/${symbol}?limit=${limit}`, {
+  const res = await fetch(`${getApiBaseUrl()}/tickers/${symbol}?limit=${limit}`, {
     cache: 'no-store',
   });
   if (!res.ok) throw new Error(`Failed to fetch ticker details for ${symbol}`);
@@ -109,7 +115,7 @@ export async function getTickerDetails(symbol: string, limit = 500): Promise<Tic
 }
 
 export async function getIndicators(): Promise<Indicator[]> {
-  const res = await fetch(`${API_BASE_URL}/indicators`, {
+  const res = await fetch(`${getApiBaseUrl()}/indicators`, {
     cache: 'no-store',
   });
   if (!res.ok) throw new Error('Failed to fetch indicators');
@@ -117,7 +123,7 @@ export async function getIndicators(): Promise<Indicator[]> {
 }
 
 export async function getIndicatorDetails(key: string, limit = 150): Promise<IndicatorDetails> {
-  const res = await fetch(`${API_BASE_URL}/indicators/${key}?limit=${limit}`, {
+  const res = await fetch(`${getApiBaseUrl()}/indicators/${key}?limit=${limit}`, {
     cache: 'no-store',
   });
   if (!res.ok) throw new Error(`Failed to fetch indicator details for ${key}`);
@@ -125,7 +131,7 @@ export async function getIndicatorDetails(key: string, limit = 150): Promise<Ind
 }
 
 export async function createSubscription(name: string, email: string): Promise<Subscription> {
-  const res = await fetch(`${API_BASE_URL}/subscriptions`, {
+  const res = await fetch(`${getApiBaseUrl()}/subscriptions`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ name, email }),
