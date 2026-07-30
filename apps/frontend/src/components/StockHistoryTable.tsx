@@ -154,23 +154,18 @@ export const StockHistoryTable: React.FC<StockHistoryTableProps> = ({ prices, ti
     return [...prices].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [prices]);
 
-  // Pre-calculate running All-Time Highs (ATH) up to each chronological date in the series
-  const athMap = useMemo(() => {
-    const sortedAsc = [...prices].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-    const map = new Map<string, { highestPrice: number; highestDate: string }>();
-    let currentATH = 0;
-    let currentATHDate = '';
-
-    for (const p of sortedAsc) {
+  // Pre-calculate overall All-Time High (ATH) price and date across the entire dataset
+  const overallATHInfo = useMemo(() => {
+    let maxPrice = 0;
+    let maxDate = '';
+    for (const p of prices) {
       const priceVal = p.high || p.close;
-      const dStr = p.date.split('T')[0];
-      if (priceVal >= currentATH) {
-        currentATH = priceVal;
-        currentATHDate = dStr;
+      if (priceVal >= maxPrice) {
+        maxPrice = priceVal;
+        maxDate = p.date.split('T')[0];
       }
-      map.set(dStr, { highestPrice: currentATH, highestDate: currentATHDate });
     }
-    return map;
+    return { maxPrice, maxDate };
   }, [prices]);
 
   // Select active list
@@ -297,7 +292,7 @@ export const StockHistoryTable: React.FC<StockHistoryTableProps> = ({ prices, ti
               <th className="p-4">{locale === 'es' ? 'Cierre' : 'Close'}</th>
               <th className="p-4 text-right">{locale === 'es' ? 'Var. ($)' : 'Var. ($)'}</th>
               <th className="p-4 text-right">{locale === 'es' ? 'Var. (%)' : 'Var. (%)'}</th>
-              <th className="p-4 text-right">{locale === 'es' ? 'From High' : 'From High'}</th>
+              <th className="p-4 text-right">{locale === 'es' ? 'Rend. / ATH' : 'Return / ATH'}</th>
               <th className="p-4">Market Cap</th>
               <th className="p-4">
                 <div className="flex items-center gap-2">
@@ -461,33 +456,37 @@ export const StockHistoryTable: React.FC<StockHistoryTableProps> = ({ prices, ti
               const peRatio = isFund ? resolvedPe : (estimatedEps && estimatedEps > 0 ? (row.close / estimatedEps) : null);
               const divYield = row.close > 0 ? (finalDivRate / row.close) * 100 : 0;
 
-              // From High calculation for this row
+              // Smart Hybrid Return / ATH calculation:
+              // If row date is BEFORE ATH date -> calculate growth from row date to today
+              // If row date is AFTER ATH date  -> calculate pullback from ATH to row date
+              // If row date IS ATH date        -> show 0.00% (ATH record)
               const rowDateKey = activeTab === 'daily' 
                 ? (row.date ? row.date.split('T')[0] : '')
                 : rowDateStr;
               
-              let athInfo = athMap.get(rowDateKey);
-              if (!athInfo) {
-                let highest = 0;
-                let hDate = '';
-                for (const p of prices) {
-                  if (new Date(p.date) <= rowDate) {
-                    const pVal = p.high || p.close;
-                    if (pVal >= highest) {
-                      highest = pVal;
-                      hDate = p.date.split('T')[0];
-                    }
-                  }
-                }
-                athInfo = { highestPrice: highest || row.close, highestDate: hDate || rowDateKey };
+              const isBeforeATH = overallATHInfo.maxDate ? rowDateKey < overallATHInfo.maxDate : false;
+              const isATHDate = overallATHInfo.maxDate ? rowDateKey === overallATHInfo.maxDate : false;
+
+              let cellVal = 0;
+              let cellMode: 'growth' | 'ath' | 'pullback' = 'ath';
+              let cellColor = 'text-teal-400 font-bold';
+
+              if (isATHDate || (overallATHInfo.maxPrice > 0 && Math.abs(row.close - overallATHInfo.maxPrice) / overallATHInfo.maxPrice < 0.005)) {
+                cellVal = 0;
+                cellMode = 'ath';
+                cellColor = 'text-teal-400 font-bold';
+              } else if (isBeforeATH) {
+                cellVal = row.close > 0 ? ((ticker.price - row.close) / row.close) * 100 : 0;
+                cellMode = 'growth';
+                cellColor = cellVal >= 0 ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold';
+              } else {
+                cellVal = overallATHInfo.maxPrice > 0 ? Math.min(0, ((row.close - overallATHInfo.maxPrice) / overallATHInfo.maxPrice) * 100) : 0;
+                cellMode = 'pullback';
+                cellColor = 'text-rose-400 font-bold';
               }
 
-              const rowATHPrice = athInfo.highestPrice > 0 ? athInfo.highestPrice : row.close;
-              const fromHighVal = rowATHPrice > 0 ? Math.min(0, ((row.close - rowATHPrice) / rowATHPrice) * 100) : 0;
-              const isAtHigh = Math.abs(fromHighVal) < 0.01;
-              const fromHighTextColor = isAtHigh ? 'text-teal-400 font-bold' : 'text-rose-400 font-bold';
-              const formattedATHDate = athInfo.highestDate
-                ? new Date(athInfo.highestDate + 'T00:00:00').toLocaleDateString(locale === 'es' ? 'es-ES' : 'en-US', {
+              const formattedATHDate = overallATHInfo.maxDate
+                ? new Date(overallATHInfo.maxDate + 'T00:00:00').toLocaleDateString(locale === 'es' ? 'es-ES' : 'en-US', {
                     day: '2-digit',
                     month: 'short',
                     year: 'numeric',
@@ -518,8 +517,8 @@ export const StockHistoryTable: React.FC<StockHistoryTableProps> = ({ prices, ti
                   </td>
                   <td className="p-4 text-right font-mono relative group/ath hover:z-30 cursor-help">
                     <div className="inline-flex items-center gap-1 justify-end">
-                      <span className={fromHighTextColor}>
-                        {fromHighVal > 0 ? '+' : ''}{fromHighVal.toFixed(2)}%
+                      <span className={cellColor}>
+                        {cellVal > 0 ? '+' : ''}{cellVal.toFixed(2)}%
                       </span>
                       <span className="text-[10px] text-slate-500 group-hover/ath:text-teal-400 transition-colors ml-0.5">ℹ</span>
                     </div>
@@ -529,38 +528,59 @@ export const StockHistoryTable: React.FC<StockHistoryTableProps> = ({ prices, ti
                       <div className="absolute -bottom-1.5 border-b border-r right-4 w-3 h-3 bg-slate-950 border-slate-800 rotate-45"></div>
                       
                       <div className="flex items-center justify-between border-b border-slate-900 pb-2 font-extrabold text-teal-400 relative z-10">
-                        <span>{locale === 'es' ? 'Caída desde Máximo' : 'From High Calculation'}</span>
+                        <span>
+                          {cellMode === 'growth' 
+                            ? (locale === 'es' ? 'Crecimiento a Hoy' : 'Growth to Today')
+                            : cellMode === 'pullback' 
+                              ? (locale === 'es' ? 'Caída desde ATH' : 'Pullback from ATH')
+                              : (locale === 'es' ? 'Máximo Histórico (ATH)' : 'All-Time High (ATH)')}
+                        </span>
                         <span className="text-[10px] font-bold text-slate-400 bg-slate-900 px-1.5 py-0.5 rounded border border-slate-800">{ticker.symbol}</span>
                       </div>
                       
                       <div className="flex flex-col gap-1 text-[11px] font-mono text-slate-300 relative z-10">
                         <div className="flex justify-between">
-                          <span className="text-slate-400">{locale === 'es' ? 'Máx. Histórico' : 'Highest Price'}:</span>
-                          <strong className="text-emerald-400">${rowATHPrice ? rowATHPrice.toFixed(2) : 'N/A'}</strong>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-slate-400">{locale === 'es' ? 'Precio en esta fecha' : 'Price on Date'}:</span>
+                          <span className="text-slate-400">{locale === 'es' ? 'Precio en fecha' : 'Price on Date'}:</span>
                           <strong className="text-slate-100">${row.close.toFixed(2)}</strong>
                         </div>
+                        {cellMode === 'growth' ? (
+                          <div className="flex justify-between">
+                            <span className="text-slate-400">{locale === 'es' ? 'Precio Actual' : 'Current Price'}:</span>
+                            <strong className="text-emerald-400">${ticker.price.toFixed(2)}</strong>
+                          </div>
+                        ) : (
+                          <div className="flex justify-between">
+                            <span className="text-slate-400">{locale === 'es' ? 'Máx. Histórico' : 'Highest Price'}:</span>
+                            <strong className="text-emerald-400">${overallATHInfo.maxPrice ? overallATHInfo.maxPrice.toFixed(2) : 'N/A'}</strong>
+                          </div>
+                        )}
                         <div className="flex justify-between pt-1 border-t border-slate-900">
-                          <span className="text-slate-400">From High:</span>
-                          <strong className={fromHighTextColor}>
-                            {fromHighVal > 0 ? '+' : ''}{fromHighVal.toFixed(2)}%
+                          <span className="text-slate-400">
+                            {cellMode === 'growth' 
+                              ? (locale === 'es' ? 'Rend. acumulado:' : 'Total Return:')
+                              : 'From High:'}
+                          </span>
+                          <strong className={cellColor}>
+                            {cellVal > 0 ? '+' : ''}{cellVal.toFixed(2)}%
                           </strong>
                         </div>
                       </div>
 
                       <div className="text-[10px] text-slate-400 bg-slate-900/60 rounded px-2 py-1 border border-slate-800/80 flex flex-col gap-0.5 mt-0.5 relative z-10">
-                        <span className="font-semibold text-slate-300">{locale === 'es' ? 'Cálculo de From High:' : 'Calculation:'}</span>
+                        <span className="font-semibold text-slate-300">{locale === 'es' ? 'Fórmula de Cálculo:' : 'Calculation:'}</span>
                         <span className="font-mono text-[9.5px] text-slate-400">
-                          ((Precio Cierre - Máx. Histórico) / Máx. Histórico) * 100
+                          {cellMode === 'growth' 
+                            ? '((Precio Actual - Precio Fecha) / Precio Fecha) * 100'
+                            : '((Precio Cierre - Máx. Histórico) / Máx. Histórico) * 100'}
                         </span>
                       </div>
 
-                      <div className="text-[10px] pt-1 border-t border-slate-900 flex items-center justify-between relative z-10">
-                        <span className="text-slate-400">{locale === 'es' ? 'Fecha del Máximo' : 'Reached On'}:</span>
-                        <strong className="font-bold text-teal-300">{formattedATHDate}</strong>
-                      </div>
+                      {cellMode !== 'growth' && (
+                        <div className="text-[10px] pt-1 border-t border-slate-900 flex items-center justify-between relative z-10">
+                          <span className="text-slate-400">{locale === 'es' ? 'Fecha del Máximo' : 'Reached On'}:</span>
+                          <strong className="font-bold text-teal-300">{formattedATHDate}</strong>
+                        </div>
+                      )}
                     </div>
                   </td>
                   <td className="p-4 text-slate-300">{formatMarketCap(scaledCap)}</td>
