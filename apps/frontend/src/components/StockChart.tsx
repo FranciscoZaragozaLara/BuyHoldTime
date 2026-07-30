@@ -47,6 +47,28 @@ export const StockChart: React.FC<StockChartProps> = ({ prices, buyHoldIndex, re
 
     if (sortedPrices.length === 0) return [];
 
+    // Append or update today's live price point from ticker.price if available
+    if (ticker?.price && ticker.price > 0) {
+      const todayStr = new Date().toISOString().split('T')[0];
+      const lastPoint = sortedPrices[sortedPrices.length - 1];
+      if (lastPoint) {
+        if (lastPoint.time === todayStr) {
+          lastPoint.close = ticker.price;
+          lastPoint.high = Math.max(lastPoint.high, ticker.price);
+          lastPoint.low = Math.min(lastPoint.low, ticker.price);
+        } else if (todayStr > lastPoint.time) {
+          sortedPrices.push({
+            time: todayStr,
+            dateObj: new Date(),
+            open: ticker.price,
+            high: ticker.price,
+            low: ticker.price,
+            close: ticker.price,
+          });
+        }
+      }
+    }
+
     if (timeRange === '5Y') {
       const groups: { [k: string]: typeof sortedPrices } = {};
       sortedPrices.forEach((p) => {
@@ -62,10 +84,11 @@ export const StockChart: React.FC<StockChartProps> = ({ prices, buyHoldIndex, re
         return { time: k, open: l[0].open, close: l[l.length - 1].close, high: Math.max(...l.map(x => x.high)), low: Math.min(...l.map(x => x.low)) };
       });
 
-      // Ensure the last point on 5Y view uses the exact most recent date and price
+      // Ensure the last point on 5Y view uses the exact most recent date and live ticker.price
       if (result.length > 0) {
         const latestPoint = sortedPrices[sortedPrices.length - 1];
         const lastCandle = result[result.length - 1];
+        lastCandle.close = latestPoint.close;
         if (latestPoint.time > lastCandle.time) {
           lastCandle.time = latestPoint.time;
         }
@@ -86,10 +109,11 @@ export const StockChart: React.FC<StockChartProps> = ({ prices, buyHoldIndex, re
         return { time: l[l.length - 1].time, open: l[0].open, close: l[l.length - 1].close, high: Math.max(...l.map(x => x.high)), low: Math.min(...l.map(x => x.low)) };
       });
 
-      // Ensure the last point on ALL view uses the exact most recent date and price
+      // Ensure the last point on ALL view uses the exact most recent date and live ticker.price
       if (result.length > 0) {
         const latestPoint = sortedPrices[sortedPrices.length - 1];
         const lastCandle = result[result.length - 1];
+        lastCandle.close = latestPoint.close;
         if (latestPoint.time > lastCandle.time) {
           lastCandle.time = latestPoint.time;
         }
