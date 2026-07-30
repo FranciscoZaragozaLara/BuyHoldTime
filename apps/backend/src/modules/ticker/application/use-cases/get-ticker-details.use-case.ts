@@ -35,6 +35,8 @@ export class GetTickerDetailsUseCase {
       if (refreshed) {
         ticker = refreshed;
       }
+      // Asynchronously trigger fast sync for ALL 67 tickers in background (~3.5s total)
+      this.fastSyncTickersUseCase.executeAll().catch(() => {});
     }
 
     const historicalPrices = await this.tickerRepository.findHistoricalPrices(ticker.id, limit);
