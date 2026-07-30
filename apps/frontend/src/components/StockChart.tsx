@@ -57,10 +57,21 @@ export const StockChart: React.FC<StockChartProps> = ({ prices, buyHoldIndex, re
         if (!groups[key]) groups[key] = [];
         groups[key].push(p);
       });
-      return Object.keys(groups).sort().map((k) => {
+      const result = Object.keys(groups).sort().map((k) => {
         const l = groups[k].sort((a, b) => a.time.localeCompare(b.time));
         return { time: k, open: l[0].open, close: l[l.length - 1].close, high: Math.max(...l.map(x => x.high)), low: Math.min(...l.map(x => x.low)) };
       });
+
+      // Ensure the last point on 5Y view uses the exact most recent date and price
+      if (result.length > 0) {
+        const latestPoint = sortedPrices[sortedPrices.length - 1];
+        const lastCandle = result[result.length - 1];
+        if (latestPoint.time > lastCandle.time) {
+          lastCandle.time = latestPoint.time;
+        }
+      }
+
+      return result;
     }
 
     if (timeRange === 'ALL') {
@@ -70,10 +81,21 @@ export const StockChart: React.FC<StockChartProps> = ({ prices, buyHoldIndex, re
         if (!groups[key]) groups[key] = [];
         groups[key].push(p);
       });
-      return Object.keys(groups).sort().map((k) => {
+      const result = Object.keys(groups).sort().map((k) => {
         const l = groups[k].sort((a, b) => a.time.localeCompare(b.time));
         return { time: l[l.length - 1].time, open: l[0].open, close: l[l.length - 1].close, high: Math.max(...l.map(x => x.high)), low: Math.min(...l.map(x => x.low)) };
       });
+
+      // Ensure the last point on ALL view uses the exact most recent date and price
+      if (result.length > 0) {
+        const latestPoint = sortedPrices[sortedPrices.length - 1];
+        const lastCandle = result[result.length - 1];
+        if (latestPoint.time > lastCandle.time) {
+          lastCandle.time = latestPoint.time;
+        }
+      }
+
+      return result;
     }
 
     return sortedPrices.map((p) => ({ time: p.time, open: p.open, high: p.high, low: p.low, close: p.close }));
