@@ -249,9 +249,18 @@ export const StockChart: React.FC<StockChartProps> = ({ prices, buyHoldIndex, re
 
   // ─── Chart Initialization ───────────────────────────────────────────────────
   useEffect(() => {
-    if (!chartContainerRef.current || chartData.length === 0) return;
+    if (!chartContainerRef.current) return;
+    if (chartData.length === 0) {
+      setIsLoaded(true);
+      return;
+    }
+
+    const containerWidth = chartContainerRef.current.clientWidth || 600;
+    const containerHeight = chartContainerRef.current.clientHeight || 380;
 
     const chart = createChart(chartContainerRef.current, {
+      width: containerWidth,
+      height: containerHeight,
       layout: { background: { type: ColorType.Solid, color: '#030712' }, textColor: '#94a3b8', fontSize: 11 },
       grid: { vertLines: { color: 'rgba(30,41,59,0.3)' }, horzLines: { color: 'rgba(30,41,59,0.3)' } },
       crosshair: {
@@ -312,16 +321,25 @@ export const StockChart: React.FC<StockChartProps> = ({ prices, buyHoldIndex, re
 
     const handleResize = () => {
       if (chartContainerRef.current && chartRef.current) {
-        chartRef.current.applyOptions({
-          width: chartContainerRef.current.clientWidth,
-          height: chartContainerRef.current.clientHeight,
-        });
+        const w = chartContainerRef.current.clientWidth;
+        const h = chartContainerRef.current.clientHeight;
+        if (w > 0 && h > 0) {
+          chartRef.current.applyOptions({
+            width: w,
+            height: h,
+          });
+        }
       }
     };
+
+    // Delayed resize trigger for mobile / remote layout renders
+    const resizeTimer = setTimeout(handleResize, 100);
+
     const resizeObserver = new ResizeObserver(handleResize);
     resizeObserver.observe(chartContainerRef.current);
 
     return () => {
+      clearTimeout(resizeTimer);
       resizeObserver.disconnect();
       chart.remove();
       chartRef.current = null;
