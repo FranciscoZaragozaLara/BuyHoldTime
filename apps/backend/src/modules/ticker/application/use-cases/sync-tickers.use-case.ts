@@ -344,11 +344,38 @@ export class SyncTickersUseCase {
               });
             }
           }
+          // Ensure current active month entry is updated dynamically with today's live P/E ratio from Yahoo Finance quote
+          const todayEndStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate()).padStart(2, '0')}`;
+          const currentPeLive = quote.trailingPE || summary?.summaryDetail?.trailingPE || (quote.regularMarketPrice && eps ? quote.regularMarketPrice / eps : null);
+          
+          if (currentPeLive && currentPeLive > 0) {
+            const existingIdx = generatedQuarters.findIndex(q => q.date === todayEndStr);
+            const liveEntry: QuarterEntry = {
+              date: todayEndStr,
+              period: `M${String(today.getMonth() + 1).padStart(2, '0')}`,
+              fiscalYear: String(today.getFullYear()),
+              revenue: 0,
+              netIncome: 0,
+              eps: parseFloat(((quote.regularMarketPrice || ticker.price) / currentPeLive).toFixed(4)),
+              epsDiluted: parseFloat(((quote.regularMarketPrice || ticker.price) / currentPeLive).toFixed(4)),
+              sharesOutstanding: 0,
+              peRatio: parseFloat(Number(currentPeLive).toFixed(4)),
+              source: 'real',
+            };
+
+            if (existingIdx >= 0) {
+              generatedQuarters[existingIdx] = liveEntry;
+            } else {
+              generatedQuarters.push(liveEntry);
+            }
+          }
+
           historicalEpsQuarterly = generatedQuarters.sort(
             (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
           );
           realQuartersCount = historicalEpsQuarterly.length;
           }
+
         } else {
           // Standard corporate ticker income statements from FMP
           const quarterMap: Map<string, QuarterEntry> = new Map();
