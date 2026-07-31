@@ -163,17 +163,22 @@ export const QuarterlyDataTable: React.FC<QuarterlyDataTableProps> = ({ ticker, 
       
       const divYield = q.quarterPrice > 0 ? (ttmDividend / q.quarterPrice) * 100 : 0;
       
-      // Calculate years diff from today to estimate historical EPS
-      const qDate = new Date(q.date + 'T12:00:00');
-      const yearsDiff = (today.getTime() - qDate.getTime()) / (365.25 * 24 * 60 * 60 * 1000);
-      const estEps = currentEps / Math.pow(1 + annualRate, yearsDiff);
+      // For Funds/ETFs: Compute exact EPS and P/E ratio anchored on actual current ticker stats
+      // currentEps is the real TTM earnings per share of the fund (e.g. $25.52 for VOO)
+      // currentPe is the real TTM P/E ratio of the fund (e.g. 26.7x for VOO)
+      const currentPe = (ticker?.pe && ticker.pe > 0) 
+        ? ticker.pe 
+        : (q.quarterPrice && currentEps > 0 ? q.quarterPrice / currentEps : 0);
       
-      // Use DB's peRatio if available and > 0, otherwise fallback to estimation
-      const finalPe = (q.peRatio !== undefined && q.peRatio !== null && q.peRatio > 0) ? q.peRatio : (q.quarterPrice && estEps > 0 ? q.quarterPrice / estEps : 0);
-      
-      // Calculate implied EPS if we have a real P/E and price, otherwise use CAGR estimation
-      const finalEps = (q.peRatio && q.peRatio > 0 && q.quarterPrice) ? q.quarterPrice / q.peRatio : estEps;
-      
+      const finalPe = (q.peRatio !== undefined && q.peRatio !== null && q.peRatio > 0) 
+        ? q.peRatio 
+        : currentPe;
+
+      // Real implied EPS using actual quarter price and real P/E ratio anchor
+      const finalEps = (finalPe > 0 && q.quarterPrice) 
+        ? (q.quarterPrice / finalPe) 
+        : currentEps;
+
       return {
         ...q,
         ttmDividend,
@@ -183,6 +188,7 @@ export const QuarterlyDataTable: React.FC<QuarterlyDataTableProps> = ({ ticker, 
         source: (q.peRatio && q.peRatio > 0) ? ('real' as const) : ('estimated' as const),
       };
     });
+
     
     // Sort newest to oldest for presentation
     return fundQuartersWithMetrics.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
