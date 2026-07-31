@@ -446,21 +446,23 @@ export const StockHistoryTable: React.FC<StockHistoryTableProps> = ({ prices, ti
 
               const estimatedEps = resolvedEps;
 
-              // Dividend Rate: sector-based growth estimation
-              const sector = (ticker.sector || '').toLowerCase();
-              const symbol = (ticker.symbol || '').toUpperCase();
-              let divGrowth = 0.05;
-              if (sector.includes('technology') || symbol === 'QQQ' || symbol === 'TQQQ') divGrowth = 0.08;
-              else if (sector.includes('index') || symbol === 'SPY' || symbol === 'VOO') divGrowth = 0.04;
-              else if (symbol === 'SCHD') divGrowth = 0.09;
+              // Real Dividend Rate calculation using historicalDividends dict from DB
+              let finalDivRate = 0;
+              if (ticker.historicalDividends && typeof ticker.historicalDividends === 'object') {
+                const oneYearPrior = new Date(rowDate.getTime() - (365.25 * 24 * 60 * 60 * 1000));
+                for (const [dateStr, amount] of Object.entries(ticker.historicalDividends)) {
+                  const divDate = new Date(dateStr + 'T12:00:00');
+                  if (divDate > oneYearPrior && divDate <= rowDate) {
+                    finalDivRate += Number(amount);
+                  }
+                }
+              }
+              if (finalDivRate === 0 && ticker.dividendRate) {
+                const baseDate2 = ticker.updatedAt ? new Date(ticker.updatedAt) : new Date();
+                const yearsDiff2 = Math.max(0, (baseDate2.getTime() - rowDate.getTime()) / (365.25 * 24 * 60 * 60 * 1000));
+                finalDivRate = ticker.dividendRate / Math.pow(1 + 0.06, yearsDiff2);
+              }
 
-              const baseDate2 = ticker.updatedAt ? new Date(ticker.updatedAt) : new Date();
-              const yearsDiff2 = Math.max(0, (baseDate2.getTime() - rowDate.getTime()) / (365.25 * 24 * 60 * 60 * 1000));
-
-              const estimatedDivRate = ticker.dividendRate && ticker.dividendRate > 0
-                ? ticker.dividendRate / Math.pow(1 + divGrowth, yearsDiff2)
-                : null;
-              const finalDivRate = estimatedDivRate || 0;
 
               // Dynamic calculations based on date close price
               const scaledCap = parsedCurrentCap * (row.close / ticker.price);
