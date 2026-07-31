@@ -4,14 +4,22 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
 import YahooFinance from 'yahoo-finance2';
 
+const yahooFinance = new YahooFinance({ suppressNotices: ['ripHistorical', 'yahooSurvey'] });
+
 async function main() {
-  const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+  const connectionString = process.env.DATABASE_URL;
+  if (!connectionString) {
+    console.error('DATABASE_URL is not set');
+    process.exit(1);
+  }
+
+  const pool = new Pool({ connectionString });
   const adapter = new PrismaPg(pool);
   const prisma = new PrismaClient({ adapter });
+
   await prisma.$connect();
 
-  const yahooFinance = new YahooFinance({ suppressNotices: ['ripHistorical', 'yahooSurvey'] });
-  const fmpApiKey = 'aHWvhgdKuBbca6TnHQyXFDwe4w5I6ja5';
+  const fmpApiKey = process.env.FMP_API_KEY || 'demo';
   const todayStr = new Date().toISOString().split('T')[0];
 
   console.log('=====================================================');
@@ -48,7 +56,7 @@ async function main() {
 
     processedCount++;
     console.log(`\n=====================================================`);
-    console.log(`[${processedCount}] PROCESSING STOCK: ${symbol} (${ticker.name})`);
+    console.log(`[${processedCount}/${tickers.length}] PROCESSING STOCK: ${symbol} (${ticker.name})`);
     console.log(`=====================================================`);
 
     // 1. Fetch splits history dynamically from Yahoo Finance
@@ -70,7 +78,7 @@ async function main() {
             date: new Date(s.date).toISOString().split('T')[0],
             ratio: num / den
           };
-        }).sort((a, b) => new Date(a.date).getTime() - new Date(a.date).getTime());
+        }).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
       }
     } catch (err: any) {}
 
@@ -85,10 +93,10 @@ async function main() {
       return factor;
     };
 
-    // 2. Fetch SEC EDGAR XBRL Data (including historical CIKs for corporate restructurings like Alphabet/Google)
+    // 2. Fetch SEC EDGAR XBRL Data
     const primaryCik = cikMap.get(symbol);
     const altCikMap: Record<string, string[]> = {
-      'GOOGL': ['0001288776'], // Google Inc (2004-2015 pre-Alphabet restructuring)
+      'GOOGL': ['0001288776'],
       'GOOG': ['0001288776'],
       'META': ['0001326801'],
     };
@@ -120,7 +128,7 @@ async function main() {
     }
 
     if (epsUnits.length > 0) {
-
+      try {
         // Group 10-K FY annual reports to derive exact Q4 values
         const fyEpsMap = new Map<number, any>();
         const fyNetMap = new Map<number, any>();
@@ -151,9 +159,9 @@ async function main() {
           }
         }
 
-        // Process 3-Month Quarters (Q1, Q2, Q3)
+        // Process 3-Month Quarters
         const quarterlyEps = epsUnits.filter((u: any) => {
-          if (!u.start || !u.end) return false;
+          if (!u.start || !u.end || u.form !== '10-Q') return false;
           const days = (new Date(u.end).getTime() - new Date(u.start).getTime()) / 86400000;
           return days >= 75 && days <= 110;
         });
@@ -175,11 +183,13 @@ async function main() {
           else if (mo <= 6) { period = 'Q2'; yq.q2 = u; }
           else if (mo <= 9) { period = 'Q3'; yq.q3 = u; }
 
+          const fyYear = String(u.fy || yr);
+
           if (!quartersMap.has(u.end) || new Date(u.filed).getTime() > new Date(quartersMap.get(u.end).filed).getTime()) {
             quartersMap.set(u.end, {
               date: u.end,
               period,
-              fiscalYear: String(u.fy || yr),
+              fiscalYear: fyYear,
               revenue: 0,
               netIncome: 0,
               eps: adjustedEps,
@@ -202,7 +212,7 @@ async function main() {
             const q3Val = yq.q3.val / getCumulativeSplitFactor(yq.q3.filed || yq.q3.end);
 
             const q4DerivedEps = parseFloat((fyEpsVal - (q1Val + q2Val + q3Val)).toFixed(4));
-            const q4Date = `${yr}-12-31`;
+            const q4Date = fyFact.end;
 
             let q4Net = 0;
             const fyNetFact = fyNetMap.get(yr);
@@ -223,36 +233,6 @@ async function main() {
                 source: 'EDGAR' as const,
                 filed: fyFact.filed
               });
-            }
-          }
-        }
-
-        // Pre-2008 fallback using 10-K annuals divided by 4
-        for (const [yr, a] of fyEpsMap.entries()) {
-          if (yr < 2008) {
-            const splitFactor = getCumulativeSplitFactor(a.filed || a.end);
-            const qEps = parseFloat((a.val / (4 * splitFactor)).toFixed(4));
-
-            const qConfigs = [
-              { period: 'Q1', dateStr: `${yr}-03-31` },
-              { period: 'Q2', dateStr: `${yr}-06-30` },
-              { period: 'Q3', dateStr: `${yr}-09-30` },
-              { period: 'Q4', dateStr: `${yr}-12-31` }
-            ];
-            for (const qc of qConfigs) {
-              if (!quartersMap.has(qc.dateStr)) {
-                quartersMap.set(qc.dateStr, {
-                  date: qc.dateStr,
-                  period: qc.period,
-                  fiscalYear: String(yr),
-                  revenue: 0,
-                  netIncome: 0,
-                  eps: qEps,
-                  epsDiluted: qEps,
-                  sharesOutstanding: 0,
-                  source: 'EDGAR' as const,
-                });
-              }
             }
           }
         }
@@ -313,12 +293,11 @@ async function main() {
 
     console.log(`Summary Table of Extracted Quarters & Shares for ${symbol} (Total: ${finalQuarters.length}):`);
     console.table(
-      finalQuarters.slice(0, 10).map(q => ({
+      finalQuarters.slice(0, 5).map(q => ({
         Date: q.date,
         Period: `${q.period} ${q.fiscalYear}`,
         'EPS ($)': q.eps,
         'Net Income ($B)': q.netIncome ? `${(q.netIncome / 1e9).toFixed(2)}B` : '0B',
-        'Shares (M)': q.sharesOutstanding ? `${(q.sharesOutstanding / 1e6).toFixed(1)}M` : '0M',
         Source: q.source,
       }))
     );
