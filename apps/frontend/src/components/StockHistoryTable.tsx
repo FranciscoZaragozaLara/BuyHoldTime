@@ -337,7 +337,7 @@ export const StockHistoryTable: React.FC<StockHistoryTableProps> = ({ prices, ti
               <th className="p-4">Market Cap</th>
               <th className="p-4">
                 <div className="flex items-center gap-2">
-                  EPS (TTM)
+                  EPS (TTM Cal.)
                   <div className="flex items-center gap-1 ml-1">
                     <span className="inline-flex items-center gap-0.5 text-[9px] font-bold bg-sky-500/10 text-sky-400 border border-sky-500/20 rounded px-1 py-0.5">
                       <Database size={8} /> R
@@ -348,7 +348,9 @@ export const StockHistoryTable: React.FC<StockHistoryTableProps> = ({ prices, ti
                   </div>
                 </div>
               </th>
-              <th className="p-4">P/E Ratio (TTM)</th>
+              <th className="p-4">P/E (TTM Cal.)</th>
+              <th className="p-4 text-purple-400">EPS (Fiscal 10-K)</th>
+              <th className="p-4 text-purple-400">P/E (Fiscal 10-K)</th>
 
               <th className="p-4">Div. Rate</th>
               <th className="p-4">Div. Yield</th>
@@ -611,6 +613,25 @@ export const StockHistoryTable: React.FC<StockHistoryTableProps> = ({ prices, ti
               const tooltipText = quartersUsed.length === 4
                 ? quartersUsed.map(q => `${q.period}/${q.fiscalYear}: $${(q.epsDiluted || q.eps || 0).toFixed(2)} (${q.source === 'real' ? 'R' : 'E'})`).join(' + ') + ` = TTM $${estimatedEps?.toFixed(2)}`
                 : locale === 'es' ? 'Calculado dinámicamente' : 'Calculated dynamically';
+              
+              // Calculate Fiscal EPS (10-K) for the row's fiscal year
+              let fiscalEps: number | null = null;
+              let fiscalPeRatio: number | null = null;
+              if (ticker.historicalEpsQuarterly && Array.isArray(ticker.historicalEpsQuarterly)) {
+                const targetYr = activeTab === 'daily'
+                  ? new Date(row.date).getFullYear()
+                  : activeTab === 'monthly'
+                    ? parseInt(row.dateLabel.split('-')[0], 10)
+                    : parseInt(row.dateLabel, 10);
+                
+                const fyQuarters = (ticker.historicalEpsQuarterly as any[]).filter(q => q.fiscalYear === String(targetYr));
+                if (fyQuarters.length === 4) {
+                  fiscalEps = parseFloat(fyQuarters.reduce((acc, q) => acc + (q.epsDiluted || q.eps || 0), 0).toFixed(2));
+                  if (fiscalEps && fiscalEps > 0 && row.close > 0) {
+                    fiscalPeRatio = row.close / fiscalEps;
+                  }
+                }
+              }
 
               return (
                 <tr key={`${activeTab}-${label}-${idx}`} className={`hover:bg-slate-900/10 transition-colors ${row.id === 'temp-today' ? 'bg-teal-500/5 border-l-2 border-teal-500' : ''}`}>
@@ -762,6 +783,19 @@ export const StockHistoryTable: React.FC<StockHistoryTableProps> = ({ prices, ti
                     )}
                   </td>
                   <td className="p-4 text-slate-300 font-bold">{peRatio ? `${peRatio.toFixed(2)}x` : 'N/A'}</td>
+                  
+                  {/* EPS (Fiscal 10-K) */}
+                  <td className="p-4">
+                    {fiscalEps !== null ? (
+                      <span className="font-mono text-purple-300 font-bold">${fiscalEps.toFixed(2)}</span>
+                    ) : (
+                      <span className="text-slate-600">N/A</span>
+                    )}
+                  </td>
+                  <td className="p-4 text-purple-300 font-bold">
+                    {fiscalPeRatio ? `${fiscalPeRatio.toFixed(2)}x` : 'N/A'}
+                  </td>
+
                   <td className="p-4 text-slate-400">{finalDivRate > 0 ? `$${finalDivRate.toFixed(2)}` : '$0.00'}</td>
                   <td className="p-4 text-emerald-400/90 font-bold">{divYield > 0 ? `${divYield.toFixed(2)}%` : '0.00%'}</td>
                   <td className="p-4 text-slate-400">{row.volume.toLocaleString()}</td>
