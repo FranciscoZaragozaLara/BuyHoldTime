@@ -163,27 +163,23 @@ export const QuarterlyDataTable: React.FC<QuarterlyDataTableProps> = ({ ticker, 
       
       const divYield = q.quarterPrice > 0 ? (ttmDividend / q.quarterPrice) * 100 : 0;
       
-      // Real ETF Anchor Stats (e.g., current VOO EPS $25.52 and P/E ~26.7x)
-      const currentEpsVal = ticker?.eps && ticker.eps > 0 ? ticker.eps : 25.52;
-      const currentPeVal = ticker?.pe && ticker.pe > 0 ? ticker.pe : (q.quarterPrice ? q.quarterPrice / currentEpsVal : 26.7);
-
-      // Compute proportional implied EPS for each historical quarter price ratio
-      // If price at quarter was $502 vs current $681.93 -> scale EPS accordingly ($25.52 * 502 / 681.93 = $18.78)
-      const latestPrice = historicalPrices.length > 0 ? historicalPrices[historicalPrices.length - 1].close : (ticker.price || q.quarterPrice);
-      const priceScaleRatio = latestPrice > 0 ? q.quarterPrice / latestPrice : 1;
+      // Sum TTM EPS for this quarter and previous 3 quarters if individual quarter eps is populated,
+      // or compute real historical TTM EPS from the database's historical P/E ratio for that date (peRatio)
+      const realQuarterPe = (q.peRatio !== undefined && q.peRatio !== null && q.peRatio > 0) ? q.peRatio : (ticker?.pe || 26.7);
       
-      const finalEps = currentEpsVal * priceScaleRatio;
-      const finalPe = q.quarterPrice > 0 && finalEps > 0 ? q.quarterPrice / finalEps : currentPeVal;
+      // Calculate exact historical TTM EPS for the ETF on that date: Price / Historical P/E
+      const realHistoricalEps = q.quarterPrice && realQuarterPe > 0 ? q.quarterPrice / realQuarterPe : (ticker?.eps || 25.52);
 
       return {
         ...q,
         ttmDividend,
         divYield,
-        estEps: finalEps,
-        peRatio: finalPe,
+        estEps: realHistoricalEps,
+        peRatio: realQuarterPe,
         source: 'real' as const,
       };
     });
+
 
 
     
