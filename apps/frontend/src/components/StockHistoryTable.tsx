@@ -617,6 +617,7 @@ export const StockHistoryTable: React.FC<StockHistoryTableProps> = ({ prices, ti
               // Calculate Fiscal EPS (10-K) for the row's fiscal year
               let fiscalEps: number | null = null;
               let fiscalPeRatio: number | null = null;
+              let fiscalQuartersUsed: any[] = [];
               if (ticker.historicalEpsQuarterly && Array.isArray(ticker.historicalEpsQuarterly)) {
                 const targetYr = activeTab === 'daily'
                   ? new Date(row.date).getFullYear()
@@ -626,6 +627,7 @@ export const StockHistoryTable: React.FC<StockHistoryTableProps> = ({ prices, ti
                 
                 const fyQuarters = (ticker.historicalEpsQuarterly as any[]).filter(q => q.fiscalYear === String(targetYr));
                 if (fyQuarters.length === 4) {
+                  fiscalQuartersUsed = fyQuarters;
                   fiscalEps = parseFloat(fyQuarters.reduce((acc, q) => acc + (q.epsDiluted || q.eps || 0), 0).toFixed(2));
                   if (fiscalEps && fiscalEps > 0 && row.close > 0) {
                     fiscalPeRatio = row.close / fiscalEps;
@@ -740,9 +742,10 @@ export const StockHistoryTable: React.FC<StockHistoryTableProps> = ({ prices, ti
                     </div>
                   </td>
                   <td className="p-4 text-slate-300">{formatMarketCap(scaledCap)}</td>
-                  <td className="p-4">
+                  {/* EPS (TTM Calendar) */}
+                  <td className="p-4 font-mono relative group/eps-ttm hover:z-30 cursor-help">
                     {estimatedEps !== null && estimatedEps !== undefined ? (
-                      <div className="flex items-center gap-1.5">
+                      <div className="inline-flex items-center gap-1.5">
                         <span className={`font-mono ${
                           epsSource === 'real' ? 'text-sky-300' : epsSource === 'mixed' ? 'text-purple-300' : 'text-amber-300/80'
                         }`}>
@@ -750,46 +753,127 @@ export const StockHistoryTable: React.FC<StockHistoryTableProps> = ({ prices, ti
                         </span>
                         {(epsSource as string) === 'EDGAR' ? (
                           <span
-                            title="Datos oficiales auditados de SEC EDGAR"
-                            className="inline-flex items-center gap-0.5 text-[8.5px] font-extrabold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 rounded px-1 py-0.5 cursor-help"
+                            className="inline-flex items-center gap-0.5 text-[8.5px] font-extrabold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 rounded px-1 py-0.5"
                           >
                             <Database size={7.5} /> E
                           </span>
                         ) : (epsSource as string) === 'FMP' ? (
                           <span
-                            title="Datos extraídos por API FMP"
-                            className="inline-flex items-center gap-0.5 text-[8.5px] font-extrabold bg-blue-500/15 text-blue-400 border border-blue-500/30 rounded px-1 py-0.5 cursor-help"
+                            className="inline-flex items-center gap-0.5 text-[8.5px] font-extrabold bg-blue-500/15 text-blue-400 border border-blue-500/30 rounded px-1 py-0.5"
                           >
                             <Database size={7.5} /> F
                           </span>
                         ) : epsSource === 'real' ? (
                           <span
-                            title={tooltipText}
-                            className="inline-flex items-center gap-0.5 text-[8px] font-bold bg-sky-500/10 text-sky-400 border border-sky-500/20 rounded px-1 py-0.5 cursor-help"
+                            className="inline-flex items-center gap-0.5 text-[8px] font-bold bg-sky-500/10 text-sky-400 border border-sky-500/20 rounded px-1 py-0.5"
                           >
                             <Database size={7} /> R
                           </span>
                         ) : (
                           <span
-                            title={tooltipText}
-                            className="inline-flex items-center gap-0.5 text-[8px] font-bold bg-amber-500/10 text-amber-400/90 border border-amber-500/20 rounded px-1 py-0.5 cursor-help"
+                            className="inline-flex items-center gap-0.5 text-[8px] font-bold bg-amber-500/10 text-amber-400/90 border border-amber-500/20 rounded px-1 py-0.5"
                           >
                             Est
                           </span>
                         )}
+                        <span className="text-[10px] text-slate-500 group-hover/eps-ttm:text-sky-400 transition-colors">ℹ</span>
                       </div>
                     ) : (
                       <span className="text-slate-600">N/A</span>
+                    )}
+
+                    {/* Popover Hover para EPS TTM Calendar */}
+                    {quartersUsed.length > 0 && (
+                      <div className={`pointer-events-none absolute right-2 hidden group-hover/eps-ttm:flex flex-col gap-2 w-72 p-3.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-200 text-xs shadow-[0_10px_25px_-5px_rgba(0,0,0,0.8)] z-50 text-left font-sans animate-in fade-in zoom-in-95 duration-150 ${
+                        idx <= 2 ? 'top-full mt-2' : 'bottom-full mb-2.5'
+                      }`}>
+                        <div className={`absolute border-slate-800 rotate-45 w-3 h-3 bg-slate-950 right-4 ${
+                          idx <= 2 ? '-top-1.5 border-t border-l' : '-bottom-1.5 border-b border-r'
+                        }`}></div>
+
+                        <div className="flex items-center justify-between border-b border-slate-900 pb-2 font-extrabold text-sky-400 relative z-10">
+                          <span>Desglose EPS TTM (4 Trimestres)</span>
+                          <span className="text-[10px] font-bold text-slate-400 bg-slate-900 px-1.5 py-0.5 rounded border border-slate-800">{ticker.symbol}</span>
+                        </div>
+
+                        <div className="flex flex-col gap-1.5 text-[11px] font-mono text-slate-300 relative z-10">
+                          {quartersUsed.map((q: any, qIdx: number) => (
+                            <div key={qIdx} className="flex items-center justify-between border-b border-slate-900/60 pb-1">
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-bold text-slate-200">{q.period} {q.fiscalYear}</span>
+                                <span className="text-[9.5px] text-slate-400">({q.date})</span>
+                              </div>
+                              <div className="flex items-center gap-1.5">
+                                <strong className="text-sky-300">${(q.epsDiluted || q.eps || 0).toFixed(2)}</strong>
+                                <span className={`text-[8px] font-extrabold px-1 rounded border ${
+                                  q.source === 'EDGAR' ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30' : 'bg-blue-500/15 text-blue-400 border-blue-500/30'
+                                }`}>
+                                  {q.source || 'EDGAR'}
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                          <div className="flex justify-between pt-1 font-bold">
+                            <span className="text-slate-300">Suma TTM Calendar:</span>
+                            <span className="text-sky-400 text-sm">${estimatedEps?.toFixed(2)} USD</span>
+                          </div>
+                        </div>
+                      </div>
                     )}
                   </td>
                   <td className="p-4 text-slate-300 font-bold">{peRatio ? `${peRatio.toFixed(2)}x` : 'N/A'}</td>
                   
                   {/* EPS (Fiscal 10-K) */}
-                  <td className="p-4">
+                  <td className="p-4 font-mono relative group/eps-fiscal hover:z-30 cursor-help">
                     {fiscalEps !== null ? (
-                      <span className="font-mono text-purple-300 font-bold">${fiscalEps.toFixed(2)}</span>
+                      <div className="inline-flex items-center gap-1.5">
+                        <span className="font-mono text-purple-300 font-bold">${fiscalEps.toFixed(2)}</span>
+                        <span className="inline-flex items-center gap-0.5 text-[8.5px] font-extrabold bg-purple-500/15 text-purple-400 border border-purple-500/30 rounded px-1 py-0.5">
+                          <Database size={7.5} /> E
+                        </span>
+                        <span className="text-[10px] text-slate-500 group-hover/eps-fiscal:text-purple-400 transition-colors">ℹ</span>
+                      </div>
                     ) : (
                       <span className="text-slate-600">N/A</span>
+                    )}
+
+                    {/* Popover Hover para EPS Fiscal 10-K */}
+                    {fiscalQuartersUsed.length > 0 && (
+                      <div className={`pointer-events-none absolute right-2 hidden group-hover/eps-fiscal:flex flex-col gap-2 w-72 p-3.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-200 text-xs shadow-[0_10px_25px_-5px_rgba(0,0,0,0.8)] z-50 text-left font-sans animate-in fade-in zoom-in-95 duration-150 ${
+                        idx <= 2 ? 'top-full mt-2' : 'bottom-full mb-2.5'
+                      }`}>
+                        <div className={`absolute border-slate-800 rotate-45 w-3 h-3 bg-slate-950 right-4 ${
+                          idx <= 2 ? '-top-1.5 border-t border-l' : '-bottom-1.5 border-b border-r'
+                        }`}></div>
+
+                        <div className="flex items-center justify-between border-b border-slate-900 pb-2 font-extrabold text-purple-400 relative z-10">
+                          <span>Desglose 10-K Fiscal Auditado</span>
+                          <span className="text-[10px] font-bold text-slate-400 bg-slate-900 px-1.5 py-0.5 rounded border border-slate-800">{ticker.symbol}</span>
+                        </div>
+
+                        <div className="flex flex-col gap-1.5 text-[11px] font-mono text-slate-300 relative z-10">
+                          {fiscalQuartersUsed.map((q: any, qIdx: number) => (
+                            <div key={qIdx} className="flex items-center justify-between border-b border-slate-900/60 pb-1">
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-bold text-slate-200">{q.period} {q.fiscalYear}</span>
+                                <span className="text-[9.5px] text-slate-400">({q.date})</span>
+                              </div>
+                              <div className="flex items-center gap-1.5">
+                                <strong className="text-purple-300">${(q.epsDiluted || q.eps || 0).toFixed(2)}</strong>
+                                <span className={`text-[8px] font-extrabold px-1 rounded border ${
+                                  q.source === 'EDGAR' ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30' : 'bg-blue-500/15 text-blue-400 border-blue-500/30'
+                                }`}>
+                                  {q.source || 'EDGAR'}
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                          <div className="flex justify-between pt-1 font-bold">
+                            <span className="text-slate-300">Suma Form 10-K SEC:</span>
+                            <span className="text-purple-400 text-sm">${fiscalEps?.toFixed(2)} USD</span>
+                          </div>
+                        </div>
+                      </div>
                     )}
                   </td>
                   <td className="p-4 text-purple-300 font-bold">
