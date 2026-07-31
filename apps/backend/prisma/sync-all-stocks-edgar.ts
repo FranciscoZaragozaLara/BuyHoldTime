@@ -70,7 +70,7 @@ async function main() {
             date: new Date(s.date).toISOString().split('T')[0],
             ratio: num / den
           };
-        }).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+        }).sort((a, b) => new Date(a.date).getTime() - new Date(a.date).getTime());
       }
     } catch (err: any) {}
 
@@ -103,23 +103,59 @@ async function main() {
         const netUnits = usGaap?.['NetIncomeLoss']?.units?.['USD'] || [];
         const sharesUnits = usGaap?.['WeightedAverageNumberOfDilutedSharesOutstanding']?.units?.['shares'] || usGaap?.['WeightedAverageNumberOfSharesOutstandingBasic']?.units?.['shares'] || [];
 
-        // 3-Month Quarters (~90 days)
+        // Group 10-K FY annual reports to derive exact Q4 values
+        const fyEpsMap = new Map<number, any>();
+        const fyNetMap = new Map<number, any>();
+        const fyRevMap = new Map<number, any>();
+
+        for (const u of epsUnits) {
+          if (u.form === '10-K' && u.fp === 'FY' && u.end) {
+            const yr = parseInt(u.end.split('-')[0], 10);
+            if (!fyEpsMap.has(yr) || new Date(u.filed).getTime() > new Date(fyEpsMap.get(yr).filed).getTime()) {
+              fyEpsMap.set(yr, u);
+            }
+          }
+        }
+        for (const u of netUnits) {
+          if (u.form === '10-K' && u.fp === 'FY' && u.end) {
+            const yr = parseInt(u.end.split('-')[0], 10);
+            if (!fyNetMap.has(yr) || new Date(u.filed).getTime() > new Date(fyNetMap.get(yr).filed).getTime()) {
+              fyNetMap.set(yr, u);
+            }
+          }
+        }
+        for (const u of revUnits) {
+          if (u.form === '10-K' && u.fp === 'FY' && u.end) {
+            const yr = parseInt(u.end.split('-')[0], 10);
+            if (!fyRevMap.has(yr) || new Date(u.filed).getTime() > new Date(fyRevMap.get(yr).filed).getTime()) {
+              fyRevMap.set(yr, u);
+            }
+          }
+        }
+
+        // Process 3-Month Quarters (Q1, Q2, Q3)
         const quarterlyEps = epsUnits.filter((u: any) => {
           if (!u.start || !u.end) return false;
-          const days = (new Date(u.end).getTime() - new Date(u.start).getTime()) / (24 * 60 * 60 * 1000);
+          const days = (new Date(u.end).getTime() - new Date(u.start).getTime()) / 86400000;
           return days >= 75 && days <= 110;
         });
+
+        const yearQuarters = new Map<number, { q1?: any, q2?: any, q3?: any }>();
 
         for (const u of quarterlyEps) {
           const splitFactor = getCumulativeSplitFactor(u.filed || u.end);
           const adjustedEps = parseFloat((u.val / splitFactor).toFixed(4));
           const parts = u.end.split('-');
-          const yr = parts[0];
+          const yr = parseInt(parts[0], 10);
           const mo = parseInt(parts[1], 10);
+
+          if (!yearQuarters.has(yr)) yearQuarters.set(yr, {});
+          const yq = yearQuarters.get(yr)!;
+
           let period = 'Q4';
-          if (mo <= 3) period = 'Q1';
-          else if (mo <= 6) period = 'Q2';
-          else if (mo <= 9) period = 'Q3';
+          if (mo <= 3) { period = 'Q1'; yq.q1 = u; }
+          else if (mo <= 6) { period = 'Q2'; yq.q2 = u; }
+          else if (mo <= 9) { period = 'Q3'; yq.q3 = u; }
 
           if (!quartersMap.has(u.end) || new Date(u.filed).getTime() > new Date(quartersMap.get(u.end).filed).getTime()) {
             quartersMap.set(u.end, {
@@ -137,26 +173,60 @@ async function main() {
           }
         }
 
-        // Annual 10-Ks from SEC EDGAR for pre-2008
-        const annualEps = epsUnits.filter((u: any) => u.form === '10-K' && u.fp === 'FY' && u.start && u.end);
-        for (const a of annualEps) {
-          const endYr = parseInt(a.end.split('-')[0], 10);
-          if (endYr < 2008) {
+        // Derive Q4 (Form 10-K FY - [Q1 + Q2 + Q3]) so 4Q TTM sum matches 10-K FY perfectly
+        for (const [yr, fyFact] of fyEpsMap.entries()) {
+          const yq = yearQuarters.get(yr);
+          if (yq && yq.q1 && yq.q2 && yq.q3) {
+            const splitFactor = getCumulativeSplitFactor(fyFact.filed || fyFact.end);
+            const fyEpsVal = fyFact.val / splitFactor;
+            const q1Val = yq.q1.val / getCumulativeSplitFactor(yq.q1.filed || yq.q1.end);
+            const q2Val = yq.q2.val / getCumulativeSplitFactor(yq.q2.filed || yq.q2.end);
+            const q3Val = yq.q3.val / getCumulativeSplitFactor(yq.q3.filed || yq.q3.end);
+
+            const q4DerivedEps = parseFloat((fyEpsVal - (q1Val + q2Val + q3Val)).toFixed(4));
+            const q4Date = `${yr}-12-31`;
+
+            let q4Net = 0;
+            const fyNetFact = fyNetMap.get(yr);
+            if (fyNetFact) {
+              q4Net = fyNetFact.val;
+            }
+
+            if (!quartersMap.has(q4Date) || new Date(fyFact.filed).getTime() >= new Date(quartersMap.get(q4Date)?.filed || 0).getTime()) {
+              quartersMap.set(q4Date, {
+                date: q4Date,
+                period: 'Q4',
+                fiscalYear: String(yr),
+                revenue: 0,
+                netIncome: q4Net,
+                eps: q4DerivedEps,
+                epsDiluted: q4DerivedEps,
+                sharesOutstanding: 0,
+                source: 'EDGAR' as const,
+                filed: fyFact.filed
+              });
+            }
+          }
+        }
+
+        // Pre-2008 fallback using 10-K annuals divided by 4
+        for (const [yr, a] of fyEpsMap.entries()) {
+          if (yr < 2008) {
             const splitFactor = getCumulativeSplitFactor(a.filed || a.end);
             const qEps = parseFloat((a.val / (4 * splitFactor)).toFixed(4));
 
             const qConfigs = [
-              { period: 'Q1', dateStr: `${endYr}-03-31` },
-              { period: 'Q2', dateStr: `${endYr}-06-30` },
-              { period: 'Q3', dateStr: `${endYr}-09-30` },
-              { period: 'Q4', dateStr: `${endYr}-12-31` }
+              { period: 'Q1', dateStr: `${yr}-03-31` },
+              { period: 'Q2', dateStr: `${yr}-06-30` },
+              { period: 'Q3', dateStr: `${yr}-09-30` },
+              { period: 'Q4', dateStr: `${yr}-12-31` }
             ];
             for (const qc of qConfigs) {
               if (!quartersMap.has(qc.dateStr)) {
                 quartersMap.set(qc.dateStr, {
                   date: qc.dateStr,
                   period: qc.period,
-                  fiscalYear: String(endYr),
+                  fiscalYear: String(yr),
                   revenue: 0,
                   netIncome: 0,
                   eps: qEps,
@@ -169,7 +239,7 @@ async function main() {
           }
         }
 
-        // Revenue, Net Income & Shares Outstanding
+        // Populate Revenue, Net Income & Shares Outstanding
         const quarterlyRev = revUnits.filter((u: any) => u.start && u.end && ((new Date(u.end).getTime() - new Date(u.start).getTime()) / 86400000) >= 75);
         for (const r of quarterlyRev) {
           if (quartersMap.has(r.end) && r.val) quartersMap.get(r.end).revenue = r.val;
@@ -238,7 +308,7 @@ async function main() {
 
   await prisma.$disconnect();
   await pool.end();
-  console.log('\nALL STOCKS SYNC WITH NET INCOME & SHARES COMPLETED SUCCESSFULLY!');
+  console.log('\nALL STOCKS SYNC WITH EXACT 10-K Q4 DERIVATION COMPLETED SUCCESSFULLY!');
 }
 
 main().catch(console.error);
