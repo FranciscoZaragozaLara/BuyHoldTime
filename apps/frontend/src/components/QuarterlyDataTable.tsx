@@ -322,10 +322,11 @@ export const QuarterlyDataTable: React.FC<QuarterlyDataTableProps> = ({ ticker, 
                 <th className="p-4 text-right">{locale === 'es' ? 'Dividendo Entregado' : 'Dividend Paid (Qtr)'}</th>
                 <th className="p-4 text-right">{locale === 'es' ? 'Tasa Dividendo TTM' : 'TTM Dividend Rate'}</th>
                 <th className="p-4 text-right">{locale === 'es' ? 'Div. Yield TTM' : 'TTM Dividend Yield'}</th>
-                <th className="p-4 text-right">{locale === 'es' ? 'EPS TTM (Estimado)' : 'TTM EPS (Estimated)'}</th>
-                <th className="p-4 text-right">{locale === 'es' ? 'P/E Ratio (Estimado)' : 'P/E Ratio (Estimated)'}</th>
+                <th className="p-4 text-right">{locale === 'es' ? 'EPS TTM (Real)' : 'TTM EPS (Real)'}</th>
+                <th className="p-4 text-right">{locale === 'es' ? 'P/E Ratio (Real)' : 'P/E Ratio (Real)'}</th>
                 <th className="p-4 text-center">{locale === 'es' ? 'Origen' : 'Source'}</th>
               </tr>
+
             ) : (
               <tr>
                 <th className="p-4">{locale === 'es' ? 'Cierre de Periodo' : 'Period End'}</th>
