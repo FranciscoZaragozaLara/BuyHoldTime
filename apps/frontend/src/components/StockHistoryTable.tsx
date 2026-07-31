@@ -408,10 +408,20 @@ export const StockHistoryTable: React.FC<StockHistoryTableProps> = ({ prices, ti
                     const ttmSum = sliced.reduce((sum, q) => sum + (q.epsDiluted || q.eps || 0), 0);
                     resolvedEps = parseFloat(ttmSum.toFixed(2));
                     
-                    const allReal = sliced.every(q => q.source === 'real');
-                    const allEst = sliced.every(q => q.source === 'estimated');
-                    epsSource = allReal ? 'real' : allEst ? 'estimated' : 'mixed';
+                    // Oldest quarter used in the 4-quarter TTM sum
+                    const oldestUsed = sliced[sliced.length - 1];
+                    const srcUpper = String(oldestUsed.source || '').toUpperCase();
+                    if (srcUpper.includes('EDGAR')) {
+                      epsSource = 'EDGAR' as any;
+                    } else if (srcUpper.includes('FMP')) {
+                      epsSource = 'FMP' as any;
+                    } else if (oldestUsed.source === 'real') {
+                      epsSource = 'real';
+                    } else {
+                      epsSource = 'estimated';
+                    }
                   }
+
                 }
               }
 
@@ -657,26 +667,33 @@ export const StockHistoryTable: React.FC<StockHistoryTableProps> = ({ prices, ti
                         }`}>
                           ${estimatedEps.toFixed(2)}
                         </span>
-                        {epsSource === 'real' ? (
+                        {(epsSource as string) === 'EDGAR' ? (
+                          <span
+                            title="Datos oficiales auditados de SEC EDGAR"
+                            className="inline-flex items-center gap-0.5 text-[8.5px] font-extrabold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 rounded px-1 py-0.5 cursor-help"
+                          >
+                            <Database size={7.5} /> E
+                          </span>
+                        ) : (epsSource as string) === 'FMP' ? (
+                          <span
+                            title="Datos extraídos por API FMP"
+                            className="inline-flex items-center gap-0.5 text-[8.5px] font-extrabold bg-blue-500/15 text-blue-400 border border-blue-500/30 rounded px-1 py-0.5 cursor-help"
+                          >
+                            <Database size={7.5} /> F
+                          </span>
+                        ) : epsSource === 'real' ? (
                           <span
                             title={tooltipText}
                             className="inline-flex items-center gap-0.5 text-[8px] font-bold bg-sky-500/10 text-sky-400 border border-sky-500/20 rounded px-1 py-0.5 cursor-help"
                           >
                             <Database size={7} /> R
                           </span>
-                        ) : epsSource === 'mixed' ? (
-                          <span
-                            title={tooltipText}
-                            className="inline-flex items-center gap-0.5 text-[8px] font-bold bg-purple-500/10 text-purple-400 border border-purple-500/20 rounded px-1 py-0.5 cursor-help"
-                          >
-                            <Layers size={7} /> M
-                          </span>
                         ) : (
                           <span
                             title={tooltipText}
-                            className="inline-flex items-center gap-0.5 text-[8px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded px-1 py-0.5 cursor-help"
+                            className="inline-flex items-center gap-0.5 text-[8px] font-bold bg-amber-500/10 text-amber-400/90 border border-amber-500/20 rounded px-1 py-0.5 cursor-help"
                           >
-                            <TrendingUp size={7} /> E
+                            Est
                           </span>
                         )}
                       </div>
