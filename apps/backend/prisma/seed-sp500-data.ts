@@ -125,7 +125,8 @@ async function main() {
       
       const latestQuarter = quarters[0];
       const latestPe = latestQuarter.peRatio !== null ? latestQuarter.peRatio : ticker.pe;
-      const latestEps = (latestQuarter.eps * 4); // TTM EPS
+      // Scale EPS to ETF share price: ETF Price / ETF PE ratio (e.g. 681.93 / 26.7 = $25.54 per share)
+      const latestEps = (ticker.price && latestPe > 0) ? parseFloat((ticker.price / latestPe).toFixed(2)) : 25.52;
 
       await prisma.ticker.update({
         where: { id: ticker.id },
@@ -135,6 +136,7 @@ async function main() {
           historicalEpsQuarterly: quarters as any,
         }
       });
+
       console.log(`Successfully updated ${sym}`);
     } else {
       console.log(`Symbol ${sym} not found in database.`);
