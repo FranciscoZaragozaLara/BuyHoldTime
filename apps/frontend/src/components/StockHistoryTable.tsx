@@ -433,26 +433,25 @@ export const StockHistoryTable: React.FC<StockHistoryTableProps> = ({ prices, ti
                     ? parseInt(row.dateLabel.split('-')[0], 10)
                     : parseInt(row.dateLabel, 10);
 
-                if (!isFund && ticker.historicalEps && ticker.historicalEps[String(rowYear)]) {
-                  const entry = ticker.historicalEps[String(rowYear)];
-                  resolvedEps = entry.value;
-                  epsSource = entry.source;
-                } else {
-                  const sector = (ticker.sector || '').toLowerCase();
-                  const symbol = (ticker.symbol || '').toUpperCase();
-                  let epsGrowth = 0.08;
-                  if (sector.includes('technology') || symbol === 'QQQ' || symbol === 'TQQQ') epsGrowth = 0.12;
-                  else if (sector.includes('financial') || sector.includes('energy')) epsGrowth = 0.06;
+                // Backward extrapolation based on oldest real quarter available
+                const oldestReal = ticker.historicalEpsQuarterly && (ticker.historicalEpsQuarterly as any[]).length > 0
+                  ? ticker.historicalEpsQuarterly[ticker.historicalEpsQuarterly.length - 1]
+                  : null;
 
-                  const baseDate = ticker.updatedAt ? new Date(ticker.updatedAt) : new Date();
-                  const yearsDiff = Math.max(0, (baseDate.getTime() - rowDate.getTime()) / (365.25 * 24 * 60 * 60 * 1000));
+                const baseEps = oldestReal ? oldestReal.eps * 4 : (ticker.eps || 6.5);
+                const baseDate = oldestReal ? new Date(oldestReal.date) : (ticker.updatedAt ? new Date(ticker.updatedAt) : new Date());
 
-                  if (ticker.eps && ticker.eps > 0) {
-                    resolvedEps = ticker.eps / Math.pow(1 + epsGrowth, yearsDiff);
-                    epsSource = 'estimated';
-                  }
-                }
+                const sector = (ticker.sector || '').toLowerCase();
+                const symbol = (ticker.symbol || '').toUpperCase();
+                let epsGrowth = 0.08;
+                if (sector.includes('technology') || symbol === 'QQQ' || symbol === 'TQQQ' || symbol === 'AAPL') epsGrowth = 0.12;
+                else if (sector.includes('financial') || sector.includes('energy')) epsGrowth = 0.06;
+
+                const yearsDiff = Math.max(0, (baseDate.getTime() - rowDate.getTime()) / (365.25 * 24 * 60 * 60 * 1000));
+                resolvedEps = baseEps / Math.pow(1 + epsGrowth, yearsDiff);
+                epsSource = 'estimated';
               }
+
 
               const estimatedEps = resolvedEps;
 
