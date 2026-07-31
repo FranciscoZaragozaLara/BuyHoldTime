@@ -457,20 +457,32 @@ export const StockHistoryTable: React.FC<StockHistoryTableProps> = ({ prices, ti
 
               // Real Dividend Rate calculation using historicalDividends dict from DB
               let finalDivRate = 0;
+              let divCount = 0;
+              let latestDivVal = 0;
+
               if (ticker.historicalDividends && typeof ticker.historicalDividends === 'object') {
                 const oneYearPrior = new Date(rowDate.getTime() - (365.25 * 24 * 60 * 60 * 1000));
                 for (const [dateStr, amount] of Object.entries(ticker.historicalDividends)) {
                   const divDate = new Date(dateStr + 'T12:00:00');
                   if (divDate > oneYearPrior && divDate <= rowDate) {
                     finalDivRate += Number(amount);
+                    divCount++;
+                    latestDivVal = Number(amount);
                   }
                 }
               }
+
+              // If fewer than 4 quarters paid in the last 12 months for current date, extrapolate to annual rate (4 * latest payment)
+              if (divCount > 0 && divCount < 4 && rowDate >= new Date('2026-01-01')) {
+                finalDivRate = ticker.dividendRate || (latestDivVal * 4);
+              }
+
               if (finalDivRate === 0 && ticker.dividendRate) {
                 const baseDate2 = ticker.updatedAt ? new Date(ticker.updatedAt) : new Date();
                 const yearsDiff2 = Math.max(0, (baseDate2.getTime() - rowDate.getTime()) / (365.25 * 24 * 60 * 60 * 1000));
                 finalDivRate = ticker.dividendRate / Math.pow(1 + 0.06, yearsDiff2);
               }
+
 
 
               // Dynamic calculations based on date close price
