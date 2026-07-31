@@ -298,7 +298,7 @@ export const StockHistoryTable: React.FC<StockHistoryTableProps> = ({ prices, ti
               <th className="p-4">Market Cap</th>
               <th className="p-4">
                 <div className="flex items-center gap-2">
-                  EPS
+                  EPS (TTM)
                   <div className="flex items-center gap-1 ml-1">
                     <span className="inline-flex items-center gap-0.5 text-[9px] font-bold bg-sky-500/10 text-sky-400 border border-sky-500/20 rounded px-1 py-0.5">
                       <Database size={8} /> R
@@ -309,7 +309,8 @@ export const StockHistoryTable: React.FC<StockHistoryTableProps> = ({ prices, ti
                   </div>
                 </div>
               </th>
-              <th className="p-4">P/E Ratio</th>
+              <th className="p-4">P/E Ratio (TTM)</th>
+
               <th className="p-4">Div. Rate</th>
               <th className="p-4">Div. Yield</th>
               <th className="p-4">{locale === 'es' ? 'Volumen' : 'Volume'}</th>
