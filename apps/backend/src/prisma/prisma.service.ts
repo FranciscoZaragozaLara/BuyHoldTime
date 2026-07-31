@@ -7,8 +7,7 @@ import * as path from 'path';
 
 @Injectable()
 export class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
-  private static pool: Pool;
-  private static adapter: PrismaPg;
+  private pool: Pool;
 
   constructor() {
     // Manually parse .env if DATABASE_URL is not set
@@ -31,16 +30,12 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
         }
       }
     }
-    if (!PrismaService.pool) {
-      PrismaService.pool = new Pool({
-        connectionString: process.env.DATABASE_URL,
-      });
-      PrismaService.adapter = new PrismaPg(PrismaService.pool);
-    }
-    super({
-      adapter: PrismaService.adapter,
-    });
+    const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+    const adapter = new PrismaPg(pool);
+    super({ adapter });
+    this.pool = pool;
   }
+
 
   async onModuleInit() {
     await this.$connect();
@@ -48,6 +43,10 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
 
   async onModuleDestroy() {
     await this.$disconnect();
-    await PrismaService.pool.end();
+    if (this.pool) {
+      await this.pool.end();
+    }
   }
+
 }
+

@@ -18,7 +18,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const locale = useLocale();
   const pathname = usePathname();
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, role } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
@@ -28,7 +28,9 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
     { name: t('indicators'), path: `/${locale}/indicators`, icon: <BarChart3 size={18} /> },
     { name: t('backtester'), path: `/${locale}/backtester`, icon: <Briefcase size={18} /> },
     { name: t('heatmap'), path: `/${locale}/heatmap`, icon: <LayoutGrid size={18} /> },
+    ...(role === 'ADMIN' ? [{ name: 'Admin', path: `/${locale}/admin`, icon: <Briefcase size={18} /> }] : []),
   ];
+
 
   // Extracts current page path without locale, and switches the locale prefix
   const switchLocale = (newLocale: string) => {

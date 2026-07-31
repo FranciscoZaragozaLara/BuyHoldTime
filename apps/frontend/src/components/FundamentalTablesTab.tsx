@@ -2,7 +2,9 @@
 
 import React, { useState } from 'react';
 import { useLocale } from 'next-intl';
-import { Layers, Activity, TrendingUp, ShieldCheck, PieChart, Users, ChevronRight, Zap } from 'lucide-react';
+import { Layers, Activity, TrendingUp, ShieldCheck, PieChart, Users, ChevronRight, Zap, Crown, Sliders, ArrowRightLeft, LogIn } from 'lucide-react';
+import { useAuth } from '@/context/AuthContext';
+import { AuthModal } from '@/components/AuthModal';
 
 interface FundamentalTablesTabProps {
   snapshot: any;
@@ -10,6 +12,11 @@ interface FundamentalTablesTabProps {
 
 export const FundamentalTablesTab: React.FC<FundamentalTablesTabProps> = ({ snapshot }) => {
   const locale = useLocale();
+  const { user, role } = useAuth();
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+
+  // Access Control: Se requiere rol PRO_USER o ADMIN para interactuar
+  const hasAccess = role === 'PRO_USER' || role === 'ADMIN';
 
   if (!snapshot) return null;
 
@@ -89,20 +96,17 @@ export const FundamentalTablesTab: React.FC<FundamentalTablesTabProps> = ({ snap
     },
   };
 
-  // Helper to parse percentage strings like "61.81%" -> 61.81
   const parsePercent = (val: string | undefined): number | null => {
     if (!val) return null;
     const num = parseFloat(val.replace('%', ''));
     return isNaN(num) ? null : num;
   };
 
-  // Helper to render a table for a set of rows
   const renderIndicatorTable = (title: string, rows: any[]) => {
     if (!rows || rows.length === 0) return null;
 
     return (
       <div key={title} className="flex flex-col gap-3">
-        {/* Title Header with Left Green Accent Bar */}
         <h4 className="text-sm font-black uppercase tracking-wider text-emerald-400 flex items-center gap-2 border-l-4 border-emerald-400 pl-2.5 py-0.5">
           {title}
         </h4>
@@ -131,7 +135,6 @@ export const FundamentalTablesTab: React.FC<FundamentalTablesTabProps> = ({ snap
                     <td className="p-3.5 text-right font-mono font-black text-white text-sm">
                       {row.current ?? 'N/A'}
                     </td>
-                    {/* Industry Comparison Bar (Green) */}
                     <td className="p-3.5 font-mono">
                       {vsIndNum !== null ? (
                         <div className="flex items-center gap-2">
@@ -149,7 +152,6 @@ export const FundamentalTablesTab: React.FC<FundamentalTablesTabProps> = ({ snap
                         <span className="text-slate-500 text-[11px]">-</span>
                       )}
                     </td>
-                    {/* History Comparison Bar (Blue) */}
                     <td className="p-3.5 font-mono">
                       {vsHistNum !== null ? (
                         <div className="flex items-center gap-2">
@@ -177,7 +179,6 @@ export const FundamentalTablesTab: React.FC<FundamentalTablesTabProps> = ({ snap
     );
   };
 
-  // Render Analyst Estimates matrix table
   const renderAnalystEstimatesTable = () => {
     if (!estimatesObj || !estimatesObj.years || !estimatesObj.estimates) {
       return (
@@ -228,7 +229,6 @@ export const FundamentalTablesTab: React.FC<FundamentalTablesTabProps> = ({ snap
     );
   };
 
-  // Determine sections to show based on active tab
   const renderTabContent = () => {
     if (activeTab === 'estimates') {
       return renderAnalystEstimatesTable();
@@ -262,15 +262,97 @@ export const FundamentalTablesTab: React.FC<FundamentalTablesTabProps> = ({ snap
     );
   };
 
+  // VISTA DE BLOQUEO PARA USUARIOS SIN ACCESO (FREE USER O NO LOGUEADOS)
+  if (!hasAccess) {
+    return (
+      <>
+        <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
+        <div className="relative overflow-hidden rounded-2xl border border-purple-500/30 bg-gradient-to-b from-slate-900/90 via-slate-950/95 to-slate-950 p-8 shadow-2xl backdrop-blur-xl">
+          <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-purple-500/10 blur-3xl" />
+          <div className="pointer-events-none absolute -bottom-20 -left-20 h-64 w-64 rounded-full bg-teal-500/10 blur-3xl" />
+
+          <div className="relative z-10 flex flex-col items-center text-center max-w-xl mx-auto py-6 gap-5">
+            <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-purple-500/40 bg-purple-500/10 text-purple-400 shadow-lg shadow-purple-500/10">
+              <Crown size={32} />
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <span className="text-xs font-black uppercase tracking-widest text-purple-400">
+                {locale === 'es' ? 'Tablas de Fundamentos Protegidas' : 'Protected Fundamental Tables'}
+              </span>
+              <h3 className="text-2xl font-extrabold text-white tracking-tight">
+                {locale === 'es' ? 'Análisis de Fuerza Financiera, Valuación y Rentabilidad' : 'Financial Strength, Valuation & Profitability Breakdown'}
+              </h3>
+              <p className="text-sm text-slate-400 leading-relaxed">
+                {locale === 'es'
+                  ? 'Explora las métricas fundamentales detalladas: Fuerza Financiera, Rentabilidad, Valuación, Crecimiento, Momento Técnico y Proyecciones Futuras de Wall Street.'
+                  : 'Unlock detailed fundamental matrices: Financial Strength, Profitability, Valuation Multiples, Growth, Momentum, and Wall Street Forecasts.'}
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full my-2 text-left">
+              <div className="p-3 rounded-xl border border-slate-800 bg-slate-900/50 flex flex-col gap-1">
+                <span className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+                  <ShieldCheck size={14} className="text-teal-400" />
+                  {locale === 'es' ? 'Fuerza & Solvencia' : 'Strength & Solvency'}
+                </span>
+                <span className="text-[10px] text-slate-400">
+                  {locale === 'es' ? 'Ratings de deuda y liquidez' : 'Debt & liquidity ratings'}
+                </span>
+              </div>
+              <div className="p-3 rounded-xl border border-slate-800 bg-slate-900/50 flex flex-col gap-1">
+                <span className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+                  <PieChart size={14} className="text-purple-400" />
+                  {locale === 'es' ? 'Múltiples de Valuación' : 'Valuation Ratios'}
+                </span>
+                <span className="text-[10px] text-slate-400">
+                  {locale === 'es' ? 'Comparación frente a industria' : 'Industry rank comparison'}
+                </span>
+              </div>
+              <div className="p-3 rounded-xl border border-slate-800 bg-slate-900/50 flex flex-col gap-1">
+                <span className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+                  <Users size={14} className="text-emerald-400" />
+                  {locale === 'es' ? 'Estimados Wall St.' : 'Wall St. Forecasts'}
+                </span>
+                <span className="text-[10px] text-slate-400">
+                  {locale === 'es' ? 'Proyecciones multi-año de analistas' : 'Multi-year analyst forecasts'}
+                </span>
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 w-full mt-2">
+              {!user ? (
+                <button
+                  onClick={() => setIsAuthModalOpen(true)}
+                  className="w-full sm:w-auto px-6 py-3 rounded-xl bg-gradient-to-r from-purple-500 via-teal-400 to-emerald-400 text-slate-950 font-black text-xs uppercase tracking-wider hover:opacity-90 transition shadow-xl shadow-purple-500/10 flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <LogIn size={16} />
+                  <span>{locale === 'es' ? 'Iniciar Sesión para Obtener Premium' : 'Sign In to Access Premium'}</span>
+                </button>
+              ) : (
+                <button
+                  onClick={() => alert(locale === 'es' ? 'Ponte en contacto con administración o actualiza a plan Premium para habilitar acceso.' : 'Contact admin or upgrade your account to Premium.')}
+                  className="w-full sm:w-auto px-8 py-3.5 rounded-xl bg-gradient-to-r from-purple-600 via-purple-500 to-indigo-500 text-white font-black text-xs uppercase tracking-widest hover:brightness-110 transition shadow-xl shadow-purple-500/20 flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <Crown size={16} />
+                  <span>{locale === 'es' ? 'UPGRADE A PREMIUM USER' : 'UPGRADE TO PREMIUM USER'}</span>
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  // VISTA COMPLETA (ADMIN & PRO_USER)
   return (
     <div className="flex flex-col gap-6 p-6 rounded-2xl border border-slate-900 bg-slate-950/60 backdrop-blur-xl shadow-2xl">
-      {/* Navigation Tabs Header */}
       <div className="flex flex-col gap-3">
         <span className="text-[10px] uppercase font-bold tracking-wider text-slate-500">
           {locale === 'es' ? 'Explorar Tablas Fundamentales BHT' : 'Explore BHT Fundamental Tables'}
         </span>
 
-        {/* Tab Buttons (Scrollable with Embedded Sub-Score Badges) */}
         <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-slate-800 border-b border-slate-900">
           {tabs.map((tab) => {
             const Icon = tab.icon;
@@ -300,10 +382,10 @@ export const FundamentalTablesTab: React.FC<FundamentalTablesTabProps> = ({ snap
         </div>
       </div>
 
-      {/* Main Tab Content */}
       <div className="pt-2">
         {renderTabContent()}
       </div>
     </div>
   );
 };
+

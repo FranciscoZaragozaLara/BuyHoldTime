@@ -2,8 +2,10 @@
 
 import React, { useState, useMemo } from 'react';
 import { useLocale } from 'next-intl';
-import { Calculator, TrendingUp, TrendingDown, RefreshCw, ShieldAlert, Sliders, AlertTriangle, ArrowRightLeft, CheckCircle2 } from 'lucide-react';
+import { Calculator, TrendingUp, TrendingDown, RefreshCw, ShieldAlert, Sliders, AlertTriangle, ArrowRightLeft, Lock, Crown, Sparkles, LogIn } from 'lucide-react';
 import { Ticker } from '@/services/api';
+import { useAuth } from '@/context/AuthContext';
+import { AuthModal } from '@/components/AuthModal';
 
 interface StockValuationCalculatorProps {
   ticker: Ticker;
@@ -12,6 +14,8 @@ interface StockValuationCalculatorProps {
 
 export const StockValuationCalculator: React.FC<StockValuationCalculatorProps> = ({ ticker, snapshot }) => {
   const locale = useLocale();
+  const { user, role } = useAuth();
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
   // Model Mode State: 'convergent' (Glide Path to Sector PE) vs 'standard' (Fixed PE)
   const [modelMode, setModelMode] = useState<'convergent' | 'standard'>('convergent');
@@ -23,6 +27,9 @@ export const StockValuationCalculator: React.FC<StockValuationCalculatorProps> =
   // Terminal PE input (default from ticker.sectorTerminalPe or fallback 22.0)
   const defaultTerminalPe = ticker.sectorTerminalPe && ticker.sectorTerminalPe > 0 ? ticker.sectorTerminalPe : 22.0;
   const [terminalPe, setTerminalPe] = useState<number>(defaultTerminalPe);
+
+  // Access Control: Se requiere rol PRO_USER o ADMIN para interactuar
+  const hasAccess = role === 'PRO_USER' || role === 'ADMIN';
 
   // Extract base financial data with intelligent fallback chain
   const currentPrice = ticker.price || 1;
@@ -91,13 +98,11 @@ export const StockValuationCalculator: React.FC<StockValuationCalculatorProps> =
     const totalHorizonYears = Math.max(4, rawProjections.length);
 
     const list = rawProjections.map((item) => {
-      // Parse year number for CAGR calculations
       const yearMatch = item.year.match(/\b(20\d\d)\b/);
       const targetYearNum = yearMatch ? parseInt(yearMatch[1], 10) : currentYearNum + 1;
       const yearsDiff = Math.max(1, targetYearNum - currentYearNum);
       const decayRatio = Math.min(1, yearsDiff / totalHorizonYears);
 
-      // 1. Escenario TTM (Glide Path vs Standard)
       const peFutureTtm = modelMode === 'convergent'
         ? adjPeTtm - (adjPeTtm - terminalPe) * decayRatio
         : adjPeTtm;
@@ -107,11 +112,9 @@ export const StockValuationCalculator: React.FC<StockValuationCalculatorProps> =
       const returnTtm = (usdChangeTtm / currentPrice) * 100;
       const cagrTtm = (Math.pow(Math.max(0.001, projectedPriceTtm / currentPrice), 1 / yearsDiff) - 1) * 100;
 
-      // CAGR Decomposition for TTM
       const cagrEpsTtm = (Math.pow(Math.max(0.001, adjEpsTtm / Math.max(0.01, currentEps)), 1 / yearsDiff) - 1) * 100;
       const cagrPeTtm = (Math.pow(Math.max(0.001, peFutureTtm / Math.max(0.01, peTtm)), 1 / yearsDiff) - 1) * 100;
 
-      // 2. Escenario Forward
       const peFutureFwd = modelMode === 'convergent'
         ? adjPeFwd - (adjPeFwd - terminalPe) * decayRatio
         : adjPeFwd;
@@ -124,7 +127,6 @@ export const StockValuationCalculator: React.FC<StockValuationCalculatorProps> =
       const cagrEpsFwd = (Math.pow(Math.max(0.001, adjEpsFwd / Math.max(0.01, currentEps)), 1 / yearsDiff) - 1) * 100;
       const cagrPeFwd = (Math.pow(Math.max(0.001, peFutureFwd / Math.max(0.01, peFwd)), 1 / yearsDiff) - 1) * 100;
 
-      // 3. Escenario Mix (Recomendado)
       const peFutureMix = modelMode === 'convergent'
         ? adjPeMix - (adjPeMix - terminalPe) * decayRatio
         : adjPeMix;
@@ -172,7 +174,6 @@ export const StockValuationCalculator: React.FC<StockValuationCalculatorProps> =
       };
     });
 
-    // Baseline Row (Valor Actual del Stock antes de proyecciones)
     const baselineRow = {
       isBaseline: true,
       year: locale === 'es' ? 'Actual (Hoy)' : 'Current (Today)',
@@ -209,13 +210,11 @@ export const StockValuationCalculator: React.FC<StockValuationCalculatorProps> =
     return [baselineRow, ...list];
   }, [rawProjections, epsVariancePct, peVariancePct, adjPeTtm, adjPeFwd, adjPeMix, terminalPe, modelMode, currentPrice, currentYearNum, currentEps, peTtm, peFwd, peMix, locale]);
 
-  // Quick Preset Actions
   const applyPreset = (epsVar: number, peVar: number) => {
     setEpsVariancePct(epsVar);
     setPeVariancePct(peVar);
   };
 
-  // Helper to render Scenario Cell with Hover Popover
   const renderScenarioCell = (
     price: number,
     usdChange: number,
@@ -239,13 +238,11 @@ export const StockValuationCalculator: React.FC<StockValuationCalculatorProps> =
       );
     }
 
-    // Sanity Checks Flags
     const isHighReturnWarning = cagrTotal > 25;
     const isSpeculativeWarning = cagrPe > 0 && cagrPe > cagrEps * 1.2;
 
     return (
       <td className={`p-3.5 text-right font-mono relative group cursor-help ${isRecommended ? 'bg-teal-500/5' : ''}`}>
-        {/* Cell Price, % Display & Warning Badge */}
         <div className="flex flex-col items-end">
           <div className="flex items-center gap-1">
             {(isHighReturnWarning || isSpeculativeWarning) && (
@@ -270,7 +267,6 @@ export const StockValuationCalculator: React.FC<StockValuationCalculatorProps> =
           </div>
         </div>
 
-        {/* Hover Popover (Elemento Over) */}
         <div className="absolute bottom-full right-0 mb-2 w-72 p-4 rounded-xl border border-slate-800 bg-slate-900/95 backdrop-blur-md shadow-2xl z-30 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none text-left">
           <div className="text-[10px] font-extrabold text-teal-400 uppercase border-b border-slate-800 pb-1 mb-2.5 flex justify-between items-center">
             <span>{locale === 'es' ? 'Desglose Proyección' : 'Forecast Breakdown'}</span>
@@ -278,7 +274,6 @@ export const StockValuationCalculator: React.FC<StockValuationCalculatorProps> =
           </div>
 
           <div className="flex flex-col gap-2.5 text-xs font-sans">
-            {/* Nominal & Cumulative */}
             <div className="flex justify-between items-center">
               <span className="text-slate-400 text-[11px]">{locale === 'es' ? 'Cambio Nominal USD:' : 'Nominal USD Change:'}</span>
               <span className={`font-mono font-extrabold ${usdChange >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
@@ -293,7 +288,6 @@ export const StockValuationCalculator: React.FC<StockValuationCalculatorProps> =
               </span>
             </div>
 
-            {/* CAGR Breakdown (Descomposición) */}
             <div className="pt-2 border-t border-slate-800/80 flex flex-col gap-1.5">
               <div className="flex justify-between items-center">
                 <span className="text-slate-300 font-bold text-[11px] flex items-center gap-1">
@@ -323,7 +317,6 @@ export const StockValuationCalculator: React.FC<StockValuationCalculatorProps> =
               </div>
             </div>
 
-            {/* Sanity Check Warning Banner */}
             {(isHighReturnWarning || isSpeculativeWarning) && (
               <div className="mt-1 p-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-[10px] text-amber-300 flex items-start gap-1.5 leading-tight">
                 <AlertTriangle size={12} className="text-amber-400 shrink-0 mt-0.5" />
@@ -348,17 +341,102 @@ export const StockValuationCalculator: React.FC<StockValuationCalculatorProps> =
                 </div>
               </div>
             )}
-
           </div>
         </div>
       </td>
     );
   };
 
+  // VISTA DE BLOQUEO PARA USUARIOS SIN ACCESO (FREE USER O NO LOGUEADOS)
+  if (!hasAccess) {
+    return (
+      <>
+        <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
+        <div className="relative overflow-hidden rounded-2xl border border-amber-500/30 bg-gradient-to-b from-slate-900/90 via-slate-950/95 to-slate-950 p-8 shadow-2xl backdrop-blur-xl">
+          {/* Background Glow Effects */}
+          <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-amber-500/10 blur-3xl" />
+          <div className="pointer-events-none absolute -bottom-20 -left-20 h-64 w-64 rounded-full bg-teal-500/10 blur-3xl" />
+
+          <div className="relative z-10 flex flex-col items-center text-center max-w-xl mx-auto py-6 gap-5">
+            {/* Lock Badge */}
+            <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-amber-500/40 bg-amber-500/10 text-amber-400 shadow-lg shadow-amber-500/10">
+              <Crown size={32} />
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <span className="text-xs font-black uppercase tracking-widest text-amber-400">
+                {locale === 'es' ? 'Característica Exclusiva Premium' : 'Exclusive Premium Feature'}
+              </span>
+              <h3 className="text-2xl font-extrabold text-white tracking-tight">
+                {locale === 'es' ? 'Calculadora de Proyección de Valoración' : 'Valuation Projection Calculator'}
+              </h3>
+              <p className="text-sm text-slate-400 leading-relaxed">
+                {locale === 'es'
+                  ? 'Accede a nuestro motor de proyecciones dinámicas de 3 vías (TTM, Forward y Mix). Simula variaciones de EPS, P/E terminal y trayectorias de convergencia en tiempo real.'
+                  : 'Unlock our dynamic 3-way projection engine (TTM, Forward & Mix). Stress-test EPS variance, terminal P/E decay, and real-time CAGR sensitivity.'}
+              </p>
+            </div>
+
+            {/* Feature Highlights Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full my-2 text-left">
+              <div className="p-3 rounded-xl border border-slate-800 bg-slate-900/50 flex flex-col gap-1">
+                <span className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+                  <Sliders size={14} className="text-teal-400" />
+                  {locale === 'es' ? 'Sliders Interactivos' : 'Interactive Sliders'}
+                </span>
+                <span className="text-[10px] text-slate-400">
+                  {locale === 'es' ? 'Ajusta varianzas de utilidades y múltiplos' : 'Adjust earnings & multiple variances'}
+                </span>
+              </div>
+              <div className="p-3 rounded-xl border border-slate-800 bg-slate-900/50 flex flex-col gap-1">
+                <span className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+                  <TrendingDown size={14} className="text-amber-400" />
+                  {locale === 'es' ? 'Modelo Glide Path' : 'Glide Path Model'}
+                </span>
+                <span className="text-[10px] text-slate-400">
+                  {locale === 'es' ? 'Convergencia hacia el P/E del Sector' : 'Sector P/E convergence model'}
+                </span>
+              </div>
+              <div className="p-3 rounded-xl border border-slate-800 bg-slate-900/50 flex flex-col gap-1">
+                <span className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+                  <ArrowRightLeft size={14} className="text-purple-400" />
+                  {locale === 'es' ? 'Desglose CAGR' : 'CAGR Decomposition'}
+                </span>
+                <span className="text-[10px] text-slate-400">
+                  {locale === 'es' ? 'Diferencia retornos fundamentales de especulativos' : 'Separate fundamental vs multiple return'}
+                </span>
+              </div>
+            </div>
+
+            {/* Call to Action Button UPGRADE */}
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 w-full mt-2">
+              {!user ? (
+                <button
+                  onClick={() => setIsAuthModalOpen(true)}
+                  className="w-full sm:w-auto px-6 py-3 rounded-xl bg-gradient-to-r from-amber-400 via-teal-400 to-emerald-400 text-slate-950 font-black text-xs uppercase tracking-wider hover:opacity-90 transition shadow-xl shadow-amber-500/10 flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <LogIn size={16} />
+                  <span>{locale === 'es' ? 'Iniciar Sesión para Obtener Premium' : 'Sign In to Access Premium'}</span>
+                </button>
+              ) : (
+                <button
+                  onClick={() => alert(locale === 'es' ? 'Ponte en contacto con administración o actualiza a plan Premium para habilitar acceso.' : 'Contact admin or upgrade your account to Premium.')}
+                  className="w-full sm:w-auto px-8 py-3.5 rounded-xl bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-400 text-slate-950 font-black text-xs uppercase tracking-widest hover:brightness-110 transition shadow-xl shadow-amber-500/20 flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <Crown size={16} />
+                  <span>{locale === 'es' ? 'UPGRADE A PREMIUM USER' : 'UPGRADE TO PREMIUM USER'}</span>
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  // VISTA COMPLETA (ADMIN & PRO_USER)
   return (
     <div className="flex flex-col gap-6 p-6 rounded-2xl border border-slate-900 bg-slate-950/60 backdrop-blur-xl shadow-2xl">
-      
-      {/* Header Bar with Model Selector */}
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 pb-4 border-b border-slate-900">
         <div className="flex items-center gap-3">
           <div className="p-2.5 rounded-xl bg-teal-500/10 border border-teal-500/30 text-teal-400">
@@ -376,7 +454,6 @@ export const StockValuationCalculator: React.FC<StockValuationCalculatorProps> =
           </div>
         </div>
 
-        {/* Model Mode Switcher */}
         <div className="flex items-center gap-1.5 p-1 rounded-xl bg-slate-900/90 border border-slate-800">
           <button
             onClick={() => setModelMode('convergent')}
@@ -403,13 +480,8 @@ export const StockValuationCalculator: React.FC<StockValuationCalculatorProps> =
         </div>
       </div>
 
-      {/* Sliders & Base Constants Panel */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center bg-slate-900/30 p-4 rounded-xl border border-slate-900">
-        
-        {/* Sliders (7 cols) */}
         <div className="lg:col-span-7 flex flex-col gap-4">
-          
-          {/* Action Presets */}
           <div className="flex flex-wrap items-center justify-between gap-2 pb-1 border-b border-slate-900/80">
             <span className="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider">
               {locale === 'es' ? 'Ajustes Rápidos de Varianza:' : 'Quick Variance Presets:'}
@@ -446,7 +518,6 @@ export const StockValuationCalculator: React.FC<StockValuationCalculatorProps> =
             </div>
           </div>
 
-          {/* EPS Variance Slider */}
           <div className="flex flex-col gap-1.5">
             <div className="flex justify-between items-center text-xs">
               <span className="font-bold text-slate-300 flex items-center gap-1.5">
@@ -468,7 +539,6 @@ export const StockValuationCalculator: React.FC<StockValuationCalculatorProps> =
             />
           </div>
 
-          {/* PE Variance Slider */}
           <div className="flex flex-col gap-1.5">
             <div className="flex justify-between items-center text-xs">
               <span className="font-bold text-slate-300 flex items-center gap-1.5">
@@ -489,12 +559,9 @@ export const StockValuationCalculator: React.FC<StockValuationCalculatorProps> =
               className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-teal-400"
             />
           </div>
-
         </div>
 
-        {/* Adjusted Multiples Matrix (5 cols) */}
         <div className="lg:col-span-5 grid grid-cols-2 sm:grid-cols-4 gap-2 border-t lg:border-t-0 lg:border-l border-slate-900 pt-3 lg:pt-0 lg:pl-4 text-center">
-          
           <div className="p-2.5 rounded-lg border border-slate-900 bg-slate-950/40 flex flex-col justify-center">
             <span className="text-[9px] text-slate-500 uppercase font-bold">P/E TTM</span>
             <span className="text-xs font-black text-white font-mono mt-0.5">{peTtm.toFixed(1)}x</span>
@@ -513,7 +580,6 @@ export const StockValuationCalculator: React.FC<StockValuationCalculatorProps> =
             <span className="text-[10px] text-emerald-400 font-mono font-bold">{adjPeMix.toFixed(1)}x</span>
           </div>
 
-          {/* Configurable Terminal P/E Input Box */}
           <div className="p-2 rounded-lg border border-purple-500/30 bg-purple-500/10 flex flex-col justify-center items-center">
             <span className="text-[9px] text-purple-300 uppercase font-black tracking-tighter" title="P/E Terminal al que convergerá la acción">
               {locale === 'es' ? 'P/E TERMINAL' : 'TERMINAL P/E'}
@@ -534,12 +600,9 @@ export const StockValuationCalculator: React.FC<StockValuationCalculatorProps> =
               {ticker.sector || 'Sector'}
             </span>
           </div>
-
         </div>
-
       </div>
 
-      {/* Projection Scenarios Table */}
       <div className="overflow-x-auto border border-slate-900 rounded-xl bg-slate-950/40 shadow-xl">
         <table className="w-full text-left text-xs">
           <thead className="bg-slate-900/90 text-slate-400 font-bold border-b border-slate-900">
@@ -561,7 +624,6 @@ export const StockValuationCalculator: React.FC<StockValuationCalculatorProps> =
                     : 'hover:bg-slate-900/30'
                 }`}
               >
-                {/* Year Label */}
                 <td className="p-3.5 pl-4 font-sans font-extrabold text-white flex items-center gap-1.5">
                   <span className={sc.isBaseline ? 'text-teal-400 font-black' : ''}>{sc.year}</span>
                   {sc.isBaseline && (
@@ -571,12 +633,10 @@ export const StockValuationCalculator: React.FC<StockValuationCalculatorProps> =
                   )}
                 </td>
                 
-                {/* EPS Ajustado */}
                 <td className="p-3.5 text-right font-bold text-slate-300">
                   ${sc.adjEpsTtm.toFixed(2)}
                 </td>
 
-                {/* Escenario TTM Cell with Hover Popover */}
                 {renderScenarioCell(
                   sc.projectedPriceTtm,
                   sc.usdChangeTtm,
@@ -590,7 +650,6 @@ export const StockValuationCalculator: React.FC<StockValuationCalculatorProps> =
                   false
                 )}
 
-                {/* Escenario Forward Cell with Hover Popover */}
                 {renderScenarioCell(
                   sc.projectedPriceFwd,
                   sc.usdChangeFwd,
@@ -604,7 +663,6 @@ export const StockValuationCalculator: React.FC<StockValuationCalculatorProps> =
                   false
                 )}
 
-                {/* Escenario Mix (Recomendado) Cell with Hover Popover */}
                 {renderScenarioCell(
                   sc.projectedPriceMix,
                   sc.usdChangeMix,
@@ -622,7 +680,6 @@ export const StockValuationCalculator: React.FC<StockValuationCalculatorProps> =
           </tbody>
         </table>
       </div>
-
     </div>
   );
 };

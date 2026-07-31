@@ -80,6 +80,17 @@ export const UserMenu: React.FC = () => {
             </span>
           </div>
 
+          {role === 'ADMIN' && (
+            <a
+              href={`/${locale}/admin`}
+              className="w-full py-1.5 px-2.5 rounded-xl border border-purple-500/20 bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 font-bold transition flex items-center gap-2 justify-center"
+            >
+              <ShieldCheck size={13} />
+              <span>{locale === 'es' ? 'Panel Administrador' : 'Admin Panel'}</span>
+            </a>
+          )}
+
+
           <button
             onClick={() => {
               setIsOpen(false);

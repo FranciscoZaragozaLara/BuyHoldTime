@@ -22,3 +22,8 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+*.json
+!package.json
+!tsconfig*.json
+!pnpm-workspace.json
+

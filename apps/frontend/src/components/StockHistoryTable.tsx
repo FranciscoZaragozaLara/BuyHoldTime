@@ -284,7 +284,9 @@ export const StockHistoryTable: React.FC<StockHistoryTableProps> = ({ prices, ti
       </div>
 
       {/* Aggregated Table */}
-      <div className="overflow-x-auto overflow-y-auto max-h-[400px] border border-slate-900 rounded-xl custom-scrollbar">
+      <div className="overflow-x-auto overflow-y-auto max-h-[484px] border border-slate-900 rounded-xl custom-scrollbar">
+
+
         <table className="w-full text-left text-xs relative">
           <thead className="bg-slate-900 text-slate-400 font-bold border-b border-slate-900 sticky top-0 z-10 shadow-[0_1px_0_0_rgba(15,23,42,0.6)]">
             <tr>
@@ -554,9 +556,14 @@ export const StockHistoryTable: React.FC<StockHistoryTableProps> = ({ prices, ti
                       <span className="text-[10px] text-slate-500 group-hover/ath:text-teal-400 transition-colors ml-0.5">ℹ</span>
                     </div>
 
-                    {/* Hover Popover Tooltip */}
-                    <div className="pointer-events-none absolute right-2 bottom-full mb-2.5 hidden group-hover/ath:flex flex-col gap-2 w-72 p-3.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-200 text-xs shadow-[0_10px_25px_-5px_rgba(0,0,0,0.8)] z-50 text-left font-sans animate-in fade-in zoom-in-95 duration-150">
-                      <div className="absolute -bottom-1.5 border-b border-r right-4 w-3 h-3 bg-slate-950 border-slate-800 rotate-45"></div>
+                    {/* Hover Popover Tooltip (Se despliega hacia abajo si es de las primeras filas para no cortarse) */}
+                    <div className={`pointer-events-none absolute right-2 hidden group-hover/ath:flex flex-col gap-2 w-72 p-3.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-200 text-xs shadow-[0_10px_25px_-5px_rgba(0,0,0,0.8)] z-50 text-left font-sans animate-in fade-in zoom-in-95 duration-150 ${
+                      idx <= 2 ? 'top-full mt-2' : 'bottom-full mb-2.5'
+                    }`}>
+                      <div className={`absolute border-slate-800 rotate-45 w-3 h-3 bg-slate-950 right-4 ${
+                        idx <= 2 ? '-top-1.5 border-t border-l' : '-bottom-1.5 border-b border-r'
+                      }`}></div>
+
                       
                       <div className="flex items-center justify-between border-b border-slate-900 pb-2 font-extrabold text-teal-400 relative z-10">
                         <span>

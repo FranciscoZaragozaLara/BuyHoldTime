@@ -50,8 +50,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(currentUser);
         try {
           const tokenResult = await currentUser.getIdTokenResult(true);
-          setToken(tokenResult.token);
-          const assignedRole = (tokenResult.claims.role as UserRole) || 'FREE_USER';
+          const currentToken = tokenResult.token;
+          setToken(currentToken);
+          let assignedRole = (tokenResult.claims.role as UserRole) || 'FREE_USER';
+
+          // Sincronizar con el backend
+          try {
+            const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+            const res = await fetch(`${apiBase}/auth/sync`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${currentToken}`,
+              },
+            });
+            if (res.ok) {
+              const data = await res.json();
+              if (data?.user?.role) {
+                assignedRole = data.user.role as UserRole;
+              }
+            }
+          } catch (syncErr) {
+            console.error('Error syncing user with PostgreSQL backend:', syncErr);
+          }
+
           setRole(assignedRole);
         } catch (err) {
           console.error('Error fetching user ID token claims:', err);
@@ -67,6 +89,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     return () => unsubscribe();
   }, []);
+
 
   const signInWithGoogle = async () => {
     await signInWithPopup(auth, googleProvider);

@@ -247,6 +247,19 @@ export const StockChart: React.FC<StockChartProps> = ({ prices, buyHoldIndex, re
     return '#f43f5e';
   }, [buyHoldIndex, recommendation]);
 
+  // ─── ATH & Drawdown Calculations ──────────────────────────────────────────
+  const { athPrice, drawdownPct } = React.useMemo(() => {
+    if (!chartData || chartData.length === 0) return { athPrice: 0, drawdownPct: 0 };
+    const maxP = Math.max(...chartData.map((d) => d.high || d.close));
+    const latestP = chartData[chartData.length - 1]?.close || ticker.price || 0;
+    const loss = maxP > 0 ? ((latestP - maxP) / maxP) * 100 : 0;
+    return {
+      athPrice: maxP,
+      drawdownPct: parseFloat(loss.toFixed(2)),
+    };
+  }, [chartData, ticker.price]);
+
+
   // ─── Chart Initialization ───────────────────────────────────────────────────
   useEffect(() => {
     if (!chartContainerRef.current) return;
@@ -286,6 +299,16 @@ export const StockChart: React.FC<StockChartProps> = ({ prices, buyHoldIndex, re
     const emaSeries = chart.addSeries(LineSeries, { color: '#10b981', lineWidth: 2, priceLineVisible: false, lastValueVisible: true, title: 'EMA 200' });
     const ema50Series = chart.addSeries(LineSeries, { color: '#f97316', lineWidth: 2, priceLineVisible: false, lastValueVisible: true, title: 'EMA 50' });
 
+    // Línea punteada azul de ATH (All Time High)
+    const athSeries = chart.addSeries(LineSeries, {
+      color: '#3b82f6',
+      lineWidth: 2,
+      lineStyle: 2, // Punteada (Dashed)
+      priceLineVisible: true,
+      lastValueVisible: true,
+      title: 'ATH',
+    });
+
     if (chartType === 'candle') {
       candlestickSeries.setData(chartData);
       createSeriesMarkers(candlestickSeries, opportunityMarkers);
@@ -301,8 +324,18 @@ export const StockChart: React.FC<StockChartProps> = ({ prices, buyHoldIndex, re
     if (emaData.length > 0) emaSeries.setData(emaData);
     if (ema50Data.length > 0) ema50Series.setData(ema50Data);
 
+    // Calcular ATH y establecer la serie de la línea constante ATH
+    if (chartData.length > 0) {
+      const maxPrice = Math.max(...chartData.map((d) => d.high || d.close));
+      if (maxPrice > 0) {
+        const athPoints = chartData.map((d) => ({ time: d.time, value: maxPrice }));
+        athSeries.setData(athPoints);
+      }
+    }
+
     chart.timeScale().fitContent();
     setIsLoaded(true);
+
 
     // Single click → show floating detail badge at clicked coordinates
     chart.subscribeClick((param) => {
@@ -529,14 +562,35 @@ export const StockChart: React.FC<StockChartProps> = ({ prices, buyHoldIndex, re
         </div>
       </div>
 
-      {/* Chart Canvas — chart.subscribeClick gives us pixel coords for the badge */}
+      {/* Chart Canvas */}
       <div className="relative w-full h-[320px] md:h-[400px]" style={{ minHeight: '320px' }}>
+        {/* Ticker central en la parte superior de la gráfica + Indicador de Drawdown (% Pérdida vs ATH) */}
+        <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10 flex items-center gap-3 bg-slate-950/80 backdrop-blur-md px-4 py-1.5 rounded-full border border-slate-800/80 shadow-xl pointer-events-none">
+          <span className="text-sm font-black tracking-wider text-white">
+            {ticker.symbol}
+          </span>
+          <span className="text-[10px] text-slate-500 font-bold">•</span>
+          <div className="flex items-center gap-1.5 text-xs font-bold">
+            <span className="text-[11px] font-bold text-sky-400">
+              ATH: ${athPrice.toFixed(2)}
+            </span>
+            <span className={`px-2 py-0.5 rounded-full text-[10px] font-black border ${
+              drawdownPct === 0
+                ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                : 'bg-rose-500/10 text-rose-400 border-rose-500/30'
+            }`}>
+              {drawdownPct === 0 ? 'EN MAXIMO HISTORICO' : `${drawdownPct}% vs ATH`}
+            </span>
+          </div>
+        </div>
+
         {!isLoaded && (
           <div className="absolute inset-0 flex items-center justify-center bg-slate-950/80 z-10 text-slate-500 text-xs">
             <span className="animate-spin rounded-full h-5 w-5 border-b-2 border-teal-500 mr-2" />
             Loading chart...
           </div>
         )}
+
 
         <div ref={chartContainerRef} className="w-full h-full" />
 
