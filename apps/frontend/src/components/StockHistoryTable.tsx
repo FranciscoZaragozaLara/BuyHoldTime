@@ -315,6 +315,7 @@ export const StockHistoryTable: React.FC<StockHistoryTableProps> = ({ prices, ti
           </button>
         </div>
       </div>
+    </div>
 
       {/* Aggregated Table */}
       <div className="overflow-x-auto overflow-y-auto max-h-[484px] border border-slate-900 rounded-xl custom-scrollbar">
