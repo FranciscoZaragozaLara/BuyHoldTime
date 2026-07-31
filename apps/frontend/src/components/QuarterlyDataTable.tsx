@@ -43,24 +43,25 @@ export const QuarterlyDataTable: React.FC<QuarterlyDataTableProps> = ({ ticker, 
   const [visibleCount, setVisibleCount] = useState(10);
   const observerRef = useRef<HTMLTableRowElement | null>(null);
 
-  // Helper to find the closest price to the quarter date
+  // Helper to find the closest price to the quarter date (using split-adjusted adjClose)
   const findQuarterPrice = (qDateStr: string): number | null => {
     if (historicalPrices.length === 0) return null;
     const targetTime = new Date(qDateStr).getTime();
     
-    // Find closest price candle
-    let closestPrice = historicalPrices[0].close;
+    // Find closest price candle using split-adjusted price (adjClose)
+    let closestPrice = historicalPrices[0].adjClose || historicalPrices[0].close;
     let minDiff = Math.abs(new Date(historicalPrices[0].date).getTime() - targetTime);
 
     for (const p of historicalPrices) {
       const diff = Math.abs(new Date(p.date).getTime() - targetTime);
       if (diff < minDiff) {
         minDiff = diff;
-        closestPrice = p.close;
+        closestPrice = p.adjClose || p.close;
       }
     }
     return closestPrice;
   };
+
 
   const isFund = 
     ticker?.sector === 'Index' || 
