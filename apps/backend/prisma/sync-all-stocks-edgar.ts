@@ -14,7 +14,6 @@ async function main() {
   const fmpApiKey = 'aHWvhgdKuBbca6TnHQyXFDwe4w5I6ja5';
   const todayStr = new Date().toISOString().split('T')[0];
 
-  // 1. Fetch SEC EDGAR CIK Mapping
   console.log('=====================================================');
   console.log('FETCHING SEC EDGAR CIK MAPPING...');
   console.log('=====================================================');
@@ -33,18 +32,15 @@ async function main() {
     console.error('Error fetching SEC CIK mapping:', err.message);
   }
 
-  // Get all tickers from DB
   const tickers = await prisma.ticker.findMany();
   console.log(`Found ${tickers.length} tickers in database.`);
 
   const skippedFunds = new Set(['VOO', 'SPY', 'QQQ', 'TQQQ', 'SCHD', 'SOXX', 'SOXL', 'SMH', 'IBB', 'NLR']);
-  
   let processedCount = 0;
 
   for (const ticker of tickers) {
     const symbol = ticker.symbol.toUpperCase();
     
-    // Skip ETFs / Indices which use sector benchmark P/E mapping
     if (skippedFunds.has(symbol) || ticker.sector === 'Index' || ticker.sector === 'ETF' || ticker.sector?.toLowerCase().includes('etf')) {
       console.log(`\n>>> Skipping Fund/ETF ${symbol} (Uses Sector/Index Benchmark)...`);
       continue;
@@ -105,6 +101,7 @@ async function main() {
         const epsUnits = usGaap?.['EarningsPerShareDiluted']?.units?.['USD/shares'] || usGaap?.['EarningsPerShareBasic']?.units?.['USD/shares'] || [];
         const revUnits = usGaap?.['RevenueFromContractWithCustomerExcludingAssessedTax']?.units?.['USD'] || usGaap?.['SalesRevenueNet']?.units?.['USD'] || [];
         const netUnits = usGaap?.['NetIncomeLoss']?.units?.['USD'] || [];
+        const sharesUnits = usGaap?.['WeightedAverageNumberOfDilutedSharesOutstanding']?.units?.['shares'] || usGaap?.['WeightedAverageNumberOfSharesOutstandingBasic']?.units?.['shares'] || [];
 
         // 3-Month Quarters (~90 days)
         const quarterlyEps = epsUnits.filter((u: any) => {
@@ -129,8 +126,10 @@ async function main() {
               date: u.end,
               period,
               fiscalYear: String(u.fy || yr),
-              revenue: 0, netIncome: 0,
-              eps: adjustedEps, epsDiluted: adjustedEps,
+              revenue: 0,
+              netIncome: 0,
+              eps: adjustedEps,
+              epsDiluted: adjustedEps,
               sharesOutstanding: 0,
               source: 'EDGAR' as const,
               filed: u.filed
@@ -158,8 +157,10 @@ async function main() {
                   date: qc.dateStr,
                   period: qc.period,
                   fiscalYear: String(endYr),
-                  revenue: 0, netIncome: 0,
-                  eps: qEps, epsDiluted: qEps,
+                  revenue: 0,
+                  netIncome: 0,
+                  eps: qEps,
+                  epsDiluted: qEps,
                   sharesOutstanding: 0,
                   source: 'EDGAR' as const,
                 });
@@ -168,23 +169,23 @@ async function main() {
           }
         }
 
-        // Revenue & Net Income
-        const quarterlyRev = revUnits.filter((u: any) => {
-          if (!u.start || !u.end) return false;
-          const days = (new Date(u.end).getTime() - new Date(u.start).getTime()) / (24 * 60 * 60 * 1000);
-          return days >= 75 && days <= 110;
-        });
+        // Revenue, Net Income & Shares Outstanding
+        const quarterlyRev = revUnits.filter((u: any) => u.start && u.end && ((new Date(u.end).getTime() - new Date(u.start).getTime()) / 86400000) >= 75);
         for (const r of quarterlyRev) {
           if (quartersMap.has(r.end) && r.val) quartersMap.get(r.end).revenue = r.val;
         }
 
-        const quarterlyNet = netUnits.filter((u: any) => {
-          if (!u.start || !u.end) return false;
-          const days = (new Date(u.end).getTime() - new Date(u.start).getTime()) / (24 * 60 * 60 * 1000);
-          return days >= 75 && days <= 110;
-        });
+        const quarterlyNet = netUnits.filter((u: any) => u.start && u.end && ((new Date(u.end).getTime() - new Date(u.start).getTime()) / 86400000) >= 75);
         for (const n of quarterlyNet) {
           if (quartersMap.has(n.end) && n.val) quartersMap.get(n.end).netIncome = n.val;
+        }
+
+        const quarterlyShares = sharesUnits.filter((u: any) => u.start && u.end && ((new Date(u.end).getTime() - new Date(u.start).getTime()) / 86400000) >= 75);
+        for (const s of quarterlyShares) {
+          if (quartersMap.has(s.end) && s.val) {
+            const splitFactor = getCumulativeSplitFactor(s.filed || s.end);
+            quartersMap.get(s.end).sharesOutstanding = Math.round(s.val * splitFactor);
+          }
         }
       } catch (err: any) {
         console.warn(`SEC EDGAR Warning for ${symbol}:`, err.message);
@@ -204,6 +205,8 @@ async function main() {
               existing.source = 'FMP';
               existing.eps = Number(item.epsDiluted || item.eps);
               existing.epsDiluted = Number(item.epsDiluted || item.eps);
+              if (item.netIncome) existing.netIncome = Number(item.netIncome);
+              if (item.weightedAverageShsOutDil) existing.sharesOutstanding = Number(item.weightedAverageShsOutDil);
             }
           }
         }
@@ -220,13 +223,14 @@ async function main() {
       data: { historicalEpsQuarterly: finalQuarters as any }
     });
 
-    // 4. Render Summary Table in Console
-    console.log(`\nSummary Table of Extracted Quarters for ${symbol} (Total: ${finalQuarters.length}):`);
+    console.log(`Summary Table of Extracted Quarters & Shares for ${symbol} (Total: ${finalQuarters.length}):`);
     console.table(
-      finalQuarters.slice(0, 12).map(q => ({
+      finalQuarters.slice(0, 10).map(q => ({
         Date: q.date,
         Period: `${q.period} ${q.fiscalYear}`,
         'EPS ($)': q.eps,
+        'Net Income ($B)': q.netIncome ? `${(q.netIncome / 1e9).toFixed(2)}B` : '0B',
+        'Shares (M)': q.sharesOutstanding ? `${(q.sharesOutstanding / 1e6).toFixed(1)}M` : '0M',
         Source: q.source,
       }))
     );
@@ -234,9 +238,7 @@ async function main() {
 
   await prisma.$disconnect();
   await pool.end();
-  console.log('\n=====================================================');
-  console.log('ALL STOCKS SYNC COMPLETED SUCCESSFULLY!');
-  console.log('=====================================================');
+  console.log('\nALL STOCKS SYNC WITH NET INCOME & SHARES COMPLETED SUCCESSFULLY!');
 }
 
 main().catch(console.error);

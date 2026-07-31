@@ -228,6 +228,8 @@ export const StockHistoryTable: React.FC<StockHistoryTableProps> = ({ prices, ti
     });
   };
 
+  const [epsMode, setEpsMode] = useState<'reported' | 'buybackNormalized'>('reported');
+
   return (
     <div className="p-6 rounded-2xl border border-slate-900 bg-slate-950/60 backdrop-blur-xl shadow-2xl flex flex-col gap-6">
       
@@ -245,8 +247,39 @@ export const StockHistoryTable: React.FC<StockHistoryTableProps> = ({ prices, ti
           </p>
         </div>
 
-        {/* Tab switcher */}
-        <div className="flex bg-slate-900/80 border border-slate-800 rounded-lg p-0.5">
+        {/* Controls: EPS Mode Toggle + Tab switcher */}
+        <div className="flex items-center gap-3 flex-wrap">
+          {/* EPS Mode Switcher */}
+          {!isFund && (
+            <div className="flex bg-slate-900/80 border border-slate-800 rounded-lg p-0.5 text-xs font-semibold">
+              <button
+                onClick={() => setEpsMode('reported')}
+                className={`px-2.5 py-1 rounded-md transition-all ${
+                  epsMode === 'reported'
+                    ? 'bg-sky-500/20 text-sky-400 border border-sky-500/30 shadow-sm'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+                title={locale === 'es' ? 'EPS Diluido Reportado Oficial SEC' : 'SEC Reported Diluted EPS'}
+              >
+                {locale === 'es' ? 'EPS SEC' : 'SEC EPS'}
+              </button>
+              <button
+                onClick={() => setEpsMode('buybackNormalized')}
+                className={`px-2.5 py-1 rounded-md transition-all ${
+                  epsMode === 'buybackNormalized'
+                    ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30 shadow-sm'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+                title={locale === 'es' ? 'EPS Ajustado por Recompra/Dilución de Acciones' : 'Shares Buyback Normalized EPS'}
+              >
+                {locale === 'es' ? 'Ajustado por Buybacks' : 'Buybacks Adj.'}
+              </button>
+            </div>
+          )}
+
+          {/* Period Tab switcher */}
+          <div className="flex bg-slate-900/80 border border-slate-800 rounded-lg p-0.5">
+
           <button
             onClick={() => handleTabChange('annual')}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition cursor-pointer ${
@@ -405,8 +438,18 @@ export const StockHistoryTable: React.FC<StockHistoryTableProps> = ({ prices, ti
                   const sliced = relevantQuarters.slice(0, 4);
                   if (sliced.length === 4) {
                     quartersUsed = sliced;
-                    const ttmSum = sliced.reduce((sum, q) => sum + (q.epsDiluted || q.eps || 0), 0);
-                    resolvedEps = parseFloat(ttmSum.toFixed(2));
+
+                    // If Buybacks Normalized mode is active and current shares exist
+                    const currentShares = ticker.historicalEpsQuarterly?.[0]?.sharesOutstanding;
+                    const hasNetIncome = sliced.every(q => q.netIncome && q.netIncome !== 0);
+
+                    if (epsMode === 'buybackNormalized' && currentShares && currentShares > 0 && hasNetIncome) {
+                      const ttmNetIncome = sliced.reduce((sum, q) => sum + (q.netIncome || 0), 0);
+                      resolvedEps = parseFloat((ttmNetIncome / currentShares).toFixed(2));
+                    } else {
+                      const ttmSum = sliced.reduce((sum, q) => sum + (q.epsDiluted || q.eps || 0), 0);
+                      resolvedEps = parseFloat(ttmSum.toFixed(2));
+                    }
                     
                     // Oldest quarter used in the 4-quarter TTM sum
                     const oldestUsed = sliced[sliced.length - 1];
