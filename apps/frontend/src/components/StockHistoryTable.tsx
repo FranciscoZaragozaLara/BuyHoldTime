@@ -530,7 +530,7 @@ export const StockHistoryTable: React.FC<StockHistoryTableProps> = ({ prices, ti
                 : locale === 'es' ? 'Calculado dinámicamente' : 'Calculated dynamically';
 
               return (
-                <tr key={idx} className={`hover:bg-slate-900/10 transition-colors ${row.id === 'temp-today' ? 'bg-teal-500/5 border-l-2 border-teal-500' : ''}`}>
+                <tr key={`${activeTab}-${label}-${idx}`} className={`hover:bg-slate-900/10 transition-colors ${row.id === 'temp-today' ? 'bg-teal-500/5 border-l-2 border-teal-500' : ''}`}>
                   <td className="p-4 font-sans font-bold text-white whitespace-nowrap flex items-center gap-2">
                     {formatDate(label)}
                     {row.id === 'temp-today' && (
