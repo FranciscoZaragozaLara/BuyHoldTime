@@ -387,13 +387,19 @@ export const StockHistoryTable: React.FC<StockHistoryTableProps> = ({ prices, ti
                 if (isFund) {
                   if (relevantQuarters.length > 0) {
                     resolvedPe = relevantQuarters[0].peRatio || null;
-                    if (resolvedPe && resolvedPe > 0) {
-                      // Implied EPS is dynamically calculated for display as price/pe
+                    if (resolvedPe && resolvedPe > 5) {
                       resolvedEps = row.close / resolvedPe;
+                      epsSource = 'real';
+                    } else if (ticker.eps && ticker.price && ticker.price > 0) {
+                      // Fallback anchor to real ETF EPS ratio to prevent distorted values (like 0.80)
+                      const epsRatio = ticker.eps / ticker.price;
+                      resolvedEps = row.close * epsRatio;
+                      resolvedPe = epsRatio > 0 ? 1 / epsRatio : null;
                       epsSource = 'real';
                     }
                   }
                 } else {
+
                   const sliced = relevantQuarters.slice(0, 4);
                   if (sliced.length === 4) {
                     quartersUsed = sliced;
