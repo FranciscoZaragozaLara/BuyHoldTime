@@ -22,6 +22,11 @@ export const StockHistoryTable: React.FC<StockHistoryTableProps> = ({ prices, ti
 
   const baseIndex = ticker.buyHoldIndex;
 
+  const isFund = useMemo(() => {
+    const s = String(ticker.sector || '').toLowerCase();
+    return s === 'index' || s === 'etf' || s.includes('etf');
+  }, [ticker.sector]);
+
   // Helper to parse market cap string (e.g. 3.2T -> 3.2e12)
   const parsedCurrentCap = useMemo(() => {
     const capStr = ticker.cap || '0';
