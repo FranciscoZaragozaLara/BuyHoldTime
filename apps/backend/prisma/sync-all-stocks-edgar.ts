@@ -85,23 +85,41 @@ async function main() {
       return factor;
     };
 
-    // 2. Fetch SEC EDGAR XBRL Data
-    const cik = cikMap.get(symbol);
+    // 2. Fetch SEC EDGAR XBRL Data (including historical CIKs for corporate restructurings like Alphabet/Google)
+    const primaryCik = cikMap.get(symbol);
+    const altCikMap: Record<string, string[]> = {
+      'GOOGL': ['0001288776'], // Google Inc (2004-2015 pre-Alphabet restructuring)
+      'GOOG': ['0001288776'],
+      'META': ['0001326801'],
+    };
+
+    const targetCiks = primaryCik ? [primaryCik, ...(altCikMap[symbol] || [])] : (altCikMap[symbol] || []);
     const quartersMap = new Map<string, any>();
 
-    if (cik) {
+    let epsUnits: any[] = [];
+    let revUnits: any[] = [];
+    let netUnits: any[] = [];
+    let sharesUnits: any[] = [];
+
+    for (const cik of targetCiks) {
       try {
         const edgarUrl = `https://data.sec.gov/api/xbrl/companyfacts/CIK${cik}.json`;
         const edgarRes = await fetch(edgarUrl, {
           headers: { 'User-Agent': 'BuyHoldTime Finance admin@buyholdtime.com' }
         });
-        const edgarJson = await edgarRes.json() as any;
-        const usGaap = edgarJson?.facts?.['us-gaap'];
+        if (edgarRes.status === 200) {
+          const edgarJson = await edgarRes.json() as any;
+          const usGaap = edgarJson?.facts?.['us-gaap'];
 
-        const epsUnits = usGaap?.['EarningsPerShareDiluted']?.units?.['USD/shares'] || usGaap?.['EarningsPerShareBasic']?.units?.['USD/shares'] || [];
-        const revUnits = usGaap?.['RevenueFromContractWithCustomerExcludingAssessedTax']?.units?.['USD'] || usGaap?.['SalesRevenueNet']?.units?.['USD'] || [];
-        const netUnits = usGaap?.['NetIncomeLoss']?.units?.['USD'] || [];
-        const sharesUnits = usGaap?.['WeightedAverageNumberOfDilutedSharesOutstanding']?.units?.['shares'] || usGaap?.['WeightedAverageNumberOfSharesOutstandingBasic']?.units?.['shares'] || [];
+          epsUnits.push(...(usGaap?.['EarningsPerShareDiluted']?.units?.['USD/shares'] || usGaap?.['EarningsPerShareBasic']?.units?.['USD/shares'] || []));
+          revUnits.push(...(usGaap?.['RevenueFromContractWithCustomerExcludingAssessedTax']?.units?.['USD'] || usGaap?.['SalesRevenueNet']?.units?.['USD'] || []));
+          netUnits.push(...(usGaap?.['NetIncomeLoss']?.units?.['USD'] || []));
+          sharesUnits.push(...(usGaap?.['WeightedAverageNumberOfDilutedSharesOutstanding']?.units?.['shares'] || usGaap?.['WeightedAverageNumberOfSharesOutstandingBasic']?.units?.['shares'] || []));
+        }
+      } catch (err: any) {}
+    }
+
+    if (epsUnits.length > 0) {
 
         // Group 10-K FY annual reports to derive exact Q4 values
         const fyEpsMap = new Map<number, any>();
