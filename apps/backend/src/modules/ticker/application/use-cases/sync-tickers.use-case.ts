@@ -533,7 +533,9 @@ export class SyncTickersUseCase {
           bookValue,
           historicalEps,
           historicalDividends,
-          historicalEpsQuarterly,
+          historicalEpsQuarterly: (historicalEpsQuarterly && historicalEpsQuarterly.length > 0) 
+            ? historicalEpsQuarterly 
+            : (ticker.historicalEpsQuarterly as any[] || []),
         });
 
 
