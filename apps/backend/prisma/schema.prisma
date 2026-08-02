@@ -153,3 +153,27 @@ model User {
   @@map("users")
 }
 
+model MarginDebt {
+  id                    String   @id @default(uuid())
+  date                  DateTime @unique @db.Date
+  debitBalances         Float    @map("debit_balances")
+  freeCreditCash        Float    @map("free_credit_cash")
+  freeCreditMargin      Float    @map("free_credit_margin")
+  netCreditBalance      Float    @map("net_credit_balance")
+  sp500Price            Float?   @map("sp500_price")
+  currencyInCirculation Float?   @map("currency_in_circulation") // En millones USD (FRED MBCURRCIR)
+  marginCurrencyRatio   Float?   @map("margin_currency_ratio")    // Margin Debt / Currency (%)
+  marginDebtRatio       Float?   @map("margin_debt_ratio")
+  marginDebtYoY         Float?   @map("margin_debt_yoy")
+  sp500YoY              Float?   @map("sp500_yoy")
+  divergence            Float?
+  riskScore             Int?     @map("risk_score")
+  riskLevel             String?  @map("risk_level")
+  source                String   @default("FINRA")
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+
+  @@map("margin_debt")
+}
+
+

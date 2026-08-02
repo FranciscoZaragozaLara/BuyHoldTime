@@ -142,3 +142,44 @@ export async function createSubscription(name: string, email: string): Promise<S
   }
   return res.json();
 }
+
+export interface MarginDebtRecord {
+  id: string;
+  date: string;
+  debitBalances: number;
+  freeCreditCash: number;
+  freeCreditMargin: number;
+  netCreditBalance: number;
+  sp500Price: number | null;
+  currencyInCirculation?: number | null;
+  marginCurrencyRatio?: number | null;
+  marginDebtRatio: number | null;
+  marginDebtYoY: number | null;
+  sp500YoY: number | null;
+  divergence: number | null;
+  riskScore: number;
+  riskLevel: 'LOW' | 'MODERATE' | 'HIGH' | 'CRITICAL';
+  source: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface MarginDebtRiskSummary extends Partial<MarginDebtRecord> {
+  latestDate?: string;
+  debitChangeMoM?: number;
+}
+
+export async function getMarginDebtHistory(months = 120): Promise<MarginDebtRecord[]> {
+  const baseUrl = getApiBaseUrl();
+  const res = await fetch(`${baseUrl}/margin-debt/history?months=${months}`, { cache: 'no-store' });
+  if (!res.ok) throw new Error('Failed to fetch margin debt history');
+  return res.json();
+}
+
+export async function getMarginDebtRiskSummary(): Promise<MarginDebtRiskSummary> {
+  const baseUrl = getApiBaseUrl();
+  const res = await fetch(`${baseUrl}/margin-debt/risk-summary`, { cache: 'no-store' });
+  if (!res.ok) throw new Error('Failed to fetch margin debt risk summary');
+  return res.json();
+}
+

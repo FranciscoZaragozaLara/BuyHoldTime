@@ -144,6 +144,7 @@ async function main() {
     const quartersMap = new Map<string, any>();
 
     let edgarUnits: any[] = [];
+    let revUnits: any[] = [];
     let netUnits: any[] = [];
     let sharesUnits: any[] = [];
 
@@ -183,10 +184,6 @@ async function main() {
           const days = (new Date(u.end).getTime() - new Date(u.start).getTime()) / 86400000;
           return days >= 70 && days <= 125;
         });
-
-        const revUnits = usGaap["RevenueFromContractWithCustomerExcludingAssessedTax"]?.units?.["USD"] || usGaap["SalesRevenueNet"]?.units?.["USD"] || usGaap["Revenues"]?.units?.["USD"] || [];
-        const netUnits = usGaap["NetIncomeLoss"]?.units?.["USD"] || [];
-        const sharesUnits = usGaap["WeightedAverageNumberOfDilutedSharesOutstanding"]?.units?.["shares"] || usGaap["WeightedAverageNumberOfSharesOutstandingBasic"]?.units?.["shares"] || [];
 
         // Map 3M Revenues
         const revMap = new Map<string, number>();
@@ -242,7 +239,6 @@ async function main() {
           companyClosingMonth = parseInt(latest10K.end.split("-")[1], 10);
         }
 
-        const quartersMap = new Map<string, any>();
         const fyGroupMap = new Map<number, { Q1?: number; Q2?: number; Q3?: number; Q4?: number }>();
 
         for (const u of Array.from(end3MMap.values())) {
@@ -269,7 +265,7 @@ async function main() {
             filedDate: u.filed || null,
             accn: u.accn || null,
             form: u.form || "10-Q",
-            cik: cikStr,
+            cik: primaryCik || targetCiks[0] || "",
             period: period,
             fiscalYear: String(fyNum),
             revenue: qRev,

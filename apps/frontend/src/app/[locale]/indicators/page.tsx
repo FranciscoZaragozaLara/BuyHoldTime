@@ -1,7 +1,8 @@
 import React from 'react';
 import { Layout } from '@/components/Layout';
 import { MarketValueIndicatorClient } from '@/components/MarketValueIndicatorClient';
-import { getIndicatorDetails, IndicatorDetails } from '@/services/api';
+import { MarginDebtPanel } from '@/components/MarginDebtPanel';
+import { getIndicatorDetails, IndicatorDetails, getMarginDebtHistory, getMarginDebtRiskSummary, MarginDebtRecord, MarginDebtRiskSummary } from '@/services/api';
 import { Sparkles } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
@@ -18,28 +19,63 @@ export default async function IndicatorsPage({
 }) {
   const { locale } = await params;
 
-  let shillerPeData: IndicatorDetails;
-  let peRatioData: IndicatorDetails;
-  let sp500PriceData: IndicatorDetails;
-  let sp500DividendData: IndicatorDetails;
-  let sp500EarningsData: IndicatorDetails;
-  let cpiData: IndicatorDetails;
-  let rateGs10Data: IndicatorDetails;
-  let excessCapeYieldData: IndicatorDetails;
+  const generateMockHistory = (startVal: number, drift: number, volatility: number, len = 120) => {
+    const history = [];
+    let current = startVal;
+    const today = new Date();
+    for (let i = len; i >= 0; i--) {
+      const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
+      const lastDay = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+      const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+      current = current + drift + (Math.random() - 0.5) * volatility;
+      history.push({
+        id: `mock-${i}`,
+        indicatorId: 'mock-id',
+        date: dateStr,
+        value: parseFloat(Math.max(0.1, current).toFixed(4)),
+      });
+    }
+    return history;
+  };
+
+  let shillerPeData: IndicatorDetails = {
+    indicator: { id: 'mock-shiller', key: 'schiller_pe', name: 'Shiller PE Ratio (CAPE)', currentValue: 41.02, unit: 'x', status: 'High', description: '', createdAt: '', updatedAt: '' },
+    history: generateMockHistory(30, 0.05, 1.2, 200),
+  };
+  let peRatioData: IndicatorDetails = {
+    indicator: { id: 'mock-pe', key: 'pe_ratio', name: 'S&P 500 PE Ratio', currentValue: 32.59, unit: 'x', status: 'High', description: '', createdAt: '', updatedAt: '' },
+    history: generateMockHistory(24, 0.04, 0.9, 200),
+  };
+  let sp500PriceData: IndicatorDetails = {
+    indicator: { id: 'mock-sp500', key: 'sp500_price', name: 'S&P 500 Price', currentValue: 7609.78, unit: '', status: 'Normal', description: '', createdAt: '', updatedAt: '' },
+    history: generateMockHistory(3500, 15, 80, 200),
+  };
+  let sp500DividendData: IndicatorDetails = {
+    indicator: { id: 'mock-dividend', key: 'sp500_dividend', name: 'S&P 500 Dividend', currentValue: 80.37, unit: '', status: 'Normal', description: '', createdAt: '', updatedAt: '' },
+    history: generateMockHistory(65, 0.1, 1.5, 200),
+  };
+  let sp500EarningsData: IndicatorDetails = {
+    indicator: { id: 'mock-earnings', key: 'sp500_earnings', name: 'S&P 500 Earnings', currentValue: 293.58, unit: '', status: 'Normal', description: '', createdAt: '', updatedAt: '' },
+    history: generateMockHistory(200, 0.5, 5.0, 200),
+  };
+  let cpiData: IndicatorDetails = {
+    indicator: { id: 'mock-cpi', key: 'cpi', name: 'Consumer Price Index (CPI)', currentValue: 335.13, unit: '', status: 'Normal', description: '', createdAt: '', updatedAt: '' },
+    history: generateMockHistory(250, 0.3, 2.0, 200),
+  };
+  let rateGs10Data: IndicatorDetails = {
+    indicator: { id: 'mock-gs10', key: 'rate_gs10', name: '10-Year Treasury Yield (GS10)', currentValue: 4.47, unit: '%', status: 'Normal', description: '', createdAt: '', updatedAt: '' },
+    history: generateMockHistory(3.5, 0.005, 0.15, 200),
+  };
+  let excessCapeYieldData: IndicatorDetails = {
+    indicator: { id: 'mock-excess', key: 'excess_cape_yield', name: 'Excess CAPE Yield', currentValue: 1.32, unit: '%', status: 'Normal', description: '', createdAt: '', updatedAt: '' },
+    history: generateMockHistory(2.0, -0.005, 0.1, 200),
+  };
+  let marginDebtSummary: MarginDebtRiskSummary | null = null;
+  let marginDebtHistory: MarginDebtRecord[] = [];
   let errorState = false;
 
   try {
-    // Fetch data with high limit for comprehensive historical charts (e.g. 1500 months ~ 125 years)
-    [
-      shillerPeData,
-      peRatioData,
-      sp500PriceData,
-      sp500DividendData,
-      sp500EarningsData,
-      cpiData,
-      rateGs10Data,
-      excessCapeYieldData,
-    ] = await Promise.all([
+    const results = await Promise.allSettled([
       getIndicatorDetails('schiller_pe', 1500),
       getIndicatorDetails('pe_ratio', 1500),
       getIndicatorDetails('sp500_price', 1500),
@@ -48,70 +84,23 @@ export default async function IndicatorsPage({
       getIndicatorDetails('cpi', 1500),
       getIndicatorDetails('rate_gs10', 1500),
       getIndicatorDetails('excess_cape_yield', 1500),
+      getMarginDebtRiskSummary(),
+      getMarginDebtHistory(360),
     ]);
+
+    if (results[0].status === 'fulfilled') shillerPeData = results[0].value;
+    if (results[1].status === 'fulfilled') peRatioData = results[1].value;
+    if (results[2].status === 'fulfilled') sp500PriceData = results[2].value;
+    if (results[3].status === 'fulfilled') sp500DividendData = results[3].value;
+    if (results[4].status === 'fulfilled') sp500EarningsData = results[4].value;
+    if (results[5].status === 'fulfilled') cpiData = results[5].value;
+    if (results[6].status === 'fulfilled') rateGs10Data = results[6].value;
+    if (results[7].status === 'fulfilled') excessCapeYieldData = results[7].value;
+    if (results[8].status === 'fulfilled') marginDebtSummary = results[8].value;
+    if (results[9].status === 'fulfilled') marginDebtHistory = results[9].value;
   } catch (err) {
-    console.error('Failed to fetch indicators in Server Component, utilizing mock fallback:', err);
+    console.error('Failed to fetch indicators in Server Component:', err);
     errorState = true;
-
-    // Premium fallback mock data if backend NestJS is not running
-    const generateMockHistory = (startVal: number, drift: number, volatility: number, len = 120) => {
-      const history = [];
-      let current = startVal;
-      const today = new Date();
-      for (let i = len; i >= 0; i--) {
-        const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
-        const lastDay = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
-        const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
-        current = current + drift + (Math.random() - 0.5) * volatility;
-        history.push({
-          id: `mock-${i}`,
-          indicatorId: 'mock-id',
-          date: dateStr,
-          value: parseFloat(Math.max(0.1, current).toFixed(4)),
-        });
-      }
-      return history;
-    };
-
-    shillerPeData = {
-      indicator: { id: 'mock-shiller', key: 'schiller_pe', name: 'Shiller PE Ratio (CAPE)', currentValue: 41.02, unit: 'x', status: 'High', description: '', createdAt: '', updatedAt: '' },
-      history: generateMockHistory(30, 0.05, 1.2, 200),
-    };
-
-    peRatioData = {
-      indicator: { id: 'mock-pe', key: 'pe_ratio', name: 'S&P 500 PE Ratio', currentValue: 32.59, unit: 'x', status: 'High', description: '', createdAt: '', updatedAt: '' },
-      history: generateMockHistory(24, 0.04, 0.9, 200),
-    };
-
-    sp500PriceData = {
-      indicator: { id: 'mock-sp500', key: 'sp500_price', name: 'S&P 500 Price', currentValue: 7609.78, unit: '', status: 'Normal', description: '', createdAt: '', updatedAt: '' },
-      history: generateMockHistory(3500, 15, 80, 200),
-    };
-
-    sp500DividendData = {
-      indicator: { id: 'mock-dividend', key: 'sp500_dividend', name: 'S&P 500 Dividend', currentValue: 80.37, unit: '', status: 'Normal', description: '', createdAt: '', updatedAt: '' },
-      history: generateMockHistory(65, 0.1, 1.5, 200),
-    };
-
-    sp500EarningsData = {
-      indicator: { id: 'mock-earnings', key: 'sp500_earnings', name: 'S&P 500 Earnings', currentValue: 293.58, unit: '', status: 'Normal', description: '', createdAt: '', updatedAt: '' },
-      history: generateMockHistory(200, 0.5, 5.0, 200),
-    };
-
-    cpiData = {
-      indicator: { id: 'mock-cpi', key: 'cpi', name: 'Consumer Price Index (CPI)', currentValue: 335.13, unit: '', status: 'Normal', description: '', createdAt: '', updatedAt: '' },
-      history: generateMockHistory(250, 0.3, 2.0, 200),
-    };
-
-    rateGs10Data = {
-      indicator: { id: 'mock-gs10', key: 'rate_gs10', name: '10-Year Treasury Yield (GS10)', currentValue: 4.47, unit: '%', status: 'Normal', description: '', createdAt: '', updatedAt: '' },
-      history: generateMockHistory(3.5, 0.005, 0.15, 200),
-    };
-
-    excessCapeYieldData = {
-      indicator: { id: 'mock-excess', key: 'excess_cape_yield', name: 'Excess CAPE Yield', currentValue: 1.32, unit: '%', status: 'Normal', description: '', createdAt: '', updatedAt: '' },
-      history: generateMockHistory(2.0, -0.005, 0.1, 200),
-    };
   }
 
   return (
@@ -155,6 +144,13 @@ export default async function IndicatorsPage({
           cpiData={cpiData}
           rateGs10Data={rateGs10Data}
           excessCapeYieldData={excessCapeYieldData}
+        />
+
+        {/* FINRA Margin Debt Risk Model Panel */}
+        <MarginDebtPanel
+          summary={marginDebtSummary}
+          history={marginDebtHistory}
+          locale={locale}
         />
 
       </div>
