@@ -112,6 +112,13 @@ async function main() {
     } catch (err: any) {}
 
     const getCumulativeSplitFactor = (filedDateStr: string): number => {
+      if (symbol === 'GOOGL' || symbol === 'GOOG') {
+        const d = new Date(filedDateStr);
+        let factor = 1.0;
+        if (d < new Date("2022-07-16")) factor *= 20.0;
+        if (d < new Date("2014-04-03")) factor *= 1.998;
+        return factor;
+      }
       const filedTime = new Date(filedDateStr).getTime();
       let factor = 1;
       for (const s of splitsList) {
@@ -125,12 +132,15 @@ async function main() {
     // 2. Fetch SEC EDGAR XBRL Data
     const primaryCik = cikMap.get(symbol);
     const altCikMap: Record<string, string[]> = {
-      'GOOGL': ['0001288776'],
-      'GOOG': ['0001288776'],
+      'GOOGL': ['0001652044', '0001288776'],
+      'GOOG': ['0001652044', '0001288776'],
       'META': ['0001326801'],
     };
 
-    const targetCiks = primaryCik ? [primaryCik, ...(altCikMap[symbol] || [])] : (altCikMap[symbol] || []);
+    const targetCiks = Array.from(new Set([
+      ...(primaryCik ? [primaryCik] : []),
+      ...(altCikMap[symbol] || [])
+    ]));
     const quartersMap = new Map<string, any>();
 
     let edgarUnits: any[] = [];
