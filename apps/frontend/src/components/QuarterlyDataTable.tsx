@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Database, Layers, BarChart3, DollarSign, Activity } from 'lucide-react';
+import { Database, Layers, BarChart3, DollarSign, Activity, ExternalLink } from 'lucide-react';
 import { useLocale } from 'next-intl';
 
 interface QuarterData {
@@ -205,6 +205,18 @@ export const QuarterlyDataTable: React.FC<QuarterlyDataTableProps> = ({ ticker, 
     if (!q) return false;
     const src = String(q.source || 'EDGAR').toUpperCase();
     return src.includes('EDGAR') || src.includes('REAL') || src.includes('FMP') || Boolean(q.period);
+  };
+
+  const getSecFilingUrl = (q: any, symbol: string) => {
+    if (q.accn && q.cik) {
+      const accnClean = String(q.accn).replace(/-/g, '');
+      const cikClean = parseInt(String(q.cik), 10);
+      return `https://www.sec.gov/Archives/edgar/data/${cikClean}/${accnClean}/${q.accn}-index.htm`;
+    }
+    if (q.cik) {
+      return `https://www.sec.gov/edgar/browse/?CIK=${q.cik}`;
+    }
+    return `https://www.sec.gov/edgar/search/#/ciks=${symbol}`;
   };
 
   // Filter quarters list (only applies to corporate quarters since they have real vs estimated sources)
@@ -448,9 +460,17 @@ export const QuarterlyDataTable: React.FC<QuarterlyDataTableProps> = ({ ticker, 
                   </td>
                   <td className="p-4 text-center">
                     {isRealSource(q) ? (
-                      <span className="inline-flex items-center gap-1 text-[9px] font-extrabold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 rounded px-2 py-0.5">
-                        <Database size={8} /> {locale === 'es' ? 'SEC EDGAR' : 'SEC EDGAR'}
-                      </span>
+                      <a
+                        href={getSecFilingUrl(q, ticker?.symbol || '')}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title={locale === 'es' ? 'Abrir reporte oficial en SEC EDGAR (Pestaña nueva)' : 'Open official SEC EDGAR filing (New tab)'}
+                        className="inline-flex items-center gap-1 text-[9px] font-extrabold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30 hover:border-emerald-400 hover:text-emerald-300 transition-all rounded px-2 py-0.5 group cursor-pointer shadow-sm"
+                      >
+                        <Database size={8} className="group-hover:scale-110 transition-transform" />
+                        {locale === 'es' ? 'SEC EDGAR' : 'SEC EDGAR'}
+                        <ExternalLink size={7} className="ml-0.5 opacity-70 group-hover:opacity-100 transition-opacity" />
+                      </a>
                     ) : (
                       <span className="inline-flex items-center gap-1 text-[9px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded px-2 py-0.5">
                         <BarChart3 size={8} /> {locale === 'es' ? 'ESTIMADO' : 'ESTIMATED'}

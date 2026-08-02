@@ -256,6 +256,10 @@ async function main() {
 
           quartersMap.set(u.end, {
             date: u.end,
+            filedDate: u.filed || null,
+            accn: u.accn || null,
+            form: u.form || "10-Q",
+            cik: cikStr,
             period: period,
             fiscalYear: String(fyNum),
             revenue: qRev,
@@ -276,24 +280,15 @@ async function main() {
           const { fyNum } = getFiscalPeriodAndYear(endYr, endMo, companyClosingMonth);
           const fyObj = fyGroupMap.get(fyNum);
 
-          if (fyObj && fyObj.Q1 !== undefined && fyObj.Q2 !== undefined && fyObj.Q3 !== undefined && fyObj.Q4 === undefined) {
+          if (fyObj && (fyObj as any).Q1 !== undefined && (fyObj as any).Q2 !== undefined && (fyObj as any).Q3 !== undefined && (fyObj as any).Q4 === undefined) {
             const splitFactor = getCumulativeSplitFactor(fyFact.filed || fyFact.end);
             const fyEpsAdjusted = fyFact.val / splitFactor;
-            let q4Derived = parseFloat((fyEpsAdjusted - (fyObj.Q1 + fyObj.Q2 + fyObj.Q3)).toFixed(4));
+            let q4Derived = parseFloat((fyEpsAdjusted - ((fyObj as any).Q1 + (fyObj as any).Q2 + (fyObj as any).Q3)).toFixed(4));
 
-            if (yahooEpsMap.has(fyEndDate)) {
-              q4Derived = yahooEpsMap.get(fyEndDate)!;
-            }
-
-            fyObj.Q4 = q4Derived;
+            (fyObj as any).Q4 = q4Derived;
 
             quartersMap.set(fyEndDate, {
               date: fyEndDate,
-              period: "Q4",
-              fiscalYear: String(fyNum),
-              revenue: 0,
-              netIncome: 0,
-              eps: q4Derived,
               epsDiluted: q4Derived,
               sharesOutstanding: 0,
               source: "EDGAR" as const
