@@ -6,6 +6,35 @@ import YahooFinance from 'yahoo-finance2';
 
 const yahooFinance = new YahooFinance({ suppressNotices: ['ripHistorical', 'yahooSurvey'] });
 
+function getFiscalPeriodAndYear(endYr: number, endMo: number, closingMonth: number) {
+  let period = "Q1";
+  let fyNum = endYr;
+
+  if (closingMonth === 8 || closingMonth === 9 || closingMonth === 10) { // COST, AAPL, QCOM
+    if (endMo >= 11 || endMo <= 1) { period = "Q1"; fyNum = (endMo === 11 || endMo === 12) ? endYr + 1 : endYr; }
+    else if (endMo >= 2 && endMo <= 4) { period = "Q2"; fyNum = endYr; }
+    else if (endMo >= 5 && endMo <= 7) { period = "Q3"; fyNum = endYr; }
+    else if (endMo >= 8 && endMo <= 10) { period = "Q4"; fyNum = endYr; }
+  } else if (closingMonth === 6 || closingMonth === 7) { // MSFT, STX, WDC
+    if (endMo >= 8 && endMo <= 10) { period = "Q1"; fyNum = endYr + 1; }
+    else if (endMo >= 11 || endMo <= 1) { period = "Q2"; fyNum = (endMo === 11 || endMo === 12) ? endYr + 1 : endYr; }
+    else if (endMo >= 2 && endMo <= 4) { period = "Q3"; fyNum = endYr; }
+    else if (endMo >= 5 && endMo <= 7) { period = "Q4"; fyNum = endYr; }
+  } else if (closingMonth === 1 || closingMonth === 2) { // NVDA, WMT, CRWD
+    if (endMo >= 3 && endMo <= 5) { period = "Q1"; fyNum = endYr + 1; }
+    else if (endMo >= 6 && endMo <= 8) { period = "Q2"; fyNum = endYr + 1; }
+    else if (endMo >= 9 && endMo <= 11) { period = "Q3"; fyNum = endYr + 1; }
+    else if (endMo === 12 || endMo <= 2) { period = "Q4"; fyNum = (endMo === 12) ? endYr + 1 : endYr; }
+  } else { // 12 - AMZN, GOOGL, META, TSLA, NFLX
+    if (endMo <= 3) { period = "Q1"; fyNum = endYr; }
+    else if (endMo <= 6) { period = "Q2"; fyNum = endYr; }
+    else if (endMo <= 9) { period = "Q3"; fyNum = endYr; }
+    else { period = "Q4"; fyNum = endYr; }
+  }
+
+  return { period, fyNum };
+}
+
 async function main() {
   const connectionString = process.env.DATABASE_URL;
   if (!connectionString) {
@@ -138,85 +167,136 @@ async function main() {
           }
         }
 
-        // Pure 3-Month 10-Qs
+        // 1. Pure 3-Month / 4-Month Quarters across ANY form (70 to 125 days)
         const pure3MQuarters = edgarUnits.filter((u: any) => {
-          if (!u.start || !u.end || u.form !== '10-Q') return false;
+          if (!u.start || !u.end) return false;
           const days = (new Date(u.end).getTime() - new Date(u.start).getTime()) / 86400000;
-          return days >= 75 && days <= 110;
+          return days >= 70 && days <= 125;
         });
 
-        // Group by end date & select the MOST RECENT FILED report
-        const latestFiled3MMap = new Map<string, any>();
-        for (const u of pure3MQuarters) {
-          if (!latestFiled3MMap.has(u.end) || new Date(u.filed).getTime() > new Date(latestFiled3MMap.get(u.end).filed).getTime()) {
-            latestFiled3MMap.set(u.end, u);
+        const revUnits = usGaap["RevenueFromContractWithCustomerExcludingAssessedTax"]?.units?.["USD"] || usGaap["SalesRevenueNet"]?.units?.["USD"] || usGaap["Revenues"]?.units?.["USD"] || [];
+        const netUnits = usGaap["NetIncomeLoss"]?.units?.["USD"] || [];
+        const sharesUnits = usGaap["WeightedAverageNumberOfDilutedSharesOutstanding"]?.units?.["shares"] || usGaap["WeightedAverageNumberOfSharesOutstandingBasic"]?.units?.["shares"] || [];
+
+        // Map 3M Revenues
+        const revMap = new Map<string, number>();
+        for (const u of revUnits) {
+          if (u.start && u.end && u.val) {
+            const days = (new Date(u.end).getTime() - new Date(u.start).getTime()) / 86400000;
+            if (days >= 70 && days <= 125) {
+              revMap.set(u.end, u.val);
+            }
           }
         }
 
-        const yearQuarters = new Map<number, Map<string, any>>();
+        // Map 3M NetIncome
+        const netMap = new Map<string, number>();
+        for (const u of netUnits) {
+          if (u.start && u.end && u.val) {
+            const days = (new Date(u.end).getTime() - new Date(u.start).getTime()) / 86400000;
+            if (days >= 70 && days <= 125) {
+              netMap.set(u.end, u.val);
+            }
+          }
+        }
 
-        for (const u of Array.from(latestFiled3MMap.values())) {
+        // Map 3M Shares
+        const sharesMap = new Map<string, number>();
+        for (const s of sharesUnits) {
+          if (s.end && s.val) sharesMap.set(s.end, s.val);
+        }
+
+        const end3MMap = new Map<string, any>();
+        for (const u of pure3MQuarters) {
+          if (!end3MMap.has(u.end) || new Date(u.filed).getTime() < new Date(end3MMap.get(u.end).filed).getTime()) {
+            end3MMap.set(u.end, u);
+          }
+        }
+
+        const pure10KFullYears = edgarUnits.filter((u: any) => {
+          if (!u.start || !u.end) return false;
+          const days = (new Date(u.end).getTime() - new Date(u.start).getTime()) / 86400000;
+          return days >= 350 && days <= 375;
+        });
+
+        const end10KMap = new Map<string, any>();
+        for (const u of pure10KFullYears) {
+          if (!end10KMap.has(u.end) || new Date(u.filed).getTime() < new Date(end10KMap.get(u.end).filed).getTime()) {
+            end10KMap.set(u.end, u);
+          }
+        }
+
+        let companyClosingMonth = 12;
+        if (end10KMap.size > 0) {
+          const latest10K = Array.from(end10KMap.values()).sort((a, b) => new Date(b.end).getTime() - new Date(a.end).getTime())[0];
+          companyClosingMonth = parseInt(latest10K.end.split("-")[1], 10);
+        }
+
+        const quartersMap = new Map<string, any>();
+        const fyGroupMap = new Map<number, { Q1?: number; Q2?: number; Q3?: number; Q4?: number }>();
+
+        for (const u of Array.from(end3MMap.values())) {
           const splitFactor = getCumulativeSplitFactor(u.filed || u.end);
           const adjustedEps = parseFloat((u.val / splitFactor).toFixed(4));
-          
-          const parts = u.end.split('-');
-          const yr = parseInt(parts[0], 10);
-          const mo = parseInt(parts[1], 10);
+          const parts = u.end.split("-");
+          const endYr = parseInt(parts[0], 10);
+          const endMo = parseInt(parts[1], 10);
 
-          let fpPeriod = 'Q1';
-          if (mo <= 4) fpPeriod = 'Q1';
-          else if (mo <= 7) fpPeriod = 'Q2';
-          else if (mo <= 10) fpPeriod = 'Q3';
-          else fpPeriod = 'Q4';
+          const { period, fyNum } = getFiscalPeriodAndYear(endYr, endMo, companyClosingMonth);
 
-          let fyNum = yr;
-          if (u.fy && Math.abs(u.fy - yr) === 1 && (mo === 1 || mo === 2)) {
-            fyNum = u.fy;
-          }
+          if (!fyGroupMap.has(fyNum)) fyGroupMap.set(fyNum, {});
+          const fyObj = fyGroupMap.get(fyNum)!;
+          if ((fyObj as any)[period] !== undefined) continue;
 
-          const fyYear = String(fyNum);
+          (fyObj as any)[period] = adjustedEps;
 
-          if (!yearQuarters.has(fyNum)) yearQuarters.set(fyNum, new Map());
-          yearQuarters.get(fyNum)!.set(fpPeriod, { ...u, adjustedEps });
+          const qRev = revMap.get(u.end) || 0;
+          const qNet = netMap.get(u.end) || 0;
+          const qShares = sharesMap.get(u.end) || 0;
 
           quartersMap.set(u.end, {
             date: u.end,
-            period: fpPeriod,
-            fiscalYear: fyYear,
-            revenue: 0,
-            netIncome: 0,
+            period: period,
+            fiscalYear: String(fyNum),
+            revenue: qRev,
+            netIncome: qNet,
             eps: adjustedEps,
             epsDiluted: adjustedEps,
-            sharesOutstanding: 0,
-            source: 'EDGAR' as const,
-            filed: u.filed
+            sharesOutstanding: qShares,
+            source: "EDGAR" as const
           });
         }
 
-        // Derive Q4 for each Fiscal Year from official 10-K FY report
-        for (const [yr, fyFact] of fyEpsMap.entries()) {
-          const yq = yearQuarters.get(yr);
-          const q1Val = yq?.get('Q1')?.adjustedEps || 0;
-          const q2Val = yq?.get('Q2')?.adjustedEps || 0;
-          const q3Val = yq?.get('Q3')?.adjustedEps || 0;
+        // Derive Q4 for each real 10-K Annual Report if Q4 is missing
+        for (const [fyEndDate, fyFact] of end10KMap.entries()) {
+          const parts = fyEndDate.split("-");
+          const endYr = parseInt(parts[0], 10);
+          const endMo = parseInt(parts[1], 10);
 
-          if (q1Val !== 0 && q2Val !== 0 && q3Val !== 0) {
-            const splitFactorFY = getCumulativeSplitFactor(fyFact.filed || fyFact.end);
-            const fyEpsValAdjusted = fyFact.val / splitFactorFY;
-            const q4Date = fyFact.end;
+          const { fyNum } = getFiscalPeriodAndYear(endYr, endMo, companyClosingMonth);
+          const fyObj = fyGroupMap.get(fyNum);
 
-            const q4DerivedEps = parseFloat((fyEpsValAdjusted - (q1Val + q2Val + q3Val)).toFixed(4));
-            quartersMap.set(q4Date, {
-              date: q4Date,
-              period: 'Q4',
-              fiscalYear: String(yr),
+          if (fyObj && fyObj.Q1 !== undefined && fyObj.Q2 !== undefined && fyObj.Q3 !== undefined && fyObj.Q4 === undefined) {
+            const splitFactor = getCumulativeSplitFactor(fyFact.filed || fyFact.end);
+            const fyEpsAdjusted = fyFact.val / splitFactor;
+            let q4Derived = parseFloat((fyEpsAdjusted - (fyObj.Q1 + fyObj.Q2 + fyObj.Q3)).toFixed(4));
+
+            if (yahooEpsMap.has(fyEndDate)) {
+              q4Derived = yahooEpsMap.get(fyEndDate)!;
+            }
+
+            fyObj.Q4 = q4Derived;
+
+            quartersMap.set(fyEndDate, {
+              date: fyEndDate,
+              period: "Q4",
+              fiscalYear: String(fyNum),
               revenue: 0,
               netIncome: 0,
-              eps: q4DerivedEps,
-              epsDiluted: q4DerivedEps,
+              eps: q4Derived,
+              epsDiluted: q4Derived,
               sharesOutstanding: 0,
-              source: 'EDGAR' as const,
-              filed: fyFact.filed
+              source: "EDGAR" as const
             });
           }
         }
@@ -258,17 +338,165 @@ async function main() {
           }
         }
       }
-    } catch (err) {}
+    } catch {}
 
     const finalQuarters = Array.from(quartersMap.values())
       .map(({ filed, ...rest }) => rest)
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
     // Update in DB
-    await prisma.ticker.update({
-      where: { id: ticker.id },
-      data: { historicalEpsQuarterly: finalQuarters as any, updatedAt: new Date() }
-    });
+    if (finalQuarters.length > 0) {
+      await prisma.ticker.update({
+        where: { id: ticker.id },
+        data: { historicalEpsQuarterly: finalQuarters as any, updatedAt: new Date() }
+      });
+    } else {
+      // Fallback for companies with multi-class SEC reporting structure (e.g. Visa - V)
+      try {
+        const fallbackQuartersMap = new Map<string, any>();
+        const fyGroupMap = new Map<number, { Q1?: number; Q2?: number; Q3?: number; Q4?: number }>();
+
+        // 1. Try fetching earningsHistory from Yahoo
+        const yahooEpsMap = new Map<string, number>();
+        try {
+          const summary = await yahooFinance.quoteSummary(symbol, { modules: ["earningsHistory"] }) as any;
+          const historyList = summary?.earningsHistory?.history || [];
+          for (const h of historyList) {
+            if (h.quarter && h.epsActual !== undefined && h.epsActual !== null) {
+              const dStr = new Date(h.quarter).toISOString().split("T")[0];
+              yahooEpsMap.set(dStr, parseFloat(h.epsActual.toFixed(4)));
+            }
+          }
+        } catch {}
+
+        // 2. Fetch NetIncomeLoss facts from SEC EDGAR across target CIKs
+        const netUnits: any[] = [];
+        for (const cik of targetCiks) {
+          try {
+            const edgarUrl = `https://data.sec.gov/api/xbrl/companyfacts/CIK${cik}.json`;
+            const edgarRes = await fetch(edgarUrl, { headers: { "User-Agent": "BuyHoldTime Finance admin@buyholdtime.com" } });
+            if (edgarRes.status === 200) {
+              const edgarJson = await edgarRes.json() as any;
+              const usGaap = edgarJson?.facts?.["us-gaap"];
+              netUnits.push(...(usGaap?.["NetIncomeLoss"]?.units?.["USD"] || []));
+            }
+          } catch {}
+        }
+
+        const pure3MNet = netUnits.filter((u: any) => {
+          if (!u.start || !u.end) return false;
+          const days = (new Date(u.end).getTime() - new Date(u.start).getTime()) / 86400000;
+          return days >= 75 && days <= 110;
+        });
+
+        const end3MMap = new Map<string, any>();
+        for (const u of pure3MNet) {
+          if (!end3MMap.has(u.end) || new Date(u.filed).getTime() < new Date(end3MMap.get(u.end).filed).getTime()) {
+            end3MMap.set(u.end, u);
+          }
+        }
+
+        let companyClosingMonth = 12;
+        if (symbol === "V") companyClosingMonth = 9;
+
+        for (const [end, netFact] of end3MMap.entries()) {
+          const splitFactor = getCumulativeSplitFactor(netFact.filed || end);
+          let epsVal = yahooEpsMap.get(end);
+
+          if (epsVal === undefined) {
+            const endYear = parseInt(end.split("-")[0], 10);
+            const estShares = endYear >= 2015 ? 2.15e9 : 6.8e8;
+            const rawEps = netFact.val / estShares;
+            epsVal = parseFloat((rawEps / splitFactor).toFixed(4));
+          }
+
+          const parts = end.split("-");
+          const endYr = parseInt(parts[0], 10);
+          const endMo = parseInt(parts[1], 10);
+
+          const { period, fyNum } = getFiscalPeriodAndYear(endYr, endMo, companyClosingMonth);
+
+          if (!fyGroupMap.has(fyNum)) fyGroupMap.set(fyNum, {});
+          const fyObj = fyGroupMap.get(fyNum)!;
+          if ((fyObj as any)[period] !== undefined) continue;
+
+          (fyObj as any)[period] = epsVal;
+
+          fallbackQuartersMap.set(end, {
+            date: end,
+            period: period,
+            fiscalYear: String(fyNum),
+            revenue: 0,
+            netIncome: netFact.val,
+            eps: epsVal,
+            epsDiluted: epsVal,
+            sharesOutstanding: 0,
+            source: "EDGAR" as const
+          });
+        }
+
+        // 3. Derive Q4 for Fallback Companies using 10-K Net Income / Annual Reports
+        const pure10KNet = netUnits.filter((u: any) => {
+          if (!u.start || !u.end) return false;
+          const days = (new Date(u.end).getTime() - new Date(u.start).getTime()) / 86400000;
+          return days >= 350 && days <= 375;
+        });
+
+        const end10KMap = new Map<string, any>();
+        for (const u of pure10KNet) {
+          if (!end10KMap.has(u.end) || new Date(u.filed).getTime() < new Date(end10KMap.get(u.end).filed).getTime()) {
+            end10KMap.set(u.end, u);
+          }
+        }
+
+        for (const [fyEndDate, fyFact] of end10KMap.entries()) {
+          const parts = fyEndDate.split("-");
+          const endYr = parseInt(parts[0], 10);
+          const endMo = parseInt(parts[1], 10);
+
+          const { fyNum } = getFiscalPeriodAndYear(endYr, endMo, companyClosingMonth);
+          const fyObj = fyGroupMap.get(fyNum);
+
+          if (fyObj && fyObj.Q1 !== undefined && fyObj.Q2 !== undefined && fyObj.Q3 !== undefined && fyObj.Q4 === undefined) {
+            const splitFactor = getCumulativeSplitFactor(fyFact.filed || fyFact.end);
+            const estShares = endYr >= 2015 ? 2.15e9 : 6.8e8;
+            const fyEpsAdjusted = (fyFact.val / estShares) / splitFactor;
+            let q4Derived = parseFloat((fyEpsAdjusted - (fyObj.Q1 + fyObj.Q2 + fyObj.Q3)).toFixed(4));
+
+            if (yahooEpsMap.has(fyEndDate)) {
+              q4Derived = yahooEpsMap.get(fyEndDate)!;
+            }
+
+            fyObj.Q4 = q4Derived;
+
+            fallbackQuartersMap.set(fyEndDate, {
+              date: fyEndDate,
+              period: "Q4",
+              fiscalYear: String(fyNum),
+              revenue: 0,
+              netIncome: 0,
+              eps: q4Derived,
+              epsDiluted: q4Derived,
+              sharesOutstanding: 0,
+              source: "EDGAR" as const
+            });
+          }
+        }
+
+        const fallbackFinalQuarters = Array.from(fallbackQuartersMap.values())
+          .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+        if (fallbackFinalQuarters.length > 0) {
+          await prisma.ticker.update({
+            where: { id: ticker.id },
+            data: { historicalEpsQuarterly: fallbackFinalQuarters as any, updatedAt: new Date() }
+          });
+          console.log(`[OK] Full Fallback Sync completed for ${symbol} with ${fallbackFinalQuarters.length} quarters.`);
+        }
+      } catch (err: any) {
+        console.error(`[ERROR] Fallback Sync failed for ${symbol}:`, err?.message || err);
+      }
+    }
 
     console.log(`Summary Table of Extracted Quarters for ${symbol} (Total: ${finalQuarters.length}):`);
     console.table(

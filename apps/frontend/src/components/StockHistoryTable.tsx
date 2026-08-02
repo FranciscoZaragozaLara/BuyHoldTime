@@ -38,8 +38,8 @@ export const StockHistoryTable: React.FC<StockHistoryTableProps> = ({ prices, ti
   }, [ticker.cap]);
 
   // Helper to format market cap values back to strings (e.g. 3.20T)
-  const formatMarketCap = (num: number) => {
-    if (num === 0) return 'N/A';
+  const formatMarketCap = (num?: number | null) => {
+    if (num === undefined || num === null || typeof num !== 'number' || isNaN(num) || num === 0) return 'N/A';
     if (num >= 1e12) return `${(num / 1e12).toFixed(2)}T`;
     if (num >= 1e9) return `${(num / 1e9).toFixed(2)}B`;
     if (num >= 1e6) return `${(num / 1e6).toFixed(2)}M`;
@@ -233,7 +233,7 @@ export const StockHistoryTable: React.FC<StockHistoryTableProps> = ({ prices, ti
     });
   };
 
-  const [epsMode, setEpsMode] = useState<'reported' | 'buybackNormalized'>('reported');
+
 
   return (
     <div className="p-6 rounded-2xl border border-slate-900 bg-slate-950/60 backdrop-blur-xl shadow-2xl flex flex-col gap-6">
@@ -254,33 +254,7 @@ export const StockHistoryTable: React.FC<StockHistoryTableProps> = ({ prices, ti
 
         {/* Controls: EPS Mode Toggle + Tab switcher */}
         <div className="flex items-center gap-3 flex-wrap">
-          {/* EPS Mode Switcher */}
-          {!isFund && (
-            <div className="flex bg-slate-900/80 border border-slate-800 rounded-lg p-0.5 text-xs font-semibold">
-              <button
-                onClick={() => setEpsMode('reported')}
-                className={`px-2.5 py-1 rounded-md transition-all ${
-                  epsMode === 'reported'
-                    ? 'bg-sky-500/20 text-sky-400 border border-sky-500/30 shadow-sm'
-                    : 'text-slate-400 hover:text-slate-200'
-                }`}
-                title={locale === 'es' ? 'EPS Diluido Reportado Oficial SEC' : 'SEC Reported Diluted EPS'}
-              >
-                {locale === 'es' ? 'EPS SEC' : 'SEC EPS'}
-              </button>
-              <button
-                onClick={() => setEpsMode('buybackNormalized')}
-                className={`px-2.5 py-1 rounded-md transition-all ${
-                  epsMode === 'buybackNormalized'
-                    ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30 shadow-sm'
-                    : 'text-slate-400 hover:text-slate-200'
-                }`}
-                title={locale === 'es' ? 'EPS Ajustado por Recompra/Dilución de Acciones' : 'Shares Buyback Normalized EPS'}
-              >
-                {locale === 'es' ? 'Ajustado por Buybacks' : 'Buybacks Adj.'}
-              </button>
-            </div>
-          )}
+
 
           {/* Period Tab switcher */}
           <div className="flex bg-slate-900/80 border border-slate-800 rounded-lg p-0.5">
@@ -349,8 +323,8 @@ export const StockHistoryTable: React.FC<StockHistoryTableProps> = ({ prices, ti
                 </div>
               </th>
               <th className="p-4">P/E (TTM Cal.)</th>
-              <th className="p-4 text-purple-400">EPS (Fiscal 10-K)</th>
-              <th className="p-4 text-purple-400">P/E (Fiscal 10-K)</th>
+              {activeTab === 'annual' && <th className="p-4 text-purple-400">EPS (Fiscal 10-K)</th>}
+              {activeTab === 'annual' && <th className="p-4 text-purple-400">P/E (Fiscal 10-K)</th>}
 
               <th className="p-4">Div. Rate</th>
               <th className="p-4">Div. Yield</th>
@@ -447,27 +421,16 @@ export const StockHistoryTable: React.FC<StockHistoryTableProps> = ({ prices, ti
                   if (sliced.length === 4) {
                     quartersUsed = sliced;
 
-                    // If Buybacks Normalized mode is active and current shares exist
-                    const currentShares = ticker.historicalEpsQuarterly?.[0]?.sharesOutstanding;
-                    const hasNetIncome = sliced.every(q => q.netIncome && q.netIncome !== 0);
-
-                    if (epsMode === 'buybackNormalized' && currentShares && currentShares > 0 && hasNetIncome) {
-                      const ttmNetIncome = sliced.reduce((sum, q) => sum + (q.netIncome || 0), 0);
-                      resolvedEps = parseFloat((ttmNetIncome / currentShares).toFixed(2));
-                    } else {
-                      const ttmSum = sliced.reduce((sum, q) => sum + (q.epsDiluted || q.eps || 0), 0);
-                      resolvedEps = parseFloat(ttmSum.toFixed(2));
-                    }
+                    const ttmSum = sliced.reduce((sum, q) => sum + (q.epsDiluted || q.eps || 0), 0);
+                    resolvedEps = parseFloat(ttmSum.toFixed(2));
                     
-                    // Oldest quarter used in the 4-quarter TTM sum
+                    // Determine primary source from the 4-quarter TTM sum
                     const oldestUsed = sliced[sliced.length - 1];
-                    const srcUpper = String(oldestUsed.source || '').toUpperCase();
-                    if (srcUpper.includes('EDGAR')) {
+                    const srcUpper = String(oldestUsed.source || 'EDGAR').toUpperCase();
+                    if (srcUpper.includes('EDGAR') || srcUpper.includes('REAL') || oldestUsed.period) {
                       epsSource = 'EDGAR' as any;
                     } else if (srcUpper.includes('FMP')) {
                       epsSource = 'FMP' as any;
-                    } else if (oldestUsed.source === 'real') {
-                      epsSource = 'real';
                     } else {
                       epsSource = 'estimated';
                     }
@@ -625,7 +588,12 @@ export const StockHistoryTable: React.FC<StockHistoryTableProps> = ({ prices, ti
                     ? parseInt(row.dateLabel.split('-')[0], 10)
                     : parseInt(row.dateLabel, 10);
                 
-                const fyQuarters = (ticker.historicalEpsQuarterly as any[]).filter(q => q.fiscalYear === String(targetYr));
+                const fyQuarters = (ticker.historicalEpsQuarterly as any[])
+                  .filter(q => q.fiscalYear === String(targetYr))
+                  .sort((a, b) => {
+                    const pMap: Record<string, number> = { Q1: 1, Q2: 2, Q3: 3, Q4: 4 };
+                    return (pMap[a.period] || 0) - (pMap[b.period] || 0);
+                  });
                 if (fyQuarters.length === 4) {
                   fiscalQuartersUsed = fyQuarters;
                   fiscalEps = parseFloat(fyQuarters.reduce((acc, q) => acc + (q.epsDiluted || q.eps || 0), 0).toFixed(2));
@@ -797,7 +765,7 @@ export const StockHistoryTable: React.FC<StockHistoryTableProps> = ({ prices, ti
                         </div>
 
                         <div className="flex flex-col gap-1.5 text-[11px] font-mono text-slate-300 relative z-10">
-                          {quartersUsed.map((q: any, qIdx: number) => (
+                          {[...quartersUsed].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()).map((q: any, qIdx: number) => (
                             <div key={qIdx} className="flex items-center justify-between border-b border-slate-900/60 pb-1">
                               <div className="flex items-center gap-1.5">
                                 <span className="font-bold text-slate-200">{q.period} {q.fiscalYear}</span>
@@ -823,66 +791,70 @@ export const StockHistoryTable: React.FC<StockHistoryTableProps> = ({ prices, ti
                   </td>
                   <td className="p-4 text-slate-300 font-bold">{peRatio ? `${peRatio.toFixed(2)}x` : 'N/A'}</td>
                   
-                  {/* EPS (Fiscal 10-K) */}
-                  <td className="p-4 font-mono relative group/eps-fiscal hover:z-30 cursor-help">
-                    {fiscalEps !== null ? (
-                      <div className="inline-flex items-center gap-1.5">
-                        <span className="font-mono text-purple-300 font-bold">${fiscalEps.toFixed(2)}</span>
-                        <span className="inline-flex items-center gap-0.5 text-[8.5px] font-extrabold bg-purple-500/15 text-purple-400 border border-purple-500/30 rounded px-1 py-0.5">
-                          <Database size={7.5} /> E
-                        </span>
-                        <span className="text-[10px] text-slate-500 group-hover/eps-fiscal:text-purple-400 transition-colors">ℹ</span>
-                      </div>
-                    ) : (
-                      <span className="text-slate-600">N/A</span>
-                    )}
+                  {/* EPS & P/E (Fiscal 10-K) - Únicamente en pestaña Anual */}
+                  {activeTab === 'annual' && (
+                    <>
+                      <td className="p-4 font-mono relative group/eps-fiscal hover:z-30 cursor-help">
+                        {fiscalEps !== null ? (
+                          <div className="inline-flex items-center gap-1.5">
+                            <span className="font-mono text-purple-300 font-bold">${fiscalEps.toFixed(2)}</span>
+                            <span className="inline-flex items-center gap-0.5 text-[8.5px] font-extrabold bg-purple-500/15 text-purple-400 border border-purple-500/30 rounded px-1 py-0.5">
+                              <Database size={7.5} /> E
+                            </span>
+                            <span className="text-[10px] text-slate-500 group-hover/eps-fiscal:text-purple-400 transition-colors">ℹ</span>
+                          </div>
+                        ) : (
+                          <span className="text-slate-600">N/A</span>
+                        )}
 
-                    {/* Popover Hover para EPS Fiscal 10-K */}
-                    {fiscalQuartersUsed.length > 0 && (
-                      <div className={`pointer-events-none absolute right-2 hidden group-hover/eps-fiscal:flex flex-col gap-2 w-72 p-3.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-200 text-xs shadow-[0_10px_25px_-5px_rgba(0,0,0,0.8)] z-50 text-left font-sans animate-in fade-in zoom-in-95 duration-150 ${
-                        idx <= 2 ? 'top-full mt-2' : 'bottom-full mb-2.5'
-                      }`}>
-                        <div className={`absolute border-slate-800 rotate-45 w-3 h-3 bg-slate-950 right-4 ${
-                          idx <= 2 ? '-top-1.5 border-t border-l' : '-bottom-1.5 border-b border-r'
-                        }`}></div>
+                        {/* Popover Hover para EPS Fiscal 10-K */}
+                        {fiscalQuartersUsed.length > 0 && (
+                          <div className={`pointer-events-none absolute right-2 hidden group-hover/eps-fiscal:flex flex-col gap-2 w-72 p-3.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-200 text-xs shadow-[0_10px_25px_-5px_rgba(0,0,0,0.8)] z-50 text-left font-sans animate-in fade-in zoom-in-95 duration-150 ${
+                            idx <= 2 ? 'top-full mt-2' : 'bottom-full mb-2.5'
+                          }`}>
+                            <div className={`absolute border-slate-800 rotate-45 w-3 h-3 bg-slate-950 right-4 ${
+                              idx <= 2 ? '-top-1.5 border-t border-l' : '-bottom-1.5 border-b border-r'
+                            }`}></div>
 
-                        <div className="flex items-center justify-between border-b border-slate-900 pb-2 font-extrabold text-purple-400 relative z-10">
-                          <span>Desglose 10-K Fiscal Auditado</span>
-                          <span className="text-[10px] font-bold text-slate-400 bg-slate-900 px-1.5 py-0.5 rounded border border-slate-800">{ticker.symbol}</span>
-                        </div>
+                            <div className="flex items-center justify-between border-b border-slate-900 pb-2 font-extrabold text-purple-400 relative z-10">
+                              <span>Desglose 10-K Fiscal Auditado</span>
+                              <span className="text-[10px] font-bold text-slate-400 bg-slate-900 px-1.5 py-0.5 rounded border border-slate-800">{ticker.symbol}</span>
+                            </div>
 
-                        <div className="flex flex-col gap-1.5 text-[11px] font-mono text-slate-300 relative z-10">
-                          {fiscalQuartersUsed.map((q: any, qIdx: number) => (
-                            <div key={qIdx} className="flex items-center justify-between border-b border-slate-900/60 pb-1">
-                              <div className="flex items-center gap-1.5">
-                                <span className="font-bold text-slate-200">{q.period} {q.fiscalYear}</span>
-                                <span className="text-[9.5px] text-slate-400">({q.date})</span>
-                              </div>
-                              <div className="flex items-center gap-1.5">
-                                <strong className="text-purple-300">${(q.epsDiluted || q.eps || 0).toFixed(2)}</strong>
-                                <span className={`text-[8px] font-extrabold px-1 rounded border ${
-                                  q.source === 'EDGAR' ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30' : 'bg-blue-500/15 text-blue-400 border-blue-500/30'
-                                }`}>
-                                  {q.source || 'EDGAR'}
-                                </span>
+                            <div className="flex flex-col gap-1.5 text-[11px] font-mono text-slate-300 relative z-10">
+                              {[...fiscalQuartersUsed].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()).map((q: any, qIdx: number) => (
+                                <div key={qIdx} className="flex items-center justify-between border-b border-slate-900/60 pb-1">
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="font-bold text-slate-200">{q.period} {q.fiscalYear}</span>
+                                    <span className="text-[9.5px] text-slate-400">({q.date})</span>
+                                  </div>
+                                  <div className="flex items-center gap-1.5">
+                                    <strong className="text-purple-300">${(q.epsDiluted || q.eps || 0).toFixed(2)}</strong>
+                                    <span className={`text-[8px] font-extrabold px-1 rounded border ${
+                                      q.source === 'EDGAR' ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30' : 'bg-blue-500/15 text-blue-400 border-blue-500/30'
+                                    }`}>
+                                      {q.source || 'EDGAR'}
+                                    </span>
+                                  </div>
+                                </div>
+                              ))}
+                              <div className="flex justify-between pt-1 font-bold">
+                                <span className="text-slate-300">Suma Form 10-K SEC:</span>
+                                <span className="text-purple-400 text-sm">${fiscalEps?.toFixed(2)} USD</span>
                               </div>
                             </div>
-                          ))}
-                          <div className="flex justify-between pt-1 font-bold">
-                            <span className="text-slate-300">Suma Form 10-K SEC:</span>
-                            <span className="text-purple-400 text-sm">${fiscalEps?.toFixed(2)} USD</span>
                           </div>
-                        </div>
-                      </div>
-                    )}
-                  </td>
-                  <td className="p-4 text-purple-300 font-bold">
-                    {fiscalPeRatio ? `${fiscalPeRatio.toFixed(2)}x` : 'N/A'}
-                  </td>
+                        )}
+                      </td>
+                      <td className="p-4 text-purple-300 font-bold">
+                        {fiscalPeRatio ? `${fiscalPeRatio.toFixed(2)}x` : 'N/A'}
+                      </td>
+                    </>
+                  )}
 
                   <td className="p-4 text-slate-400">{finalDivRate > 0 ? `$${finalDivRate.toFixed(2)}` : '$0.00'}</td>
                   <td className="p-4 text-emerald-400/90 font-bold">{divYield > 0 ? `${divYield.toFixed(2)}%` : '0.00%'}</td>
-                  <td className="p-4 text-slate-400">{row.volume.toLocaleString()}</td>
+                  <td className="p-4 text-slate-400">{row.volume ? row.volume.toLocaleString() : 'N/A'}</td>
                   <td className={`p-4 font-extrabold text-sm ${rating.score >= 75 ? 'text-teal-400' : 'text-amber-400'}`}>
                     {rating.score}
                   </td>

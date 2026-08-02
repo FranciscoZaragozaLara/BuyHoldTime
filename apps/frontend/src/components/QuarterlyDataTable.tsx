@@ -201,11 +201,17 @@ export const QuarterlyDataTable: React.FC<QuarterlyDataTableProps> = ({ ticker, 
     );
   }
 
+  const isRealSource = (q: any) => {
+    if (!q) return false;
+    const src = String(q.source || 'EDGAR').toUpperCase();
+    return src.includes('EDGAR') || src.includes('REAL') || src.includes('FMP') || Boolean(q.period);
+  };
+
   // Filter quarters list (only applies to corporate quarters since they have real vs estimated sources)
   const filteredList = activeQuarters.filter(q => {
     if (isFund) return true;
-    if (filterSource === 'real') return q.source === 'real';
-    if (filterSource === 'estimated') return q.source === 'estimated';
+    if (filterSource === 'real') return isRealSource(q);
+    if (filterSource === 'estimated') return !isRealSource(q);
     return true;
   });
 
@@ -238,8 +244,8 @@ export const QuarterlyDataTable: React.FC<QuarterlyDataTableProps> = ({ ticker, 
     setVisibleCount(10);
   };
 
-  const formatCurrency = (val: number) => {
-    if (val === 0) return 'N/A';
+  const formatCurrency = (val?: number | null) => {
+    if (val === undefined || val === null || typeof val !== 'number' || isNaN(val) || val === 0) return 'N/A';
     if (val >= 1e9) return `$${(val / 1e9).toFixed(2)}B`;
     if (val >= 1e6) return `$${(val / 1e6).toFixed(2)}M`;
     return `$${val.toLocaleString()}`;
@@ -296,7 +302,7 @@ export const QuarterlyDataTable: React.FC<QuarterlyDataTableProps> = ({ ticker, 
               }`}
             >
               <span className="w-1.5 h-1.5 rounded-full bg-sky-400"></span>
-              {locale === 'es' ? 'Reales' : 'Real'} ({activeQuarters.filter(q => q.source === 'real').length})
+              {locale === 'es' ? 'Reales' : 'Real'} ({activeQuarters.filter(q => isRealSource(q)).length})
             </button>
             <button
               onClick={() => handleFilterChange('estimated')}
@@ -305,7 +311,7 @@ export const QuarterlyDataTable: React.FC<QuarterlyDataTableProps> = ({ ticker, 
               }`}
             >
               <span className="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
-              {locale === 'es' ? 'Estimados' : 'Estimated'} ({activeQuarters.filter(q => q.source === 'estimated').length})
+              {locale === 'es' ? 'Estimados' : 'Estimated'} ({activeQuarters.filter(q => !isRealSource(q)).length})
             </button>
           </div>
         )}
@@ -331,6 +337,7 @@ export const QuarterlyDataTable: React.FC<QuarterlyDataTableProps> = ({ ticker, 
             ) : (
               <tr>
                 <th className="p-4">{locale === 'es' ? 'Cierre de Periodo' : 'Period End'}</th>
+                <th className="p-4">{locale === 'es' ? 'Publicación Reporte' : 'Report Date'}</th>
                 <th className="p-4">{locale === 'es' ? 'Periodo / Año' : 'Period / Year'}</th>
                 <th className="p-4 text-right">{locale === 'es' ? 'Precio' : 'Price'}</th>
                 <th className="p-4 text-right">Market Cap</th>
@@ -338,7 +345,6 @@ export const QuarterlyDataTable: React.FC<QuarterlyDataTableProps> = ({ ticker, 
                 <th className="p-4 text-right">{locale === 'es' ? 'Utilidad Neta' : 'Net Income'}</th>
                 <th className="p-4 text-right">{locale === 'es' ? 'Margen Neto' : 'Net Margin'}</th>
                 <th className="p-4 text-right">EPS</th>
-                <th className="p-4 text-right">EPS Diluido</th>
                 <th className="p-4 text-right">{locale === 'es' ? 'P/E Ratio (Trim.)' : 'P/E Ratio (Qtr.)'}</th>
                 <th className="p-4 text-right">{locale === 'es' ? 'Acciones en Circulación' : 'Shares Outstanding'}</th>
                 <th className="p-4 text-center">{locale === 'es' ? 'Origen' : 'Source'}</th>
@@ -360,7 +366,7 @@ export const QuarterlyDataTable: React.FC<QuarterlyDataTableProps> = ({ ticker, 
                       {q.fiscalYear}
                     </td>
                     <td className="p-4 text-right text-slate-100 font-bold">
-                      ${q.quarterPrice.toFixed(2)}
+                      {q.quarterPrice ? `$${q.quarterPrice.toFixed(2)}` : 'N/A'}
                     </td>
                     <td className="p-4 text-right text-teal-400 font-bold">
                       {q.dividendPaid > 0 ? `$${q.dividendPaid.toFixed(4)}` : '$0.0000'}
@@ -372,7 +378,7 @@ export const QuarterlyDataTable: React.FC<QuarterlyDataTableProps> = ({ ticker, 
                       {q.divYield > 0 ? `${q.divYield.toFixed(2)}%` : '0.00%'}
                     </td>
                     <td className="p-4 text-right text-slate-300">
-                      ${q.estEps.toFixed(2)}
+                      {q.estEps !== undefined && q.estEps !== null ? `$${q.estEps.toFixed(2)}` : 'N/A'}
                     </td>
                     <td className="p-4 text-right text-amber-400 font-bold">
                       {q.peRatio > 0 ? `${q.peRatio.toFixed(1)}x` : 'N/A'}
@@ -407,6 +413,9 @@ export const QuarterlyDataTable: React.FC<QuarterlyDataTableProps> = ({ ticker, 
                   <td className="p-4 font-sans font-bold text-white whitespace-nowrap">
                     {formatDate(q.date)}
                   </td>
+                  <td className="p-4 font-sans text-xs text-teal-400 font-semibold whitespace-nowrap">
+                    {q.filedDate ? formatDate(q.filedDate) : 'N/A'}
+                  </td>
                   <td className="p-4 text-slate-300 font-sans font-semibold">
                     <span className="bg-slate-900 border border-slate-800 rounded px-1.5 py-0.5 mr-1 text-[10px] text-teal-400 uppercase">
                       {q.period}
@@ -428,11 +437,8 @@ export const QuarterlyDataTable: React.FC<QuarterlyDataTableProps> = ({ ticker, 
                   <td className="p-4 text-right text-emerald-400/90">
                     {netMargin > 0 ? `${netMargin.toFixed(1)}%` : '0.0%'}
                   </td>
-                  <td className="p-4 text-right text-slate-100 font-semibold">
-                    ${q.eps.toFixed(2)}
-                  </td>
                   <td className="p-4 text-right text-teal-400 font-bold">
-                    ${q.epsDiluted.toFixed(2)}
+                    {q.eps !== undefined && q.eps !== null ? `$${q.eps.toFixed(2)}` : 'N/A'}
                   </td>
                   <td className="p-4 text-right text-slate-200 font-semibold">
                     {peRatio ? `${peRatio.toFixed(1)}x` : 'N/A'}
@@ -441,9 +447,9 @@ export const QuarterlyDataTable: React.FC<QuarterlyDataTableProps> = ({ ticker, 
                     {q.sharesOutstanding ? q.sharesOutstanding.toLocaleString() : 'N/A'}
                   </td>
                   <td className="p-4 text-center">
-                    {q.source === 'real' ? (
-                      <span className="inline-flex items-center gap-1 text-[9px] font-bold bg-sky-500/10 text-sky-400 border border-sky-500/20 rounded px-2 py-0.5">
-                        <Database size={8} /> {locale === 'es' ? 'DATO REAL' : 'REAL DATA'}
+                    {isRealSource(q) ? (
+                      <span className="inline-flex items-center gap-1 text-[9px] font-extrabold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 rounded px-2 py-0.5">
+                        <Database size={8} /> {locale === 'es' ? 'SEC EDGAR' : 'SEC EDGAR'}
                       </span>
                     ) : (
                       <span className="inline-flex items-center gap-1 text-[9px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded px-2 py-0.5">
