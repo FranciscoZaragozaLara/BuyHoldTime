@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useMemo, useRef, useEffect, useLayoutEffect } from 'react';
 import { BarChart3, TrendingUp, Sparkles, CheckCircle2, Calendar, HelpCircle, Layers, ArrowUpRight, ArrowDownRight, Info, ChevronLeft, ChevronRight, DollarSign, Calculator, Activity } from 'lucide-react';
 import { useLocale } from 'next-intl';
 
@@ -61,6 +61,9 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
   const [viewMode, setViewMode] = useState<'annual' | 'quarterly'>('annual');
   const [hoveredItem, setHoveredItem] = useState<ChartItem | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+  const columnRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const [columnCenterX, setColumnCenterX] = useState<number[]>([]);
+  const [svgTotalWidth, setSvgTotalWidth] = useState<number>(0);
 
   // Helper para obtener el precio histórico más cercano a una fecha dada
   const getHistoricalPriceForDate = (targetDateStr: string): number | null => {
@@ -342,6 +345,31 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
 
   const activeSeries = viewMode === 'annual' ? annualData : quarterlyData;
 
+  // Medir la posición X exacta de cada columna en el DOM real
+  useEffect(() => {
+    const updatePositions = () => {
+      const centers: number[] = [];
+      let totalW = 0;
+      columnRefs.current.forEach((el) => {
+        if (el) {
+          centers.push(el.offsetLeft + el.offsetWidth / 2);
+          totalW = Math.max(totalW, el.offsetLeft + el.offsetWidth);
+        }
+      });
+      setColumnCenterX(centers);
+      setSvgTotalWidth(totalW);
+    };
+
+    updatePositions();
+    const timer = setTimeout(updatePositions, 100);
+    window.addEventListener('resize', updatePositions);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('resize', updatePositions);
+    };
+  }, [activeSeries, viewMode]);
+
+  // Auto-scroll a las fechas recientes y proyecciones
   useEffect(() => {
     if (scrollContainerRef.current) {
       const el = scrollContainerRef.current;
@@ -367,27 +395,40 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
     return maxVal > 0 ? maxVal * 1.25 : 1;
   }, [activeSeries]);
 
-  // Max P/E para escalar la línea de P/E Ratio en el área SVG de las barras
-  const maxPe = useMemo(() => {
+  // Rango de P/E Ratio (min y max) para escalar la línea Y con precisión matemática absoluta
+  const { minPe, maxPe } = useMemo(() => {
     const validPes = activeSeries.map((d) => d.peRatio).filter((v): v is number => v !== null && v > 0);
-    if (validPes.length === 0) return 50;
+    if (validPes.length === 0) return { minPe: 10, maxPe: 50 };
+    const minVal = Math.min(...validPes);
     const maxVal = Math.max(...validPes);
-    return maxVal > 0 ? maxVal * 1.2 : 50;
+    const padding = (maxVal - minVal) * 0.15 || 5;
+    return {
+      minPe: Math.max(0, minVal - padding),
+      maxPe: maxVal + padding,
+    };
   }, [activeSeries]);
 
-  // Generar puntos (X, Y) para el gráfico de línea de P/E Ratio
+  // Generar puntos exactos (X, Y) mapeando la posición DOM y el valor de P/E Ratio
   const peLinePoints = useMemo(() => {
-    const colWidth = 104; // Ancho promedio de la columna (w-24 = 96px, w-28 = 112px)
-    const colGap = 12;    // gap-3 = 12px
     const chartHeight = 208; // h-52 = 208px
+    const peRange = Math.max(1, maxPe - minPe);
 
     return activeSeries.map((item, idx) => {
-      const x = idx * (colWidth + colGap) + colWidth / 2;
+      const x = columnCenterX[idx] ?? (idx * 116 + 58);
       const pe = item.peRatio ?? 0;
-      const y = chartHeight - Math.max(10, Math.min(chartHeight - 15, (pe / maxPe) * (chartHeight - 35)));
-      return { x, y, pe, isProjection: item.isProjection, key: item.key };
+      // Escalar Y entre 20px (arriba) y 188px (abajo)
+      const normalizedPe = Math.max(0, Math.min(1, (pe - minPe) / peRange));
+      const y = chartHeight - normalizedPe * (chartHeight - 40) - 20;
+
+      return {
+        x,
+        y: parseFloat(y.toFixed(1)),
+        pe,
+        isProjection: item.isProjection,
+        key: item.key,
+      };
     });
-  }, [activeSeries, maxPe]);
+  }, [activeSeries, columnCenterX, minPe, maxPe]);
 
   const peSvgPath = useMemo(() => {
     if (peLinePoints.length === 0) return '';
@@ -413,8 +454,8 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
             </h3>
             <p className="text-xs text-slate-400 mt-0.5">
               {locale === 'es'
-                ? 'Barras de EPS nominal combinadas con una línea dorada de tendencia del P/E Ratio en cada período.'
-                : 'Nominal EPS bars overlaid with golden P/E ratio trajectory line for each period.'}
+                ? 'Barras de EPS nominal combinadas con la línea dorada exacta del P/E Ratio en cada período.'
+                : 'Nominal EPS bars overlaid with exact golden P/E ratio trajectory line for each period.'}
             </p>
           </div>
         </div>
@@ -476,10 +517,10 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
         >
           <div className="relative flex items-start gap-3 w-max min-w-full">
             
-            {/* SVG OVERLAY: Línea de P/E Ratio atravesando las barras */}
+            {/* SVG OVERLAY: Línea de P/E Ratio superpuesta con precisión absoluta a los centros DOM */}
             <svg
               className="absolute left-0 top-0 h-52 pointer-events-none z-20 overflow-visible"
-              style={{ width: `${activeSeries.length * 116}px` }}
+              style={{ width: `${Math.max(svgTotalWidth, activeSeries.length * 116)}px` }}
             >
               <defs>
                 <filter id="glow-pe" x="-20%" y="-20%" width="140%" height="140%">
@@ -487,7 +528,7 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
                   <feComposite in="SourceGraphic" in2="blur" operator="over" />
                 </filter>
                 <linearGradient id="peLineGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                  <stop offset="0%" stopColor="#f59e0b" stopOpacity="0.9" />
+                  <stop offset="0%" stopColor="#f59e0b" stopOpacity="0.95" />
                   <stop offset="100%" stopColor="#fbbf24" stopOpacity="1" />
                 </linearGradient>
               </defs>
@@ -502,13 +543,29 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
                   strokeLinecap="round"
                   strokeLinejoin="round"
                   filter="url(#glow-pe)"
-                  className="transition-all duration-500 opacity-90"
+                  className="transition-all duration-300 opacity-95"
                 />
               )}
 
-              {/* Puntos / Nodos sobre cada barra */}
+              {/* Puntos / Nodos sobre cada barra con etiqueta flotante */}
               {peLinePoints.map((pt) => (
                 <g key={`pt-${pt.key}`}>
+                  {/* Etiqueta flotante con el valor P/E sobre el punto */}
+                  {pt.pe > 0 && (
+                    <text
+                      x={pt.x}
+                      y={pt.y - 9}
+                      textAnchor="middle"
+                      fill={pt.isProjection ? '#e9d5ff' : '#fef08a'}
+                      fontSize="9.5"
+                      fontWeight="bold"
+                      fontFamily="monospace"
+                      className="drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)]"
+                    >
+                      {pt.pe.toFixed(1)}x
+                    </text>
+                  )}
+
                   <circle
                     cx={pt.x}
                     cy={pt.y}
@@ -516,7 +573,6 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
                     fill={pt.isProjection ? '#c084fc' : '#fbbf24'}
                     stroke="#0f172a"
                     strokeWidth="2.5"
-                    className="transition-transform duration-300 hover:scale-150"
                   />
                   <circle
                     cx={pt.x}
@@ -531,7 +587,7 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
               ))}
             </svg>
 
-            {activeSeries.map((item) => {
+            {activeSeries.map((item, idx) => {
               const heightPercent = Math.max(8, Math.min(100, (Math.abs(item.eps) / maxEps) * 100));
               const isNegative = item.eps < 0;
               const isHovered = hoveredItem?.key === item.key;
@@ -539,11 +595,12 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
               return (
                 <div
                   key={item.key}
+                  ref={(el) => (columnRefs.current[idx] = el)}
                   onMouseEnter={() => setHoveredItem(item)}
                   onMouseLeave={() => setHoveredItem(null)}
                   className="flex-none w-24 sm:w-28 flex flex-col items-center group relative cursor-pointer"
                 >
-                  {/* 1. Zona Superior: Badges + Valor EPS + Barra (Altura Fija de 208px alineada exactamente al fondo) */}
+                  {/* 1. Zona Superior: Badges + Valor EPS + Barra (Altura Fija de 208px alineada al fondo) */}
                   <div className="w-full flex flex-col items-center justify-end h-52 border-b border-slate-800/80 pb-0">
                     {/* Badge % Crecimiento EPS */}
                     <div className="mb-1.5 flex flex-col items-center h-5 justify-end">
