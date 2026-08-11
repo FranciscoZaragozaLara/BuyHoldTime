@@ -439,6 +439,7 @@ export default async function TickerDetailsPage({
             ticker={ticker}
             quarters={ticker.historicalEpsQuarterly}
             snapshot={details.snapshot}
+            historicalPrices={updatedPrices}
           />
 
           {/* Annual Simulated Returns Table */}

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { BarChart3, TrendingUp, Sparkles, CheckCircle2, Calendar, HelpCircle, Layers, ArrowUpRight, ArrowDownRight, Info, ChevronLeft, ChevronRight } from 'lucide-react';
+import { BarChart3, TrendingUp, Sparkles, CheckCircle2, Calendar, HelpCircle, Layers, ArrowUpRight, ArrowDownRight, Info, ChevronLeft, ChevronRight, DollarSign, Calculator } from 'lucide-react';
 import { useLocale } from 'next-intl';
 
 interface QuarterData {
@@ -15,10 +15,23 @@ interface QuarterData {
   source?: string;
 }
 
+interface HistoricalPrice {
+  id: string;
+  tickerId: string;
+  date: string;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  adjClose: number;
+  volume: number;
+}
+
 interface EpsHistoryChartProps {
   ticker: any;
   quarters: QuarterData[] | null | undefined;
   snapshot?: any;
+  historicalPrices?: HistoricalPrice[];
 }
 
 interface ChartItem {
@@ -32,15 +45,62 @@ interface ChartItem {
   source: string;
   growthPercent: number | null;
   seasonalityWeight?: number;
+  stockPrice: number | null;
+  priceGrowthPercent: number | null;
+  mixPeUsed?: number;
 }
 
-export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({ ticker, quarters, snapshot }) => {
+export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
+  ticker,
+  quarters,
+  snapshot,
+  historicalPrices = [],
+}) => {
   const locale = useLocale();
   const [viewMode, setViewMode] = useState<'annual' | 'quarterly'>('annual');
   const [hoveredItem, setHoveredItem] = useState<ChartItem | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
 
-  // 1. Extraer estimaciones anuales futuras de analistas desde el snapshot
+  // Helper para obtener el precio histórico más cercano a una fecha dada
+  const getHistoricalPriceForDate = (targetDateStr: string): number | null => {
+    if (!historicalPrices || historicalPrices.length === 0) return null;
+    const targetTime = new Date(targetDateStr).getTime();
+    let closest = historicalPrices[0];
+    let minDiff = Math.abs(new Date(closest.date).getTime() - targetTime);
+
+    for (const p of historicalPrices) {
+      const diff = Math.abs(new Date(p.date).getTime() - targetTime);
+      if (diff < minDiff) {
+        minDiff = diff;
+        closest = p;
+      }
+    }
+    return closest.adjClose || closest.close;
+  };
+
+  // Helper para obtener el precio histórico al cierre de un año fiscal
+  const getHistoricalPriceForYear = (fy: number): number | null => {
+    if (!historicalPrices || historicalPrices.length === 0) return null;
+    // Buscar precios de ese año
+    const pricesInYear = historicalPrices.filter((p) => new Date(p.date).getFullYear() === fy);
+    if (pricesInYear.length > 0) {
+      // Ordenar por fecha descendente y tomar el último del año
+      pricesInYear.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      return pricesInYear[0].adjClose || pricesInYear[0].close;
+    }
+    return null;
+  };
+
+  // 1. Parámetros para la fórmula del Escenario Mix de Valoración
+  const currentPrice = ticker?.price || 1;
+  const rawSnapshotPe = snapshot?.pe ? Number(snapshot.pe) : null;
+  const peTtm = rawSnapshotPe && rawSnapshotPe >= 3 ? rawSnapshotPe : (ticker?.pe && ticker.pe > 0 ? ticker.pe : 25);
+  const peFwd = snapshot?.forwardPe ? Number(snapshot.forwardPe) : (ticker?.forwardPe && ticker.forwardPe > 0 ? ticker.forwardPe : peTtm * 0.9);
+  const peMix = (peTtm + peFwd) / 2;
+  const terminalPe = ticker?.sectorTerminalPe && ticker.sectorTerminalPe > 0 ? ticker.sectorTerminalPe : 22.0;
+  const currentYearNum = new Date().getFullYear();
+
+  // 2. Extraer estimaciones anuales futuras de analistas desde el snapshot
   const analystEstimates = useMemo(() => {
     const estimatesObj = snapshot?.analystEstimates;
     if (!estimatesObj || !estimatesObj.years || !estimatesObj.estimates) return [];
@@ -75,7 +135,19 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({ ticker, quarte
     return results;
   }, [snapshot]);
 
-  // 2. Procesar TODOS los datos Anuales (EDGAR reales completicos + Proyecciones futuras)
+  // Total horizon para el decaimiento del Escenario Mix
+  const totalHorizonYears = Math.max(4, analystEstimates.length);
+
+  // Helper para calcular el Precio Proyectado Futuro (Escenario Mix)
+  const calculateMixScenarioPrice = (fy: number, epsVal: number) => {
+    const yearsDiff = Math.max(1, fy - currentYearNum);
+    const decayRatio = Math.min(1, yearsDiff / totalHorizonYears);
+    const peFutureMix = peMix - (peMix - terminalPe) * decayRatio;
+    const projectedPriceMix = parseFloat((epsVal * peFutureMix).toFixed(2));
+    return { projectedPriceMix, peFutureMix: parseFloat(peFutureMix.toFixed(1)) };
+  };
+
+  // 3. Procesar datos Anuales (EDGAR reales + Proyecciones futuras con Escenario Mix)
   const annualData = useMemo<ChartItem[]>(() => {
     const validQuarters = (quarters || []).filter((q) => q && q.fiscalYear && !isNaN(Number(q.fiscalYear)));
 
@@ -96,6 +168,7 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({ ticker, quarte
       if (qList.length >= 4 || hasQ4) {
         const sumEps = qList.reduce((acc, q) => acc + (q.epsDiluted ?? q.eps ?? 0), 0);
         const roundedEps = parseFloat(sumEps.toFixed(2));
+        const priceForFy = getHistoricalPriceForYear(fy);
 
         historicalAnnualItems.push({
           key: `fy-${fy}`,
@@ -107,45 +180,58 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({ ticker, quarte
           isProjection: false,
           source: 'SEC EDGAR',
           growthPercent: null,
+          stockPrice: priceForFy,
+          priceGrowthPercent: null,
         });
       }
     });
 
     const lastHistoricalFY = historicalAnnualItems.length > 0
       ? historicalAnnualItems[historicalAnnualItems.length - 1].fiscalYear
-      : 2024;
+      : currentYearNum - 1;
 
+    // Proyecciones futuras con precio de Escenario Mix
     const futureAnnualItems: ChartItem[] = analystEstimates
       .filter((est) => est.fiscalYear > lastHistoricalFY)
-      .map((est) => ({
-        key: `fy-est-${est.fiscalYear}`,
-        label: `FY${est.fiscalYear}`,
-        subLabel: locale === 'es' ? 'Proyección Wall St' : 'Wall St Forecast',
-        fiscalYear: est.fiscalYear,
-        periodName: `FY${est.fiscalYear}`,
-        eps: est.eps,
-        isProjection: true,
-        source: 'Wall Street Analysts',
-        growthPercent: null,
-      }));
+      .map((est) => {
+        const { projectedPriceMix, peFutureMix } = calculateMixScenarioPrice(est.fiscalYear, est.eps);
+        return {
+          key: `fy-est-${est.fiscalYear}`,
+          label: `FY${est.fiscalYear}`,
+          subLabel: locale === 'es' ? 'Proyección Wall St + Mix' : 'Wall St + Mix Forecast',
+          fiscalYear: est.fiscalYear,
+          periodName: `FY${est.fiscalYear}`,
+          eps: est.eps,
+          isProjection: true,
+          source: 'Escenario Mix (Valuation)',
+          growthPercent: null,
+          stockPrice: projectedPriceMix,
+          priceGrowthPercent: null,
+          mixPeUsed: peFutureMix,
+        };
+      });
 
-    // Incluir TODO el historial sin recortes rígidos
     const combined = [...historicalAnnualItems, ...futureAnnualItems];
 
-    // Calcular crecimiento % periodo a periodo
+    // Calcular crecimiento % de EPS y de Precio periodo a periodo
     combined.forEach((item, idx) => {
       if (idx > 0) {
-        const prev = combined[idx - 1].eps;
-        if (prev !== 0) {
-          item.growthPercent = parseFloat((((item.eps - prev) / Math.abs(prev)) * 100).toFixed(1));
+        const prevEps = combined[idx - 1].eps;
+        if (prevEps !== 0) {
+          item.growthPercent = parseFloat((((item.eps - prevEps) / Math.abs(prevEps)) * 100).toFixed(1));
+        }
+
+        const prevPrice = combined[idx - 1].stockPrice;
+        if (item.stockPrice !== null && prevPrice !== null && prevPrice > 0) {
+          item.priceGrowthPercent = parseFloat((((item.stockPrice - prevPrice) / prevPrice) * 100).toFixed(1));
         }
       }
     });
 
     return combined;
-  }, [quarters, analystEstimates, locale]);
+  }, [quarters, analystEstimates, locale, historicalPrices, peMix, terminalPe, currentYearNum, totalHorizonYears]);
 
-  // 3. Procesar TODOS los datos Trimestrales (EDGAR reales completicos + Proyecciones)
+  // 4. Procesar datos Trimestrales (EDGAR reales + Proyecciones)
   const quarterlyData = useMemo<ChartItem[]>(() => {
     const validQuarters = (quarters || [])
       .filter((q) => q && q.period && q.fiscalYear && !isNaN(Number(q.fiscalYear)))
@@ -181,17 +267,22 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({ ticker, quarte
       });
     }
 
-    const historicalQuarterlyItems: ChartItem[] = validQuarters.map((q) => ({
-      key: `q-${q.fiscalYear}-${q.period}`,
-      label: `${q.period} ${q.fiscalYear}`,
-      subLabel: locale === 'es' ? 'Trimestre Confirmado' : 'Confirmed Quarter',
-      fiscalYear: parseInt(q.fiscalYear, 10),
-      periodName: q.period,
-      eps: parseFloat((q.epsDiluted ?? q.eps ?? 0).toFixed(2)),
-      isProjection: false,
-      source: 'SEC EDGAR',
-      growthPercent: null,
-    }));
+    const historicalQuarterlyItems: ChartItem[] = validQuarters.map((q) => {
+      const qPrice = getHistoricalPriceForDate(q.date);
+      return {
+        key: `q-${q.fiscalYear}-${q.period}`,
+        label: `${q.period} ${q.fiscalYear}`,
+        subLabel: locale === 'es' ? 'Trimestre Confirmado' : 'Confirmed Quarter',
+        fiscalYear: parseInt(q.fiscalYear, 10),
+        periodName: q.period,
+        eps: parseFloat((q.epsDiluted ?? q.eps ?? 0).toFixed(2)),
+        isProjection: false,
+        source: 'SEC EDGAR',
+        growthPercent: null,
+        stockPrice: qPrice,
+        priceGrowthPercent: null,
+      };
+    });
 
     const lastHistQuarter = validQuarters[validQuarters.length - 1];
     const lastHistFY = parseInt(lastHistQuarter.fiscalYear, 10);
@@ -201,6 +292,8 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({ ticker, quarte
 
     futureAnnuals.forEach((est) => {
       const periods = ['Q1', 'Q2', 'Q3', 'Q4'];
+      const { projectedPriceMix, peFutureMix } = calculateMixScenarioPrice(est.fiscalYear, est.eps);
+
       periods.forEach((p) => {
         const existsInHist = validQuarters.some((q) => parseInt(q.fiscalYear, 10) === est.fiscalYear && q.period === p);
         if (!existsInHist) {
@@ -210,41 +303,47 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({ ticker, quarte
           futureQuarterlyItems.push({
             key: `q-est-${est.fiscalYear}-${p}`,
             label: `${p} ${est.fiscalYear}`,
-            subLabel: locale === 'es' ? 'Est. Fórmula Estacional' : 'Seasonal Formula Est.',
+            subLabel: locale === 'es' ? 'Est. Estacional + Mix' : 'Seasonal Est. + Mix',
             fiscalYear: est.fiscalYear,
             periodName: p,
             eps: estimatedQEps,
             isProjection: true,
-            source: 'Formula Estacional (Wall St)',
+            source: 'Escenario Mix (Valuation)',
             growthPercent: null,
             seasonalityWeight: parseFloat((weight * 100).toFixed(1)),
+            stockPrice: projectedPriceMix,
+            priceGrowthPercent: null,
+            mixPeUsed: peFutureMix,
           });
         }
       });
     });
 
-    // Incluir TODO el historial sin recortes
     const combined = [...historicalQuarterlyItems, ...futureQuarterlyItems];
 
     // Calcular crecimiento % periodo a periodo
     combined.forEach((item, idx) => {
       if (idx > 0) {
-        const prev = combined[idx - 1].eps;
-        if (prev !== 0) {
-          item.growthPercent = parseFloat((((item.eps - prev) / Math.abs(prev)) * 100).toFixed(1));
+        const prevEps = combined[idx - 1].eps;
+        if (prevEps !== 0) {
+          item.growthPercent = parseFloat((((item.eps - prevEps) / Math.abs(prevEps)) * 100).toFixed(1));
+        }
+
+        const prevPrice = combined[idx - 1].stockPrice;
+        if (item.stockPrice !== null && prevPrice !== null && prevPrice > 0) {
+          item.priceGrowthPercent = parseFloat((((item.stockPrice - prevPrice) / prevPrice) * 100).toFixed(1));
         }
       }
     });
 
     return combined;
-  }, [quarters, analystEstimates, locale]);
+  }, [quarters, analystEstimates, locale, historicalPrices, peMix, terminalPe, currentYearNum, totalHorizonYears]);
 
   const activeSeries = viewMode === 'annual' ? annualData : quarterlyData;
 
-  // Auto-scroll inicial a la vista de años o trimestres recientes / proyecciones al cambiar el modo
+  // Auto-scroll inicial a la vista de años o trimestres recientes / proyecciones
   useEffect(() => {
     if (scrollContainerRef.current) {
-      // Posicionar el scroll hacia el 75% o final para mostrar el presente y proyecciones por default
       const el = scrollContainerRef.current;
       el.scrollLeft = el.scrollWidth - el.clientWidth - 150;
     }
@@ -262,7 +361,6 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({ ticker, quarte
     }
   };
 
-  // Determinar max EPS para escalar la altura de las barras
   const maxEps = useMemo(() => {
     if (activeSeries.length === 0) return 1;
     const maxVal = Math.max(...activeSeries.map((d) => Math.abs(d.eps)));
@@ -281,22 +379,21 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({ ticker, quarte
           </div>
           <div>
             <h3 className="text-base font-extrabold text-white flex items-center gap-2">
-              {locale === 'es' ? 'Histórico y Proyecciones de EPS' : 'EPS Historical & Growth Forecasts'}
+              {locale === 'es' ? 'Histórico de EPS y Valoración de Acción (Escenario Mix)' : 'EPS & Stock Price Forecasts (Mix Scenario)'}
               <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                <CheckCircle2 size={10} /> SEC EDGAR + Wall St
+                <CheckCircle2 size={10} /> SEC EDGAR + Mix Valuation
               </span>
             </h3>
             <p className="text-xs text-slate-400 mt-0.5">
               {locale === 'es'
-                ? 'Navega deslizando horizontalmente hacia la izquierda (pasado) o derecha (futuro proyectado).'
-                : 'Scroll horizontally left (past history) or right (future projections).'}
+                ? 'Evolución nominal de EPS, precio de la acción en cada periodo y precio futuro proyectado por el Escenario Mix.'
+                : 'Nominal EPS trajectory, historical stock prices, and projected future prices using the Mix Scenario.'}
             </p>
           </div>
         </div>
 
         {/* Action Controls: Scroll Arrows & Mode Switcher */}
         <div className="flex items-center gap-3 self-start sm:self-auto flex-wrap">
-          {/* Scroll Arrows */}
           <div className="flex items-center gap-1 bg-slate-900/80 p-1 rounded-xl border border-slate-800">
             <button
               onClick={handleScrollLeft}
@@ -314,7 +411,6 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({ ticker, quarte
             </button>
           </div>
 
-          {/* View Mode Toggle */}
           <div className="flex items-center bg-slate-900/90 p-1 rounded-xl border border-slate-800">
             <button
               onClick={() => setViewMode('annual')}
@@ -344,16 +440,14 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({ ticker, quarte
 
       {/* Main Bar Chart Container with Smooth Horizontal Scroll */}
       <div className="relative group/chart">
-        {/* Left Scroll Gradient Cue */}
         <div className="absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-slate-950 to-transparent pointer-events-none z-10 opacity-70" />
-        {/* Right Scroll Gradient Cue */}
         <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-slate-950 to-transparent pointer-events-none z-10 opacity-70" />
 
         <div
           ref={scrollContainerRef}
           className="overflow-x-auto scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent pt-6 pb-4 px-4 scroll-smooth"
         >
-          <div className="flex items-end gap-3 h-64 border-b border-slate-800/80 pb-2 w-max min-w-full">
+          <div className="flex items-end gap-3 h-72 border-b border-slate-800/80 pb-2 w-max min-w-full">
             {activeSeries.map((item) => {
               const heightPercent = Math.max(8, Math.min(100, (Math.abs(item.eps) / maxEps) * 100));
               const isNegative = item.eps < 0;
@@ -364,26 +458,28 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({ ticker, quarte
                   key={item.key}
                   onMouseEnter={() => setHoveredItem(item)}
                   onMouseLeave={() => setHoveredItem(null)}
-                  className="flex-none w-20 sm:w-24 flex flex-col items-center justify-end h-full group relative cursor-pointer"
+                  className="flex-none w-24 sm:w-28 flex flex-col items-center justify-end h-full group relative cursor-pointer"
                 >
-                  {/* Badge de % Crecimiento Periodo a Periodo */}
-                  {item.growthPercent !== null ? (
-                    <div
-                      className={`mb-2 inline-flex items-center gap-0.5 text-[10px] font-black px-1.5 py-0.5 rounded-full border shadow-md transition-all ${
-                        item.growthPercent >= 0
-                          ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 group-hover:scale-110'
-                          : 'bg-rose-500/10 text-rose-400 border-rose-500/30 group-hover:scale-110'
-                      }`}
-                    >
-                      {item.growthPercent >= 0 ? <ArrowUpRight size={10} /> : <ArrowDownRight size={10} />}
-                      {item.growthPercent >= 0 ? '+' : ''}
-                      {item.growthPercent}%
-                    </div>
-                  ) : (
-                    <div className="mb-2 text-[10px] font-semibold text-slate-500">—</div>
-                  )}
+                  {/* Badges superiores: % Crecimiento EPS + % Variación Precio */}
+                  <div className="mb-2 flex flex-col items-center gap-1">
+                    {item.growthPercent !== null ? (
+                      <div
+                        className={`inline-flex items-center gap-0.5 text-[9px] font-black px-1.5 py-0.5 rounded-full border shadow-md transition-all ${
+                          item.growthPercent >= 0
+                            ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                            : 'bg-rose-500/10 text-rose-400 border-rose-500/30'
+                        }`}
+                        title="Cambio % EPS vs periodo previo"
+                      >
+                        {item.growthPercent >= 0 ? <ArrowUpRight size={9} /> : <ArrowDownRight size={9} />}
+                        EPS {item.growthPercent >= 0 ? '+' : ''}{item.growthPercent}%
+                      </div>
+                    ) : (
+                      <div className="text-[9px] font-semibold text-slate-500">—</div>
+                    )}
+                  </div>
 
-                  {/* Valor nominal sobre la barra */}
+                  {/* Valor nominal del EPS sobre la barra */}
                   <span
                     className={`text-xs font-mono font-black mb-1 transition-colors ${
                       item.isProjection ? 'text-purple-300 group-hover:text-purple-200' : 'text-slate-200 group-hover:text-white'
@@ -392,10 +488,10 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({ ticker, quarte
                     ${item.eps.toFixed(2)}
                   </span>
 
-                  {/* Barra interactiva */}
+                  {/* Barra interactiva de EPS */}
                   <div
                     style={{ height: `${heightPercent}%` }}
-                    className={`w-full max-w-[44px] rounded-t-lg transition-all duration-300 relative overflow-hidden ${
+                    className={`w-full max-w-[48px] rounded-t-lg transition-all duration-300 relative overflow-hidden ${
                       item.isProjection
                         ? 'bg-gradient-to-t from-purple-900/60 via-purple-600/50 to-purple-400/80 border-2 border-dashed border-purple-400/80 shadow-lg shadow-purple-500/20 group-hover:from-purple-800/80 group-hover:to-purple-300'
                         : isNegative
@@ -403,13 +499,12 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({ ticker, quarte
                         : 'bg-gradient-to-t from-emerald-950 via-emerald-600/70 to-emerald-400 border border-emerald-400/40 shadow-lg shadow-emerald-500/20 group-hover:brightness-125'
                     } ${isHovered ? 'scale-105 ring-2 ring-teal-400' : ''}`}
                   >
-                    {/* Patrón rayado en diagonal para resaltar barras proyectadas no materializadas */}
                     {item.isProjection && (
                       <div className="absolute inset-0 bg-[linear-gradient(45deg,rgba(255,255,255,0.08)_25%,transparent_25%,transparent_50%,rgba(255,255,255,0.08)_50%,rgba(255,255,255,0.08)_75%,transparent_75%,transparent)] bg-[length:8px_8px] pointer-events-none" />
                     )}
                   </div>
 
-                  {/* Etiqueta de Período en el Eje X */}
+                  {/* Valor de la Acción (Precio Nominal + Badge de Variación) */}
                   <div className="mt-2 flex flex-col items-center text-center">
                     <span
                       className={`text-[11px] font-bold tracking-tight transition-colors ${
@@ -418,9 +513,32 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({ ticker, quarte
                     >
                       {item.label}
                     </span>
+
+                    {/* Precio de la Acción */}
+                    {item.stockPrice !== null && (
+                      <div
+                        className={`mt-1 flex flex-col items-center p-1 rounded-lg border text-[10px] font-mono transition-all ${
+                          item.isProjection
+                            ? 'bg-purple-500/10 border-purple-500/30 text-purple-200'
+                            : 'bg-slate-900/80 border-slate-800 text-teal-300'
+                        }`}
+                      >
+                        <span className="font-extrabold text-[11px]">${item.stockPrice.toFixed(2)}</span>
+                        {item.priceGrowthPercent !== null && (
+                          <span
+                            className={`text-[9px] font-bold ${
+                              item.priceGrowthPercent >= 0 ? 'text-emerald-400' : 'text-rose-400'
+                            }`}
+                          >
+                            {item.priceGrowthPercent >= 0 ? '+' : ''}{item.priceGrowthPercent}%
+                          </span>
+                        )}
+                      </div>
+                    )}
+
                     {item.isProjection && (
-                      <span className="inline-flex items-center gap-0.5 text-[8px] font-extrabold uppercase tracking-widest text-purple-300 bg-purple-500/20 border border-purple-500/40 rounded px-1 mt-0.5">
-                        <Sparkles size={8} /> {locale === 'es' ? 'PROYECTADO' : 'ESTIMATE'}
+                      <span className="inline-flex items-center gap-0.5 text-[8px] font-extrabold uppercase tracking-widest text-purple-300 bg-purple-500/20 border border-purple-500/40 rounded px-1 mt-1">
+                        <Sparkles size={8} /> {locale === 'es' ? 'MIX EST.' : 'MIX EST.'}
                       </span>
                     )}
                   </div>
@@ -431,61 +549,91 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({ ticker, quarte
         </div>
       </div>
 
-      {/* Floating Rich Info Box on Hover / Selected Item */}
+      {/* Floating Rich Info Box on Hover */}
       {hoveredItem ? (
-        <div className="p-3.5 rounded-xl border border-slate-800 bg-slate-900/90 backdrop-blur-xl flex flex-wrap items-center justify-between gap-4 text-xs transition-all animate-fadeIn">
+        <div className="p-4 rounded-xl border border-slate-800 bg-slate-900/95 backdrop-blur-xl flex flex-wrap items-center justify-between gap-4 text-xs transition-all animate-fadeIn">
           <div className="flex items-center gap-3">
             <div
-              className={`p-2 rounded-lg border ${
+              className={`p-2.5 rounded-xl border ${
                 hoveredItem.isProjection
                   ? 'bg-purple-500/10 border-purple-500/30 text-purple-400'
                   : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
               }`}
             >
-              {hoveredItem.isProjection ? <Sparkles size={16} /> : <CheckCircle2 size={16} />}
+              {hoveredItem.isProjection ? <Calculator size={18} /> : <CheckCircle2 size={18} />}
             </div>
             <div>
-              <div className="font-extrabold text-white flex items-center gap-2">
+              <div className="font-extrabold text-white flex items-center gap-2 text-sm">
                 <span>{hoveredItem.label}</span>
-                <span className="text-[10px] text-slate-400 font-normal">({hoveredItem.subLabel})</span>
+                <span className="text-xs text-slate-400 font-normal">({hoveredItem.subLabel})</span>
               </div>
               <div className="text-[11px] text-slate-400 flex items-center gap-1.5 mt-0.5">
                 <span>{locale === 'es' ? 'Fuente:' : 'Source:'}</span>
                 <strong className={hoveredItem.isProjection ? 'text-purple-300' : 'text-emerald-400'}>
                   {hoveredItem.source}
                 </strong>
+                {hoveredItem.mixPeUsed && (
+                  <span className="text-[10px] text-purple-400 ml-1">
+                    (P/E Mix: {hoveredItem.mixPeUsed}x)
+                  </span>
+                )}
               </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-6 font-mono">
-            <div>
+          <div className="flex items-center gap-8 font-mono">
+            {/* Metricas EPS */}
+            <div className="border-r border-slate-800 pr-6">
               <span className="text-[10px] text-slate-500 uppercase tracking-wider block">{locale === 'es' ? 'EPS Nominal' : 'Nominal EPS'}</span>
               <span className="text-base font-black text-white">${hoveredItem.eps.toFixed(2)}</span>
+              {hoveredItem.growthPercent !== null && (
+                <span
+                  className={`text-[11px] font-bold block ${
+                    hoveredItem.growthPercent >= 0 ? 'text-emerald-400' : 'text-rose-400'
+                  }`}
+                >
+                  EPS {hoveredItem.growthPercent >= 0 ? '+' : ''}{hoveredItem.growthPercent}% vs prev
+                </span>
+              )}
             </div>
+
+            {/* Metricas Precio Acción */}
             <div>
-              <span className="text-[10px] text-slate-500 uppercase tracking-wider block">{locale === 'es' ? 'Crecimiento %' : 'Growth %'}</span>
-              <span
-                className={`text-base font-black ${
-                  (hoveredItem.growthPercent ?? 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'
-                }`}
-              >
-                {hoveredItem.growthPercent !== null ? `${hoveredItem.growthPercent >= 0 ? '+' : ''}${hoveredItem.growthPercent}%` : 'N/A'}
+              <span className="text-[10px] text-purple-300 font-extrabold uppercase tracking-wider block">
+                {hoveredItem.isProjection
+                  ? (locale === 'es' ? 'Precio Proyectado (Mix)' : 'Projected Price (Mix)')
+                  : (locale === 'es' ? 'Precio de la Acción' : 'Stock Price')}
               </span>
+              <span className="text-base font-black text-teal-300">
+                {hoveredItem.stockPrice !== null ? `$${hoveredItem.stockPrice.toFixed(2)}` : 'N/A'}
+              </span>
+              {hoveredItem.priceGrowthPercent !== null && (
+                <span
+                  className={`text-[11px] font-bold block ${
+                    hoveredItem.priceGrowthPercent >= 0 ? 'text-emerald-400' : 'text-rose-400'
+                  }`}
+                >
+                  Precio {hoveredItem.priceGrowthPercent >= 0 ? '+' : ''}{hoveredItem.priceGrowthPercent}% vs prev
+                </span>
+              )}
             </div>
           </div>
         </div>
       ) : (
         /* Explanatory Footer Legend */
-        <div className="flex flex-wrap items-center justify-between gap-4 p-3 bg-slate-900/30 border border-slate-900 rounded-xl text-xs text-slate-400">
-          <div className="flex flex-wrap items-center gap-5">
+        <div className="flex flex-wrap items-center justify-between gap-4 p-3.5 bg-slate-900/30 border border-slate-900 rounded-xl text-xs text-slate-400">
+          <div className="flex flex-wrap items-center gap-6">
             <div className="flex items-center gap-2">
               <span className="h-3 w-3 rounded bg-emerald-500 border border-emerald-400" />
-              <span>{locale === 'es' ? 'Histórico Real (SEC EDGAR)' : 'Real Historical (SEC EDGAR)'}</span>
+              <span>{locale === 'es' ? 'EPS Real (SEC EDGAR)' : 'Real EPS (SEC EDGAR)'}</span>
             </div>
             <div className="flex items-center gap-2">
               <span className="h-3 w-3 rounded bg-purple-500 border border-dashed border-purple-300" />
-              <span>{locale === 'es' ? 'Proyección Futura (Wall Street)' : 'Future Estimate (Wall Street)'}</span>
+              <span>{locale === 'es' ? 'Proyección Futura (Wall St + Escenario Mix)' : 'Future Estimate (Wall St + Mix)'}</span>
+            </div>
+            <div className="flex items-center gap-1.5 text-teal-300 font-mono font-bold">
+              <DollarSign size={13} />
+              <span>{locale === 'es' ? 'Valoración de Acción Incluida' : 'Stock Valuation Included'}</span>
             </div>
           </div>
 
@@ -494,8 +642,8 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({ ticker, quarte
               <Info size={13} />
               <span>
                 {locale === 'es'
-                  ? 'Fórmula: EPS Trimestral Est. = EPS Anual Proyectado × % Estacionalidad Histórica'
-                  : 'Formula: Qtr Est. EPS = Annual Projected EPS × Historical Seasonality %'}
+                  ? 'Escenario Mix: Combina P/E TTM/Forward y convergencia al P/E terminal del sector'
+                  : 'Mix Scenario: Blends TTM/Forward P/E with sector terminal P/E convergence'}
               </span>
             </div>
           )}
