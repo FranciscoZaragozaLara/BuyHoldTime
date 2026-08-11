@@ -335,6 +335,7 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
             isProjection: true,
             source: 'Escenario Mix (Valuation)',
             growthPercent: null,
+            seasonalityWeight: parseFloat((weight * 100).toFixed(1)),
             stockPrice: projectedPriceMix,
             priceGrowthPercent: null,
             mixPeUsed: peFutureMix,
@@ -415,28 +416,33 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
     return maxVal > 0 ? maxVal * 1.25 : 1;
   }, [activeSeries]);
 
-  // 1. Rango de P/E Ratio Calendario Solar (min y max) para escalar la Línea 1 (Dorada)
-  const { minPe, maxPe } = useMemo(() => {
+  // 1. Rango Exacto de P/E Ratio Calendario Solar (min y max) con sensibilidad dinámica amplificada
+  const { minPe, maxPe, rawMinPe, rawMaxPe } = useMemo(() => {
     const validPes = activeSeries.map((d) => d.peRatio).filter((v): v is number => v !== null && v > 0);
-    if (validPes.length === 0) return { minPe: 10, maxPe: 50 };
+    if (validPes.length === 0) return { minPe: 10, maxPe: 50, rawMinPe: 10, rawMaxPe: 50 };
     const minVal = Math.min(...validPes);
     const maxVal = Math.max(...validPes);
-    const padding = (maxVal - minVal) * 0.15 || 5;
+    const range = maxVal - minVal;
+    // Margen del 8% para dinamizar al máximo los valles y picos reales
+    const padding = range > 0 ? range * 0.08 : 2;
     return {
       minPe: Math.max(0, minVal - padding),
       maxPe: maxVal + padding,
+      rawMinPe: minVal,
+      rawMaxPe: maxVal,
     };
   }, [activeSeries]);
 
-  // Puntos de la Línea de P/E Ratio (Dorada - Calendario Solar)
+  // Puntos de la Línea de P/E Ratio (Dorada - Calendario Solar) con Amplitud Vertical Ampliada a 130px
   const peLinePoints = useMemo(() => {
-    const peRange = Math.max(1, maxPe - minPe);
+    const peRange = Math.max(0.1, maxPe - minPe);
 
     return activeSeries.map((item, idx) => {
       const x = columnCenterX[idx] ?? (idx * 116 + 58);
       const pe = item.peRatio ?? 0;
       const normalizedPe = Math.max(0, Math.min(1, (pe - minPe) / peRange));
-      const y = 60 - normalizedPe * 45; // Franja superior 15px - 60px
+      // Amplitud vertical ampliada: oscila de y=150px (mínimo) a y=20px (máximo) -> 130px de rango dinámico real
+      const y = 150 - normalizedPe * 130;
 
       return {
         x,
@@ -456,28 +462,32 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
     return peLinePoints.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
   }, [peLinePoints]);
 
-  // 2. Rango de Precio de la Acción (min y max) para escalar la Línea 2 (Turquesa/Cian)
-  const { minPrice, maxPrice } = useMemo(() => {
+  // 2. Rango Exacto de Precio de la Acción (min y max) con sensibilidad dinámica amplificada
+  const { minPrice, maxPrice, rawMinPrice, rawMaxPrice } = useMemo(() => {
     const validPrices = activeSeries.map((d) => d.stockPrice).filter((v): v is number => v !== null && v > 0);
-    if (validPrices.length === 0) return { minPrice: 10, maxPrice: 200 };
+    if (validPrices.length === 0) return { minPrice: 10, maxPrice: 200, rawMinPrice: 10, rawMaxPrice: 200 };
     const minVal = Math.min(...validPrices);
     const maxVal = Math.max(...validPrices);
-    const padding = (maxVal - minVal) * 0.15 || 10;
+    const range = maxVal - minVal;
+    const padding = range > 0 ? range * 0.08 : 5;
     return {
       minPrice: Math.max(0, minVal - padding),
       maxPrice: maxVal + padding,
+      rawMinPrice: minVal,
+      rawMaxPrice: maxVal,
     };
   }, [activeSeries]);
 
-  // Puntos de la Línea de Precio de la Acción (Turquesa/Cian - Calendario Solar)
+  // Puntos de la Línea de Precio de la Acción (Turquesa/Cian) con Amplitud Vertical Ampliada a 130px
   const priceLinePoints = useMemo(() => {
-    const priceRange = Math.max(1, maxPrice - minPrice);
+    const priceRange = Math.max(0.1, maxPrice - minPrice);
 
     return activeSeries.map((item, idx) => {
       const x = columnCenterX[idx] ?? (idx * 116 + 58);
       const price = item.stockPrice ?? 0;
       const normalizedPrice = Math.max(0, Math.min(1, (price - minPrice) / priceRange));
-      const y = 120 - normalizedPrice * 55; // Franja media 65px - 120px
+      // Amplitud vertical ampliada: oscila de y=175px (mínimo) a y=45px (máximo) -> 130px de rango dinámico real
+      const y = 175 - normalizedPrice * 130;
 
       return {
         x,
@@ -510,13 +520,13 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
             <h3 className="text-base font-extrabold text-white flex items-center gap-2">
               {locale === 'es' ? 'Histórico de EPS, Precio y P/E (Calendario Solar)' : 'EPS, Stock Price & P/E Lines (Solar Calendar Year)'}
               <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20">
-                <Sun size={10} /> Calendario Solar
+                <Sun size={10} /> Escala Dinámica
               </span>
             </h3>
             <p className="text-xs text-slate-400 mt-0.5">
               {locale === 'es'
-                ? 'P/E Ratio y Crecimiento agrupados por Año Calendario Solar (del 1 de enero al 31 de diciembre) con Escenario Mix.'
-                : 'P/E Ratio & Growth grouped by Solar Calendar Year (Jan 1 to Dec 31) with Mix Scenario.'}
+                ? 'Líneas con rango dinámico amplificado para observar los valles y picos reales de cotización ($) y múltiple P/E.'
+                : 'Amplified dynamic range lines to visualize true peaks and valleys of price ($) and P/E ratio.'}
             </p>
           </div>
         </div>
@@ -567,7 +577,7 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
         </div>
       </div>
 
-      {/* Main Bar Chart Container with Smooth Horizontal Scroll */}
+      {/* Main Bar Chart Container with Smooth Horizontal Scroll (Altura ampliada h-72 / 288px) */}
       <div className="relative group/chart">
         <div className="absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-slate-950 to-transparent pointer-events-none z-10 opacity-70" />
         <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-slate-950 to-transparent pointer-events-none z-10 opacity-70" />
@@ -578,9 +588,9 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
         >
           <div className="relative flex items-start gap-3 w-max min-w-full">
             
-            {/* SVG OVERLAY: Línea P/E Calendario Solar (Dorada) + Línea Precio (Turquesa) */}
+            {/* SVG OVERLAY: Línea P/E (Dorada) + Línea Precio (Turquesa) en Lienzo de 288px (h-72) */}
             <svg
-              className="absolute left-0 top-0 h-60 pointer-events-none z-30 overflow-visible"
+              className="absolute left-0 top-0 h-72 pointer-events-none z-30 overflow-visible"
               style={{ width: `${Math.max(svgTotalWidth, activeSeries.length * 116)}px` }}
             >
               <defs>
@@ -604,6 +614,25 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
                   <stop offset="100%" stopColor="#22d3ee" stopOpacity="1" />
                 </linearGradient>
               </defs>
+
+              {/* Guías punteadas horizontales discretas de escala real */}
+              <line x1="0" y1="20" x2="100%" y2="20" stroke="#334155" strokeWidth="1" strokeDasharray="4 4" opacity="0.35" />
+              <line x1="0" y1="150" x2="100%" y2="150" stroke="#334155" strokeWidth="1" strokeDasharray="4 4" opacity="0.35" />
+
+              {/* Indicadores flotantes de rangos de escala real */}
+              <text x="8" y="16" fill="#f59e0b" fontSize="9" fontWeight="bold" opacity="0.75" fontFamily="monospace">
+                P/E Max: {rawMaxPe.toFixed(1)}x
+              </text>
+              <text x="8" y="146" fill="#f59e0b" fontSize="9" fontWeight="bold" opacity="0.75" fontFamily="monospace">
+                P/E Min: {rawMinPe.toFixed(1)}x
+              </text>
+
+              <text x="110" y="16" fill="#22d3ee" fontSize="9" fontWeight="bold" opacity="0.75" fontFamily="monospace">
+                Precio Max: ${rawMaxPrice.toFixed(2)}
+              </text>
+              <text x="110" y="146" fill="#22d3ee" fontSize="9" fontWeight="bold" opacity="0.75" fontFamily="monospace">
+                Precio Min: ${rawMinPrice.toFixed(2)}
+              </text>
 
               {/* LÍNEA 1: Trazo continuo visible de P/E Ratio (Dorada) */}
               {peSvgPath && (
@@ -642,7 +671,7 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
                     <circle
                       cx={pt.x}
                       cy={pt.y}
-                      r={isItemHovered ? '6.5' : '4.5'}
+                      r={isItemHovered ? '7' : '4.5'}
                       fill={pt.isProjection ? '#c084fc' : '#22d3ee'}
                       stroke="#020617"
                       strokeWidth="2"
@@ -662,7 +691,7 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
                     <circle
                       cx={pt.x}
                       cy={pt.y}
-                      r={isItemHovered ? '7.5' : '5'}
+                      r={isItemHovered ? '8' : '5'}
                       fill={pt.isProjection ? '#c084fc' : '#fbbf24'}
                       stroke="#0f172a"
                       strokeWidth="2.5"
@@ -671,7 +700,7 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
                     <circle
                       cx={pt.x}
                       cy={pt.y}
-                      r={isItemHovered ? '12' : '8.5'}
+                      r={isItemHovered ? '13' : '8.5'}
                       fill="none"
                       stroke={pt.isProjection ? '#a855f7' : '#f59e0b'}
                       strokeWidth="1.5"
@@ -688,7 +717,7 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
                       const halfWidth = pillWidth / 2;
 
                       return (
-                        <g transform={`translate(${pt.x}, ${pt.y - 30})`} className="pointer-events-none">
+                        <g transform={`translate(${pt.x}, ${Math.max(25, pt.y - 30)})`} className="pointer-events-none">
                           <rect
                             x={-halfWidth}
                             y="-14"
@@ -723,9 +752,9 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
             </svg>
 
             {activeSeries.map((item, idx) => {
-              // Escalado de altura de la barra (max 48% para mantener total independencia visual)
+              // Escalado de altura de la barra (max 42% para mantener independencia visual dentro del contenedor de 288px)
               const rawHeightPercent = Math.max(10, Math.min(100, (Math.abs(item.eps) / maxEps) * 100));
-              const heightPercent = rawHeightPercent * 0.48;
+              const heightPercent = rawHeightPercent * 0.42;
               const isNegative = item.eps < 0;
               const isHovered = hoveredItem?.key === item.key;
 
@@ -737,8 +766,8 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
                   onMouseLeave={() => setHoveredItem(null)}
                   className="flex-none w-24 sm:w-28 flex flex-col items-center group relative cursor-pointer"
                 >
-                  {/* 1. Zona Superior: Badges + Valor EPS Flotante Sobresaliente + Barra Base (Altura 240px) */}
-                  <div className="w-full flex flex-col items-center justify-end h-60 border-b border-slate-800/80 pb-0 z-10">
+                  {/* 1. Zona Superior: Badges + Valor EPS Flotante Sobresaliente + Barra Base (Altura 288px h-72) */}
+                  <div className="w-full flex flex-col items-center justify-end h-72 border-b border-slate-800/80 pb-0 z-10">
                     {/* Badge % Crecimiento EPS */}
                     <div className="mb-1 flex flex-col items-center h-5 justify-end">
                       {item.growthPercent !== null ? (
