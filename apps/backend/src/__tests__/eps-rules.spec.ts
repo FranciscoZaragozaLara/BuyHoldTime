@@ -1,6 +1,8 @@
+import 'dotenv/config';
 import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
+
 
 /**
  * TEST AUTOMATIZADO DE SALVAGUARDA CONTRA REGRESIONES EN EPS DE SEC EDGAR

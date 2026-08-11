@@ -135,7 +135,9 @@ async function main() {
       'GOOGL': ['0001652044', '0001288776'],
       'GOOG': ['0001652044', '0001288776'],
       'META': ['0001326801'],
+      'XOM': ['0000034088', '0002115436'],  // ExxonMobil: CIK histórico + moderno
     };
+
 
     const targetCiks = Array.from(new Set([
       ...(primaryCik ? [primaryCik] : []),
@@ -293,11 +295,29 @@ async function main() {
 
             (fyObj as any).Q4 = q4Derived;
 
+            // Calcular NetIncome Q4 = FY_anual - suma(Q1+Q2+Q3)
+            const annualNet = netMap.get(fyEndDate) || 0;
+            const q1q2q3Net = [fyEndDate]
+              .flatMap(() => Array.from(quartersMap.values())
+                .filter(q => q.fiscalYear === String(fyNum) && ['Q1','Q2','Q3'].includes(q.period))
+                .map(q => q.netIncome || 0)
+              ).reduce((a: number, b: number) => a + b, 0);
+            const q4NetIncome = annualNet > 0 ? annualNet - q1q2q3Net : 0;
+
             quartersMap.set(fyEndDate, {
               date: fyEndDate,
+              filedDate: fyFact.filed || null,
+              accn: fyFact.accn || null,
+              form: '10-K',
+              cik: primaryCik || targetCiks[0] || '',
+              period: 'Q4',
+              fiscalYear: String(fyNum),
+              revenue: revMap.get(fyEndDate) || 0,
+              netIncome: q4NetIncome,
+              eps: q4Derived,
               epsDiluted: q4Derived,
-              sharesOutstanding: 0,
-              source: "EDGAR" as const
+              sharesOutstanding: sharesMap.get(fyEndDate) || 0,
+              source: 'EDGAR' as const,
             });
           }
         }

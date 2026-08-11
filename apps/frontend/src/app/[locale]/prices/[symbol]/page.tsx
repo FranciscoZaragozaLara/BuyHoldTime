@@ -6,6 +6,7 @@ import { Layout } from '@/components/Layout';
 import { StockChart } from '@/components/StockChart';
 import { StockHistoryTable } from '@/components/StockHistoryTable';
 import { QuarterlyDataTable } from '@/components/QuarterlyDataTable';
+import { EpsHistoryChart } from '@/components/EpsHistoryChart';
 import { FundamentalAnalysisCard } from '@/components/FundamentalAnalysisCard';
 import { FundamentalTablesTab } from '@/components/FundamentalTablesTab';
 import { StockValuationCalculator } from '@/components/StockValuationCalculator';
@@ -418,6 +419,13 @@ export default async function TickerDetailsPage({
             ticker={ticker}
             quarters={ticker.historicalEpsQuarterly} 
             historicalPrices={updatedPrices}
+          />
+
+          {/* EPS Historical Bar Chart with Period-over-Period Growth and Wall St Forecasts */}
+          <EpsHistoryChart 
+            ticker={ticker}
+            quarters={ticker.historicalEpsQuarterly}
+            snapshot={details.snapshot}
           />
 
           {/* Tabbed Fundamental Tables (BHT Scraped JSON Tables & Analyst Estimates) */}

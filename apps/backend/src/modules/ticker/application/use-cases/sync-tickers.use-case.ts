@@ -231,9 +231,9 @@ export class SyncTickersUseCase {
         const bookValue = summary?.defaultKeyStatistics?.bookValue || null;
 
         // =========================================================
-        // Build historicalEpsQuarterly: [{date, eps, source}] sorted desc
-        // The frontend will compute TTM for any date by summing the 4
-        // most recent quarters with date <= target date.
+        // historicalEpsQuarterly — PROTEGIDO: solo lo escribe sync-all-stocks-edgar.ts
+        // Este endpoint (sync) NO debe tocar ese campo si ya tiene datos EDGAR.
+        // Solo se reconstruye para fondos/ETFs que usan sector P/E en vez de EDGAR.
         // =========================================================
         type QuarterEntry = {
           date: string;
@@ -245,8 +245,15 @@ export class SyncTickersUseCase {
           epsDiluted: number;
           sharesOutstanding: number;
           peRatio?: number | null;
-          source: 'real' | 'estimated';
+          source: 'real' | 'estimated' | 'EDGAR';
         };
+
+        // Leer quarters existentes en BD
+        const existingQuarters: QuarterEntry[] = (ticker.historicalEpsQuarterly as any[]) || [];
+        const hasEdgarData = existingQuarters.some((q) => q.source === 'EDGAR');
+        if (hasEdgarData) {
+          this.logger.log(`${ticker.symbol}: conservando ${existingQuarters.length} quarters EDGAR — no se sobreescriben`);
+        }
 
         const fmpApiKey = 'aHWvhgdKuBbca6TnHQyXFDwe4w5I6ja5';
         const sym = ticker.symbol.toUpperCase();
@@ -257,10 +264,13 @@ export class SyncTickersUseCase {
           ticker.sector?.toLowerCase().includes('fund') || 
           sym === 'QQQ' || sym === 'VOO' || sym === 'SCHD';
 
-        let historicalEpsQuarterly: QuarterEntry[] = [];
-        let realQuartersCount = 0;
+        // Si ya hay EDGAR data, usar los existentes directamente (no reconstruir)
+        let historicalEpsQuarterly: QuarterEntry[] = hasEdgarData ? existingQuarters : [];
+        let realQuartersCount = hasEdgarData ? existingQuarters.length : 0;
 
-        if (isTickerFund) {
+        if (hasEdgarData) {
+          // Datos EDGAR presentes: no hacer nada, se preservan
+        } else if (isTickerFund) {
           // Keep existing historicalEpsQuarterly if it was already seeded/populated manually for QQQ, TQQQ, VOO, SPY
           const manuallySeeded = ['QQQ', 'TQQQ', 'VOO', 'SPY'];
           if (manuallySeeded.includes(sym) && ticker.historicalEpsQuarterly && (ticker.historicalEpsQuarterly as any[]).length > 0) {
@@ -377,7 +387,7 @@ export class SyncTickersUseCase {
           }
 
         } else {
-          // Standard corporate ticker income statements from FMP
+          // Standard corporate ticker — sin EDGAR data, reconstruir desde FMP + estimados
           const quarterMap: Map<string, QuarterEntry> = new Map();
           const fmpUrl = `https://financialmodelingprep.com/stable/income-statement?symbol=${symbol}&period=quarter&apikey=${fmpApiKey}`;
           
@@ -533,9 +543,11 @@ export class SyncTickersUseCase {
           bookValue,
           historicalEps,
           historicalDividends,
-          historicalEpsQuarterly: (historicalEpsQuarterly && historicalEpsQuarterly.length > 0) 
-            ? historicalEpsQuarterly 
-            : (ticker.historicalEpsQuarterly as any[] || []),
+          // PROTECCIÓN: historicalEpsQuarterly solo se actualiza si NO hay datos EDGAR.
+          // El script sync-all-stocks-edgar.ts es el único responsable de escribir ese campo.
+          ...(!hasEdgarData && historicalEpsQuarterly.length > 0
+            ? { historicalEpsQuarterly: historicalEpsQuarterly as any }
+            : {}),
         });
 
 
