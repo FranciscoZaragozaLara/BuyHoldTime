@@ -16,13 +16,58 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://buyholdtime.com';
+
 export const metadata: Metadata = {
+  metadataBase: new URL(BASE_URL),
   title: {
-    template: "%s | BuyHoldTime",
-    default: "BuyHoldTime - The Best Time to Invest in the Stock Market",
+    template: '%s | BuyHoldTime',
+    default: 'BuyHoldTime — Best Time to Invest in Stocks',
   },
-  description: "Maximize your returns by combining macroeconomic indicators, valuation metrics, and technical analysis into a single clear index.",
+  description:
+    'BuyHoldTime combines macroeconomic indicators, Shiller PE (CAPE), P/E ratios, and EPS analysis to help you find the optimal long-term stock buying window.',
+  keywords: [
+    'best time to invest', 'stock market timing', 'buy hold index', 'P/E ratio',
+    'Shiller PE CAPE', 'EPS history', 'stock valuation', 'when to buy stocks',
+    'stock market indicators', 'AAPL PE ratio', 'NVDA EPS forecast',
+  ],
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: { index: true, follow: true, 'max-image-preview': 'large' },
+  },
+  openGraph: {
+    type: 'website',
+    siteName: 'BuyHoldTime',
+    title: 'BuyHoldTime — Best Time to Invest in Stocks',
+    description:
+      'Macroeconomic indicators, historical P/E ratios, and EPS analysis in one dashboard. Find the best time to buy or hold any stock.',
+    url: BASE_URL,
+    images: [
+      {
+        url: '/og-image.png',
+        width: 1200,
+        height: 630,
+        alt: 'BuyHoldTime — Stock Market Timing Dashboard',
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    site: '@buyholdtime',
+    title: 'BuyHoldTime — Best Time to Invest in Stocks',
+    description: 'Macroeconomic indicators, P/E ratios, and EPS analysis to find your optimal investing window.',
+    images: ['/og-image.png'],
+  },
+  alternates: {
+    canonical: BASE_URL,
+    languages: {
+      'en': `${BASE_URL}/en`,
+      'es': `${BASE_URL}/es`,
+    },
+  },
 };
+
 
 type Props = {
   children: ReactNode;

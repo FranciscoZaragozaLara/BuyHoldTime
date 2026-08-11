@@ -5,11 +5,37 @@ import { PricesListClient } from '@/components/PricesListClient';
 import { getTickers, Ticker } from '@/services/api';
 import { Sparkles } from 'lucide-react';
 
-export const dynamic = 'force-dynamic';
+// ISR: revalidate prices list every 60 seconds
+export const revalidate = 60;
+
+const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://buyholdtime.com';
 
 export const metadata = {
-  title: 'Stock Prices Catalog & Valuation Metrics',
-  description: 'Explore the complete stock list with live prices, historical performance, stock splits, P/E ratios, and our proprietary algorithmic Buy/Hold Index.',
+  title: 'Stock Prices & Valuation Catalog — Buy/Hold Index Scores',
+  description:
+    'Browse 50+ stocks and ETFs with live prices, trailing P/E, forward P/E, EPS, dividend yield, and our algorithmic Buy/Hold Index score. Find which stocks are worth buying right now.',
+  keywords: [
+    'stock prices', 'P/E ratio list', 'buy hold index', 'best stocks to buy', 'EPS history',
+    'AAPL stock price', 'NVDA valuation', 'dividend yield stocks', 'stock market catalog',
+  ],
+  openGraph: {
+    title: 'Stock Prices & Valuation Catalog | BuyHoldTime',
+    description: 'Browse 50+ stocks and ETFs with live prices, P/E ratios, EPS, and Buy/Hold Index scores.',
+    url: `${BASE_URL}/en/prices`,
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary',
+    title: 'Stock Prices & Valuation Catalog | BuyHoldTime',
+    description: 'Browse 50+ stocks with P/E ratios, EPS, and Buy/Hold Index scores.',
+  },
+  alternates: {
+    canonical: `${BASE_URL}/en/prices`,
+    languages: {
+      'en': `${BASE_URL}/en/prices`,
+      'es': `${BASE_URL}/es/prices`,
+    },
+  },
 };
 
 export default async function PricesPage({

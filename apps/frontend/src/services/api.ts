@@ -91,6 +91,7 @@ export interface Subscription {
 }
 
 function getApiBaseUrl(): string {
+  // On the server (SSR/ISR), always use the internal backend URL
   if (process.env.NEXT_PUBLIC_API_URL) return process.env.NEXT_PUBLIC_API_URL;
   if (typeof window !== 'undefined' && window.location?.hostname) {
     return `http://${window.location.hostname}:4000`;
@@ -100,7 +101,8 @@ function getApiBaseUrl(): string {
 
 export async function getTickers(): Promise<Ticker[]> {
   const res = await fetch(`${getApiBaseUrl()}/tickers`, {
-    cache: 'no-store',
+    // Revalidate ticker list every 60 seconds (prices update frequently)
+    next: { revalidate: 60 },
   });
   if (!res.ok) throw new Error('Failed to fetch tickers');
   return res.json();
@@ -108,7 +110,8 @@ export async function getTickers(): Promise<Ticker[]> {
 
 export async function getTickerDetails(symbol: string, limit = 500): Promise<TickerDetails> {
   const res = await fetch(`${getApiBaseUrl()}/tickers/${symbol}?limit=${limit}`, {
-    cache: 'no-store',
+    // Revalidate symbol detail pages every 2 minutes
+    next: { revalidate: 120 },
   });
   if (!res.ok) throw new Error(`Failed to fetch ticker details for ${symbol}`);
   return res.json();
@@ -116,7 +119,8 @@ export async function getTickerDetails(symbol: string, limit = 500): Promise<Tic
 
 export async function getIndicators(): Promise<Indicator[]> {
   const res = await fetch(`${getApiBaseUrl()}/indicators`, {
-    cache: 'no-store',
+    // Macro indicators change slowly — revalidate every hour
+    next: { revalidate: 3600 },
   });
   if (!res.ok) throw new Error('Failed to fetch indicators');
   return res.json();
@@ -124,7 +128,8 @@ export async function getIndicators(): Promise<Indicator[]> {
 
 export async function getIndicatorDetails(key: string, limit = 150): Promise<IndicatorDetails> {
   const res = await fetch(`${getApiBaseUrl()}/indicators/${key}?limit=${limit}`, {
-    cache: 'no-store',
+    // Indicator history: revalidate every hour
+    next: { revalidate: 3600 },
   });
   if (!res.ok) throw new Error(`Failed to fetch indicator details for ${key}`);
   return res.json();

@@ -10,31 +10,95 @@ import { EpsHistoryChart } from '@/components/EpsHistoryChart';
 import { FundamentalAnalysisCard } from '@/components/FundamentalAnalysisCard';
 import { FundamentalTablesTab } from '@/components/FundamentalTablesTab';
 import { StockValuationCalculator } from '@/components/StockValuationCalculator';
+import { StockSeoSummary } from '@/components/StockSeoSummary';
+import { JsonLd } from '@/components/JsonLd';
 import { 
   ArrowLeft, Star, TrendingUp, DollarSign, Calendar, BarChart3, 
   Activity, ShieldAlert, BadgeInfo, Scale 
 } from 'lucide-react';
 
-export const dynamic = 'force-dynamic';
+// ISR: revalidate symbol pages every 2 minutes
+export const revalidate = 120;
+
+const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://buyholdtime.com';
 
 interface Params {
   symbol: string;
   locale: string;
 }
 
-// Generate dynamic metadata for SEO crawling
+// Pre-generate all symbol routes at build time (SSG + ISR hybrid)
+export async function generateStaticParams() {
+  try {
+    const tickers = await getTickers();
+    return tickers.flatMap((t) => [
+      { locale: 'en', symbol: t.symbol },
+      { locale: 'es', symbol: t.symbol },
+    ]);
+  } catch {
+    // Fallback to known major symbols if backend is unavailable at build time
+    const fallback = ['AAPL', 'MSFT', 'NVDA', 'AMZN', 'GOOGL', 'META', 'TSLA', 'SPY', 'QQQ'];
+    return fallback.flatMap((symbol) => [
+      { locale: 'en', symbol },
+      { locale: 'es', symbol },
+    ]);
+  }
+}
+
+// Generate rich dynamic metadata for SEO crawling
 export async function generateMetadata({ params }: { params: Promise<Params> }) {
-  const { symbol } = await params;
+  const { symbol, locale } = await params;
   try {
     const details = await getTickerDetails(symbol, 1);
+    const { ticker } = details;
+    const rec = ticker.recommendation || 'Hold';
+    const score = ticker.buyHoldIndex ?? 0;
+    const pe = ticker.pe ?? ticker.trailingPe ?? null;
+    const eps = ticker.eps ?? null;
+    const isEs = locale === 'es';
+
+    const title = isEs
+      ? `${ticker.symbol} — Análisis, P/E, EPS e Índice Buy/Hold | BuyHoldTime`
+      : `${ticker.symbol} (${ticker.name}) — P/E Ratio, EPS History & Buy/Hold Score`;
+
+    const description = isEs
+      ? `${ticker.symbol} cotiza a $${ticker.price.toFixed(2)}. P/E: ${pe ?? 'N/A'}x | EPS TTM: $${eps?.toFixed(2) ?? 'N/A'} | Score Buy/Hold: ${score}/100 (${rec}). Analiza su historia de ganancias y proyecciones de valor.`
+      : `${ticker.symbol} trades at $${ticker.price.toFixed(2)}. Trailing P/E: ${pe ?? 'N/A'}x | EPS TTM: $${eps?.toFixed(2) ?? 'N/A'} | Buy/Hold Score: ${score}/100 (${rec}). Explore EPS history, valuation models, and analyst estimates.`;
+
     return {
-      title: `${details.ticker.symbol} (${details.ticker.name}) Stock Price, Charts & Buy/Hold Index`,
-      description: `Check out ${details.ticker.symbol} analysis. BuyHold Index Score: ${details.ticker.buyHoldIndex}/100 (${details.ticker.recommendation}). Trailing P/E: ${details.ticker.pe}x, Dividend Yield: ${details.ticker.dy}%. Track splits and historical performance since 1997.`,
+      title,
+      description,
+      keywords: [
+        `${ticker.symbol} stock`, `${ticker.symbol} PE ratio`, `${ticker.symbol} EPS`,
+        `${ticker.symbol} buy or sell`, `${ticker.symbol} valuation`, `${ticker.symbol} price target`,
+        `${ticker.name} stock analysis`, 'buy hold index', 'stock valuation tool',
+      ],
+      openGraph: {
+        type: 'article',
+        title,
+        description,
+        url: `${BASE_URL}/${locale}/prices/${ticker.symbol}`,
+        siteName: 'BuyHoldTime',
+        images: [{ url: '/og-image.png', width: 1200, height: 630 }],
+      },
+      twitter: {
+        card: 'summary_large_image',
+        title,
+        description,
+        images: ['/og-image.png'],
+      },
+      alternates: {
+        canonical: `${BASE_URL}/en/prices/${ticker.symbol}`,
+        languages: {
+          'en': `${BASE_URL}/en/prices/${ticker.symbol}`,
+          'es': `${BASE_URL}/es/prices/${ticker.symbol}`,
+        },
+      },
     };
-  } catch (err) {
+  } catch {
     return {
-      title: `${symbol.toUpperCase()} Price Chart & Analysis | BuyHoldTime`,
-      description: `Analyze ${symbol.toUpperCase()} prices, historical candles, and algorithmic buy/hold indexing ratings.`,
+      title: `${symbol.toUpperCase()} Stock Analysis | BuyHoldTime`,
+      description: `Analyze ${symbol.toUpperCase()} prices, EPS history, P/E ratios, and algorithmic buy/hold ratings.`,
     };
   }
 }
@@ -306,6 +370,64 @@ export default async function TickerDetailsPage({
             </div>
           </div>
         </div>
+        {/* ── JSON-LD Structured Data (invisible to users, indexed by Google & LLMs) ── */}
+        <JsonLd
+          data={[
+            {
+              '@context': 'https://schema.org',
+              '@type': 'Dataset',
+              name: `${ticker.symbol} (${ticker.name}) — EPS History, P/E Ratio & Buy/Hold Index`,
+              description: `Historical EPS data, trailing and forward P/E ratios, dividend yield, and BuyHoldTime algorithmic Buy/Hold Index score for ${ticker.symbol} (${ticker.name}).`,
+              url: `${BASE_URL}/${locale}/prices/${ticker.symbol}`,
+              creator: { '@type': 'Organization', name: 'BuyHoldTime', url: BASE_URL },
+              variableMeasured: [
+                { '@type': 'PropertyValue', name: 'EPS TTM', value: ticker.eps ?? 'N/A', unitText: 'USD' },
+                { '@type': 'PropertyValue', name: 'Trailing P/E', value: ticker.pe ?? 'N/A' },
+                { '@type': 'PropertyValue', name: 'Forward P/E', value: ticker.forwardPe ?? 'N/A' },
+                { '@type': 'PropertyValue', name: 'Buy/Hold Index', value: ticker.buyHoldIndex, maxValue: 100 },
+              ],
+            },
+            {
+              '@context': 'https://schema.org',
+              '@type': 'FAQPage',
+              mainEntity: [
+                {
+                  '@type': 'Question',
+                  name: locale === 'es' ? `¿Es buen momento para comprar ${ticker.symbol}?` : `Is ${ticker.symbol} a good stock to buy right now?`,
+                  acceptedAnswer: {
+                    '@type': 'Answer',
+                    text: locale === 'es'
+                      ? `El Índice Buy/Hold de BuyHoldTime asigna a ${ticker.symbol} un score de ${ticker.buyHoldIndex}/100 con recomendación "${ticker.recommendation}".`
+                      : `BuyHoldTime's Buy/Hold Index scores ${ticker.symbol} at ${ticker.buyHoldIndex}/100 with a "${ticker.recommendation}" recommendation.`,
+                  },
+                },
+                {
+                  '@type': 'Question',
+                  name: locale === 'es' ? `¿Cuál es el P/E ratio de ${ticker.symbol}?` : `What is ${ticker.symbol}'s P/E ratio?`,
+                  acceptedAnswer: {
+                    '@type': 'Answer',
+                    text: locale === 'es'
+                      ? `${ticker.symbol} tiene un P/E ratio trailing de ${ticker.pe ?? ticker.trailingPe ?? 'N/A'}x${ticker.forwardPe ? ` y un P/E forward de ${ticker.forwardPe.toFixed(1)}x` : ''}.`
+                      : `${ticker.symbol} has a trailing P/E of ${ticker.pe ?? ticker.trailingPe ?? 'N/A'}x${ticker.forwardPe ? ` and a forward P/E of ${ticker.forwardPe.toFixed(1)}x` : ''}.`,
+                  },
+                },
+                {
+                  '@type': 'Question',
+                  name: locale === 'es' ? `¿Cuánto gana por acción ${ticker.symbol}?` : `What is ${ticker.symbol}'s EPS?`,
+                  acceptedAnswer: {
+                    '@type': 'Answer',
+                    text: locale === 'es'
+                      ? `${ticker.symbol} reporta un EPS TTM de ${ticker.eps ? `$${ticker.eps.toFixed(2)}` : 'N/A'}.`
+                      : `${ticker.symbol} reports a trailing twelve-month EPS of ${ticker.eps ? `$${ticker.eps.toFixed(2)}` : 'N/A'}.`,
+                  },
+                },
+              ],
+            },
+          ]}
+        />
+
+        {/* ── SEO Semantic Summary (server-rendered, crawlable by Google & LLMs) ── */}
+        <StockSeoSummary ticker={ticker} locale={locale} />
 
         {/* Core Layout Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">

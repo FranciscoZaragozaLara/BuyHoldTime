@@ -5,9 +5,13 @@ import { ArrowRight, Star, Sparkles } from 'lucide-react';
 import { Layout } from '@/components/Layout';
 import { SubscribeForm } from '@/components/SubscribeForm';
 import { IndexSparklineCard } from '@/components/IndexSparklineCard';
+import { JsonLd } from '@/components/JsonLd';
 import { getTickers, getIndicators, Ticker, Indicator } from '@/services/api';
 
-export const dynamic = 'force-dynamic';
+// ISR: revalidate home page every 60 seconds
+export const revalidate = 60;
+
+const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://buyholdtime.com';
 
 // Sparkline trends for the home page cards
 const spySpark = [{ value: 480 }, { value: 485 }, { value: 490 }, { value: 488 }, { value: 495 }, { value: 505 }, { value: 512 }];
@@ -72,6 +76,28 @@ export default async function HomePage({
 
   return (
     <Layout>
+      {/* WebApplication JSON-LD schema for Google Rich Results & LLM indexing */}
+      <JsonLd
+        data={{
+          '@context': 'https://schema.org',
+          '@type': 'WebApplication',
+          name: 'BuyHoldTime',
+          url: BASE_URL,
+          applicationCategory: 'FinanceApplication',
+          operatingSystem: 'Web',
+          description:
+            'BuyHoldTime is a stock market timing tool that combines macroeconomic indicators, Shiller PE (CAPE), P/E ratios, EPS history, and algorithmic scoring to help investors find the best time to buy or hold stocks.',
+          offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
+          featureList: [
+            'Stock Buy/Hold Index Score',
+            'Historical EPS & P/E ratio charts',
+            'Shiller PE (CAPE) and S&P 500 macro indicators',
+            'FINRA Margin Debt risk model',
+            'Multi-scenario stock valuation calculator',
+          ],
+          creator: { '@type': 'Organization', name: 'BuyHoldTime', url: BASE_URL },
+        }}
+      />
       <div className="flex flex-col gap-16 py-12 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         
         {/* Hero Section */}

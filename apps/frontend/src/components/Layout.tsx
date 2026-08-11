@@ -203,18 +203,86 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-slate-900 bg-slate-950/40 py-12 text-slate-500 text-xs">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row justify-between items-center gap-6">
-          <div className="text-center md:text-left">
-            <p className="font-bold text-slate-300 text-sm mb-1">BuyHoldTime.com</p>
-            <p className="text-slate-500">Combining indicators and stock metrics to pinpoint investing windows.</p>
+      <footer className="border-t border-slate-900 bg-slate-950/40 py-14 text-slate-500 text-xs" aria-label="Site footer">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 flex flex-col gap-10">
+          
+          {/* Footer Top Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+            
+            {/* Brand Column */}
+            <div className="flex flex-col gap-3">
+              <p className="font-black text-slate-200 text-base tracking-tight">
+                BuyHold<span className="text-teal-500">Time</span>.com
+              </p>
+              <p className="text-slate-500 leading-relaxed text-[11px]">
+                A stock market timing platform combining macroeconomic indicators,
+                Shiller PE (CAPE), P/E ratios, EPS history, and algorithmic scoring
+                to help long-term investors identify optimal buying windows.
+              </p>
+            </div>
+
+            {/* Tools Column */}
+            <nav aria-label="Tools navigation">
+              <p className="font-bold text-slate-400 uppercase tracking-widest text-[10px] mb-3">Tools</p>
+              <ul className="flex flex-col gap-2">
+                {[
+                  { label: 'Stock Prices & Buy/Hold Index', path: `/${locale}/prices` },
+                  { label: 'Shiller PE (CAPE) Indicator', path: `/${locale}/indicators` },
+                  { label: 'Market Value Indicators', path: `/${locale}/indicators` },
+                  { label: 'FINRA Margin Debt Model', path: `/${locale}/indicators` },
+                ].map(({ label, path }) => (
+                  <li key={label}>
+                    <Link href={path} className="hover:text-teal-400 transition text-[11px]">
+                      {label}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </nav>
+
+            {/* Popular Stocks Column */}
+            <nav aria-label="Popular stocks">
+              <p className="font-bold text-slate-400 uppercase tracking-widest text-[10px] mb-3">Popular Analysis</p>
+              <ul className="flex flex-col gap-2">
+                {['AAPL', 'MSFT', 'NVDA', 'AMZN', 'GOOGL', 'META', 'TSLA'].map((sym) => (
+                  <li key={sym}>
+                    <Link href={`/${locale}/prices/${sym}`} className="hover:text-teal-400 transition text-[11px]">
+                      {sym} Stock Analysis & P/E Ratio
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </nav>
+
+            {/* ETFs & Indexes Column */}
+            <nav aria-label="ETF and index analysis">
+              <p className="font-bold text-slate-400 uppercase tracking-widest text-[10px] mb-3">ETFs & Indexes</p>
+              <ul className="flex flex-col gap-2">
+                {['SPY', 'QQQ'].map((sym) => (
+                  <li key={sym}>
+                    <Link href={`/${locale}/prices/${sym}`} className="hover:text-teal-400 transition text-[11px]">
+                      {sym} ETF Price & Buy/Hold Score
+                    </Link>
+                  </li>
+                ))}
+                <li className="mt-2 pt-2 border-t border-slate-900">
+                  <p className="text-[10px] text-slate-600 leading-relaxed">
+                    Data sourced from SEC EDGAR, Yahoo Finance, and Shiller Online Data.
+                  </p>
+                </li>
+              </ul>
+            </nav>
           </div>
-          <div className="text-center md:text-right">
-            <p>© {new Date().getFullYear()} BuyHoldTime.com. All rights reserved. Demo Version.</p>
-            <p className="mt-1 text-slate-600">Built using Next.js & NestJS Clean Architecture.</p>
+
+          {/* Footer Bottom */}
+          <div className="border-t border-slate-900 pt-6 flex flex-col sm:flex-row justify-between items-center gap-3 text-[11px]">
+            <p>© {new Date().getFullYear()} BuyHoldTime.com. All rights reserved. For informational purposes only — not financial advice.</p>
+            <p className="text-slate-700">Built with Next.js · NestJS · SEC EDGAR · Yahoo Finance</p>
           </div>
+
         </div>
       </footer>
+
     </div>
   );
 };

@@ -757,7 +757,7 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
               return (
                 <div
                   key={item.key}
-                  ref={(el) => (columnRefs.current[idx] = el)}
+                  ref={(el) => { columnRefs.current[idx] = el; }}
                   onMouseEnter={() => setHoveredItem(item)}
                   onMouseLeave={() => setHoveredItem(null)}
                   className="flex-none w-24 sm:w-28 flex flex-col items-center group relative cursor-pointer"

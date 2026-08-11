@@ -1,0 +1,16 @@
+# BuyHoldTime — robots.txt
+# https://buyholdtime.com
+
+User-agent: *
+Allow: /
+
+# Block admin and internal routes
+Disallow: /en/admin
+Disallow: /es/admin
+Disallow: /api/
+
+# Block Next.js internals
+Disallow: /_next/
+
+# Sitemap
+Sitemap: https://buyholdtime.com/sitemap.xml
