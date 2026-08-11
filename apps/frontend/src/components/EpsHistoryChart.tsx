@@ -395,7 +395,7 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
     return maxVal > 0 ? maxVal * 1.25 : 1;
   }, [activeSeries]);
 
-  // Rango de P/E Ratio (min y max) para escalar la línea Y con precisión
+  // Rango de P/E Ratio (min y max) para escalar la línea Y en la zona superior de la gráfica
   const { minPe, maxPe } = useMemo(() => {
     const validPes = activeSeries.map((d) => d.peRatio).filter((v): v is number => v !== null && v > 0);
     if (validPes.length === 0) return { minPe: 10, maxPe: 50 };
@@ -408,7 +408,7 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
     };
   }, [activeSeries]);
 
-  // Generar puntos exactos (X, Y) mapeando la posición DOM y el valor de P/E Ratio
+  // Generar puntos exactos (X, Y) mapeando la posición DOM en los 60px superiores de la franja SVG
   const peLinePoints = useMemo(() => {
     const chartHeight = 240; // h-60 = 240px
     const peRange = Math.max(1, maxPe - minPe);
@@ -416,9 +416,9 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
     return activeSeries.map((item, idx) => {
       const x = columnCenterX[idx] ?? (idx * 116 + 58);
       const pe = item.peRatio ?? 0;
-      // Escalar Y dejando margen holgado arriba (25px) y abajo (25px)
+      // Escalar Y estrictamente en la franja superior de 15px a 70px (separada de las barras y textos)
       const normalizedPe = Math.max(0, Math.min(1, (pe - minPe) / peRange));
-      const y = chartHeight - normalizedPe * (chartHeight - 50) - 25;
+      const y = 70 - normalizedPe * 55;
 
       return {
         x,
@@ -517,7 +517,7 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
         >
           <div className="relative flex items-start gap-3 w-max min-w-full">
             
-            {/* SVG OVERLAY: Línea de P/E Ratio limpia con nodos brillantes sin empalmes */}
+            {/* SVG OVERLAY: Línea de P/E Ratio trazada en la franja superior exclusiva */}
             <svg
               className="absolute left-0 top-0 h-60 pointer-events-none z-20 overflow-visible"
               style={{ width: `${Math.max(svgTotalWidth, activeSeries.length * 116)}px` }}
@@ -547,22 +547,22 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
                 />
               )}
 
-              {/* Nodos limpios e iluminados sobre cada columna (sin empalmes de texto) */}
+              {/* Nodos limpios e iluminados sobre la franja superior */}
               {peLinePoints.map((pt) => (
                 <g key={`pt-${pt.key}`}>
                   <circle
                     cx={pt.x}
                     cy={pt.y}
-                    r="5.5"
+                    r="5"
                     fill={pt.isProjection ? '#c084fc' : '#fbbf24'}
                     stroke="#0f172a"
-                    strokeWidth="2.5"
+                    strokeWidth="2"
                     className="shadow-lg"
                   />
                   <circle
                     cx={pt.x}
                     cy={pt.y}
-                    r="9"
+                    r="8.5"
                     fill="none"
                     stroke={pt.isProjection ? '#a855f7' : '#f59e0b'}
                     strokeWidth="1"
@@ -573,9 +573,9 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
             </svg>
 
             {activeSeries.map((item, idx) => {
-              // Altura máxima de la barra limitada al 60% para dejar libre el 40% superior a la línea de P/E y badges
-              const rawHeightPercent = Math.max(12, Math.min(100, (Math.abs(item.eps) / maxEps) * 100));
-              const heightPercent = rawHeightPercent * 0.6;
+              // Escalado de altura de la barra (max 48% para mantener total independencia visual)
+              const rawHeightPercent = Math.max(10, Math.min(100, (Math.abs(item.eps) / maxEps) * 100));
+              const heightPercent = rawHeightPercent * 0.48;
               const isNegative = item.eps < 0;
               const isHovered = hoveredItem?.key === item.key;
 
@@ -587,10 +587,10 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
                   onMouseLeave={() => setHoveredItem(null)}
                   className="flex-none w-24 sm:w-28 flex flex-col items-center group relative cursor-pointer"
                 >
-                  {/* 1. Zona Superior: Badges + Barra + Valor EPS Integrado DENTRO de la Barra */}
+                  {/* 1. Zona Superior: Badges + Valor EPS Flotante Sobresaliente + Barra Base (Altura 240px) */}
                   <div className="w-full flex flex-col items-center justify-end h-60 border-b border-slate-800/80 pb-0 z-10">
                     {/* Badge % Crecimiento EPS */}
-                    <div className="mb-2 flex flex-col items-center h-5 justify-end">
+                    <div className="mb-1 flex flex-col items-center h-5 justify-end">
                       {item.growthPercent !== null ? (
                         <div
                           className={`inline-flex items-center gap-0.5 text-[9px] font-black px-1.5 py-0.5 rounded-full border shadow-md transition-all ${
@@ -608,10 +608,19 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
                       )}
                     </div>
 
-                    {/* Barra de EPS con el valor nominal $X.XX ubicado de forma segura e impecable DENTRO de la barra */}
+                    {/* Valor nominal del EPS $X.XX flotante e íntegro justo encima de la barra (100% visible, sin recortes) */}
+                    <span
+                      className={`text-[11px] font-mono font-black mb-1 transition-colors ${
+                        item.isProjection ? 'text-purple-300 group-hover:text-purple-200' : 'text-slate-200 group-hover:text-white'
+                      }`}
+                    >
+                      ${item.eps.toFixed(2)}
+                    </span>
+
+                    {/* Barra de EPS perfectamente visible */}
                     <div
                       style={{ height: `${heightPercent}%` }}
-                      className={`w-full max-w-[48px] rounded-t-lg transition-all duration-300 relative overflow-hidden flex flex-col items-center pt-1 ${
+                      className={`w-full max-w-[46px] min-h-[14px] rounded-t-lg transition-all duration-300 relative ${
                         item.isProjection
                           ? 'bg-gradient-to-t from-purple-900/80 via-purple-600/70 to-purple-400 border-2 border-dashed border-purple-300 shadow-lg shadow-purple-500/20 group-hover:from-purple-800 group-hover:to-purple-300'
                           : isNegative
@@ -620,13 +629,8 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
                       } ${isHovered ? 'scale-105 ring-2 ring-teal-400' : ''}`}
                     >
                       {item.isProjection && (
-                        <div className="absolute inset-0 bg-[linear-gradient(45deg,rgba(255,255,255,0.08)_25%,transparent_25%,transparent_50%,rgba(255,255,255,0.08)_50%,rgba(255,255,255,0.08)_75%,transparent_75%,transparent)] bg-[length:8px_8px] pointer-events-none" />
+                        <div className="absolute inset-0 bg-[linear-gradient(45deg,rgba(255,255,255,0.08)_25%,transparent_25%,transparent_50%,rgba(255,255,255,0.08)_50%,rgba(255,255,255,0.08)_75%,transparent_75%,transparent)] bg-[length:8px_8px] pointer-events-none rounded-t-lg" />
                       )}
-
-                      {/* Texto del Valor Nominal $X.XX dentro de la barra para garantízar CERO empalmes */}
-                      <span className="text-[11px] font-mono font-black text-slate-950 drop-shadow-[0_1px_2px_rgba(255,255,255,0.8)] z-10 tracking-tight">
-                        ${item.eps.toFixed(2)}
-                      </span>
                     </div>
                   </div>
 
