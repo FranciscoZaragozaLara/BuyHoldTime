@@ -421,13 +421,6 @@ export default async function TickerDetailsPage({
             historicalPrices={updatedPrices}
           />
 
-          {/* EPS Historical Bar Chart with Period-over-Period Growth and Wall St Forecasts */}
-          <EpsHistoryChart 
-            ticker={ticker}
-            quarters={ticker.historicalEpsQuarterly}
-            snapshot={details.snapshot}
-          />
-
           {/* Tabbed Fundamental Tables (BHT Scraped JSON Tables & Analyst Estimates) */}
           {details.snapshot && (
             <FundamentalTablesTab 
@@ -438,6 +431,13 @@ export default async function TickerDetailsPage({
           {/* 3-Way Valuation Multi-Scenario Calculator */}
           <StockValuationCalculator 
             ticker={ticker}
+            snapshot={details.snapshot}
+          />
+
+          {/* EPS Historical Bar Chart with Period-over-Period Growth and Wall St Forecasts */}
+          <EpsHistoryChart 
+            ticker={ticker}
+            quarters={ticker.historicalEpsQuarterly}
             snapshot={details.snapshot}
           />
 
