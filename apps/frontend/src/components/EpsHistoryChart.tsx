@@ -60,6 +60,8 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
   const locale = useLocale();
   const [viewMode, setViewMode] = useState<'annual' | 'quarterly'>('annual');
   const [hoveredItem, setHoveredItem] = useState<ChartItem | null>(null);
+  const [peTooltipPoint, setPeTooltipPoint] = useState<{ x: number; y: number; pe: number; label: string } | null>(null);
+
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const columnRefs = useRef<(HTMLDivElement | null)[]>([]);
   const [columnCenterX, setColumnCenterX] = useState<number[]>([]);
@@ -102,6 +104,19 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
   const terminalPe = ticker?.sectorTerminalPe && ticker.sectorTerminalPe > 0 ? ticker.sectorTerminalPe : 22.0;
   const currentYearNum = new Date().getFullYear();
 
+  // Calcular el último EPS histórico TTM conocido de la empresa para la fórmula de Escenario Mix
+  const lastHistoricalEps = useMemo(() => {
+    const validQuarters = (quarters || []).filter((q) => q && q.fiscalYear && !isNaN(Number(q.fiscalYear)));
+    if (validQuarters.length === 0) return ticker?.eps || 1;
+    const fyMap = new Map<number, number>();
+    validQuarters.forEach((q) => {
+      const fy = parseInt(q.fiscalYear, 10);
+      fyMap.set(fy, (fyMap.get(fy) || 0) + (q.epsDiluted ?? q.eps ?? 0));
+    });
+    const sorted = Array.from(fyMap.entries()).sort((a, b) => a[0] - b[0]);
+    return sorted.length > 0 ? sorted[sorted.length - 1][1] : ticker?.eps || 1;
+  }, [quarters, ticker]);
+
   // 2. Extraer estimaciones anuales futuras de analistas desde el snapshot
   const analystEstimates = useMemo(() => {
     const estimatesObj = snapshot?.analystEstimates;
@@ -138,11 +153,16 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
 
   const totalHorizonYears = Math.max(4, analystEstimates.length);
 
-  const calculateMixScenarioPrice = (fy: number, epsVal: number) => {
+  // Cálculo exacto del Precio del Escenario Mix idéntico a la Calculadora Multiescenario
+  const calculateMixScenarioPrice = (fy: number, estFwdEps: number) => {
     const yearsDiff = Math.max(1, fy - currentYearNum);
     const decayRatio = Math.min(1, yearsDiff / totalHorizonYears);
     const peFutureMix = peMix - (peMix - terminalPe) * decayRatio;
-    const projectedPriceMix = parseFloat((epsVal * peFutureMix).toFixed(2));
+    
+    // Escenario Mix: promedia el EPS TTM histórico conocido y el EPS Forward estimado de analistas
+    const epsMix = (lastHistoricalEps + estFwdEps) / 2;
+    const projectedPriceMix = parseFloat((epsMix * peFutureMix).toFixed(2));
+    
     return { projectedPriceMix, peFutureMix: parseFloat(peFutureMix.toFixed(1)) };
   };
 
@@ -228,7 +248,7 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
     });
 
     return combined;
-  }, [quarters, analystEstimates, locale, historicalPrices, peMix, terminalPe, currentYearNum, totalHorizonYears]);
+  }, [quarters, analystEstimates, locale, historicalPrices, peMix, terminalPe, currentYearNum, totalHorizonYears, lastHistoricalEps]);
 
   // 4. Procesar datos Trimestrales
   const quarterlyData = useMemo<ChartItem[]>(() => {
@@ -341,7 +361,7 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
     });
 
     return combined;
-  }, [quarters, analystEstimates, locale, historicalPrices, peMix, terminalPe, currentYearNum, totalHorizonYears]);
+  }, [quarters, analystEstimates, locale, historicalPrices, peMix, terminalPe, currentYearNum, totalHorizonYears, lastHistoricalEps]);
 
   const activeSeries = viewMode === 'annual' ? annualData : quarterlyData;
 
@@ -410,7 +430,6 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
 
   // Generar puntos exactos (X, Y) mapeando la posición DOM en los 60px superiores de la franja SVG
   const peLinePoints = useMemo(() => {
-    const chartHeight = 240; // h-60 = 240px
     const peRange = Math.max(1, maxPe - minPe);
 
     return activeSeries.map((item, idx) => {
@@ -424,6 +443,7 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
         x,
         y: parseFloat(y.toFixed(1)),
         pe,
+        label: item.label,
         isProjection: item.isProjection,
         key: item.key,
       };
@@ -517,9 +537,9 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
         >
           <div className="relative flex items-start gap-3 w-max min-w-full">
             
-            {/* SVG OVERLAY: Línea de P/E Ratio trazada en la franja superior exclusiva */}
+            {/* SVG OVERLAY: Línea de P/E Ratio limpia con eventos HOVER e interactivos */}
             <svg
-              className="absolute left-0 top-0 h-60 pointer-events-none z-20 overflow-visible"
+              className="absolute left-0 top-0 h-60 pointer-events-none z-30 overflow-visible"
               style={{ width: `${Math.max(svgTotalWidth, activeSeries.length * 116)}px` }}
             >
               <defs>
@@ -533,7 +553,19 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
                 </linearGradient>
               </defs>
 
-              {/* Trazo continuo de la línea P/E Ratio */}
+              {/* Trazo invisible más grueso para facilitar el HOVER sobre la línea naranja */}
+              {peSvgPath && (
+                <path
+                  d={peSvgPath}
+                  fill="none"
+                  stroke="transparent"
+                  strokeWidth="24"
+                  strokeLinecap="round"
+                  className="pointer-events-stroke cursor-pointer"
+                />
+              )}
+
+              {/* Trazo continuo visible de la línea P/E Ratio */}
               {peSvgPath && (
                 <path
                   d={peSvgPath}
@@ -543,33 +575,67 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
                   strokeLinecap="round"
                   strokeLinejoin="round"
                   filter="url(#glow-pe)"
-                  className="transition-all duration-300 opacity-95"
+                  className="transition-all duration-300 opacity-95 pointer-events-none"
                 />
               )}
 
-              {/* Nodos limpios e iluminados sobre la franja superior */}
+              {/* Nodos limpios e iluminados sobre la franja superior con captura de HOVER */}
               {peLinePoints.map((pt) => (
-                <g key={`pt-${pt.key}`}>
+                <g
+                  key={`pt-${pt.key}`}
+                  className="pointer-events-auto cursor-pointer group/node"
+                  onMouseEnter={() => setPeTooltipPoint({ x: pt.x, y: pt.y, pe: pt.pe, label: pt.label })}
+                  onMouseLeave={() => setPeTooltipPoint(null)}
+                >
                   <circle
                     cx={pt.x}
                     cy={pt.y}
-                    r="5"
+                    r="6"
                     fill={pt.isProjection ? '#c084fc' : '#fbbf24'}
                     stroke="#0f172a"
                     strokeWidth="2"
-                    className="shadow-lg"
+                    className="shadow-lg transition-transform duration-200 group-hover/node:scale-150"
                   />
                   <circle
                     cx={pt.x}
                     cy={pt.y}
-                    r="8.5"
+                    r="10"
                     fill="none"
                     stroke={pt.isProjection ? '#a855f7' : '#f59e0b'}
-                    strokeWidth="1"
-                    strokeOpacity="0.6"
+                    strokeWidth="1.5"
+                    strokeOpacity="0.7"
+                    className="transition-transform duration-200 group-hover/node:scale-125"
                   />
                 </g>
               ))}
+
+              {/* Tooltip SVG contextual flotante al pasar el mouse por la línea o nodo P/E */}
+              {peTooltipPoint && (
+                <g transform={`translate(${peTooltipPoint.x}, ${peTooltipPoint.y - 32})`} className="pointer-events-none animate-fadeIn">
+                  <rect
+                    x="-45"
+                    y="-13"
+                    width="90"
+                    height="22"
+                    rx="6"
+                    fill="#020617"
+                    stroke="#f59e0b"
+                    strokeWidth="1.5"
+                    className="shadow-2xl shadow-amber-500/30"
+                  />
+                  <text
+                    x="0"
+                    y="2"
+                    textAnchor="middle"
+                    fill="#fef08a"
+                    fontSize="10"
+                    fontWeight="900"
+                    fontFamily="monospace"
+                  >
+                    P/E: {peTooltipPoint.pe.toFixed(1)}x ({peTooltipPoint.label})
+                  </text>
+                </g>
+              )}
             </svg>
 
             {activeSeries.map((item, idx) => {
@@ -634,7 +700,7 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
                     </div>
                   </div>
 
-                  {/* 2. Zona Inferior: Eje X (Etiqueta Período + Precio Acción + PE Ratio) */}
+                  {/* 2. Zona Inferior: Eje X (Etiqueta Período + Precio Acción Escenario Mix + PE Ratio) */}
                   <div className="mt-2.5 flex flex-col items-center text-center w-full min-h-[110px]">
                     <span
                       className={`text-[11px] font-bold tracking-tight transition-colors ${
@@ -644,7 +710,7 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
                       {item.label}
                     </span>
 
-                    {/* Precio de la Acción */}
+                    {/* Precio de la Acción (Histórico en reales, Escenario Mix en Proyectados) */}
                     {item.stockPrice !== null && (
                       <div
                         className={`mt-1 flex flex-col items-center p-1 rounded-lg border text-[10px] font-mono transition-all w-full max-w-[85px] ${
@@ -734,7 +800,7 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
             <div className="border-r border-slate-800 pr-6">
               <span className="text-[10px] text-purple-300 font-extrabold uppercase tracking-wider block">
                 {hoveredItem.isProjection
-                  ? (locale === 'es' ? 'Precio Proyectado (Mix)' : 'Projected Price (Mix)')
+                  ? (locale === 'es' ? 'Precio Proyectado (Escenario Mix)' : 'Projected Price (Mix Scenario)')
                   : (locale === 'es' ? 'Precio de la Acción' : 'Stock Price')}
               </span>
               <span className="text-base font-black text-teal-300">
@@ -781,7 +847,7 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
             </div>
             <div className="flex items-center gap-1.5 text-amber-300 font-mono font-bold">
               <span className="h-0.5 w-4 bg-amber-400 inline-block shadow-[0_0_8px_#f59e0b]" />
-              <span>{locale === 'es' ? 'Línea de Tendencia P/E Ratio' : 'P/E Ratio Line Trajectory'}</span>
+              <span>{locale === 'es' ? 'Línea de Tendencia P/E Ratio (Pasa el mouse sobre la línea para ver P/E)' : 'P/E Ratio Line Trajectory (Hover line for P/E)'}</span>
             </div>
           </div>
 
@@ -790,8 +856,8 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
               <Info size={13} />
               <span>
                 {locale === 'es'
-                  ? 'La línea dorada conecta la trayectoria del P/E Ratio atravesando las barras de EPS'
-                  : 'Golden line tracks P/E Ratio trajectory across EPS bars'}
+                  ? 'Pasa el cursor sobre la línea naranja o los nodos para ver el P/E Ratio flotante'
+                  : 'Hover over the orange line or nodes to view floating P/E Ratio'}
               </span>
             </div>
           )}
