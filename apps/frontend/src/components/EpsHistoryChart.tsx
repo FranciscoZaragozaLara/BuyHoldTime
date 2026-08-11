@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { BarChart3, TrendingUp, Sparkles, CheckCircle2, Calendar, HelpCircle, Layers, ArrowUpRight, ArrowDownRight, Info, ChevronLeft, ChevronRight, DollarSign, Calculator, Activity } from 'lucide-react';
+import { BarChart3, TrendingUp, Sparkles, CheckCircle2, Calendar, HelpCircle, Layers, ArrowUpRight, ArrowDownRight, Info, ChevronLeft, ChevronRight, DollarSign, Calculator, Activity, DollarSign as StockIcon } from 'lucide-react';
 import { useLocale } from 'next-intl';
 
 interface QuarterData {
@@ -414,7 +414,7 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
     return maxVal > 0 ? maxVal * 1.25 : 1;
   }, [activeSeries]);
 
-  // Rango de P/E Ratio (min y max) para escalar la línea Y en la zona superior de la gráfica
+  // 1. Rango de P/E Ratio (min y max) para escalar la Línea 1 (Dorada)
   const { minPe, maxPe } = useMemo(() => {
     const validPes = activeSeries.map((d) => d.peRatio).filter((v): v is number => v !== null && v > 0);
     if (validPes.length === 0) return { minPe: 10, maxPe: 50 };
@@ -427,16 +427,15 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
     };
   }, [activeSeries]);
 
-  // Generar puntos exactos (X, Y) mapeando la posición DOM en los 60px superiores de la franja SVG
+  // Puntos de la Línea de P/E Ratio (Dorada)
   const peLinePoints = useMemo(() => {
     const peRange = Math.max(1, maxPe - minPe);
 
     return activeSeries.map((item, idx) => {
       const x = columnCenterX[idx] ?? (idx * 116 + 58);
       const pe = item.peRatio ?? 0;
-      // Escalar Y estrictamente en la franja superior de 15px a 70px (separada de las barras y textos)
       const normalizedPe = Math.max(0, Math.min(1, (pe - minPe) / peRange));
-      const y = 70 - normalizedPe * 55;
+      const y = 60 - normalizedPe * 45; // Franja superior 15px - 60px
 
       return {
         x,
@@ -445,7 +444,6 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
         label: item.label,
         isProjection: item.isProjection,
         key: item.key,
-        item,
       };
     });
   }, [activeSeries, columnCenterX, minPe, maxPe]);
@@ -454,6 +452,46 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
     if (peLinePoints.length === 0) return '';
     return peLinePoints.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
   }, [peLinePoints]);
+
+  // 2. Rango de Precio de la Acción (min y max) para escalar la Línea 2 (Turquesa/Cian)
+  const { minPrice, maxPrice } = useMemo(() => {
+    const validPrices = activeSeries.map((d) => d.stockPrice).filter((v): v is number => v !== null && v > 0);
+    if (validPrices.length === 0) return { minPrice: 10, maxPrice: 200 };
+    const minVal = Math.min(...validPrices);
+    const maxVal = Math.max(...validPrices);
+    const padding = (maxVal - minVal) * 0.15 || 10;
+    return {
+      minPrice: Math.max(0, minVal - padding),
+      maxPrice: maxVal + padding,
+    };
+  }, [activeSeries]);
+
+  // Puntos de la Línea de Precio de la Acción (Turquesa/Cian)
+  const priceLinePoints = useMemo(() => {
+    const priceRange = Math.max(1, maxPrice - minPrice);
+
+    return activeSeries.map((item, idx) => {
+      const x = columnCenterX[idx] ?? (idx * 116 + 58);
+      const price = item.stockPrice ?? 0;
+      const normalizedPrice = Math.max(0, Math.min(1, (price - minPrice) / priceRange));
+      const y = 120 - normalizedPrice * 55; // Franja media 65px - 120px
+
+      return {
+        x,
+        y: parseFloat(y.toFixed(1)),
+        price,
+        label: item.label,
+        isProjection: item.isProjection,
+        key: item.key,
+        priceGrowthPercent: item.priceGrowthPercent,
+      };
+    });
+  }, [activeSeries, columnCenterX, minPrice, maxPrice]);
+
+  const priceSvgPath = useMemo(() => {
+    if (priceLinePoints.length === 0) return '';
+    return priceLinePoints.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
+  }, [priceLinePoints]);
 
   if (activeSeries.length === 0) return null;
 
@@ -467,15 +505,15 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
           </div>
           <div>
             <h3 className="text-base font-extrabold text-white flex items-center gap-2">
-              {locale === 'es' ? 'Histórico de EPS y Línea de P/E Ratio (Escenario Mix)' : 'EPS & P/E Ratio Trajectory Line (Mix Scenario)'}
+              {locale === 'es' ? 'Histórico de EPS, Precio y Línea P/E (Escenario Mix)' : 'EPS, Stock Price & P/E Ratio Lines (Mix Scenario)'}
               <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
                 <CheckCircle2 size={10} /> SEC EDGAR + Mix Valuation
               </span>
             </h3>
             <p className="text-xs text-slate-400 mt-0.5">
               {locale === 'es'
-                ? 'Barras de EPS nominal combinadas con la línea dorada exacta del P/E Ratio en cada período.'
-                : 'Nominal EPS bars overlaid with exact golden P/E ratio trajectory line for each period.'}
+                ? 'Barras de EPS nominal combinadas con la línea turquesa del Precio de la Acción y la línea dorada del P/E Ratio.'
+                : 'Nominal EPS bars overlaid with turquoise Stock Price line & golden P/E ratio line.'}
             </p>
           </div>
         </div>
@@ -537,12 +575,13 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
         >
           <div className="relative flex items-start gap-3 w-max min-w-full">
             
-            {/* SVG OVERLAY: Línea de P/E Ratio ultra-estable con Tooltip dinámico responsivo */}
+            {/* SVG OVERLAY: Línea de P/E Ratio (Dorada) + Línea de Precio (Turquesa) */}
             <svg
               className="absolute left-0 top-0 h-60 pointer-events-none z-30 overflow-visible"
               style={{ width: `${Math.max(svgTotalWidth, activeSeries.length * 116)}px` }}
             >
               <defs>
+                {/* Resplandor P/E Ratio (Dorado) */}
                 <filter id="glow-pe" x="-20%" y="-20%" width="140%" height="140%">
                   <feGaussianBlur stdDeviation="3" result="blur" />
                   <feComposite in="SourceGraphic" in2="blur" operator="over" />
@@ -551,9 +590,19 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
                   <stop offset="0%" stopColor="#f59e0b" stopOpacity="0.95" />
                   <stop offset="100%" stopColor="#fbbf24" stopOpacity="1" />
                 </linearGradient>
+
+                {/* Resplandor Precio de la Acción (Turquesa / Cyan) */}
+                <filter id="glow-price" x="-20%" y="-20%" width="140%" height="140%">
+                  <feGaussianBlur stdDeviation="3.5" result="blur" />
+                  <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                </filter>
+                <linearGradient id="priceLineGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop offset="0%" stopColor="#06b6d4" stopOpacity="0.95" />
+                  <stop offset="100%" stopColor="#22d3ee" stopOpacity="1" />
+                </linearGradient>
               </defs>
 
-              {/* Trazo continuo visible de la línea P/E Ratio */}
+              {/* LÍNEA 1: Trazo continuo visible de P/E Ratio (Dorada) */}
               {peSvgPath && (
                 <path
                   d={peSvgPath}
@@ -567,7 +616,41 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
                 />
               )}
 
-              {/* Nodos limpios e iluminados sobre la franja superior alineados al estado estable hoveredItem */}
+              {/* LÍNEA 2: Trazo continuo visible del Precio de la Acción (Turquesa / Cyan) */}
+              {priceSvgPath && (
+                <path
+                  d={priceSvgPath}
+                  fill="none"
+                  stroke="url(#priceLineGradient)"
+                  strokeWidth="3"
+                  strokeDasharray={activeSeries.some(d => d.isProjection) ? "none" : undefined}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  filter="url(#glow-price)"
+                  className="transition-all duration-300 opacity-95 pointer-events-none"
+                />
+              )}
+
+              {/* Nodos de la Línea de Precio de la Acción (Turquesa) */}
+              {priceLinePoints.map((pt) => {
+                const isItemHovered = hoveredItem?.key === pt.key;
+
+                return (
+                  <g key={`price-pt-${pt.key}`} className="pointer-events-none">
+                    <circle
+                      cx={pt.x}
+                      cy={pt.y}
+                      r={isItemHovered ? '6.5' : '4.5'}
+                      fill={pt.isProjection ? '#c084fc' : '#22d3ee'}
+                      stroke="#020617"
+                      strokeWidth="2"
+                      className="transition-all duration-200"
+                    />
+                  </g>
+                );
+              })}
+
+              {/* Nodos de la Línea de P/E Ratio (Dorados) con Tooltip dinámico */}
               {peLinePoints.map((pt) => {
                 const isItemHovered = hoveredItem?.key === pt.key;
 
@@ -593,14 +676,14 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
                       className="transition-all duration-200"
                     />
 
-                    {/* Tooltip SVG contextual con dimensión dinámica (CERO parpadeos y CERO desbordamientos) */}
+                    {/* Tooltip SVG contextual con dimensión dinámica al hacer Hover en la columna */}
                     {isItemHovered && pt.pe > 0 && (() => {
                       const textStr = `P/E: ${pt.pe.toFixed(1)}x (${pt.label})`;
                       const pillWidth = Math.max(120, Math.ceil(textStr.length * 7.5 + 24));
                       const halfWidth = pillWidth / 2;
 
                       return (
-                        <g transform={`translate(${pt.x}, ${pt.y - 32})`} className="pointer-events-none">
+                        <g transform={`translate(${pt.x}, ${pt.y - 28})`} className="pointer-events-none">
                           <rect
                             x={-halfWidth}
                             y="-14"
@@ -792,7 +875,7 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
 
             {/* Metricas Precio Acción */}
             <div className="border-r border-slate-800 pr-6">
-              <span className="text-[10px] text-purple-300 font-extrabold uppercase tracking-wider block">
+              <span className="text-[10px] text-teal-300 font-extrabold uppercase tracking-wider block">
                 {hoveredItem.isProjection
                   ? (locale === 'es' ? 'Precio Proyectado (Escenario Mix)' : 'Projected Price (Mix Scenario)')
                   : (locale === 'es' ? 'Precio de la Acción' : 'Stock Price')}
@@ -839,9 +922,13 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
               <span className="h-3 w-3 rounded bg-purple-500 border border-dashed border-purple-300" />
               <span>{locale === 'es' ? 'Proyección Futura (Wall St + Escenario Mix)' : 'Future Estimate (Wall St + Mix)'}</span>
             </div>
+            <div className="flex items-center gap-1.5 text-cyan-300 font-mono font-bold">
+              <span className="h-0.5 w-4 bg-cyan-400 inline-block shadow-[0_0_8px_#06b6d4]" />
+              <span>{locale === 'es' ? 'Línea del Precio de la Acción ($)' : 'Stock Price Trajectory ($)'}</span>
+            </div>
             <div className="flex items-center gap-1.5 text-amber-300 font-mono font-bold">
               <span className="h-0.5 w-4 bg-amber-400 inline-block shadow-[0_0_8px_#f59e0b]" />
-              <span>{locale === 'es' ? 'Línea de Tendencia P/E Ratio (Pasa el mouse sobre la columna para ver P/E)' : 'P/E Ratio Line Trajectory (Hover column for P/E)'}</span>
+              <span>{locale === 'es' ? 'Línea de Tendencia P/E Ratio' : 'P/E Ratio Line Trajectory'}</span>
             </div>
           </div>
 
@@ -850,8 +937,8 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
               <Info size={13} />
               <span>
                 {locale === 'es'
-                  ? 'Pasa el cursor sobre cualquier columna para ver la etiqueta flotante de P/E Ratio'
-                  : 'Hover over any column to see the floating P/E Ratio badge'}
+                  ? 'Pasa el cursor sobre cualquier columna para ver las líneas de Precio y P/E flotantes'
+                  : 'Hover over any column to see floating Stock Price and P/E lines'}
               </span>
             </div>
           )}
