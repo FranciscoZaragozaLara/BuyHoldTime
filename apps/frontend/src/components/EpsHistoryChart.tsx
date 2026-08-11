@@ -60,7 +60,6 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
   const locale = useLocale();
   const [viewMode, setViewMode] = useState<'annual' | 'quarterly'>('annual');
   const [hoveredItem, setHoveredItem] = useState<ChartItem | null>(null);
-  const [peTooltipPoint, setPeTooltipPoint] = useState<{ x: number; y: number; pe: number; label: string } | null>(null);
 
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const columnRefs = useRef<(HTMLDivElement | null)[]>([]);
@@ -446,6 +445,7 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
         label: item.label,
         isProjection: item.isProjection,
         key: item.key,
+        item,
       };
     });
   }, [activeSeries, columnCenterX, minPe, maxPe]);
@@ -537,7 +537,7 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
         >
           <div className="relative flex items-start gap-3 w-max min-w-full">
             
-            {/* SVG OVERLAY: Línea de P/E Ratio limpia con eventos HOVER e interactivos */}
+            {/* SVG OVERLAY: Línea de P/E Ratio ultra-estable con Tooltip sintonizado a hoveredItem sin parpadeos */}
             <svg
               className="absolute left-0 top-0 h-60 pointer-events-none z-30 overflow-visible"
               style={{ width: `${Math.max(svgTotalWidth, activeSeries.length * 116)}px` }}
@@ -553,18 +553,6 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
                 </linearGradient>
               </defs>
 
-              {/* Trazo invisible más grueso para facilitar el HOVER sobre la línea naranja */}
-              {peSvgPath && (
-                <path
-                  d={peSvgPath}
-                  fill="none"
-                  stroke="transparent"
-                  strokeWidth="24"
-                  strokeLinecap="round"
-                  className="pointer-events-stroke cursor-pointer"
-                />
-              )}
-
               {/* Trazo continuo visible de la línea P/E Ratio */}
               {peSvgPath && (
                 <path
@@ -579,63 +567,62 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
                 />
               )}
 
-              {/* Nodos limpios e iluminados sobre la franja superior con captura de HOVER */}
-              {peLinePoints.map((pt) => (
-                <g
-                  key={`pt-${pt.key}`}
-                  className="pointer-events-auto cursor-pointer group/node"
-                  onMouseEnter={() => setPeTooltipPoint({ x: pt.x, y: pt.y, pe: pt.pe, label: pt.label })}
-                  onMouseLeave={() => setPeTooltipPoint(null)}
-                >
-                  <circle
-                    cx={pt.x}
-                    cy={pt.y}
-                    r="6"
-                    fill={pt.isProjection ? '#c084fc' : '#fbbf24'}
-                    stroke="#0f172a"
-                    strokeWidth="2"
-                    className="shadow-lg transition-transform duration-200 group-hover/node:scale-150"
-                  />
-                  <circle
-                    cx={pt.x}
-                    cy={pt.y}
-                    r="10"
-                    fill="none"
-                    stroke={pt.isProjection ? '#a855f7' : '#f59e0b'}
-                    strokeWidth="1.5"
-                    strokeOpacity="0.7"
-                    className="transition-transform duration-200 group-hover/node:scale-125"
-                  />
-                </g>
-              ))}
+              {/* Nodos limpios e iluminados sobre la franja superior alineados al estado estable hoveredItem */}
+              {peLinePoints.map((pt) => {
+                const isItemHovered = hoveredItem?.key === pt.key;
 
-              {/* Tooltip SVG contextual flotante al pasar el mouse por la línea o nodo P/E */}
-              {peTooltipPoint && (
-                <g transform={`translate(${peTooltipPoint.x}, ${peTooltipPoint.y - 32})`} className="pointer-events-none animate-fadeIn">
-                  <rect
-                    x="-45"
-                    y="-13"
-                    width="90"
-                    height="22"
-                    rx="6"
-                    fill="#020617"
-                    stroke="#f59e0b"
-                    strokeWidth="1.5"
-                    className="shadow-2xl shadow-amber-500/30"
-                  />
-                  <text
-                    x="0"
-                    y="2"
-                    textAnchor="middle"
-                    fill="#fef08a"
-                    fontSize="10"
-                    fontWeight="900"
-                    fontFamily="monospace"
-                  >
-                    P/E: {peTooltipPoint.pe.toFixed(1)}x ({peTooltipPoint.label})
-                  </text>
-                </g>
-              )}
+                return (
+                  <g key={`pt-${pt.key}`} className="pointer-events-none">
+                    <circle
+                      cx={pt.x}
+                      cy={pt.y}
+                      r={isItemHovered ? '7.5' : '5'}
+                      fill={pt.isProjection ? '#c084fc' : '#fbbf24'}
+                      stroke="#0f172a"
+                      strokeWidth="2.5"
+                      className="transition-all duration-200"
+                    />
+                    <circle
+                      cx={pt.x}
+                      cy={pt.y}
+                      r={isItemHovered ? '12' : '8.5'}
+                      fill="none"
+                      stroke={pt.isProjection ? '#a855f7' : '#f59e0b'}
+                      strokeWidth="1.5"
+                      strokeOpacity={isItemHovered ? '1' : '0.6'}
+                      className="transition-all duration-200"
+                    />
+
+                    {/* Tooltip SVG contextual ultra-estable (CERO parpadeos / blinking) */}
+                    {isItemHovered && pt.pe > 0 && (
+                      <g transform={`translate(${pt.x}, ${pt.y - 28})`} className="pointer-events-none">
+                        <rect
+                          x="-45"
+                          y="-13"
+                          width="90"
+                          height="22"
+                          rx="6"
+                          fill="#020617"
+                          stroke="#f59e0b"
+                          strokeWidth="1.5"
+                          className="shadow-2xl shadow-amber-500/40"
+                        />
+                        <text
+                          x="0"
+                          y="2"
+                          textAnchor="middle"
+                          fill="#fef08a"
+                          fontSize="10"
+                          fontWeight="900"
+                          fontFamily="monospace"
+                        >
+                          P/E: {pt.pe.toFixed(1)}x ({pt.label})
+                        </text>
+                      </g>
+                    )}
+                  </g>
+                );
+              })}
             </svg>
 
             {activeSeries.map((item, idx) => {
@@ -847,7 +834,7 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
             </div>
             <div className="flex items-center gap-1.5 text-amber-300 font-mono font-bold">
               <span className="h-0.5 w-4 bg-amber-400 inline-block shadow-[0_0_8px_#f59e0b]" />
-              <span>{locale === 'es' ? 'Línea de Tendencia P/E Ratio (Pasa el mouse sobre la línea para ver P/E)' : 'P/E Ratio Line Trajectory (Hover line for P/E)'}</span>
+              <span>{locale === 'es' ? 'Línea de Tendencia P/E Ratio (Pasa el mouse sobre la columna para ver P/E)' : 'P/E Ratio Line Trajectory (Hover column for P/E)'}</span>
             </div>
           </div>
 
@@ -856,8 +843,8 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
               <Info size={13} />
               <span>
                 {locale === 'es'
-                  ? 'Pasa el cursor sobre la línea naranja o los nodos para ver el P/E Ratio flotante'
-                  : 'Hover over the orange line or nodes to view floating P/E Ratio'}
+                  ? 'Pasa el cursor sobre cualquier columna para ver la etiqueta flotante de P/E Ratio'
+                  : 'Hover over any column to see the floating P/E Ratio badge'}
               </span>
             </div>
           )}
