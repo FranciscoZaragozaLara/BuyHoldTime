@@ -335,7 +335,6 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
             isProjection: true,
             source: 'Escenario Mix (Valuation)',
             growthPercent: null,
-            seasonalityWeight: parseFloat((weight * 100).toFixed(1)),
             stockPrice: projectedPriceMix,
             priceGrowthPercent: null,
             mixPeUsed: peFutureMix,
@@ -443,9 +442,11 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
         x,
         y: parseFloat(y.toFixed(1)),
         pe,
+        stockPrice: item.stockPrice,
         label: item.label,
         isProjection: item.isProjection,
         key: item.key,
+        item,
       };
     });
   }, [activeSeries, columnCenterX, minPe, maxPe]);
@@ -651,9 +652,10 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
                 );
               })}
 
-              {/* Nodos de la Línea de P/E Ratio Calendario Solar (Dorados) con Tooltip dinámico */}
+              {/* Nodos de la Línea de P/E Ratio Calendario Solar (Dorados) con Tooltip dinámico de Doble Indicador (P/E + Precio) */}
               {peLinePoints.map((pt) => {
                 const isItemHovered = hoveredItem?.key === pt.key;
+                const item = pt.item;
 
                 return (
                   <g key={`pt-${pt.key}`} className="pointer-events-none">
@@ -677,14 +679,16 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
                       className="transition-all duration-200"
                     />
 
-                    {/* Tooltip SVG contextual con dimensión dinámica al hacer Hover en la columna */}
-                    {isItemHovered && pt.pe > 0 && (() => {
-                      const textStr = `P/E Solar: ${pt.pe.toFixed(1)}x (${pt.label})`;
-                      const pillWidth = Math.max(130, Math.ceil(textStr.length * 7.5 + 24));
+                    {/* Tooltip SVG contextual con dimensión dinámica mostrando P/E y Precio de la Acción al hacer Hover */}
+                    {isItemHovered && (() => {
+                      const priceVal = item.stockPrice !== null ? `$${item.stockPrice.toFixed(2)}` : 'N/A';
+                      const peVal = item.peRatio !== null ? `${item.peRatio.toFixed(1)}x` : 'N/A';
+                      const textStr = `P/E: ${peVal}  |  Precio: ${priceVal} (${item.label})`;
+                      const pillWidth = Math.max(160, Math.ceil(textStr.length * 7.2 + 28));
                       const halfWidth = pillWidth / 2;
 
                       return (
-                        <g transform={`translate(${pt.x}, ${pt.y - 28})`} className="pointer-events-none">
+                        <g transform={`translate(${pt.x}, ${pt.y - 30})`} className="pointer-events-none">
                           <rect
                             x={-halfWidth}
                             y="-14"
@@ -700,13 +704,15 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
                             x="0"
                             y="2.5"
                             textAnchor="middle"
-                            fill="#fef08a"
                             fontSize="10.5"
                             fontWeight="900"
                             fontFamily="monospace"
                             className="tracking-tight"
                           >
-                            {textStr}
+                            <tspan fill="#fef08a">P/E: {peVal}</tspan>
+                            <tspan fill="#64748b"> | </tspan>
+                            <tspan fill="#22d3ee">Precio: {priceVal}</tspan>
+                            <tspan fill="#cbd5e1"> ({item.label})</tspan>
                           </text>
                         </g>
                       );
