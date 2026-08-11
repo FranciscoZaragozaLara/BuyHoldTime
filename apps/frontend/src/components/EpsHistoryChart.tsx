@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { BarChart3, TrendingUp, Sparkles, CheckCircle2, Calendar, HelpCircle, Layers, ArrowUpRight, ArrowDownRight, Info, ChevronLeft, ChevronRight, DollarSign, Calculator, Activity, DollarSign as StockIcon } from 'lucide-react';
+import { BarChart3, TrendingUp, Sparkles, CheckCircle2, Calendar, HelpCircle, Layers, ArrowUpRight, ArrowDownRight, Info, ChevronLeft, ChevronRight, DollarSign, Calculator, Activity, Sun } from 'lucide-react';
 import { useLocale } from 'next-intl';
 
 interface QuarterData {
@@ -38,7 +38,7 @@ interface ChartItem {
   key: string;
   label: string;
   subLabel?: string;
-  fiscalYear: number;
+  calendarYear: number;
   periodName: string;
   eps: number;
   isProjection: boolean;
@@ -66,7 +66,7 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
   const [columnCenterX, setColumnCenterX] = useState<number[]>([]);
   const [svgTotalWidth, setSvgTotalWidth] = useState<number>(0);
 
-  // Helper para obtener el precio histórico más cercano a una fecha dada
+  // Helper para obtener el precio histórico más cercano a una fecha dada de calendario solar
   const getHistoricalPriceForDate = (targetDateStr: string): number | null => {
     if (!historicalPrices || historicalPrices.length === 0) return null;
     const targetTime = new Date(targetDateStr).getTime();
@@ -83,10 +83,10 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
     return closest.adjClose || closest.close;
   };
 
-  // Helper para obtener el precio histórico al cierre de un año fiscal
-  const getHistoricalPriceForYear = (fy: number): number | null => {
+  // Helper para obtener el precio histórico al cierre del AÑO CALENDARIO SOLAR (31 de Diciembre del año solar calYear)
+  const getHistoricalPriceForCalendarYear = (calYear: number): number | null => {
     if (!historicalPrices || historicalPrices.length === 0) return null;
-    const pricesInYear = historicalPrices.filter((p) => new Date(p.date).getFullYear() === fy);
+    const pricesInYear = historicalPrices.filter((p) => new Date(p.date).getFullYear() === calYear);
     if (pricesInYear.length > 0) {
       pricesInYear.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
       return pricesInYear[0].adjClose || pricesInYear[0].close;
@@ -105,14 +105,14 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
 
   // Calcular el último EPS histórico TTM conocido de la empresa para la fórmula de Escenario Mix
   const lastHistoricalEps = useMemo(() => {
-    const validQuarters = (quarters || []).filter((q) => q && q.fiscalYear && !isNaN(Number(q.fiscalYear)));
+    const validQuarters = (quarters || []).filter((q) => q && q.date);
     if (validQuarters.length === 0) return ticker?.eps || 1;
-    const fyMap = new Map<number, number>();
+    const calMap = new Map<number, number>();
     validQuarters.forEach((q) => {
-      const fy = parseInt(q.fiscalYear, 10);
-      fyMap.set(fy, (fyMap.get(fy) || 0) + (q.epsDiluted ?? q.eps ?? 0));
+      const calYear = new Date(q.date).getFullYear();
+      calMap.set(calYear, (calMap.get(calYear) || 0) + (q.epsDiluted ?? q.eps ?? 0));
     });
-    const sorted = Array.from(fyMap.entries()).sort((a, b) => a[0] - b[0]);
+    const sorted = Array.from(calMap.entries()).sort((a, b) => a[0] - b[0]);
     return sorted.length > 0 ? sorted[sorted.length - 1][1] : ticker?.eps || 1;
   }, [quarters, ticker]);
 
@@ -133,16 +133,16 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
 
     if (!epsRow) return [];
 
-    const results: { fiscalYear: number; label: string; eps: number }[] = [];
+    const results: { calendarYear: number; label: string; eps: number }[] = [];
 
     years.forEach((yStr, idx) => {
       const match = yStr.match(/\d{4}/);
       if (match) {
-        const fy = parseInt(match[0], 10);
+        const calYear = parseInt(match[0], 10);
         const valStr = epsRow.values[idx];
         const epsVal = parseFloat(valStr);
         if (!isNaN(epsVal) && valStr !== '—') {
-          results.push({ fiscalYear: fy, label: yStr, eps: epsVal });
+          results.push({ calendarYear: calYear, label: yStr, eps: epsVal });
         }
       }
     });
@@ -153,8 +153,8 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
   const totalHorizonYears = Math.max(4, analystEstimates.length);
 
   // Cálculo exacto del Precio del Escenario Mix idéntico a la Calculadora Multiescenario
-  const calculateMixScenarioPrice = (fy: number, estFwdEps: number) => {
-    const yearsDiff = Math.max(1, fy - currentYearNum);
+  const calculateMixScenarioPrice = (calYear: number, estFwdEps: number) => {
+    const yearsDiff = Math.max(1, calYear - currentYearNum);
     const decayRatio = Math.min(1, yearsDiff / totalHorizonYears);
     const peFutureMix = peMix - (peMix - terminalPe) * decayRatio;
     
@@ -165,60 +165,62 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
     return { projectedPriceMix, peFutureMix: parseFloat(peFutureMix.toFixed(1)) };
   };
 
-  // 3. Procesar datos Anuales
+  // 3. Procesar datos Anuales agrupados estrictamente por AÑO CALENDARIO SOLAR
   const annualData = useMemo<ChartItem[]>(() => {
-    const validQuarters = (quarters || []).filter((q) => q && q.fiscalYear && !isNaN(Number(q.fiscalYear)));
+    const validQuarters = (quarters || []).filter((q) => q && q.date);
 
-    const fyMap = new Map<number, QuarterData[]>();
+    // Agrupar los trimestres de SEC EDGAR por AÑO CALENDARIO SOLAR de su fecha de cierre
+    const calMap = new Map<number, QuarterData[]>();
     validQuarters.forEach((q) => {
-      const fy = parseInt(q.fiscalYear, 10);
-      if (!fyMap.has(fy)) fyMap.set(fy, []);
-      fyMap.get(fy)!.push(q);
+      const calYear = new Date(q.date).getFullYear();
+      if (!calMap.has(calYear)) calMap.set(calYear, []);
+      calMap.get(calYear)!.push(q);
     });
 
-    const sortedFYs = Array.from(fyMap.keys()).sort((a, b) => a - b);
+    const sortedCalYears = Array.from(calMap.keys()).sort((a, b) => a - b);
     const historicalAnnualItems: ChartItem[] = [];
 
-    sortedFYs.forEach((fy) => {
-      const qList = fyMap.get(fy)!;
-      const hasQ4 = qList.some((q) => q.period === 'Q4');
-      if (qList.length >= 4 || hasQ4) {
+    sortedCalYears.forEach((calYear) => {
+      const qList = calMap.get(calYear)!;
+      if (qList.length >= 3 || calYear < currentYearNum) {
         const sumEps = qList.reduce((acc, q) => acc + (q.epsDiluted ?? q.eps ?? 0), 0);
         const roundedEps = parseFloat(sumEps.toFixed(2));
-        const priceForFy = getHistoricalPriceForYear(fy);
-        const peVal = priceForFy && roundedEps > 0 ? parseFloat((priceForFy / roundedEps).toFixed(1)) : null;
+        
+        // Precio al cierre del AÑO CALENDARIO SOLAR (31 de Diciembre del año calYear)
+        const priceForCalYear = getHistoricalPriceForCalendarYear(calYear);
+        const peVal = priceForCalYear && roundedEps > 0 ? parseFloat((priceForCalYear / roundedEps).toFixed(1)) : null;
 
         historicalAnnualItems.push({
-          key: `fy-${fy}`,
-          label: `FY${fy}`,
-          subLabel: locale === 'es' ? 'Año Fiscal Completo' : 'Full Fiscal Year',
-          fiscalYear: fy,
-          periodName: `FY${fy}`,
+          key: `cal-${calYear}`,
+          label: `${calYear}`,
+          subLabel: locale === 'es' ? 'Año Calendario Solar' : 'Solar Calendar Year',
+          calendarYear: calYear,
+          periodName: `${calYear}`,
           eps: roundedEps,
           isProjection: false,
           source: 'SEC EDGAR',
           growthPercent: null,
-          stockPrice: priceForFy,
+          stockPrice: priceForCalYear,
           priceGrowthPercent: null,
           peRatio: peVal,
         });
       }
     });
 
-    const lastHistoricalFY = historicalAnnualItems.length > 0
-      ? historicalAnnualItems[historicalAnnualItems.length - 1].fiscalYear
+    const lastHistoricalCalYear = historicalAnnualItems.length > 0
+      ? historicalAnnualItems[historicalAnnualItems.length - 1].calendarYear
       : currentYearNum - 1;
 
     const futureAnnualItems: ChartItem[] = analystEstimates
-      .filter((est) => est.fiscalYear > lastHistoricalFY)
+      .filter((est) => est.calendarYear > lastHistoricalCalYear)
       .map((est) => {
-        const { projectedPriceMix, peFutureMix } = calculateMixScenarioPrice(est.fiscalYear, est.eps);
+        const { projectedPriceMix, peFutureMix } = calculateMixScenarioPrice(est.calendarYear, est.eps);
         return {
-          key: `fy-est-${est.fiscalYear}`,
-          label: `FY${est.fiscalYear}`,
-          subLabel: locale === 'es' ? 'Proyección Wall St + Mix' : 'Wall St + Mix Forecast',
-          fiscalYear: est.fiscalYear,
-          periodName: `FY${est.fiscalYear}`,
+          key: `cal-est-${est.calendarYear}`,
+          label: `${est.calendarYear}`,
+          subLabel: locale === 'es' ? 'Proyección Solar Wall St + Mix' : 'Solar Wall St + Mix Forecast',
+          calendarYear: est.calendarYear,
+          periodName: `${est.calendarYear}`,
           eps: est.eps,
           isProjection: true,
           source: 'Escenario Mix (Valuation)',
@@ -249,54 +251,54 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
     return combined;
   }, [quarters, analystEstimates, locale, historicalPrices, peMix, terminalPe, currentYearNum, totalHorizonYears, lastHistoricalEps]);
 
-  // 4. Procesar datos Trimestrales
+  // 4. Procesar datos Trimestrales basándose en fechas del Calendario Solar
   const quarterlyData = useMemo<ChartItem[]>(() => {
     const validQuarters = (quarters || [])
-      .filter((q) => q && q.period && q.fiscalYear && !isNaN(Number(q.fiscalYear)))
-      .sort((a, b) => {
-        if (a.fiscalYear !== b.fiscalYear) return parseInt(a.fiscalYear, 10) - parseInt(b.fiscalYear, 10);
-        const pMap: Record<string, number> = { Q1: 1, Q2: 2, Q3: 3, Q4: 4 };
-        return (pMap[a.period] || 0) - (pMap[b.period] || 0);
-      });
+      .filter((q) => q && q.date)
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
     if (validQuarters.length === 0) return [];
 
-    const fyMap = new Map<number, QuarterData[]>();
+    const calMap = new Map<number, QuarterData[]>();
     validQuarters.forEach((q) => {
-      const fy = parseInt(q.fiscalYear, 10);
-      if (!fyMap.has(fy)) fyMap.set(fy, []);
-      fyMap.get(fy)!.push(q);
+      const calYear = new Date(q.date).getFullYear();
+      if (!calMap.has(calYear)) calMap.set(calYear, []);
+      calMap.get(calYear)!.push(q);
     });
 
-    const fullFYs = Array.from(fyMap.entries())
+    const fullYears = Array.from(calMap.entries())
       .filter(([, list]) => list.length === 4)
-      .map(([fy]) => fy)
+      .map(([y]) => y)
       .sort((a, b) => b - a);
 
-    const baseFY = fullFYs.length > 0 ? fullFYs[0] : parseInt(validQuarters[validQuarters.length - 1].fiscalYear, 10);
-    const baseQuarters = fyMap.get(baseFY) || [];
+    const baseYear = fullYears.length > 0 ? fullYears[0] : new Date(validQuarters[validQuarters.length - 1].date).getFullYear();
+    const baseQuarters = calMap.get(baseYear) || [];
 
     const baseSum = baseQuarters.reduce((acc, q) => acc + Math.abs(q.epsDiluted ?? q.eps ?? 0), 0);
     const seasonalityWeights: Record<string, number> = { Q1: 0.25, Q2: 0.25, Q3: 0.25, Q4: 0.25 };
 
     if (baseSum > 0 && baseQuarters.length === 4) {
       baseQuarters.forEach((q) => {
-        seasonalityWeights[q.period] = (Math.abs(q.epsDiluted ?? q.eps ?? 0)) / baseSum;
+        const periodName = q.period || `Q${Math.floor(new Date(q.date).getMonth() / 3) + 1}`;
+        seasonalityWeights[periodName] = (Math.abs(q.epsDiluted ?? q.eps ?? 0)) / baseSum;
       });
     }
 
     const historicalQuarterlyItems: ChartItem[] = validQuarters.map((q) => {
+      const qDate = new Date(q.date);
+      const calYear = qDate.getFullYear();
+      const pName = q.period || `Q${Math.floor(qDate.getMonth() / 3) + 1}`;
       const qPrice = getHistoricalPriceForDate(q.date);
       const epsVal = q.epsDiluted ?? q.eps ?? 0;
       const annualizedEps = epsVal * 4;
       const peVal = qPrice && annualizedEps > 0 ? parseFloat((qPrice / annualizedEps).toFixed(1)) : null;
 
       return {
-        key: `q-${q.fiscalYear}-${q.period}`,
-        label: `${q.period} ${q.fiscalYear}`,
-        subLabel: locale === 'es' ? 'Trimestre Confirmado' : 'Confirmed Quarter',
-        fiscalYear: parseInt(q.fiscalYear, 10),
-        periodName: q.period,
+        key: `q-${calYear}-${pName}`,
+        label: `${pName} ${calYear}`,
+        subLabel: locale === 'es' ? 'Trimestre Solar Confirmado' : 'Confirmed Solar Quarter',
+        calendarYear: calYear,
+        periodName: pName,
         eps: parseFloat(epsVal.toFixed(2)),
         isProjection: false,
         source: 'SEC EDGAR',
@@ -308,26 +310,26 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
     });
 
     const lastHistQuarter = validQuarters[validQuarters.length - 1];
-    const lastHistFY = parseInt(lastHistQuarter.fiscalYear, 10);
+    const lastHistCalYear = new Date(lastHistQuarter.date).getFullYear();
 
     const futureQuarterlyItems: ChartItem[] = [];
-    const futureAnnuals = analystEstimates.filter((est) => est.fiscalYear >= lastHistFY);
+    const futureAnnuals = analystEstimates.filter((est) => est.calendarYear >= lastHistCalYear);
 
     futureAnnuals.forEach((est) => {
       const periods = ['Q1', 'Q2', 'Q3', 'Q4'];
-      const { projectedPriceMix, peFutureMix } = calculateMixScenarioPrice(est.fiscalYear, est.eps);
+      const { projectedPriceMix, peFutureMix } = calculateMixScenarioPrice(est.calendarYear, est.eps);
 
       periods.forEach((p) => {
-        const existsInHist = validQuarters.some((q) => parseInt(q.fiscalYear, 10) === est.fiscalYear && q.period === p);
+        const existsInHist = validQuarters.some((q) => new Date(q.date).getFullYear() === est.calendarYear && (q.period === p || `Q${Math.floor(new Date(q.date).getMonth() / 3) + 1}` === p));
         if (!existsInHist) {
           const weight = seasonalityWeights[p] || 0.25;
           const estimatedQEps = parseFloat((est.eps * weight).toFixed(2));
 
           futureQuarterlyItems.push({
-            key: `q-est-${est.fiscalYear}-${p}`,
-            label: `${p} ${est.fiscalYear}`,
-            subLabel: locale === 'es' ? 'Est. Estacional + Mix' : 'Seasonal Est. + Mix',
-            fiscalYear: est.fiscalYear,
+            key: `q-est-${est.calendarYear}-${p}`,
+            label: `${p} ${est.calendarYear}`,
+            subLabel: locale === 'es' ? 'Est. Solar + Mix' : 'Solar Est. + Mix',
+            calendarYear: est.calendarYear,
             periodName: p,
             eps: estimatedQEps,
             isProjection: true,
@@ -414,7 +416,7 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
     return maxVal > 0 ? maxVal * 1.25 : 1;
   }, [activeSeries]);
 
-  // 1. Rango de P/E Ratio (min y max) para escalar la Línea 1 (Dorada)
+  // 1. Rango de P/E Ratio Calendario Solar (min y max) para escalar la Línea 1 (Dorada)
   const { minPe, maxPe } = useMemo(() => {
     const validPes = activeSeries.map((d) => d.peRatio).filter((v): v is number => v !== null && v > 0);
     if (validPes.length === 0) return { minPe: 10, maxPe: 50 };
@@ -427,7 +429,7 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
     };
   }, [activeSeries]);
 
-  // Puntos de la Línea de P/E Ratio (Dorada)
+  // Puntos de la Línea de P/E Ratio (Dorada - Calendario Solar)
   const peLinePoints = useMemo(() => {
     const peRange = Math.max(1, maxPe - minPe);
 
@@ -466,7 +468,7 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
     };
   }, [activeSeries]);
 
-  // Puntos de la Línea de Precio de la Acción (Turquesa/Cian)
+  // Puntos de la Línea de Precio de la Acción (Turquesa/Cian - Calendario Solar)
   const priceLinePoints = useMemo(() => {
     const priceRange = Math.max(1, maxPrice - minPrice);
 
@@ -500,20 +502,20 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
       {/* Header Block with Title & Mode Switcher */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-900 pb-4">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-teal-500/30 bg-teal-500/10 text-teal-400">
-            <BarChart3 size={20} />
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-400">
+            <Sun size={20} />
           </div>
           <div>
             <h3 className="text-base font-extrabold text-white flex items-center gap-2">
-              {locale === 'es' ? 'Histórico de EPS, Precio y Línea P/E (Escenario Mix)' : 'EPS, Stock Price & P/E Ratio Lines (Mix Scenario)'}
-              <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                <CheckCircle2 size={10} /> SEC EDGAR + Mix Valuation
+              {locale === 'es' ? 'Histórico de EPS, Precio y P/E (Calendario Solar)' : 'EPS, Stock Price & P/E Lines (Solar Calendar Year)'}
+              <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                <Sun size={10} /> Calendario Solar
               </span>
             </h3>
             <p className="text-xs text-slate-400 mt-0.5">
               {locale === 'es'
-                ? 'Barras de EPS nominal combinadas con la línea turquesa del Precio de la Acción y la línea dorada del P/E Ratio.'
-                : 'Nominal EPS bars overlaid with turquoise Stock Price line & golden P/E ratio line.'}
+                ? 'P/E Ratio y Crecimiento agrupados por Año Calendario Solar (del 1 de enero al 31 de diciembre) con Escenario Mix.'
+                : 'P/E Ratio & Growth grouped by Solar Calendar Year (Jan 1 to Dec 31) with Mix Scenario.'}
             </p>
           </div>
         </div>
@@ -542,18 +544,18 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
               onClick={() => setViewMode('annual')}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
                 viewMode === 'annual'
-                  ? 'bg-teal-500 text-slate-950 shadow-lg shadow-teal-500/20'
+                  ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/20'
                   : 'text-slate-400 hover:text-white'
               }`}
             >
               <Calendar size={13} />
-              {locale === 'es' ? 'Anual' : 'Annual'}
+              {locale === 'es' ? 'Año Solar' : 'Solar Year'}
             </button>
             <button
               onClick={() => setViewMode('quarterly')}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
                 viewMode === 'quarterly'
-                  ? 'bg-teal-500 text-slate-950 shadow-lg shadow-teal-500/20'
+                  ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/20'
                   : 'text-slate-400 hover:text-white'
               }`}
             >
@@ -575,7 +577,7 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
         >
           <div className="relative flex items-start gap-3 w-max min-w-full">
             
-            {/* SVG OVERLAY: Línea de P/E Ratio (Dorada) + Línea de Precio (Turquesa) */}
+            {/* SVG OVERLAY: Línea P/E Calendario Solar (Dorada) + Línea Precio (Turquesa) */}
             <svg
               className="absolute left-0 top-0 h-60 pointer-events-none z-30 overflow-visible"
               style={{ width: `${Math.max(svgTotalWidth, activeSeries.length * 116)}px` }}
@@ -623,7 +625,6 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
                   fill="none"
                   stroke="url(#priceLineGradient)"
                   strokeWidth="3"
-                  strokeDasharray={activeSeries.some(d => d.isProjection) ? "none" : undefined}
                   strokeLinecap="round"
                   strokeLinejoin="round"
                   filter="url(#glow-price)"
@@ -650,7 +651,7 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
                 );
               })}
 
-              {/* Nodos de la Línea de P/E Ratio (Dorados) con Tooltip dinámico */}
+              {/* Nodos de la Línea de P/E Ratio Calendario Solar (Dorados) con Tooltip dinámico */}
               {peLinePoints.map((pt) => {
                 const isItemHovered = hoveredItem?.key === pt.key;
 
@@ -678,8 +679,8 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
 
                     {/* Tooltip SVG contextual con dimensión dinámica al hacer Hover en la columna */}
                     {isItemHovered && pt.pe > 0 && (() => {
-                      const textStr = `P/E: ${pt.pe.toFixed(1)}x (${pt.label})`;
-                      const pillWidth = Math.max(120, Math.ceil(textStr.length * 7.5 + 24));
+                      const textStr = `P/E Solar: ${pt.pe.toFixed(1)}x (${pt.label})`;
+                      const pillWidth = Math.max(130, Math.ceil(textStr.length * 7.5 + 24));
                       const halfWidth = pillWidth / 2;
 
                       return (
@@ -777,7 +778,7 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
                     </div>
                   </div>
 
-                  {/* 2. Zona Inferior: Eje X (Etiqueta Período + Precio Acción Escenario Mix + PE Ratio) */}
+                  {/* 2. Zona Inferior: Eje X (Etiqueta Año Solar + Precio Acción + PE Ratio Solar) */}
                   <div className="mt-2.5 flex flex-col items-center text-center w-full min-h-[110px]">
                     <span
                       className={`text-[11px] font-bold tracking-tight transition-colors ${
@@ -787,7 +788,7 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
                       {item.label}
                     </span>
 
-                    {/* Precio de la Acción (Histórico en reales, Escenario Mix en Proyectados) */}
+                    {/* Precio de la Acción (Histórico al 31 Dic Solar, Escenario Mix en Proyectados) */}
                     {item.stockPrice !== null && (
                       <div
                         className={`mt-1 flex flex-col items-center p-1 rounded-lg border text-[10px] font-mono transition-all w-full max-w-[85px] ${
@@ -809,11 +810,11 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
                       </div>
                     )}
 
-                    {/* PE Ratio del Período */}
+                    {/* PE Ratio del Período Calendario Solar */}
                     {item.peRatio !== null && (
                       <span className="mt-1 text-[9px] font-mono font-black text-amber-300 bg-amber-500/10 border border-amber-500/30 rounded px-1.5 py-0.5 flex items-center gap-1">
                         <Activity size={9} className="text-amber-400" />
-                        P/E: {item.peRatio.toFixed(1)}x
+                        P/E Solar: {item.peRatio.toFixed(1)}x
                       </span>
                     )}
 
@@ -878,7 +879,7 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
               <span className="text-[10px] text-teal-300 font-extrabold uppercase tracking-wider block">
                 {hoveredItem.isProjection
                   ? (locale === 'es' ? 'Precio Proyectado (Escenario Mix)' : 'Projected Price (Mix Scenario)')
-                  : (locale === 'es' ? 'Precio de la Acción' : 'Stock Price')}
+                  : (locale === 'es' ? 'Precio al Cierre Solar' : 'Solar Close Stock Price')}
               </span>
               <span className="text-base font-black text-teal-300">
                 {hoveredItem.stockPrice !== null ? `$${hoveredItem.stockPrice.toFixed(2)}` : 'N/A'}
@@ -894,10 +895,10 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
               )}
             </div>
 
-            {/* Metricas PE Ratio */}
+            {/* Metricas PE Ratio Calendario Solar */}
             <div>
               <span className="text-[10px] text-amber-300 font-extrabold uppercase tracking-wider block">
-                {locale === 'es' ? 'P/E Ratio del Período' : 'Period P/E Ratio'}
+                {locale === 'es' ? 'P/E Ratio (Calendario Solar)' : 'Solar Calendar P/E Ratio'}
               </span>
               <span className="text-base font-black text-amber-300">
                 {hoveredItem.peRatio !== null ? `${hoveredItem.peRatio.toFixed(1)}x` : 'N/A'}
@@ -928,7 +929,7 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
             </div>
             <div className="flex items-center gap-1.5 text-amber-300 font-mono font-bold">
               <span className="h-0.5 w-4 bg-amber-400 inline-block shadow-[0_0_8px_#f59e0b]" />
-              <span>{locale === 'es' ? 'Línea de Tendencia P/E Ratio' : 'P/E Ratio Line Trajectory'}</span>
+              <span>{locale === 'es' ? 'Línea P/E Ratio (Calendario Solar)' : 'Solar Calendar P/E Ratio Line'}</span>
             </div>
           </div>
 
@@ -937,8 +938,8 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
               <Info size={13} />
               <span>
                 {locale === 'es'
-                  ? 'Pasa el cursor sobre cualquier columna para ver las líneas de Precio y P/E flotantes'
-                  : 'Hover over any column to see floating Stock Price and P/E lines'}
+                  ? 'Agrupación basada en el Año Calendario Solar (1 de Ene al 31 de Dic)'
+                  : 'Grouped by Solar Calendar Year (Jan 1 to Dec 31)'}
               </span>
             </div>
           )}
