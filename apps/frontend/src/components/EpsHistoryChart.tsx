@@ -447,7 +447,7 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
           ref={scrollContainerRef}
           className="overflow-x-auto scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent pt-6 pb-4 px-4 scroll-smooth"
         >
-          <div className="flex items-end gap-3 h-80 border-b border-slate-800/80 pb-2 w-max min-w-full">
+          <div className="flex items-start gap-3 w-max min-w-full">
             {activeSeries.map((item) => {
               const heightPercent = Math.max(8, Math.min(100, (Math.abs(item.eps) / maxEps) * 100));
               const isNegative = item.eps < 0;
@@ -458,54 +458,57 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
                   key={item.key}
                   onMouseEnter={() => setHoveredItem(item)}
                   onMouseLeave={() => setHoveredItem(null)}
-                  className="flex-none w-24 sm:w-28 flex flex-col items-center justify-end h-full group relative cursor-pointer"
+                  className="flex-none w-24 sm:w-28 flex flex-col items-center group relative cursor-pointer"
                 >
-                  {/* Badges superiores: % Crecimiento EPS */}
-                  <div className="mb-2 flex flex-col items-center gap-1">
-                    {item.growthPercent !== null ? (
-                      <div
-                        className={`inline-flex items-center gap-0.5 text-[9px] font-black px-1.5 py-0.5 rounded-full border shadow-md transition-all ${
-                          item.growthPercent >= 0
-                            ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
-                            : 'bg-rose-500/10 text-rose-400 border-rose-500/30'
-                        }`}
-                        title="Cambio % EPS vs periodo previo"
-                      >
-                        {item.growthPercent >= 0 ? <ArrowUpRight size={9} /> : <ArrowDownRight size={9} />}
-                        EPS {item.growthPercent >= 0 ? '+' : ''}{item.growthPercent}%
-                      </div>
-                    ) : (
-                      <div className="text-[9px] font-semibold text-slate-500">—</div>
-                    )}
+                  {/* 1. Zona Superior: Badges + Valor EPS + Barra (Altura Fija de 210px alineada exactamente al fondo) */}
+                  <div className="w-full flex flex-col items-center justify-end h-52 border-b border-slate-800/80 pb-0">
+                    {/* Badge % Crecimiento EPS */}
+                    <div className="mb-1.5 flex flex-col items-center h-5 justify-end">
+                      {item.growthPercent !== null ? (
+                        <div
+                          className={`inline-flex items-center gap-0.5 text-[9px] font-black px-1.5 py-0.5 rounded-full border shadow-md transition-all ${
+                            item.growthPercent >= 0
+                              ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                              : 'bg-rose-500/10 text-rose-400 border-rose-500/30'
+                          }`}
+                          title="Cambio % EPS vs periodo previo"
+                        >
+                          {item.growthPercent >= 0 ? <ArrowUpRight size={9} /> : <ArrowDownRight size={9} />}
+                          EPS {item.growthPercent >= 0 ? '+' : ''}{item.growthPercent}%
+                        </div>
+                      ) : (
+                        <div className="text-[9px] font-semibold text-slate-500">—</div>
+                      )}
+                    </div>
+
+                    {/* Valor nominal del EPS */}
+                    <span
+                      className={`text-xs font-mono font-black mb-1 transition-colors ${
+                        item.isProjection ? 'text-purple-300 group-hover:text-purple-200' : 'text-slate-200 group-hover:text-white'
+                      }`}
+                    >
+                      ${item.eps.toFixed(2)}
+                    </span>
+
+                    {/* Barra alineada matemática y físicamente en la misma línea base */}
+                    <div
+                      style={{ height: `${heightPercent}%` }}
+                      className={`w-full max-w-[44px] rounded-t-lg transition-all duration-300 relative overflow-hidden ${
+                        item.isProjection
+                          ? 'bg-gradient-to-t from-purple-900/60 via-purple-600/50 to-purple-400/80 border-2 border-dashed border-purple-400/80 shadow-lg shadow-purple-500/20 group-hover:from-purple-800/80 group-hover:to-purple-300'
+                          : isNegative
+                          ? 'bg-gradient-to-t from-rose-900/60 via-rose-600/60 to-rose-400 border border-rose-500/50 shadow-lg shadow-rose-500/10'
+                          : 'bg-gradient-to-t from-emerald-950 via-emerald-600/70 to-emerald-400 border border-emerald-400/40 shadow-lg shadow-emerald-500/20 group-hover:brightness-125'
+                      } ${isHovered ? 'scale-105 ring-2 ring-teal-400' : ''}`}
+                    >
+                      {item.isProjection && (
+                        <div className="absolute inset-0 bg-[linear-gradient(45deg,rgba(255,255,255,0.08)_25%,transparent_25%,transparent_50%,rgba(255,255,255,0.08)_50%,rgba(255,255,255,0.08)_75%,transparent_75%,transparent)] bg-[length:8px_8px] pointer-events-none" />
+                      )}
+                    </div>
                   </div>
 
-                  {/* Valor nominal del EPS sobre la barra */}
-                  <span
-                    className={`text-xs font-mono font-black mb-1 transition-colors ${
-                      item.isProjection ? 'text-purple-300 group-hover:text-purple-200' : 'text-slate-200 group-hover:text-white'
-                    }`}
-                  >
-                    ${item.eps.toFixed(2)}
-                  </span>
-
-                  {/* Barra interactiva de EPS */}
-                  <div
-                    style={{ height: `${heightPercent}%` }}
-                    className={`w-full max-w-[48px] rounded-t-lg transition-all duration-300 relative overflow-hidden ${
-                      item.isProjection
-                        ? 'bg-gradient-to-t from-purple-900/60 via-purple-600/50 to-purple-400/80 border-2 border-dashed border-purple-400/80 shadow-lg shadow-purple-500/20 group-hover:from-purple-800/80 group-hover:to-purple-300'
-                        : isNegative
-                        ? 'bg-gradient-to-t from-rose-900/60 via-rose-600/60 to-rose-400 border border-rose-500/50 shadow-lg shadow-rose-500/10'
-                        : 'bg-gradient-to-t from-emerald-950 via-emerald-600/70 to-emerald-400 border border-emerald-400/40 shadow-lg shadow-emerald-500/20 group-hover:brightness-125'
-                    } ${isHovered ? 'scale-105 ring-2 ring-teal-400' : ''}`}
-                  >
-                    {item.isProjection && (
-                      <div className="absolute inset-0 bg-[linear-gradient(45deg,rgba(255,255,255,0.08)_25%,transparent_25%,transparent_50%,rgba(255,255,255,0.08)_50%,rgba(255,255,255,0.08)_75%,transparent_75%,transparent)] bg-[length:8px_8px] pointer-events-none" />
-                    )}
-                  </div>
-
-                  {/* Bloque inferior: Etiqueta Período + Precio Acción + PE Ratio */}
-                  <div className="mt-2 flex flex-col items-center text-center">
+                  {/* 2. Zona Inferior: Eje X (Etiqueta Período + Precio Acción + PE Ratio) */}
+                  <div className="mt-2.5 flex flex-col items-center text-center w-full min-h-[110px]">
                     <span
                       className={`text-[11px] font-bold tracking-tight transition-colors ${
                         item.isProjection ? 'text-purple-400 font-black' : 'text-slate-300'
@@ -517,7 +520,7 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
                     {/* Precio de la Acción */}
                     {item.stockPrice !== null && (
                       <div
-                        className={`mt-1 flex flex-col items-center p-1 rounded-lg border text-[10px] font-mono transition-all ${
+                        className={`mt-1 flex flex-col items-center p-1 rounded-lg border text-[10px] font-mono transition-all w-full max-w-[85px] ${
                           item.isProjection
                             ? 'bg-purple-500/10 border-purple-500/30 text-purple-200'
                             : 'bg-slate-900/80 border-slate-800 text-teal-300'
