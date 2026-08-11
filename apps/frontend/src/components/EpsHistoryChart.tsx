@@ -573,7 +573,9 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
             </svg>
 
             {activeSeries.map((item, idx) => {
-              const heightPercent = Math.max(8, Math.min(100, (Math.abs(item.eps) / maxEps) * 100));
+              // Altura máxima de la barra limitada al 60% para dejar libre el 40% superior a la línea de P/E y badges
+              const rawHeightPercent = Math.max(12, Math.min(100, (Math.abs(item.eps) / maxEps) * 100));
+              const heightPercent = rawHeightPercent * 0.6;
               const isNegative = item.eps < 0;
               const isHovered = hoveredItem?.key === item.key;
 
@@ -585,10 +587,10 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
                   onMouseLeave={() => setHoveredItem(null)}
                   className="flex-none w-24 sm:w-28 flex flex-col items-center group relative cursor-pointer"
                 >
-                  {/* 1. Zona Superior: Badges + Valor EPS + Barra (Altura Fija de 240px alineada al fondo) */}
+                  {/* 1. Zona Superior: Badges + Barra + Valor EPS Integrado DENTRO de la Barra */}
                   <div className="w-full flex flex-col items-center justify-end h-60 border-b border-slate-800/80 pb-0 z-10">
                     {/* Badge % Crecimiento EPS */}
-                    <div className="mb-1 flex flex-col items-center h-5 justify-end">
+                    <div className="mb-2 flex flex-col items-center h-5 justify-end">
                       {item.growthPercent !== null ? (
                         <div
                           className={`inline-flex items-center gap-0.5 text-[9px] font-black px-1.5 py-0.5 rounded-full border shadow-md transition-all ${
@@ -606,29 +608,25 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
                       )}
                     </div>
 
-                    {/* Valor nominal del EPS */}
-                    <span
-                      className={`text-xs font-mono font-black mb-1 transition-colors ${
-                        item.isProjection ? 'text-purple-300 group-hover:text-purple-200' : 'text-slate-200 group-hover:text-white'
-                      }`}
-                    >
-                      ${item.eps.toFixed(2)}
-                    </span>
-
-                    {/* Barra alineada matemática y físicamente en la misma línea base */}
+                    {/* Barra de EPS con el valor nominal $X.XX ubicado de forma segura e impecable DENTRO de la barra */}
                     <div
                       style={{ height: `${heightPercent}%` }}
-                      className={`w-full max-w-[44px] rounded-t-lg transition-all duration-300 relative overflow-hidden ${
+                      className={`w-full max-w-[48px] rounded-t-lg transition-all duration-300 relative overflow-hidden flex flex-col items-center pt-1 ${
                         item.isProjection
-                          ? 'bg-gradient-to-t from-purple-900/60 via-purple-600/50 to-purple-400/80 border-2 border-dashed border-purple-400/80 shadow-lg shadow-purple-500/20 group-hover:from-purple-800/80 group-hover:to-purple-300'
+                          ? 'bg-gradient-to-t from-purple-900/80 via-purple-600/70 to-purple-400 border-2 border-dashed border-purple-300 shadow-lg shadow-purple-500/20 group-hover:from-purple-800 group-hover:to-purple-300'
                           : isNegative
-                          ? 'bg-gradient-to-t from-rose-900/60 via-rose-600/60 to-rose-400 border border-rose-500/50 shadow-lg shadow-rose-500/10'
-                          : 'bg-gradient-to-t from-emerald-950 via-emerald-600/70 to-emerald-400 border border-emerald-400/40 shadow-lg shadow-emerald-500/20 group-hover:brightness-125'
+                          ? 'bg-gradient-to-t from-rose-950 via-rose-700 to-rose-500 border border-rose-400/60 shadow-lg shadow-rose-500/10'
+                          : 'bg-gradient-to-t from-emerald-950 via-emerald-600 to-emerald-400 border border-emerald-300/50 shadow-lg shadow-emerald-500/20 group-hover:brightness-125'
                       } ${isHovered ? 'scale-105 ring-2 ring-teal-400' : ''}`}
                     >
                       {item.isProjection && (
                         <div className="absolute inset-0 bg-[linear-gradient(45deg,rgba(255,255,255,0.08)_25%,transparent_25%,transparent_50%,rgba(255,255,255,0.08)_50%,rgba(255,255,255,0.08)_75%,transparent_75%,transparent)] bg-[length:8px_8px] pointer-events-none" />
                       )}
+
+                      {/* Texto del Valor Nominal $X.XX dentro de la barra para garantízar CERO empalmes */}
+                      <span className="text-[11px] font-mono font-black text-slate-950 drop-shadow-[0_1px_2px_rgba(255,255,255,0.8)] z-10 tracking-tight">
+                        ${item.eps.toFixed(2)}
+                      </span>
                     </div>
                   </div>
 
