@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo, useRef, useEffect, useLayoutEffect } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { BarChart3, TrendingUp, Sparkles, CheckCircle2, Calendar, HelpCircle, Layers, ArrowUpRight, ArrowDownRight, Info, ChevronLeft, ChevronRight, DollarSign, Calculator, Activity } from 'lucide-react';
 import { useLocale } from 'next-intl';
 
@@ -395,7 +395,7 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
     return maxVal > 0 ? maxVal * 1.25 : 1;
   }, [activeSeries]);
 
-  // Rango de P/E Ratio (min y max) para escalar la línea Y con precisión matemática absoluta
+  // Rango de P/E Ratio (min y max) para escalar la línea Y con precisión
   const { minPe, maxPe } = useMemo(() => {
     const validPes = activeSeries.map((d) => d.peRatio).filter((v): v is number => v !== null && v > 0);
     if (validPes.length === 0) return { minPe: 10, maxPe: 50 };
@@ -410,15 +410,15 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
 
   // Generar puntos exactos (X, Y) mapeando la posición DOM y el valor de P/E Ratio
   const peLinePoints = useMemo(() => {
-    const chartHeight = 208; // h-52 = 208px
+    const chartHeight = 240; // h-60 = 240px
     const peRange = Math.max(1, maxPe - minPe);
 
     return activeSeries.map((item, idx) => {
       const x = columnCenterX[idx] ?? (idx * 116 + 58);
       const pe = item.peRatio ?? 0;
-      // Escalar Y entre 20px (arriba) y 188px (abajo)
+      // Escalar Y dejando margen holgado arriba (25px) y abajo (25px)
       const normalizedPe = Math.max(0, Math.min(1, (pe - minPe) / peRange));
-      const y = chartHeight - normalizedPe * (chartHeight - 40) - 20;
+      const y = chartHeight - normalizedPe * (chartHeight - 50) - 25;
 
       return {
         x,
@@ -519,7 +519,7 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
             
             {/* SVG OVERLAY: Línea de P/E Ratio superpuesta con precisión absoluta a los centros DOM */}
             <svg
-              className="absolute left-0 top-0 h-52 pointer-events-none z-20 overflow-visible"
+              className="absolute left-0 top-0 h-60 pointer-events-none z-30 overflow-visible"
               style={{ width: `${Math.max(svgTotalWidth, activeSeries.length * 116)}px` }}
             >
               <defs>
@@ -547,44 +547,53 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
                 />
               )}
 
-              {/* Puntos / Nodos sobre cada barra con etiqueta flotante */}
-              {peLinePoints.map((pt) => (
-                <g key={`pt-${pt.key}`}>
-                  {/* Etiqueta flotante con el valor P/E sobre el punto */}
-                  {pt.pe > 0 && (
-                    <text
-                      x={pt.x}
-                      y={pt.y - 9}
-                      textAnchor="middle"
-                      fill={pt.isProjection ? '#e9d5ff' : '#fef08a'}
-                      fontSize="9.5"
-                      fontWeight="bold"
-                      fontFamily="monospace"
-                      className="drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)]"
-                    >
-                      {pt.pe.toFixed(1)}x
-                    </text>
-                  )}
+              {/* Puntos / Nodos sobre cada barra con Cápsula aislante de fondo sin empalmes */}
+              {peLinePoints.map((pt) => {
+                // Inteligencia de posición Y para la cápsula de P/E (arriba o abajo del nodo)
+                const isNearTop = pt.y < 55;
+                const pillY = isNearTop ? pt.y + 12 : pt.y - 20;
 
-                  <circle
-                    cx={pt.x}
-                    cy={pt.y}
-                    r="5.5"
-                    fill={pt.isProjection ? '#c084fc' : '#fbbf24'}
-                    stroke="#0f172a"
-                    strokeWidth="2.5"
-                  />
-                  <circle
-                    cx={pt.x}
-                    cy={pt.y}
-                    r="9"
-                    fill="none"
-                    stroke={pt.isProjection ? '#a855f7' : '#f59e0b'}
-                    strokeWidth="1"
-                    strokeOpacity="0.6"
-                  />
-                </g>
-              ))}
+                return (
+                  <g key={`pt-${pt.key}`}>
+                    {/* Cápsula SVG aislante con fondo sólido #090d16 para evitar empalmes de texto */}
+                    {pt.pe > 0 && (
+                      <g transform={`translate(${pt.x}, ${pillY})`}>
+                        <rect
+                          x="-22"
+                          y="-9"
+                          width="44"
+                          height="15"
+                          rx="4"
+                          fill="#090d16"
+                          stroke={pt.isProjection ? '#c084fc' : '#f59e0b'}
+                          strokeWidth="1.2"
+                          className="shadow-lg"
+                        />
+                        <text
+                          x="0"
+                          y="2.5"
+                          textAnchor="middle"
+                          fill={pt.isProjection ? '#e9d5ff' : '#fef08a'}
+                          fontSize="9.5"
+                          fontWeight="bold"
+                          fontFamily="monospace"
+                        >
+                          {pt.pe.toFixed(1)}x
+                        </text>
+                      </g>
+                    )}
+
+                    <circle
+                      cx={pt.x}
+                      cy={pt.y}
+                      r="5"
+                      fill={pt.isProjection ? '#c084fc' : '#fbbf24'}
+                      stroke="#0f172a"
+                      strokeWidth="2"
+                    />
+                  </g>
+                );
+              })}
             </svg>
 
             {activeSeries.map((item, idx) => {
@@ -600,10 +609,10 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
                   onMouseLeave={() => setHoveredItem(null)}
                   className="flex-none w-24 sm:w-28 flex flex-col items-center group relative cursor-pointer"
                 >
-                  {/* 1. Zona Superior: Badges + Valor EPS + Barra (Altura Fija de 208px alineada al fondo) */}
-                  <div className="w-full flex flex-col items-center justify-end h-52 border-b border-slate-800/80 pb-0">
+                  {/* 1. Zona Superior: Badges + Valor EPS + Barra (Altura Fija de 240px alineada al fondo) */}
+                  <div className="w-full flex flex-col items-center justify-end h-60 border-b border-slate-800/80 pb-0 z-10">
                     {/* Badge % Crecimiento EPS */}
-                    <div className="mb-1.5 flex flex-col items-center h-5 justify-end">
+                    <div className="mb-1 flex flex-col items-center h-5 justify-end">
                       {item.growthPercent !== null ? (
                         <div
                           className={`inline-flex items-center gap-0.5 text-[9px] font-black px-1.5 py-0.5 rounded-full border shadow-md transition-all ${
