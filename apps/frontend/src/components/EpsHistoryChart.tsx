@@ -517,9 +517,9 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
         >
           <div className="relative flex items-start gap-3 w-max min-w-full">
             
-            {/* SVG OVERLAY: Línea de P/E Ratio superpuesta con precisión absoluta a los centros DOM */}
+            {/* SVG OVERLAY: Línea de P/E Ratio limpia con nodos brillantes sin empalmes */}
             <svg
-              className="absolute left-0 top-0 h-60 pointer-events-none z-30 overflow-visible"
+              className="absolute left-0 top-0 h-60 pointer-events-none z-20 overflow-visible"
               style={{ width: `${Math.max(svgTotalWidth, activeSeries.length * 116)}px` }}
             >
               <defs>
@@ -547,53 +547,29 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
                 />
               )}
 
-              {/* Puntos / Nodos sobre cada barra con Cápsula aislante de fondo sin empalmes */}
-              {peLinePoints.map((pt) => {
-                // Inteligencia de posición Y para la cápsula de P/E (arriba o abajo del nodo)
-                const isNearTop = pt.y < 55;
-                const pillY = isNearTop ? pt.y + 12 : pt.y - 20;
-
-                return (
-                  <g key={`pt-${pt.key}`}>
-                    {/* Cápsula SVG aislante con fondo sólido #090d16 para evitar empalmes de texto */}
-                    {pt.pe > 0 && (
-                      <g transform={`translate(${pt.x}, ${pillY})`}>
-                        <rect
-                          x="-22"
-                          y="-9"
-                          width="44"
-                          height="15"
-                          rx="4"
-                          fill="#090d16"
-                          stroke={pt.isProjection ? '#c084fc' : '#f59e0b'}
-                          strokeWidth="1.2"
-                          className="shadow-lg"
-                        />
-                        <text
-                          x="0"
-                          y="2.5"
-                          textAnchor="middle"
-                          fill={pt.isProjection ? '#e9d5ff' : '#fef08a'}
-                          fontSize="9.5"
-                          fontWeight="bold"
-                          fontFamily="monospace"
-                        >
-                          {pt.pe.toFixed(1)}x
-                        </text>
-                      </g>
-                    )}
-
-                    <circle
-                      cx={pt.x}
-                      cy={pt.y}
-                      r="5"
-                      fill={pt.isProjection ? '#c084fc' : '#fbbf24'}
-                      stroke="#0f172a"
-                      strokeWidth="2"
-                    />
-                  </g>
-                );
-              })}
+              {/* Nodos limpios e iluminados sobre cada columna (sin empalmes de texto) */}
+              {peLinePoints.map((pt) => (
+                <g key={`pt-${pt.key}`}>
+                  <circle
+                    cx={pt.x}
+                    cy={pt.y}
+                    r="5.5"
+                    fill={pt.isProjection ? '#c084fc' : '#fbbf24'}
+                    stroke="#0f172a"
+                    strokeWidth="2.5"
+                    className="shadow-lg"
+                  />
+                  <circle
+                    cx={pt.x}
+                    cy={pt.y}
+                    r="9"
+                    fill="none"
+                    stroke={pt.isProjection ? '#a855f7' : '#f59e0b'}
+                    strokeWidth="1"
+                    strokeOpacity="0.6"
+                  />
+                </g>
+              ))}
             </svg>
 
             {activeSeries.map((item, idx) => {
