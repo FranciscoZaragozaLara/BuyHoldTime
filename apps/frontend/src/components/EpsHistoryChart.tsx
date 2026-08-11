@@ -165,7 +165,7 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
     return { projectedPriceMix, peFutureMix: parseFloat(peFutureMix.toFixed(1)) };
   };
 
-  // 3. Procesar datos Anuales agrupados estrictamente por AÑO CALENDARIO SOLAR
+  // 3. Procesar datos Anuales agrupados strictly por AÑO CALENDARIO SOLAR
   const annualData = useMemo<ChartItem[]>(() => {
     const validQuarters = (quarters || []).filter((q) => q && q.date);
 
@@ -423,7 +423,6 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
     const minVal = Math.min(...validPes);
     const maxVal = Math.max(...validPes);
     const range = maxVal - minVal;
-    // Margen del 8% para dinamizar al máximo los valles y picos reales
     const padding = range > 0 ? range * 0.08 : 2;
     return {
       minPe: Math.max(0, minVal - padding),
@@ -441,7 +440,6 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
       const x = columnCenterX[idx] ?? (idx * 116 + 58);
       const pe = item.peRatio ?? 0;
       const normalizedPe = Math.max(0, Math.min(1, (pe - minPe) / peRange));
-      // Amplitud vertical ampliada: oscila de y=150px (mínimo) a y=20px (máximo) -> 130px de rango dinámico real
       const y = 150 - normalizedPe * 130;
 
       return {
@@ -486,7 +484,6 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
       const x = columnCenterX[idx] ?? (idx * 116 + 58);
       const price = item.stockPrice ?? 0;
       const normalizedPrice = Math.max(0, Math.min(1, (price - minPrice) / priceRange));
-      // Amplitud vertical ampliada: oscila de y=175px (mínimo) a y=45px (máximo) -> 130px de rango dinámico real
       const y = 175 - normalizedPrice * 130;
 
       return {
@@ -681,7 +678,7 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
                 );
               })}
 
-              {/* Nodos de la Línea de P/E Ratio Calendario Solar (Dorados) con Tooltip dinámico de Doble Indicador (P/E + Precio) */}
+              {/* Nodos de la Línea de P/E Ratio Calendario Solar con Tooltip Dinámico y PERÍODO DESTACADO */}
               {peLinePoints.map((pt) => {
                 const isItemHovered = hoveredItem?.key === pt.key;
                 const item = pt.item;
@@ -708,12 +705,12 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
                       className="transition-all duration-200"
                     />
 
-                    {/* Tooltip SVG contextual con dimensión dinámica mostrando P/E y Precio de la Acción al hacer Hover */}
+                    {/* Tooltip SVG contextual con dimensión dinámica resaltando el PERÍODO */}
                     {isItemHovered && (() => {
                       const priceVal = item.stockPrice !== null ? `$${item.stockPrice.toFixed(2)}` : 'N/A';
                       const peVal = item.peRatio !== null ? `${item.peRatio.toFixed(1)}x` : 'N/A';
-                      const textStr = `P/E: ${peVal}  |  Precio: ${priceVal} (${item.label})`;
-                      const pillWidth = Math.max(160, Math.ceil(textStr.length * 7.2 + 28));
+                      const textStr = `[${item.label}]  P/E: ${peVal}  |  Precio: ${priceVal}`;
+                      const pillWidth = Math.max(170, Math.ceil(textStr.length * 7.4 + 28));
                       const halfWidth = pillWidth / 2;
 
                       return (
@@ -725,7 +722,7 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
                             height="24"
                             rx="7"
                             fill="#020617"
-                            stroke="#f59e0b"
+                            stroke={item.isProjection ? '#a855f7' : '#f59e0b'}
                             strokeWidth="1.5"
                             className="shadow-2xl shadow-amber-500/50"
                           />
@@ -738,10 +735,13 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
                             fontFamily="monospace"
                             className="tracking-tight"
                           >
+                            <tspan fill={item.isProjection ? '#e9d5ff' : '#ffffff'} fontWeight="900">
+                              [{item.label}]
+                            </tspan>
+                            <tspan fill="#475569"> • </tspan>
                             <tspan fill="#fef08a">P/E: {peVal}</tspan>
-                            <tspan fill="#64748b"> | </tspan>
+                            <tspan fill="#475569"> • </tspan>
                             <tspan fill="#22d3ee">Precio: {priceVal}</tspan>
-                            <tspan fill="#cbd5e1"> ({item.label})</tspan>
                           </text>
                         </g>
                       );
