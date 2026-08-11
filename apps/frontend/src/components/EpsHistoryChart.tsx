@@ -94,7 +94,7 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
     return null;
   };
 
-  // 1. Parámetros para la fórmula del Escenario Mix de Valoración
+  // 1. Parámetros idénticos a StockValuationCalculator para el Escenario Mix de Valoración
   const currentPrice = ticker?.price || 1;
   const rawSnapshotPe = snapshot?.pe ? Number(snapshot.pe) : null;
   const peTtm = rawSnapshotPe && rawSnapshotPe >= 3 ? rawSnapshotPe : (ticker?.pe && ticker.pe > 0 ? ticker.pe : 25);
@@ -103,21 +103,8 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
   const terminalPe = ticker?.sectorTerminalPe && ticker.sectorTerminalPe > 0 ? ticker.sectorTerminalPe : 22.0;
   const currentYearNum = new Date().getFullYear();
 
-  // Calcular el último EPS histórico TTM conocido de la empresa para la fórmula de Escenario Mix
-  const lastHistoricalEps = useMemo(() => {
-    const validQuarters = (quarters || []).filter((q) => q && q.date);
-    if (validQuarters.length === 0) return ticker?.eps || 1;
-    const calMap = new Map<number, number>();
-    validQuarters.forEach((q) => {
-      const calYear = new Date(q.date).getFullYear();
-      calMap.set(calYear, (calMap.get(calYear) || 0) + (q.epsDiluted ?? q.eps ?? 0));
-    });
-    const sorted = Array.from(calMap.entries()).sort((a, b) => a[0] - b[0]);
-    return sorted.length > 0 ? sorted[sorted.length - 1][1] : ticker?.eps || 1;
-  }, [quarters, ticker]);
-
-  // 2. Extraer estimaciones anuales futuras de analistas desde el snapshot
-  const analystEstimates = useMemo(() => {
+  // 2. Extraer estimaciones anuales futuras de analistas con epsBaseTtm y epsBaseFwd exactamente igual que en la calculadora
+  const analystProjections = useMemo(() => {
     const estimatesObj = snapshot?.analystEstimates;
     if (!estimatesObj || !estimatesObj.years || !estimatesObj.estimates) return [];
 
@@ -131,18 +118,27 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
         e.metric.toLowerCase().includes('eps'),
     );
 
-    if (!epsRow) return [];
+    if (!epsRow || !epsRow.values) return [];
 
-    const results: { calendarYear: number; label: string; eps: number }[] = [];
+    const results: { calendarYear: number; label: string; epsBaseTtm: number; epsBaseFwd: number }[] = [];
 
     years.forEach((yStr, idx) => {
       const match = yStr.match(/\d{4}/);
       if (match) {
         const calYear = parseInt(match[0], 10);
         const valStr = epsRow.values[idx];
-        const epsVal = parseFloat(valStr);
-        if (!isNaN(epsVal) && valStr !== '—') {
-          results.push({ calendarYear: calYear, label: yStr, eps: epsVal });
+        const epsTtmVal = parseFloat(valStr);
+        if (!isNaN(epsTtmVal) && valStr !== '—') {
+          const nextValStr = epsRow.values[idx + 1];
+          const nextEpsVal = parseFloat(nextValStr);
+          const epsFwdVal = !isNaN(nextEpsVal) && nextValStr !== '—' ? nextEpsVal : (epsTtmVal > 0 ? epsTtmVal * 1.1 : epsTtmVal);
+
+          results.push({
+            calendarYear: calYear,
+            label: yStr,
+            epsBaseTtm: epsTtmVal,
+            epsBaseFwd: epsFwdVal,
+          });
         }
       }
     });
@@ -150,22 +146,22 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
     return results;
   }, [snapshot]);
 
-  const totalHorizonYears = Math.max(4, analystEstimates.length);
+  const totalHorizonYears = Math.max(4, analystProjections.length);
 
-  // Cálculo exacto del Precio del Escenario Mix idéntico a la Calculadora Multiescenario
-  const calculateMixScenarioPrice = (calYear: number, estFwdEps: number) => {
+  // Cálculo exacto del Precio del Escenario Mix idéntico a la Calculadora Multiescenario (StockValuationCalculator)
+  const calculateMixScenarioPrice = (calYear: number, epsBaseTtm: number, epsBaseFwd: number) => {
     const yearsDiff = Math.max(1, calYear - currentYearNum);
     const decayRatio = Math.min(1, yearsDiff / totalHorizonYears);
     const peFutureMix = peMix - (peMix - terminalPe) * decayRatio;
     
-    // Escenario Mix: promedia el EPS TTM histórico conocido y el EPS Forward estimado de analistas
-    const epsMix = (lastHistoricalEps + estFwdEps) / 2;
+    // Escenario Mix: promedia el EPS base de ese período y el EPS del período siguiente (Fwd)
+    const epsMix = (epsBaseTtm + epsBaseFwd) / 2;
     const projectedPriceMix = parseFloat((epsMix * peFutureMix).toFixed(2));
     
     return { projectedPriceMix, peFutureMix: parseFloat(peFutureMix.toFixed(1)) };
   };
 
-  // 3. Procesar datos Anuales agrupados strictly por AÑO CALENDARIO SOLAR
+  // 3. Procesar datos Anuales agrupados estrictamente por AÑO CALENDARIO SOLAR
   const annualData = useMemo<ChartItem[]>(() => {
     const validQuarters = (quarters || []).filter((q) => q && q.date);
 
@@ -211,17 +207,17 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
       ? historicalAnnualItems[historicalAnnualItems.length - 1].calendarYear
       : currentYearNum - 1;
 
-    const futureAnnualItems: ChartItem[] = analystEstimates
+    const futureAnnualItems: ChartItem[] = analystProjections
       .filter((est) => est.calendarYear > lastHistoricalCalYear)
       .map((est) => {
-        const { projectedPriceMix, peFutureMix } = calculateMixScenarioPrice(est.calendarYear, est.eps);
+        const { projectedPriceMix, peFutureMix } = calculateMixScenarioPrice(est.calendarYear, est.epsBaseTtm, est.epsBaseFwd);
         return {
           key: `cal-est-${est.calendarYear}`,
           label: `${est.calendarYear}`,
-          subLabel: locale === 'es' ? 'Proyección Solar Wall St + Mix' : 'Solar Wall St + Mix Forecast',
+          subLabel: locale === 'es' ? 'Proyección Escenario Mix' : 'Mix Scenario Forecast',
           calendarYear: est.calendarYear,
           periodName: `${est.calendarYear}`,
-          eps: est.eps,
+          eps: est.epsBaseTtm,
           isProjection: true,
           source: 'Escenario Mix (Valuation)',
           growthPercent: null,
@@ -249,7 +245,7 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
     });
 
     return combined;
-  }, [quarters, analystEstimates, locale, historicalPrices, peMix, terminalPe, currentYearNum, totalHorizonYears, lastHistoricalEps]);
+  }, [quarters, analystProjections, locale, historicalPrices, peMix, terminalPe, currentYearNum, totalHorizonYears]);
 
   // 4. Procesar datos Trimestrales basándose en fechas del Calendario Solar
   const quarterlyData = useMemo<ChartItem[]>(() => {
@@ -313,17 +309,17 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
     const lastHistCalYear = new Date(lastHistQuarter.date).getFullYear();
 
     const futureQuarterlyItems: ChartItem[] = [];
-    const futureAnnuals = analystEstimates.filter((est) => est.calendarYear >= lastHistCalYear);
+    const futureAnnuals = analystProjections.filter((est) => est.calendarYear >= lastHistCalYear);
 
     futureAnnuals.forEach((est) => {
       const periods = ['Q1', 'Q2', 'Q3', 'Q4'];
-      const { projectedPriceMix, peFutureMix } = calculateMixScenarioPrice(est.calendarYear, est.eps);
+      const { projectedPriceMix, peFutureMix } = calculateMixScenarioPrice(est.calendarYear, est.epsBaseTtm, est.epsBaseFwd);
 
       periods.forEach((p) => {
         const existsInHist = validQuarters.some((q) => new Date(q.date).getFullYear() === est.calendarYear && (q.period === p || `Q${Math.floor(new Date(q.date).getMonth() / 3) + 1}` === p));
         if (!existsInHist) {
           const weight = seasonalityWeights[p] || 0.25;
-          const estimatedQEps = parseFloat((est.eps * weight).toFixed(2));
+          const estimatedQEps = parseFloat((est.epsBaseTtm * weight).toFixed(2));
 
           futureQuarterlyItems.push({
             key: `q-est-${est.calendarYear}-${p}`,
@@ -362,7 +358,7 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
     });
 
     return combined;
-  }, [quarters, analystEstimates, locale, historicalPrices, peMix, terminalPe, currentYearNum, totalHorizonYears, lastHistoricalEps]);
+  }, [quarters, analystProjections, locale, historicalPrices, peMix, terminalPe, currentYearNum, totalHorizonYears]);
 
   const activeSeries = viewMode === 'annual' ? annualData : quarterlyData;
 
