@@ -17,6 +17,7 @@ export const FundamentalTablesTab: React.FC<FundamentalTablesTabProps> = ({ snap
 
   // Access Control: Se requiere rol PRO_USER o ADMIN para interactuar
   const hasAccess = role === 'PRO_USER' || role === 'ADMIN';
+  const isAdmin = role === 'ADMIN';
 
   if (!snapshot) return null;
 
@@ -826,7 +827,7 @@ export const FundamentalTablesTab: React.FC<FundamentalTablesTabProps> = ({ snap
               >
                 <Icon size={14} className={isActive ? 'text-emerald-400' : 'text-slate-500'} />
                 <span>{tab.label}</span>
-                {tab.score && (
+                {isAdmin && tab.score && (
                   <span className={`px-1.5 py-0.5 rounded text-[10px] font-black font-mono transition-colors ${
                     isActive ? 'bg-emerald-500/20 text-emerald-300' : 'bg-slate-800 text-teal-400'
                   }`}>
