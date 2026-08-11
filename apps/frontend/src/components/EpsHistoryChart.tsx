@@ -537,7 +537,7 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
         >
           <div className="relative flex items-start gap-3 w-max min-w-full">
             
-            {/* SVG OVERLAY: Línea de P/E Ratio ultra-estable con Tooltip sintonizado a hoveredItem sin parpadeos */}
+            {/* SVG OVERLAY: Línea de P/E Ratio ultra-estable con Tooltip dinámico responsivo */}
             <svg
               className="absolute left-0 top-0 h-60 pointer-events-none z-30 overflow-visible"
               style={{ width: `${Math.max(svgTotalWidth, activeSeries.length * 116)}px` }}
@@ -593,33 +593,40 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
                       className="transition-all duration-200"
                     />
 
-                    {/* Tooltip SVG contextual ultra-estable (CERO parpadeos / blinking) */}
-                    {isItemHovered && pt.pe > 0 && (
-                      <g transform={`translate(${pt.x}, ${pt.y - 28})`} className="pointer-events-none">
-                        <rect
-                          x="-45"
-                          y="-13"
-                          width="90"
-                          height="22"
-                          rx="6"
-                          fill="#020617"
-                          stroke="#f59e0b"
-                          strokeWidth="1.5"
-                          className="shadow-2xl shadow-amber-500/40"
-                        />
-                        <text
-                          x="0"
-                          y="2"
-                          textAnchor="middle"
-                          fill="#fef08a"
-                          fontSize="10"
-                          fontWeight="900"
-                          fontFamily="monospace"
-                        >
-                          P/E: {pt.pe.toFixed(1)}x ({pt.label})
-                        </text>
-                      </g>
-                    )}
+                    {/* Tooltip SVG contextual con dimensión dinámica (CERO parpadeos y CERO desbordamientos) */}
+                    {isItemHovered && pt.pe > 0 && (() => {
+                      const textStr = `P/E: ${pt.pe.toFixed(1)}x (${pt.label})`;
+                      const pillWidth = Math.max(120, Math.ceil(textStr.length * 7.5 + 24));
+                      const halfWidth = pillWidth / 2;
+
+                      return (
+                        <g transform={`translate(${pt.x}, ${pt.y - 32})`} className="pointer-events-none">
+                          <rect
+                            x={-halfWidth}
+                            y="-14"
+                            width={pillWidth}
+                            height="24"
+                            rx="7"
+                            fill="#020617"
+                            stroke="#f59e0b"
+                            strokeWidth="1.5"
+                            className="shadow-2xl shadow-amber-500/50"
+                          />
+                          <text
+                            x="0"
+                            y="2.5"
+                            textAnchor="middle"
+                            fill="#fef08a"
+                            fontSize="10.5"
+                            fontWeight="900"
+                            fontFamily="monospace"
+                            className="tracking-tight"
+                          >
+                            {textStr}
+                          </text>
+                        </g>
+                      );
+                    })()}
                   </g>
                 );
               })}
