@@ -6,9 +6,6 @@ const withNextIntl = createNextIntlPlugin();
 
 const nextConfig: NextConfig = {
   allowedDevOrigins: ['192.168.50.107:3002', '192.168.50.107', 'localhost:3002'],
-  turbopack: {
-    root: process.cwd(),
-  },
 
   // ── SEO & Security headers ─────────────────────────────────────────────────
   async headers() {
