@@ -854,7 +854,7 @@ export const StockHistoryTable: React.FC<StockHistoryTableProps> = ({ prices, ti
 
                   <td className="p-4 text-slate-400">{finalDivRate > 0 ? `$${finalDivRate.toFixed(2)}` : '$0.00'}</td>
                   <td className="p-4 text-emerald-400/90 font-bold">{divYield > 0 ? `${divYield.toFixed(2)}%` : '0.00%'}</td>
-                  <td className="p-4 text-slate-400">{row.volume ? row.volume.toLocaleString() : 'N/A'}</td>
+                  <td className="p-4 text-slate-400">{row.volume ? row.volume.toLocaleString('en-US') : 'N/A'}</td>
                   <td className={`p-4 font-extrabold text-sm ${rating.score >= 75 ? 'text-teal-400' : 'text-amber-400'}`}>
                     {rating.score}
                   </td>
