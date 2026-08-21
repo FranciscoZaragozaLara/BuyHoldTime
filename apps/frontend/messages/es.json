@@ -76,6 +76,40 @@
     "annualizedReturn": "Retorno Anualizado",
     "maxDrawdown": "Caída Máxima (Drawdown)"
   },
+  "Backtesting": {
+    "tabs": {
+      "estrategias": "Estrategias",
+      "indicadores": "Indicadores",
+      "calculadora": "Calculadora"
+    },
+    "calculator": {
+      "title": "Calculadora de Interés Compuesto",
+      "subtitle": "Estima el valor futuro de tu inversión con crecimiento compuesto.",
+      "inputs": "Datos de entrada",
+      "initialAmount": "Monto inicial",
+      "monthlyContribution": "Aporte mensual",
+      "years": "Años",
+      "cagr": "Retorno anual (CAGR %)",
+      "hint": "Usa tu CAGR esperado. Histórico SP500 ~10%, Nasdaq ~12%, TQQQ apalancado mayor volatilidad.",
+      "results": "Resultados",
+      "totalInvested": "Total invertido",
+      "finalValue": "Valor final",
+      "gain": "Ganancia / Pérdida",
+      "performance": "Performance",
+      "multiple": "Veces multiplicado",
+      "formula": "Fórmula",
+      "breakdownTitle": "Desglose año por año",
+      "breakdownSubtitle": "Corrida desde el año 1 hasta el año final",
+      "colYear": "Año",
+      "colInvested": "Invertido",
+      "colFinal": "Valor final",
+      "colGain": "Ganancia",
+      "colPerf": "Performance",
+      "colMultiple": "Múltiplo",
+      "noRows": "Ingresa años > 0 para ver el desglose",
+      "chartTitle": "Gráfica de crecimiento"
+    }
+  },
   "Heatmap": {
     "title": "Mapa de Calor del Mercado",
     "subtitle": "Representación visual de recomendaciones y fuerza del índice en diferentes sectores.",

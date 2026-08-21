@@ -76,6 +76,40 @@
     "annualizedReturn": "Annualized Return",
     "maxDrawdown": "Max Drawdown"
   },
+  "Backtesting": {
+    "tabs": {
+      "estrategias": "Strategies",
+      "indicadores": "Indicators",
+      "calculadora": "Calculator"
+    },
+    "calculator": {
+      "title": "Compound Interest Calculator",
+      "subtitle": "Estimate the future value of your investment with compound growth.",
+      "inputs": "Inputs",
+      "initialAmount": "Initial amount",
+      "monthlyContribution": "Monthly contribution",
+      "years": "Years",
+      "cagr": "Annual return (CAGR %)",
+      "hint": "Use your expected CAGR. Historical SP500 ~10%, Nasdaq ~12%, TQQQ leveraged higher volatility.",
+      "results": "Results",
+      "totalInvested": "Total invested",
+      "finalValue": "Final value",
+      "gain": "Gain / Loss",
+      "performance": "Performance",
+      "multiple": "Money multiplied",
+      "formula": "Formula",
+      "breakdownTitle": "Year-by-year breakdown",
+      "breakdownSubtitle": "Progression from year 1 to final year",
+      "colYear": "Year",
+      "colInvested": "Invested",
+      "colFinal": "Final value",
+      "colGain": "Gain",
+      "colPerf": "Performance",
+      "colMultiple": "Multiple",
+      "noRows": "Enter years > 0 to see the breakdown",
+      "chartTitle": "Growth chart"
+    }
+  },
   "Heatmap": {
     "title": "Market Heatmap",
     "subtitle": "Visual representation of stock recommendations and index strength across different sectors.",

@@ -177,3 +177,137 @@ model MarginDebt {
 }
 
 
+
+// === Fase 6 Backtesting — TQQQ/QQQ ===
+model BtMarketData {
+  id          String   @id @default(uuid())
+  ticker      String
+  date        DateTime @db.Date
+  open        Float
+  high        Float
+  low         Float
+  close       Float
+  adjClose    Float    @map("adj_close")
+  volume      BigInt
+  source      String   @default("yfinance")
+  isValidated Boolean  @default(false) @map("is_validated")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@unique([ticker, date])
+  @@index([ticker, date])
+  @@map("bt_market_data")
+}
+
+model BtStrategy {
+  id           String          @id @default(uuid())
+  code         String          @unique
+  name         String
+  description  String?
+  paramsSchema Json?           @map("params_schema")
+  version      String          @default("1.0")
+  createdAt    DateTime        @default(now()) @map("created_at")
+  runs         BtBacktestRun[]
+
+  @@map("bt_strategies")
+}
+
+model BtStartDate {
+  id           String   @id @default(uuid())
+  startDate    DateTime @unique @db.Date @map("start_date")
+  label        String
+  descriptor   String?
+  category     String?  @map("category")
+  isTradingDay Boolean  @default(true) @map("is_trading_day")
+  source       String?  @map("source")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@map("bt_start_dates")
+}
+
+model BtBacktestRun {
+  id          String             @id @default(uuid())
+  strategyId  String             @map("strategy_id")
+  strategy    BtStrategy         @relation(fields: [strategyId], references: [id], onDelete: Cascade)
+  startDate   DateTime           @map("start_date") @db.Date
+  endDate     DateTime           @map("end_date") @db.Date
+  initialCash Float              @map("initial_cash")
+  commission  Float
+  paramsUsed  Json               @map("params_used")
+  status      String             @default("completed")
+  createdAt   DateTime           @default(now()) @map("created_at")
+  metrics     BtBacktestMetrics?
+  equityCurve BtEquityCurve[]
+  trades      BtTrade[]
+  allocations BtAllocation[]
+
+  @@unique([strategyId, startDate])
+  @@index([strategyId, startDate])
+  @@map("bt_backtest_runs")
+}
+
+model BtBacktestMetrics {
+  id                String        @id @default(uuid())
+  runId             String        @unique @map("run_id")
+  run               BtBacktestRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  finalValue        Float         @map("final_value")
+  totalReturn       Float         @map("total_return")
+  cagr              Float
+  sharpe            Float?
+  maxDrawdown       Float         @map("max_drawdown")
+  maxDdLength       Int?          @map("max_dd_length")
+  numTrades         Int?          @map("num_trades")
+  winRate           Float?        @map("win_rate")
+  sqn               Float?
+  benchmarkCagrQqq  Float?        @map("benchmark_cagr_qqq")
+  benchmarkCagrTqqq Float?        @map("benchmark_cagr_tqqq")
+
+  @@map("bt_backtest_metrics")
+}
+
+model BtEquityCurve {
+  id             String        @id @default(uuid())
+  runId          String        @map("run_id")
+  run            BtBacktestRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  date           DateTime      @db.Date
+  portfolioValue Float         @map("portfolio_value")
+  drawdown       Float?
+
+  @@unique([runId, date])
+  @@index([runId, date])
+  @@map("bt_equity_curve")
+}
+
+model BtTrade {
+  id         String        @id @default(uuid())
+  runId      String        @map("run_id")
+  run        BtBacktestRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  ticker     String
+  side       String
+  size       Float
+  price      Float
+  value      Float
+  commission Float?
+  datetime   DateTime
+  targetPct  Float?        @map("target_pct")
+  indicators Json?
+
+  @@map("bt_trades")
+}
+
+model BtAllocation {
+  id             String        @id @default(uuid())
+  runId          String        @map("run_id")
+  run            BtBacktestRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  date           DateTime      @db.Date
+  tqqqPct        Float         @map("tqqq_pct")
+  cashPct        Float         @map("cash_pct")
+  tqqqValue      Float         @map("tqqq_value")
+  cashValue      Float         @map("cash_value")
+  portfolioValue Float         @map("portfolio_value")
+  targetPct      Float?        @map("target_pct")
+  indicators     Json?
+
+  @@unique([runId, date])
+  @@index([runId, date])
+  @@map("bt_allocations")
+}

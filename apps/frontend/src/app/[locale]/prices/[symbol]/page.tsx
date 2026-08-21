@@ -19,6 +19,7 @@ import {
 
 // ISR: revalidate symbol pages every 2 minutes
 export const revalidate = 120;
+export const dynamic = 'force-dynamic';
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://buyholdtime.com';
 
