@@ -71,7 +71,7 @@ export function RegimesPanel() {
     if(p1y==null) return null;
     return (p1y/price-1)*100;
   }
-  // Régimen simple: Bull/Bear/Stress basado en umbrales
+  // Régimen simple: Bull/Bear/Stress basado en umbrales (legacy, para columna Régimen)
   function getRegime(d:string, capeVal:number|null, ratio:number|null): string {
     const hy=getClosestPrice(marketHistory['BAMLH0A0HYM2'],d);
     const mg=getMarginGdpRatio(d);
@@ -81,6 +81,77 @@ export function RegimesPanel() {
     if(capeVal!=null && capeVal<20 && (hy==null||hy<3)) return 'Bull';
     if(ratio!=null && ratio<0.9) return 'Bull';
     return 'Neutral';
+  }
+
+  // Nuevos 3 regímenes Bosque Seco — medición sin disparar trades
+  function getSMA(values:number[]): number | null { if(!values.length) return null; return values.reduce((a,b)=>a+b,0)/values.length; }
+  function getStd(values:number[], mean:number): number | null { if(values.length<2) return null; const v=values.reduce((a,b)=>a+Math.pow(b-mean,2),0)/(values.length-1); return Math.sqrt(v); }
+  function getPercentile(values:number[], p:number): number | null { if(!values.length) return null; const s=[...values].sort((a,b)=>a-b); const idx=Math.floor(p*s.length); return s[Math.min(idx, s.length-1)]; }
+
+  // Cache para series históricas para cálculo de Z y P20
+  const allCapeDates = cape.map((r:any)=> String(r.date).slice(0,10)).sort();
+  const marginGdpCache = new Map<string, number>();
+  const hyCache = new Map<string, number>();
+  // Prellenar caches si marketHistory disponible
+  function ensureCaches(){
+    if(marginGdpCache.size===0 && cape.length){
+      for(const r of cape){
+        const d=String(r.date).slice(0,10);
+        const mg=getMarginGdpRatio(d);
+        if(mg!=null) marginGdpCache.set(d, mg);
+        const hy=getClosestPrice(marketHistory['BAMLH0A0HYM2'], d);
+        if(hy!=null) hyCache.set(d, hy);
+      }
+    }
+  }
+
+  function getRegimesActive(d:string, capeVal:number|null, mean3yVal:number|null): {r1:boolean,r2:boolean,r3:boolean,total:number} {
+    ensureCaches();
+    // R1: CAPE > SMA36M*1.20  (mean3y es SMA36M)
+    const r1 = capeVal!=null && mean3yVal!=null && capeVal > mean3yVal * 1.20;
+    // R2: Z(Margin/GDP) >2.0  ventana 36M
+    let r2=false;
+    const mg=getMarginGdpRatio(d);
+    if(mg!=null){
+      // ventana 36M: tomar últimos 36 mensuales o ~756 diarios según capeView
+      const windowSize = capeView==='daily' ? 756 : capeView==='monthly' ? 36 : 3;
+      const idx = allCapeDates.indexOf(d);
+      if(idx>=0){
+        const slice = allCapeDates.slice(Math.max(0, idx-windowSize+1), idx+1);
+        const vals = slice.map(x=> marginGdpCache.get(x)).filter((v):v is number=>v!=null);
+        if(vals.length>=12){
+          const mean=getSMA(vals);
+          const std= mean!=null ? getStd(vals, mean) : null;
+          if(mean!=null && std!=null && std>0){
+            const z=(mg-mean)/std;
+            r2 = z > 2.0;
+          }
+        }
+      }
+    }
+    // R3: Complacencia complementaria: (HY < P20 OR <3.5) AND (R1 OR R2)
+    let r3=false;
+    const hy=getClosestPrice(marketHistory['BAMLH0A0HYM2'], d);
+    if(hy!=null){
+      const windowSize = capeView==='daily' ? 756 : capeView==='monthly' ? 36 : 3;
+      const idx = allCapeDates.indexOf(d);
+      let complacencia=false;
+      if(idx>=0){
+        const slice = allCapeDates.slice(Math.max(0, idx-windowSize+1), idx+1);
+        const vals = slice.map(x=> hyCache.get(x)).filter((v):v is number=>v!=null);
+        if(vals.length>=12){
+          const p20=getPercentile(vals, 0.20);
+          if(p20!=null) complacencia = hy < p20 || hy < 3.5;
+          else complacencia = hy < 3.5;
+        } else {
+          complacencia = hy < 3.5;
+        }
+      } else {
+        complacencia = hy < 3.5;
+      }
+      r3 = complacencia && (r1 || r2);
+    }
+    return {r1,r2,r3,total: (r1?1:0)+(r2?1:0)+(r3?1:0)};
   }
 
   useEffect(()=>{
@@ -237,11 +308,12 @@ export function RegimesPanel() {
           const mean3yVal = cape.find((c:any)=>String(c.date).slice(0,10)===iso)?.mean3y ?? null;
           const ratio = cape.find((c:any)=>String(c.date).slice(0,10)===iso)?.capeRatio ?? (mean3yVal!=null && capeVal!=null ? capeVal/mean3yVal : null);
           const regime = getRegime(iso, capeVal, ratio);
+          const {r1,r2,r3,total} = getRegimesActive(iso, capeVal, mean3yVal);
           const rect = el.getBoundingClientRect();
           const cw = rect?.width ?? 600;
-          const tx = Math.max(8, Math.min(param.point.x + 16, cw - 260));
-          const ty = Math.max(8, Math.min(param.point.y - 90, 360));
-          setEquityTooltip({x:tx,y:ty,date:iso,value:val,perf,cagr,regime,drawdown:dd});
+          const tx = Math.max(8, Math.min(param.point.x + 16, cw - 280));
+          const ty = Math.max(8, Math.min(param.point.y - 110, 360));
+          setEquityTooltip({x:tx,y:ty,date:iso,value:val,perf,cagr,regime,drawdown:dd, r1,r2,r3,total} as any);
         };
         try{ chart.subscribeCrosshairMove(handleCrosshair); }catch{}
         requestAnimationFrame(() => {
@@ -269,7 +341,7 @@ export function RegimesPanel() {
   const initialEquity = equity.length ? Number(equity[0].value) : 100000;
   const getEquityForDate = (iso:string)=> getClosestPrice(equityMap, iso) ?? getRecentPrice(equityMap, iso);
   const getDrawdownForDate = (iso:string)=> getClosestPrice(equityDrawdownMap, iso);
-  const [equityTooltip, setEquityTooltip] = useState<null|{x:number,y:number,date:string,value:number|null,perf:number|null,cagr:number|null,regime:string,drawdown:number|null}>(null);
+  const [equityTooltip, setEquityTooltip] = useState<null|{x:number,y:number,date:string,value:number|null,perf:number|null,cagr:number|null,regime:string,drawdown:number|null,r1?:boolean,r2?:boolean,r3?:boolean,total?:number}>(null);
 
   const stratMetrics = run ? {
     final_value: metrics?.final_value ?? metrics?.finalValue ?? 17405493,
@@ -358,6 +430,12 @@ export function RegimesPanel() {
             {equityTooltip && (
               <div className="absolute z-50 pointer-events-none bg-slate-800 border border-slate-600 rounded-lg px-3 py-2.5 text-xs shadow-2xl ring-1 ring-white/10 min-w-[240px]" style={{ left: equityTooltip.x, top: equityTooltip.y }}>
                 <div className="font-semibold text-slate-100 border-b border-slate-700 pb-1.5 mb-1.5">{new Date(equityTooltip.date).toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' })} <span className="font-normal text-slate-400">· {equityTooltip.date}</span> <span className={`ml-2 px-2 py-0.5 rounded-full border text-[10px] ${equityTooltip.regime==='Stress'?'bg-red-500/20 text-red-400 border-red-500/30':equityTooltip.regime==='Bull'?'bg-emerald-500/20 text-emerald-400 border-emerald-500/30':'bg-amber-500/20 text-amber-400 border-amber-500/30'}`}>{equityTooltip.regime}</span></div>
+                <div className="flex items-center gap-1.5 mb-2">
+                  <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full border text-xs ${equityTooltip.r1 ? 'bg-amber-500/20 text-amber-300 border-amber-500/30' : 'bg-slate-700 text-slate-500 border-slate-600 opacity-40'}`} title="Múltiplos Altos">📈</span>
+                  <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full border text-xs ${equityTooltip.r2 ? 'bg-red-500/20 text-red-300 border-red-500/30' : 'bg-slate-700 text-slate-500 border-slate-600 opacity-40'}`} title="Alta Deuda">🏦</span>
+                  <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full border text-xs ${equityTooltip.r3 ? 'bg-violet-500/20 text-violet-300 border-violet-500/30' : 'bg-slate-700 text-slate-500 border-slate-600 opacity-40'}`} title="Complacencia">😴</span>
+                  <span className={`ml-auto px-2.5 py-1 rounded-full text-xs font-bold border ${equityTooltip.total===3?'bg-red-500/20 text-red-300 border-red-500/30':equityTooltip.total===2?'bg-orange-500/20 text-orange-300 border-orange-500/30':equityTooltip.total===1?'bg-amber-500/20 text-amber-300 border-amber-500/30':'bg-slate-700 text-slate-400 border-slate-600'}`}>{equityTooltip.total ?? 0}/3 activos</span>
+                </div>
                 <div className="grid grid-cols-1 gap-1 font-mono text-[11px]">
                   <div className="flex justify-between"><span className="text-slate-400">Portafolio</span><span className="text-teal-300 font-bold">{equityTooltip.value!=null ? `$${Number(equityTooltip.value).toLocaleString('en-US',{minimumFractionDigits:2, maximumFractionDigits:2})}` : '—'}</span></div>
                   <div className="flex justify-between"><span className="text-slate-400">Perf.</span><span className={equityTooltip.perf!=null && equityTooltip.perf>=0 ? 'text-emerald-400' : 'text-red-400'}>{equityTooltip.perf!=null ? `${equityTooltip.perf>=0?'+':''}${equityTooltip.perf.toFixed(2)}%` : '—'}</span></div>
@@ -390,6 +468,9 @@ export function RegimesPanel() {
               <tr className="text-slate-400">
                 <th className="p-2 text-left sticky left-0 bg-slate-900">Fecha</th>
                 <th className="p-2 text-right">Régimen</th>
+                <th className="p-2 text-center" title="Múltiplos Altos: CAPE > SMA36M×1.20">📈</th>
+                <th className="p-2 text-center" title="Alta Deuda/PIB: Z>2.0">🏦</th>
+                <th className="p-2 text-center" title="Complacencia OAS: HY<P20 o <3.5% + (1 ó 2)">😴</th>
                 <th className="p-2 text-right">Portafolio</th>
                 <th className="p-2 text-right">Perf.</th>
                 <th className="p-2 text-right">CAGR</th>
@@ -431,6 +512,11 @@ export function RegimesPanel() {
                   <tr key={r.date} ref={isLast? observerRef : null} className="hover:bg-slate-800/40 border-t border-slate-800">
                     <td className="p-2 font-mono sticky left-0 bg-slate-900 text-slate-200">{capeView==='yearly'? d.slice(0,4): capeView==='monthly'? d.slice(0,7): d}</td>
                     <td className="p-2 text-right"><span className={`px-2 py-0.5 rounded-full border text-[10px] font-bold ${regimeColor}`}>{regime}</span></td>
+                    {(() => { const {r1,r2,r3}=getRegimesActive(d, capeVal, mean3yVal); const icon = (active:boolean, on:string, off:string, label:string) => active ? `inline-flex items-center justify-center w-6 h-6 rounded-full ${on} border text-xs` : `inline-flex items-center justify-center w-6 h-6 rounded-full ${off} border text-xs opacity-40`; return (<>
+                    <td className="p-2 text-center"><span className={icon(r1,'bg-amber-500/20 text-amber-300 border-amber-500/30','bg-slate-800 text-slate-500 border-slate-700','📈')} title={r1?'Múltiplos Altos ON: CAPE>SMA×1.20':'OFF'}>{r1?'📈':'⚪'}</span></td>
+                    <td className="p-2 text-center"><span className={icon(r2,'bg-red-500/20 text-red-300 border-red-500/30','bg-slate-800 text-slate-500 border-slate-700','🏦')} title={r2?'Alta Deuda ON: Z>2.0':'OFF'}>{r2?'🏦':'⚪'}</span></td>
+                    <td className="p-2 text-center"><span className={icon(r3,'bg-violet-500/20 text-violet-300 border-violet-500/30','bg-slate-800 text-slate-500 border-slate-700','😴')} title={r3?'Complacencia ON: HY<P20+ (1ó2)':'OFF'}>{r3?'😴':'⚪'}</span></td>
+                    </>); })()}
                     <td className="p-2 text-right font-mono text-teal-300">{portVal!=null ? `$${Number(portVal).toLocaleString('en-US',{minimumFractionDigits:2, maximumFractionDigits:2})}` : '—'}</td>
                     <td className={`p-2 text-right font-mono ${perf==null?'text-slate-500':perf>=0?'text-emerald-400':'text-red-400'}`}>{perf!=null ? `${perf>=0?'+':''}${perf.toFixed(2)}%` : '—'}</td>
                     <td className={`p-2 text-right font-mono ${cagrVal==null?'text-slate-500':cagrVal>=0?'text-emerald-300':'text-red-300'}`}>{cagrVal!=null ? `${cagrVal.toFixed(2)}%` : '—'}</td>
