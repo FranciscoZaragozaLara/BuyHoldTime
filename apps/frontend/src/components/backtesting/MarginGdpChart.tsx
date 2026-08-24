@@ -12,6 +12,7 @@ const COLORS = {
   capeRatio: '#a78bfa',
   ndx: '#06b6d4',
   tqqq: '#ec4899',
+  hyOas: '#ea580c',
   sma50: '#f97316',
   sma200: '#22c55e',
 };
@@ -22,7 +23,7 @@ export function MarginGdpChart({ marketHistory, cape = [] }: Props) {
   const seriesRefs = useRef<Record<string, any>>({});
 
   const [range, setRange] = useState<'1Y' | '5Y' | '10Y' | '20Y' | '30Y' | 'ALL'>('5Y');
-  const [visible, setVisible] = useState({ ratio: true, spx: true, cape: false, capeRatio: true, ndx: false, tqqq: false, sma50: false, sma200: false });
+  const [visible, setVisible] = useState({ ratio: true, spx: true, cape: false, capeRatio: true, ndx: false, tqqq: false, hyOas: false, sma50: false, sma200: false });
   const toggle = (k: keyof typeof visible) => setVisible(v => ({ ...v, [k]: !v[k] }));
 
   const getIdxPrice = (ticker: string, iso: string): number | null => {
@@ -41,11 +42,17 @@ export function MarginGdpChart({ marketHistory, cape = [] }: Props) {
     if (!finraMap || !gdpMap || !spxMap) return null;
     const capeMap = new Map<string, number>();
     const capeRatioMap = new Map<string, number>();
-    for (const r of cape) { const k = String(r.date).slice(0, 10); if (r.cape != null) capeMap.set(k, Number(r.cape)); if ((r as any).capeRatio != null) capeRatioMap.set(k, Number((r as any).capeRatio)); }
+    const mean3yMap = new Map<string, number>();
+    for (const r of cape) { const k = String(r.date).slice(0, 10); if (r.cape != null) capeMap.set(k, Number(r.cape)); if ((r as any).capeRatio != null) capeRatioMap.set(k, Number((r as any).capeRatio)); const m = (r as any).mean3y ?? (r as any).mean; if(m!=null) mean3yMap.set(k, Number(m)); }
     const getCape = (iso: string): number | null => {
       for (let i = 0; i < 7; i++) { const d = new Date(iso); d.setDate(d.getDate() - i); const k = d.toISOString().slice(0, 10); const v = capeMap.get(k); if (v != null) return v; }
       let best: string | null = null; for (const k of capeMap.keys()) if (k <= iso && (best == null || k > best)) best = k;
       return best ? capeMap.get(best)! : null;
+    };
+    const getMean3y = (iso: string): number | null => {
+      for (let i = 0; i < 7; i++) { const d = new Date(iso); d.setDate(d.getDate() - i); const k = d.toISOString().slice(0, 10); const v = mean3yMap.get(k); if (v != null) return v; }
+      let best: string | null = null; for (const k of mean3yMap.keys()) if (k <= iso && (best == null || k > best)) best = k;
+      return best ? mean3yMap.get(best)! : null;
     };
     const getCapeRatio = (iso: string): number | null => {
       for (let i = 0; i < 7; i++) { const d = new Date(iso); d.setDate(d.getDate() - i); const k = d.toISOString().slice(0, 10); const v = capeRatioMap.get(k); if (v != null) return v; }
@@ -54,6 +61,7 @@ export function MarginGdpChart({ marketHistory, cape = [] }: Props) {
     };
     const ndxMap = marketHistory['^IXIC'];
     const tqqqMap = marketHistory['TQQQ'];
+    const hyOasMap = marketHistory['BAMLH0A0HYM2'];
     const getIdx = (mp: Map<string, number> | undefined, iso: string): number | null => {
       if (!mp) return null;
       for (let i = 0; i < 7; i++) { const d = new Date(iso); d.setDate(d.getDate() - i); const k = d.toISOString().slice(0, 10); const v = mp.get(k); if (v != null) return v; }
@@ -75,34 +83,55 @@ export function MarginGdpChart({ marketHistory, cape = [] }: Props) {
     };
     const dates = Array.from(finraMap.keys()).sort();
     const rows: any[] = [];
+    const getFinra = (iso: string): number | null => {
+      if (finraMap.has(iso)) return finraMap.get(iso)!;
+      let best: string | null = null;
+      for (const k of finraMap.keys()) if (k <= iso && (best==null || k>best)) best=k;
+      return best ? finraMap.get(best)! : null;
+    };
+    const getGdp = (iso: string): number | null => {
+      let best: string | null = null;
+      for (const k of gdpMap.keys()) if (k <= iso && (best == null || k > best)) best = k;
+      return best ? gdpMap.get(best)! : null;
+    };
     for (const d of dates) {
-      const finra = finraMap.get(d);
-      let gdp: number | null = null; let best: string | null = null;
-      for (const k of gdpMap.keys()) if (k <= d && (best == null || k > best)) best = k;
-      if (best) gdp = gdpMap.get(best)!;
+      const finra = getFinra(d);
+      const gdp = getGdp(d);
       if (finra != null && gdp != null && gdp !== 0) {
         const ratio = (finra / 1000) / gdp * 100;
         const spx = (() => { if (!spxMap) return null; for (let i = 0; i < 7; i++) { const dd = new Date(d); dd.setDate(dd.getDate() - i); const k = dd.toISOString().slice(0, 10); const v = spxMap.get(k); if (v != null) return v; } let b: string | null = null; for (const k of spxMap.keys()) if (k <= d && (b == null || k > b)) b = k; return b ? spxMap.get(b)! : null; })();
-        rows.push({ date: d, time: d, ratio: Number(ratio.toFixed(3)), spx, cape: getCape(d), capeRatio: getCapeRatio(d), ndx: getIdx(ndxMap, d), tqqq: getIdx(tqqqMap, d), sma50: getSma(smaMap50, d), sma200: getSma(smaMap200, d) });
+        rows.push({ date: d, time: d, ratio: Number(ratio.toFixed(3)), spx, cape: getCape(d), capeRatio: getCapeRatio(d), mean3y: getMean3y(d), ndx: getIdx(ndxMap, d), tqqq: getIdx(tqqqMap, d), hyOas: getIdx(hyOasMap, d), sma50: getSma(smaMap50, d), sma200: getSma(smaMap200, d) });
       }
     }
-    // escalado para left (ratio domain 1.5-5.0) — CAPE family
+    // Complementar hasta hoy con forward-fill de FINRA/GDP para que no trunque en junio
+    try {
+      const lastFinra = dates[dates.length-1];
+      const spxDates = spxMap ? Array.from(spxMap.keys()).sort() : [];
+      const lastSpx = spxDates.length ? spxDates[spxDates.length-1] : null;
+      const extraDates: string[] = [];
+      if (lastSpx && lastFinra < lastSpx) {
+        const candidates = ['2026-08-01', lastSpx];
+        for (const cand of candidates) if (cand > lastFinra && !dates.includes(cand)) extraDates.push(cand);
+        if (!extraDates.length && lastSpx) {
+          const d = new Date(lastSpx); d.setDate(1);
+          const firstOfMonth = d.toISOString().slice(0,10);
+          if (firstOfMonth > lastFinra && !dates.includes(firstOfMonth)) extraDates.push(firstOfMonth);
+        }
+      }
+      for (const d of extraDates) {
+        const finra = getFinra(d);
+        const gdp = getGdp(d);
+        if (finra==null || gdp==null || gdp===0) continue;
+        if (rows.some(r=>r.date===d)) continue;
+        const ratio = (finra/1000)/gdp*100;
+        const spx = (() => { if (!spxMap) return null; for (let i=0;i<7;i++){ const dd=new Date(d); dd.setDate(dd.getDate()-i); const k=dd.toISOString().slice(0,10); const v=spxMap.get(k); if(v!=null) return v; } let b:string|null=null; for(const k of spxMap.keys()) if(k<=d && (b==null||k>b)) b=k; return b? spxMap.get(b)!:null; })();
+        rows.push({ date: d, time: d, ratio: Number(ratio.toFixed(3)), spx, cape: getCape(d), capeRatio: getCapeRatio(d), mean3y: getMean3y(d), ndx: getIdx(ndxMap, d), tqqq: getIdx(tqqqMap, d), hyOas: getIdx(hyOasMap, d), sma50: getSma(smaMap50, d), sma200: getSma(smaMap200, d) });
+      }
+      rows.sort((a,b)=> a.date.localeCompare(b.date));
+    } catch {}
+    // Sin escalado global — el escalado se hace dinámico por ventana visible (ver useEffect de chart)
     if (!rows.length) return { rows: [], yMin: 1.5, yMax: 5 };
-    const capeVals = rows.map(r => r.cape).filter((v: any) => v != null);
-    const minCape = capeVals.length ? Math.min(...capeVals) : 0; const maxCape = capeVals.length ? Math.max(...capeVals) : 1;
-    const crVals = rows.map(r => r.capeRatio).filter((v: any) => v != null);
-    const minCr = crVals.length ? Math.min(...crVals) : 0; const maxCr = crVals.length ? Math.max(...crVals) : 1;
-    const ndxVals = rows.map(r => r.ndx).filter((v: any) => v != null);
-    const minNdx = ndxVals.length ? Math.min(...ndxVals) : 0; const maxNdx = ndxVals.length ? Math.max(...ndxVals) : 1;
-    const tqqqVals = rows.map(r => r.tqqq).filter((v: any) => v != null);
-    const minTqqq = tqqqVals.length ? Math.min(...tqqqVals) : 0; const maxTqqq = tqqqVals.length ? Math.max(...tqqqVals) : 1;
     const yMin = 1.5, yMax = 5.0;
-    rows.forEach(r => {
-      if (r.cape != null) r.capeScaled = yMin + (r.cape - minCape) / (maxCape - minCape || 1) * (yMax - yMin);
-      if (r.capeRatio != null) r.capeRatioScaled = yMin + (r.capeRatio - minCr) / (maxCr - minCr || 1) * (yMax - yMin);
-      if (r.ndx != null) r.ndxScaled = yMin + (r.ndx - minNdx) / (maxNdx - minNdx || 1) * (yMax - yMin);
-      if (r.tqqq != null) r.tqqqScaled = yMin + (r.tqqq - minTqqq) / (maxTqqq - minTqqq || 1) * (yMax - yMin);
-    });
     return { rows, yMin, yMax };
   }, [marketHistory, cape]);
 
@@ -111,7 +140,7 @@ export function MarginGdpChart({ marketHistory, cape = [] }: Props) {
     const r = allSeries.rows; return `${r[0].date.slice(0, 10)} → ${r[r.length - 1].date.slice(0, 10)} (${r.length} pts)`;
   }, [allSeries]);
 
-  const [tooltip, setTooltip] = useState<null | { x: number; y: number; date: string; ratio: number | null; spx: number | null; cape: number | null; capeRatio: number | null; ndx: number | null; tqqq: number | null; sma50: number | null; sma200: number | null }>(null);
+  const [tooltip, setTooltip] = useState<null | { x: number; y: number; date: string; ratio: number | null; spx: number | null; cape: number | null; capeRatio: number | null; mean3y: number | null; ndx: number | null; tqqq: number | null; hyOas: number | null; sma50: number | null; sma200: number | null }>(null);
   const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
@@ -151,15 +180,44 @@ export function MarginGdpChart({ marketHistory, cape = [] }: Props) {
     const sCr = add('capeRatio', COLORS.capeRatio, 'left', 2);
     const sNdx = add('ndx', COLORS.ndx, 'left', 2);
     const sTqqq = add('tqqq', COLORS.tqqq, 'left', 2);
+    const sHy = add('hyOas', COLORS.hyOas, 'left', 2, 2 as any);
     const sSma50 = add('sma50', COLORS.sma50, 'right', 2);
     const sSma200 = add('sma200', COLORS.sma200, 'right', 2);
 
+    const yMin = allSeries.yMin, yMax = allSeries.yMax;
+    // Escalado dinámico por ventana visible — Nasdaq/TQQQ/CAPE/HY dejan de verse planos
+    const applyScalingForRange = (from: string | null, to: string | null) => {
+      try {
+        const visibleRows = (!from || !to) ? rows : rows.filter(r => r.date >= from && r.date <= to);
+        const src = visibleRows.length >= 2 ? visibleRows : rows;
+        const getMinMax = (key: string) => {
+          const vals = src.map((r: any) => r[key]).filter((v: any) => v != null);
+          if (!vals.length) return null;
+          return { min: Math.min(...vals), max: Math.max(...vals) };
+        };
+        const toData = (m: {min:number,max:number}|null, key:string) => {
+          if (!m) return [];
+          const range = m.max - m.min || 1;
+          return src.map((r:any)=> r[key]==null? null : { time: r.date as any, value: yMin + (r[key]-m.min)/range*(yMax-yMin) }).filter(Boolean) as any;
+        };
+        const mCape = getMinMax('cape'); const mCr = getMinMax('capeRatio'); const mNdx = getMinMax('ndx'); const mTqqq = getMinMax('tqqq'); const mHy = getMinMax('hyOas');
+        // Aplicar escalado a cada serie
+        if (mCape) sCape.setData(toData(mCape,'cape')); else sCape.setData([]);
+        if (mCr) sCr.setData(toData(mCr,'capeRatio')); else sCr.setData([]);
+        if (mNdx) sNdx.setData(toData(mNdx,'ndx')); else sNdx.setData([]);
+        if (mTqqq) sTqqq.setData(toData(mTqqq,'tqqq')); else sTqqq.setData([]);
+        if (mHy) sHy.setData(toData(mHy,'hyOas')); else sHy.setData([]);
+      } catch {}
+    };
+
     sRatio.setData(rows.map(r => mapTime(r.ratio, r.date)).filter(Boolean) as any);
     sSpx.setData(rows.map(r => mapTime(r.spx, r.date)).filter(Boolean) as any);
-    sCape.setData(rows.map(r => mapTime(r.capeScaled, r.date)).filter(Boolean) as any);
-    sCr.setData(rows.map(r => mapTime(r.capeRatioScaled, r.date)).filter(Boolean) as any);
-    sNdx.setData(rows.map(r => mapTime(r.ndxScaled, r.date)).filter(Boolean) as any);
-    sTqqq.setData(rows.map(r => mapTime(r.tqqqScaled, r.date)).filter(Boolean) as any);
+    // Inicial: escalar según ventana inicial (5Y por defecto)
+    try {
+      const initTo = rows[rows.length-1].date;
+      const d = new Date(initTo); d.setFullYear(d.getFullYear()-5);
+      applyScalingForRange(d.toISOString().slice(0,10), initTo);
+    } catch { applyScalingForRange(null,null); }
     sSma50.setData(rows.map(r => mapTime(r.sma50, r.date)).filter(Boolean) as any);
     sSma200.setData(rows.map(r => mapTime(r.sma200, r.date)).filter(Boolean) as any);
 
@@ -180,7 +238,7 @@ export function MarginGdpChart({ marketHistory, cape = [] }: Props) {
       const cw = rect?.width ?? 600;
       const tx = Math.max(8, Math.min(param.point.x + 16, cw - 260));
       const ty = Math.max(8, Math.min(param.point.y - 90, 360));
-      setTooltip({ x: tx, y: ty, date: row.date, ratio: row.ratio, spx: row.spx, cape: row.cape, capeRatio: row.capeRatio, ndx: row.ndx, tqqq: row.tqqq, sma50: row.sma50, sma200: row.sma200 });
+      setTooltip({ x: tx, y: ty, date: row.date, ratio: row.ratio, spx: row.spx, cape: row.cape, capeRatio: row.capeRatio, mean3y: row.mean3y, ndx: row.ndx, tqqq: row.tqqq, hyOas: row.hyOas, sma50: row.sma50, sma200: row.sma200 });
     };
     chart.subscribeCrosshairMove(handler);
     const ro = new ResizeObserver(() => {
@@ -189,13 +247,23 @@ export function MarginGdpChart({ marketHistory, cape = [] }: Props) {
         if (ww > 0 && hh > 0) chartRef.current.applyOptions({ width: ww, height: hh });
       }
     });
+    const onVisibleRange = () => {
+      try {
+        const vr = chart.timeScale().getVisibleRange() as any;
+        if (vr && vr.from && vr.to) {
+          const toStr = (v:any)=> typeof v==='string'? v : typeof v==='number'? new Date(v*1000).toISOString().slice(0,10) : String(v);
+          applyScalingForRange(toStr(vr.from), toStr(vr.to));
+        } else applyScalingForRange(null,null);
+      } catch {}
+    };
+    try { chart.timeScale().subscribeVisibleTimeRangeChange(onVisibleRange); } catch {}
     ro.observe(containerRef.current);
-    return () => { ro.disconnect(); try { chart.unsubscribeCrosshairMove(handler); } catch {} chart.remove(); chartRef.current = null; seriesRefs.current = {}; setTooltip(null); };
+    return () => { try { chart.timeScale().unsubscribeVisibleTimeRangeChange(onVisibleRange); } catch {} ro.disconnect(); try { chart.unsubscribeCrosshairMove(handler); } catch {} chart.remove(); chartRef.current = null; seriesRefs.current = {}; setTooltip(null); };
   }, [allSeries]);
 
   // Visibilidad toggle (show/hide series) — debe correr también tras montar el chart
   useEffect(() => {
-    const vis: Record<string, boolean> = { ratio: visible.ratio, spx: visible.spx, cape: visible.cape, capeRatio: visible.capeRatio, ndx: visible.ndx, tqqq: visible.tqqq, sma50: visible.sma50, sma200: visible.sma200 };
+    const vis: Record<string, boolean> = { ratio: visible.ratio, spx: visible.spx, cape: visible.cape, capeRatio: visible.capeRatio, ndx: visible.ndx, tqqq: visible.tqqq, hyOas: visible.hyOas, sma50: visible.sma50, sma200: visible.sma200 };
     for (const [k, s] of Object.entries(seriesRefs.current)) {
       try { s.applyOptions({ visible: !!vis[k] } as any); } catch {}
     }
@@ -259,8 +327,10 @@ export function MarginGdpChart({ marketHistory, cape = [] }: Props) {
               <div className="flex justify-between"><span className="text-slate-500">SP500</span><span className="text-sky-300">{tooltip.spx!=null ? `$${tooltip.spx.toFixed(2)}` : '—'}</span></div>
               <div className="flex justify-between"><span className="text-slate-500">Nasdaq</span><span className="text-sky-300">{tooltip.ndx!=null ? `$${tooltip.ndx.toFixed(2)}` : '—'}</span></div>
               <div className="flex justify-between"><span className="text-slate-500">TQQQ</span><span className="text-sky-300">{tooltip.tqqq!=null ? `$${tooltip.tqqq.toFixed(2)}` : '—'}</span></div>
+              <div className="flex justify-between"><span className="text-orange-400">HY OAS</span><span className="text-orange-300">{tooltip.hyOas!=null ? `${tooltip.hyOas.toFixed(2)}%` : '—'}</span></div>
               <div className="flex justify-between"><span className="text-amber-400">CAPE</span><span className="text-amber-300">{tooltip.cape!=null ? tooltip.cape.toFixed(2) : '—'}</span></div>
-              <div className="flex justify-between"><span className="text-violet-400">CAPE Ratio</span><span className="text-violet-300">{tooltip.capeRatio!=null ? tooltip.capeRatio.toFixed(3) : '—'}</span></div>
+              <div className="flex justify-between"><span className="text-violet-400">CAPE Ratio</span><span className="text-violet-300">{tooltip.capeRatio!=null ? `${tooltip.capeRatio.toFixed(3)}X` : '—'}</span></div>
+              <div className="flex justify-between"><span className="text-violet-300">CAPE mean3Y</span><span className="text-violet-200">{tooltip.mean3y!=null ? tooltip.mean3y.toFixed(2) : '—'}</span></div>
               <div className="flex justify-between"><span className="text-orange-400">SMA50 SP500</span><span className="text-orange-300">{tooltip.sma50!=null ? `$${tooltip.sma50.toFixed(2)}` : '—'}</span></div>
               <div className="flex justify-between"><span className="text-green-400">SMA200 SP500</span><span className="text-green-300">{tooltip.sma200!=null ? `$${tooltip.sma200.toFixed(2)}` : '—'}</span></div>
             </div>
@@ -276,6 +346,7 @@ export function MarginGdpChart({ marketHistory, cape = [] }: Props) {
         <button onClick={()=>toggle('capeRatio')} className={`flex items-center gap-1.5 rounded px-1.5 py-0.5 border transition ${visible.capeRatio ? 'bg-slate-800 border-violet-500/50 text-violet-200' : 'bg-slate-900 border-slate-700 text-slate-500 opacity-60'}`}><span className="w-3 h-0.5 bg-[#a78bfa]" style={{ borderTop: '2px dashed #a78bfa' }} /> CAPE Ratio escalado</button>
         <button onClick={()=>toggle('ndx')} className={`flex items-center gap-1.5 rounded px-1.5 py-0.5 border transition ${visible.ndx ? 'bg-slate-800 border-cyan-500/50 text-cyan-200' : 'bg-slate-900 border-slate-700 text-slate-500 opacity-60'}`}><span className="w-3 h-0.5 bg-[#06b6d4]" style={{ borderTop: '2px dashed #06b6d4' }} /> Nasdaq escalado</button>
         <button onClick={()=>toggle('tqqq')} className={`flex items-center gap-1.5 rounded px-1.5 py-0.5 border transition ${visible.tqqq ? 'bg-slate-800 border-pink-500/50 text-pink-200' : 'bg-slate-900 border-slate-700 text-slate-500 opacity-60'}`}><span className="w-3 h-0.5 bg-[#ec4899]" style={{ borderTop: '2px dashed #ec4899' }} /> TQQQ escalado</button>
+        <button onClick={()=>toggle('hyOas')} className={`flex items-center gap-1.5 rounded px-1.5 py-0.5 border transition ${visible.hyOas ? 'bg-slate-800 border-orange-600/50 text-orange-200' : 'bg-slate-900 border-slate-700 text-slate-500 opacity-60'}`}><span className="w-3 h-0.5 bg-[#ea580c]" style={{ borderTop: '2px dashed #ea580c' }} /> HY OAS escalado</button>
         <button onClick={()=>toggle('sma50')} className={`flex items-center gap-1.5 rounded px-1.5 py-0.5 border transition ${visible.sma50 ? 'bg-slate-800 border-orange-500/50 text-orange-200' : 'bg-slate-900 border-slate-700 text-slate-500 opacity-60'}`}><span className="w-3 h-0.5 bg-[#f97316]" /> SMA50</button>
         <button onClick={()=>toggle('sma200')} className={`flex items-center gap-1.5 rounded px-1.5 py-0.5 border transition ${visible.sma200 ? 'bg-slate-800 border-green-500/50 text-green-200' : 'bg-slate-900 border-slate-700 text-slate-500 opacity-60'}`}><span className="w-3 h-0.5 bg-[#22c55e]" /> SMA200</button>
         {last && <span className="ml-auto font-mono text-slate-400 self-center">Actual {last.ratio.toFixed(2)}% @ {last.date.slice(0,7)}</span>}

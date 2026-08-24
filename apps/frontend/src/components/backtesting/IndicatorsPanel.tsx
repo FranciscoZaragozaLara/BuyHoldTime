@@ -63,6 +63,21 @@ export function IndicatorsPanel() {
   const liveGdpc1 = useLiveTicker('GDPC1');
   const liveFinra = useLiveTicker('FINRA_DEBIT');
   const liveMap: Record<string, any> = { '^GSPC': liveGspc, '^IXIC': liveIxic, 'TQQQ': liveTqqq, 'CPIAUCSL': liveCpi, 'CPILFESL': liveCore, 'DFEDTARU': liveFed, 'DGS2': live2y, 'DGS10': live10y, 'DGS30': live30y, 'BAMLH0A0HYM2': liveHyOas, 'BAMLH0A0HYM2EY': liveHyEy, 'GDP': liveGdp, 'GDPC1': liveGdpc1, 'FINRA_DEBIT': liveFinra };
+  // Historial para gráfica: merge BD + live más reciente para siempre estar al día
+  const chartHistory = (() => {
+    const merged: Record<string, Map<string, number>> = {};
+    for (const [k, mp] of Object.entries(marketHistory)) merged[k] = new Map(mp as Map<string, number>);
+    for (const [tk, q] of Object.entries(liveMap as Record<string, any>)) {
+      const d = (q as any)?.data?.date?.slice(0,10);
+      const v = (q as any)?.data?.close;
+      const src = (q as any)?.data?.source;
+      if (d && v!=null && src!=='db-fallback') {
+        if (!merged[tk]) merged[tk] = new Map();
+        merged[tk].set(d, Number(v));
+      }
+    }
+    return merged;
+  })();
   function getClosestPrice(map: Map<string, number> | undefined, isoDate: string, lookback = 7): number | null {
     if (!map) return null;
     for (let i = 0; i < lookback; i++) {
@@ -90,6 +105,20 @@ export function IndicatorsPanel() {
     const gdp = getRecentPrice(marketHistory['GDP'], isoDate, 120);
     if (finra==null || gdp==null || gdp===0) return null;
     return (finra/1000)/gdp*100;
+  }
+  function getCpiYoY(map: Map<string, number> | undefined, isoDate: string): number | null {
+    // Inflación mensual: no se mueve diario — usar mes más reciente <= isoDate
+    if (!map || map.size===0) return null;
+    let curDate: string | null = null;
+    for (let i=0;i<40;i++){ const d=new Date(isoDate); d.setDate(d.getDate()-i); const k=d.toISOString().slice(0,10); if(map.has(k)){ curDate=k; break; } }
+    if(!curDate){ for(const k of map.keys()) if(k<=isoDate && (curDate==null || k>curDate)) curDate=k; }
+    if(!curDate) return null;
+    const cur = map.get(curDate)!;
+    const cd = new Date(curDate); cd.setFullYear(cd.getFullYear()-1);
+    const prevIso = cd.toISOString().slice(0,10);
+    const prev = getRecentPrice(map, prevIso, 40);
+    if (prev==null || prev===0) return null;
+    return (cur/prev -1)*100;
   }
   function getPerf1Y(isoDate: string): number | null {
     const price = getClosestPrice(marketHistory['^GSPC'], isoDate);
@@ -371,7 +400,9 @@ export function IndicatorsPanel() {
           const liveVal = liveKey ? liveMap[liveKey]?.data?.close : null;
           const liveSrc = liveKey ? liveMap[liveKey]?.data?.source : null;
           const useLive = liveVal!=null && liveSrc!=='db-fallback';
-          const displayValue = isSchiller && capeLast?.cape != null ? capeLast.cape : (useLive ? liveVal : ind.currentValue);
+          const isInflation = ind.key==='inflation' || ind.key==='core_inflation';
+          const inflationYoY = isInflation ? getCpiYoY(marketHistory[liveKey!], liveMap[liveKey!]?.data?.date || new Date().toISOString().slice(0,10)) : null;
+          const displayValue = isSchiller && capeLast?.cape != null ? capeLast.cape : (isInflation && inflationYoY!=null ? inflationYoY : (useLive ? liveVal : ind.currentValue));
           const displayStatus = isSchiller && capeLast?.cape != null ? (capeLast.cape >= 30 ? 'High' : capeLast.cape >= 20 ? 'Normal' : 'Low') : ind.status;
           const tip = tooltipMap[ind.key] || ind.description || '';
           return (
@@ -379,9 +410,10 @@ export function IndicatorsPanel() {
               <div className="text-xs text-slate-500 flex items-center">{ind.key} {isSchiller && <span className="text-teal-400 ml-1">(diario)</span>} {tip && renderTooltip(tip + (isSchiller && capeLast?.cape!=null ? ` Sincronizado: ${capeLast.cape.toFixed(2)} @ ${(capeLast.date||'').slice(0,10)}` : ''))}</div>
               <div className="font-semibold text-slate-100 truncate">{ind.name}</div>
               <div className="mt-2 flex items-baseline gap-2">
-                <span className="text-xl font-mono text-emerald-400">{displayValue != null ? Number(displayValue).toFixed(2) : '—'}{ind.unit}</span>
+                <span className="text-xl font-mono text-emerald-400">{displayValue != null ? Number(displayValue).toFixed(2) : '—'}{ind.unit}{isInflation && inflationYoY!=null ? <span className="text-[10px] text-slate-500 ml-1">YoY</span> : null}</span>
                 <span className={`text-xs px-2 py-0.5 rounded-full border ${displayStatus==='High'?'bg-orange-500/20 text-orange-400 border-orange-500/30':displayStatus==='Greed'?'bg-emerald-500/20 text-emerald-400 border-emerald-500/30':'bg-slate-800 text-slate-400 border-slate-700'}`}>{displayStatus}</span>
               </div>
+              {isInflation && liveVal!=null && <div className="text-[10px] font-mono text-slate-500">Índice {Number(liveVal).toFixed(2)}</div>}
               <div className="text-xs text-slate-500 mt-2 line-clamp-2">{ind.description}</div>
             </div>
           );
@@ -411,13 +443,28 @@ export function IndicatorsPanel() {
           const fresh = liveFreshMin(q?.data?.date);
           const showLive = live!=null && src!=='db-fallback';
           const tip = tooltipMap[t] || '';
-          const isYield = ['DFEDTARU','DGS2','DGS10','DGS30','CPIAUCSL','CPILFESL','BAMLH0A0HYM2','BAMLH0A0HYM2EY'].includes(t);
+          const isCpi = t==='CPIAUCSL' || t==='CPILFESL';
+          const isYield = ['DFEDTARU','DGS2','DGS10','DGS30','BAMLH0A0HYM2','BAMLH0A0HYM2EY'].includes(t);
           const isGDP = t==='GDP';
           const isFinra = t==='FINRA_DEBIT';
           const fmt = (n:number) => isGDP ? `$${(n/1000).toFixed(1)}T` : isFinra ? `$${(n/1000).toFixed(0)}B` : isYield ? `${n.toFixed(2)}%` : `$${n.toFixed(2)}`;
+          // CPI cards: YoY mensual fijo (no diario) — live usa mes más reciente
+          const cpiYoYForCard = isCpi ? getCpiYoY(marketHistory[t], liveMap[t]?.data?.date || new Date().toISOString().slice(0,10)) : null;
           const gdpYoY = (()=>{ if(t!=='GDP') return null; const cur = showLive ? Number(live) : (v!=null? Number(v): null); if(cur==null) return null; const refDate = q?.data?.date || new Date().toISOString().slice(0,10); const d=new Date(refDate); d.setFullYear(d.getFullYear()-1); const iso=d.toISOString().slice(0,10); const prev=getClosestPrice(marketHistory['GDP'], iso, 95) ?? getClosestPrice(marketHistory['GDP'], refDate, 95);
             let p = prev; if(p==null){ const qd = new Date(refDate); qd.setMonth(qd.getMonth()-12); p = getClosestPrice(marketHistory['GDP'], qd.toISOString().slice(0,10), 95); } if(p==null || p===0) return null; return (cur/p -1)*100; })();
           const gdpc1YoY = (()=>{ if(t!=='GDP') return null; const curReal = liveGdpc1?.data?.close ?? getClosestPrice(marketHistory['GDPC1'], liveGdpc1?.data?.date || new Date().toISOString().slice(0,10), 95); if(curReal==null) return null; const refDate = liveGdpc1?.data?.date || q?.data?.date || new Date().toISOString().slice(0,10); const d=new Date(refDate); d.setFullYear(d.getFullYear()-1); const iso=d.toISOString().slice(0,10); const prev=getClosestPrice(marketHistory['GDPC1'], iso, 95); let p=prev; if(p==null){ const qd=new Date(refDate); qd.setMonth(qd.getMonth()-12); p=getClosestPrice(marketHistory['GDPC1'], qd.toISOString().slice(0,10),95);} if(p==null||p===0) return null; return (curReal/p -1)*100; })();
+          // Para CPI mostrar YoY con índice como subtítulo
+          if (isCpi) {
+            const idxVal = showLive ? Number(live) : (v!=null ? Number(v) : null);
+            return (
+              <div className={`border rounded-lg px-3 py-2 ${showLive ? 'bg-teal-500/10 border-teal-500/30 ring-1 ring-teal-500/20' : 'bg-slate-800/60 border-slate-700'}`}>
+                <div className="text-xs text-slate-500 flex items-center gap-1.5">{t} {tip && renderTooltip(tip)} {showLive && <span className="text-[10px] px-1.5 py-0.5 rounded bg-teal-500 text-white font-bold">Actual</span>}</div>
+                <div className="font-mono text-slate-100">{cpiYoYForCard!=null ? `${cpiYoYForCard.toFixed(2)}%` : '—'} <span className="text-[10px] text-slate-500">YoY</span></div>
+                {idxVal!=null && <div className="text-[10px] font-mono text-slate-500">Índice {idxVal.toFixed(2)}</div>}
+                {fresh && <div className="text-[11px] text-slate-500">{fresh} · {src}</div>}
+              </div>
+            );
+          }
           return (
             <div className={`border rounded-lg px-3 py-2 ${showLive ? 'bg-teal-500/10 border-teal-500/30 ring-1 ring-teal-500/20' : 'bg-slate-800/60 border-slate-700'}`}>
               <div className="text-xs text-slate-500 flex items-center gap-1.5">{t} {tip && renderTooltip(tip)} {showLive && <span className="text-[10px] px-1.5 py-0.5 rounded bg-teal-500 text-white font-bold">Actual</span>}</div>
@@ -454,7 +501,7 @@ export function IndicatorsPanel() {
           </div>
         );
       })()}
-      <MarginGdpChart marketHistory={marketHistory} cape={cape} />
+      <MarginGdpChart marketHistory={chartHistory} cape={cape} />
 
       <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
         <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
@@ -483,8 +530,8 @@ export function IndicatorsPanel() {
                   if(sortCol==='cagr') return getCAGR(d) ?? -1e9;
                   if(sortCol==='ndx') return getClosestPrice(marketHistory['^IXIC'], d) ?? -1e9;
                   if(sortCol==='tqqq') return getClosestPrice(marketHistory['TQQQ'], d) ?? -1e9;
-                  if(sortCol==='cpi') return getRecentPrice(marketHistory['CPIAUCSL'], d, 40) ?? -1e9;
-                  if(sortCol==='core') return getRecentPrice(marketHistory['CPILFESL'], d, 40) ?? -1e9;
+                  if(sortCol==='cpi') return getCpiYoY(marketHistory['CPIAUCSL'], d) ?? -1e9;
+                  if(sortCol==='core') return getCpiYoY(marketHistory['CPILFESL'], d) ?? -1e9;
                   if(sortCol==='gdp') return getRecentPrice(marketHistory['GDP'], d, 120) ?? -1e9;
                   if(sortCol==='finra') return getRecentPrice(marketHistory['FINRA_DEBIT'], d, 45) ?? -1e9;
                   if(sortCol==='marginGdp') return getMarginGdpRatio(d) ?? -1e9;
@@ -525,8 +572,8 @@ export function IndicatorsPanel() {
                 const hyEy = getClosestPrice(marketHistory['BAMLH0A0HYM2EY'], d);
                 const dgs10 = getClosestPrice(marketHistory['DGS10'], d);
                 const hy10y = (dgs10!=null && hyOas!=null) ? dgs10 + hyOas : '';
-                const cpi = getRecentPrice(marketHistory['CPIAUCSL'], d, 40);
-                const core = getRecentPrice(marketHistory['CPILFESL'], d, 40);
+                const cpi = getCpiYoY(marketHistory['CPIAUCSL'], d);
+                const core = getCpiYoY(marketHistory['CPILFESL'], d);
                 const perf1y = getPerf1Y(d);
                 const perfTot = getPerfTotal(d);
                 const cagr = getCAGR(d);
@@ -621,8 +668,8 @@ export function IndicatorsPanel() {
                     if(sortCol==='cagr') return getCAGR(d) ?? -Infinity;
                     if(sortCol==='ndx') return getClosestPrice(marketHistory['^IXIC'], d) ?? -Infinity;
                     if(sortCol==='tqqq') return getClosestPrice(marketHistory['TQQQ'], d) ?? -Infinity;
-                    if(sortCol==='cpi') return getRecentPrice(marketHistory['CPIAUCSL'], d, 40) ?? -Infinity;
-                    if(sortCol==='core') return getRecentPrice(marketHistory['CPILFESL'], d, 40) ?? -Infinity;
+                    if(sortCol==='cpi') return getCpiYoY(marketHistory['CPIAUCSL'], d) ?? -Infinity;
+                    if(sortCol==='core') return getCpiYoY(marketHistory['CPILFESL'], d) ?? -Infinity;
                     if(sortCol==='gdp') return getRecentPrice(marketHistory['GDP'], d, 120) ?? -Infinity;
                     if(sortCol==='finra') return getRecentPrice(marketHistory['FINRA_DEBIT'], d, 45) ?? -Infinity;
                     if(sortCol==='marginGdp') return getMarginGdpRatio(d) ?? -Infinity;
@@ -666,8 +713,8 @@ export function IndicatorsPanel() {
                 const spx = getClosestPrice(marketHistory['^GSPC'], d);
                 const ndx = getClosestPrice(marketHistory['^IXIC'], d);
                 const tqqq = getClosestPrice(marketHistory['TQQQ'], d);
-                const cpi = getRecentPrice(marketHistory['CPIAUCSL'], d, 40);
-                const core = getRecentPrice(marketHistory['CPILFESL'], d, 40);
+                const cpi = getCpiYoY(marketHistory['CPIAUCSL'], d);
+                const core = getCpiYoY(marketHistory['CPILFESL'], d);
                 const gdpVal = getRecentPrice(marketHistory['GDP'], d, 120);
                 const fed = getClosestPrice(marketHistory['DFEDTARU'], d);
                 const dgs2 = getClosestPrice(marketHistory['DGS2'], d);
@@ -693,8 +740,8 @@ export function IndicatorsPanel() {
                 const spxDisp = (spxLive!=null && liveGspc.data?.source!=='db-fallback') ? spxLive : spx;
                 const ndxDisp = (ndxLive!=null && liveIxic.data?.source!=='db-fallback') ? ndxLive : ndx;
                 const tqqqDisp = (tqqqLive!=null && liveTqqq.data?.source!=='db-fallback') ? tqqqLive : tqqq;
-                const cpiDisp = (cpiLive!=null) ? cpiLive : cpi;
-                const coreDisp = (coreLive!=null) ? coreLive : core;
+                const cpiDisp = (cpiLive!=null) ? (getCpiYoY(marketHistory['CPIAUCSL'], liveCpi.data?.date || d) ?? cpi) : cpi;
+                const coreDisp = (coreLive!=null) ? (getCpiYoY(marketHistory['CPILFESL'], liveCore.data?.date || d) ?? core) : core;
                 const gdpDisp = (gdpLive!=null) ? gdpLive : gdpVal;
                 const fedDisp = (fedLive!=null) ? fedLive : fed;
                 const dgs2Disp = (y2Live!=null) ? y2Live : dgs2;

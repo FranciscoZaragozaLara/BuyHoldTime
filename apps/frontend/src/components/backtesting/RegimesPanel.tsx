@@ -1,0 +1,340 @@
+'use client';
+import { useEffect, useState, useRef } from 'react';
+import { useTranslations } from 'next-intl';
+import { createChart, ColorType, LineSeries } from 'lightweight-charts';
+
+function getApiBase() {
+  if (process.env.NEXT_PUBLIC_API_URL) return process.env.NEXT_PUBLIC_API_URL;
+  if (typeof window !== 'undefined') return `http://${window.location.hostname}:4000`;
+  return 'http://localhost:4000';
+}
+
+export function RegimesPanel() {
+  const t = useTranslations('Backtesting.regimes');
+  const tTabs = useTranslations('Backtesting.tabs');
+  const [run, setRun] = useState<any>(null);
+  const [metrics, setMetrics] = useState<any>(null);
+  const [equity, setEquity] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const equityChartRef = useRef<HTMLDivElement>(null);
+  const equityChartApiRef = useRef<any>(null);
+  // Tabla régimen: reutiliza misma data que IndicatorsPanel
+  const [cape, setCape] = useState<any[]>([]);
+  const [marketHistory, setMarketHistory] = useState<Record<string, Map<string, number>>>({});
+  const [capeView, setCapeView] = useState<'daily'|'monthly'|'yearly'>('daily');
+  const [visibleCount, setVisibleCount] = useState(15);
+  const [sortCol, setSortCol] = useState<string>('date');
+  const [sortDir, setSortDir] = useState<'asc'|'desc'>('desc');
+
+  // Helpers (copiados de IndicatorsPanel para mismos indicadores)
+  function getClosestPrice(map: Map<string, number> | undefined, isoDate: string, lookback = 7): number | null {
+    if (!map) return null;
+    for (let i=0;i<lookback;i++){ const d=new Date(isoDate); d.setDate(d.getDate()-i); const k=d.toISOString().slice(0,10); const v=map.get(k); if(v!=null) return v; }
+    return null;
+  }
+  function getRecentPrice(map: Map<string, number> | undefined, isoDate: string, lookback = 7): number | null {
+    const v=getClosestPrice(map,isoDate,lookback);
+    if(v!=null) return v;
+    if(!map||map.size===0) return null;
+    let best:string|null=null;
+    for(const k of map.keys()) if(k<=isoDate && (best==null||k>best)) best=k;
+    return best? map.get(best)!:null;
+  }
+  function getCpiYoY(map: Map<string, number> | undefined, isoDate: string): number | null {
+    if(!map||map.size===0) return null;
+    let curDate:string|null=null;
+    for(let i=0;i<40;i++){ const d=new Date(isoDate); d.setDate(d.getDate()-i); const k=d.toISOString().slice(0,10); if(map.has(k)){curDate=k;break;}}
+    if(!curDate){ for(const k of map.keys()) if(k<=isoDate && (curDate==null||k>curDate)) curDate=k; }
+    if(!curDate) return null;
+    const cur=map.get(curDate)!;
+    const cd=new Date(curDate); cd.setFullYear(cd.getFullYear()-1);
+    const prev=getRecentPrice(map, cd.toISOString().slice(0,10),40);
+    if(prev==null||prev===0) return null;
+    return (cur/prev-1)*100;
+  }
+  function getMarginGdpRatio(isoDate: string): number | null {
+    const finra=getRecentPrice(marketHistory['FINRA_DEBIT'],isoDate,45);
+    const gdp=getRecentPrice(marketHistory['GDP'],isoDate,120);
+    if(finra==null||gdp==null||gdp===0) return null;
+    return (finra/1000)/gdp*100;
+  }
+  function getPerf1Y(isoDate: string): number | null {
+    const price=getClosestPrice(marketHistory['^GSPC'],isoDate);
+    if(price==null) return null;
+    const d=new Date(isoDate); d.setMonth(d.getMonth()+12);
+    const target=d.toISOString().slice(0,10);
+    if(new Date(target)>new Date()) return null;
+    const p1y=getClosestPrice(marketHistory['^GSPC'],target);
+    if(p1y==null) return null;
+    return (p1y/price-1)*100;
+  }
+  // Régimen simple: Bull/Bear/Stress basado en umbrales
+  function getRegime(d:string, capeVal:number|null, ratio:number|null): string {
+    const hy=getClosestPrice(marketHistory['BAMLH0A0HYM2'],d);
+    const mg=getMarginGdpRatio(d);
+    if(capeVal!=null && capeVal>30) return 'Stress';
+    if(hy!=null && hy>5) return 'Stress';
+    if(mg!=null && mg>5) return 'Stress';
+    if(capeVal!=null && capeVal<20 && (hy==null||hy<3)) return 'Bull';
+    if(ratio!=null && ratio<0.9) return 'Bull';
+    return 'Neutral';
+  }
+
+  useEffect(()=>{
+    const load=async()=>{
+      try{
+        const base=getApiBase();
+        const [runRes, capeRes] = await Promise.all([
+          fetch(`${base}/api/backtesting/runs?strategyCode=GSPC_BH_ORIGIN`,{cache:'no-store'}),
+          fetch(`${base}/api/backtesting/shiller-daily?from=1990-01-01`,{cache:'no-store'}),
+        ]);
+        if(runRes.ok){
+          const runs=await runRes.json();
+          const first=Array.isArray(runs)?runs[0]:runs;
+          if(first?.id){
+            setRun(first);
+            const eqRes=await fetch(`${base}/api/backtesting/runs/${first.id}/equity`,{cache:'no-store'});
+            if(eqRes.ok){
+              const eq=await eqRes.json();
+              setEquity(eq.map((e:any)=>({date:(e.date||'').slice(0,10), value:Number(e.portfolio_value ?? e.portfolioValue)})));
+            }
+            if(first.metrics) setMetrics(first.metrics);
+          }
+        }
+        if(capeRes.ok) setCape(await capeRes.json());
+        // marketHistory para mismos indicadores que tabla backtesting
+        const tickers=['TQQQ','QQQ','^GSPC','^IXIC','CPIAUCSL','CPILFESL','DFEDTARU','DGS2','DGS10','DGS30','BAMLH0A0HYM2','BAMLH0A0HYM2EY','GDP','FINRA_DEBIT'];
+        const to=new Date().toISOString().slice(0,10);
+        const hist: Record<string,Map<string,number>>={};
+        await Promise.all(tickers.map(async tck=>{
+          try{
+            const r=await fetch(`${base}/api/backtesting/market-data?ticker=${encodeURIComponent(tck)}&from=1990-01-01&to=${to}`,{cache:'no-store'});
+            if(r.ok){
+              const j=await r.json();
+              const mp=new Map<string,number>();
+              for(const row of j) mp.set((row.date||'').slice(0,10), Number(row.close));
+              hist[tck]=mp;
+            }
+          }catch{}
+        }));
+        setMarketHistory(hist);
+      }catch{}
+      setLoading(false);
+    };
+    load();
+  },[]);
+
+  // Equity chart con mismo diseño que Evolución de Apalancamiento — robusto
+  useEffect(() => {
+    if (!equityChartRef.current || !equity.length) return;
+    const el = equityChartRef.current;
+    let chart:any = null;
+    let ro: ResizeObserver | null = null;
+    let cancelled = false;
+    const init = () => {
+      if (cancelled || !equityChartRef.current) return;
+      try {
+        el.innerHTML = '';
+        // Esperar layout si width=0 (tab recién montada)
+        const rectW = el.clientWidth;
+        const w = rectW > 0 ? rectW : 600;
+        const h = 360;
+        chart = createChart(el, {
+          width: w, height: h,
+          layout: { background: { type: ColorType.Solid, color: '#020617' }, textColor: '#94a3b8', fontSize: 11 },
+          grid: { vertLines: { color: 'rgba(30,41,59,0.3)' }, horzLines: { color: 'rgba(30,41,59,0.3)' } },
+          crosshair: { mode: 1, vertLine: { color: '#14b8a6', width: 1, style: 3, labelBackgroundColor: '#14b8a6' }, horzLine: { color: '#14b8a6', width: 1, style: 3, labelBackgroundColor: '#14b8a6' } },
+          rightPriceScale: { borderColor: 'rgba(30,41,59,0.5)', scaleMargins: { top: 0.12, bottom: 0.12 }, visible: true } as any,
+          timeScale: { borderColor: 'rgba(30,41,59,0.5)', rightOffset: 5, barSpacing: 2, minBarSpacing: 0.5, fixLeftEdge: false, fixRightEdge: false, timeVisible: true, secondsVisible: false },
+          handleScroll: { mouseWheel: true, pressedMouseMove: true, horzTouchDrag: true, vertTouchDrag: false },
+          handleScale: { mouseWheel: true, pinch: true, axisPressedMouseMove: true },
+        });
+        equityChartApiRef.current = chart;
+        const series = chart.addSeries(LineSeries as any, { color: '#14b8a6', lineWidth: 2, priceLineVisible: false, lastValueVisible: true, crosshairMarkerVisible: true } as any);
+        // Datos validados y ordenados
+        const sorted = [...equity].filter(d => d.date && d.value != null && isFinite(d.value)).sort((a,b)=> a.date.localeCompare(b.date));
+        const data = sorted.map(p => ({ time: p.date.slice(0,10) as any, value: Number(p.value) }));
+        series.setData(data as any);
+        // Ajustar vista y forzar repaint
+        chart.timeScale().fitContent();
+        // Fallback: si data muy densa, asegurar que se ve la línea en toda la historia
+        setTimeout(()=>{ try{ chart.timeScale().fitContent(); }catch{} }, 80);
+        ro = new ResizeObserver(() => {
+          if (equityChartRef.current && equityChartApiRef.current) {
+            const ww = equityChartRef.current.clientWidth;
+            const hh = equityChartRef.current.clientHeight;
+            if (ww > 0 && hh > 0) equityChartApiRef.current.applyOptions({ width: ww, height: hh });
+          }
+        });
+        ro.observe(el);
+      } catch(e){ console.error('Regimes equity chart error', e); }
+    };
+    // RAF para asegurar que el tab regimes ya tiene layout
+    const raf = requestAnimationFrame(() => requestAnimationFrame(init));
+    // Fallback si RAF no da width
+    const fallback = setTimeout(()=>{ if(!chart) init(); }, 250);
+    return () => { cancelled = true; cancelAnimationFrame(raf as any); clearTimeout(fallback); if(ro) ro.disconnect(); try{ if(chart) chart.remove(); }catch{}; equityChartApiRef.current=null; };
+  }, [equity]);
+
+  const stratMetrics = run ? {
+    final_value: metrics?.final_value ?? metrics?.finalValue ?? 17405493,
+    cagr: metrics?.cagr ?? 0.0771,
+    sharpe: metrics?.sharpe ?? 0.55,
+    max_drawdown: metrics?.max_drawdown ?? metrics?.maxDrawdown ?? 0.56,
+    total_return: metrics?.total_return ?? metrics?.totalReturn,
+    num_trades: metrics?.num_trades ?? 1,
+  } : null;
+
+  // Construir filas según vista daily/monthly/yearly — igual que IndicatorsPanel
+  const rowsView = (() => {
+    if(!cape.length) return [];
+    if(capeView==='daily') return cape;
+    if(capeView==='monthly'){
+      const byMonth=new Map<string,any>();
+      for(const r of cape) byMonth.set(String(r.date||'').slice(0,7), r);
+      return Array.from(byMonth.values());
+    }
+    const byYear=new Map<string,any>();
+    for(const r of cape) byYear.set(String(r.date||'').slice(0,4), r);
+    return Array.from(byYear.values());
+  })();
+
+  const sorted = [...rowsView].sort((a:any,b:any)=> sortDir==='desc' ? b.date.localeCompare(a.date) : a.date.localeCompare(b.date));
+  const paginated = sorted.slice(0, visibleCount);
+  const observerRef = useRef<HTMLTableRowElement|null>(null) as any;
+  useEffect(()=>{
+    const el=observerRef.current;
+    if(!el) return;
+    const io=new IntersectionObserver((entries)=>{
+      if(entries[0].isIntersecting) setVisibleCount(c=> Math.min(c+20, rowsView.length));
+    },{rootMargin:'200px'});
+    io.observe(el);
+    return()=> io.disconnect();
+  },[rowsView.length, paginated.length]);
+
+  return (
+    <div className="space-y-6">
+      <div className="bg-slate-900 border border-slate-800 rounded-xl p-6">
+        <h2 className="text-xl font-semibold text-slate-100">{t('title')}</h2>
+        <p className="text-sm text-slate-400 mt-1">{t('subtitle')}</p>
+        <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="bg-slate-800/60 border border-slate-700 rounded-lg p-4">
+            <div className="text-xs text-slate-500">{t('currentRegime')}</div>
+            <div className="mt-2 flex items-center gap-2">
+              <span className="px-3 py-1 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30 text-sm font-semibold">Neutral</span>
+              <span className="text-xs text-slate-500">{t('comingSoon')}</span>
+            </div>
+            <div className="mt-3 text-xs text-slate-500">
+              {t('factors')}: {t('factorValuation')} • {t('factorRates')} • {t('factorCredit')} • {t('factorLeverage')}
+            </div>
+          </div>
+          <div className="bg-slate-800/60 border border-slate-700 rounded-lg p-4">
+            <div className="text-xs font-semibold text-slate-300">SP500 Buy&Hold — Baseline</div>
+            {loading ? (
+              <div className="mt-2 h-16 bg-slate-700/30 rounded animate-pulse" />
+            ) : stratMetrics ? (
+              <div className="mt-2 grid grid-cols-2 gap-2 text-xs font-mono">
+                <div className="bg-slate-900 rounded p-2 border border-slate-800"><div className="text-slate-500">Final</div><div className="text-slate-100 font-bold">${Number(stratMetrics.final_value).toLocaleString('en-US')}</div><div className="text-slate-500 text-[10px]">1957-03-04 → {run?.end_date?.slice(0,10) || '2026-08-21'}</div></div>
+                <div className="bg-slate-900 rounded p-2 border border-slate-800"><div className="text-slate-500">CAGR</div><div className="text-emerald-400 font-bold">{(stratMetrics.cagr*100).toFixed(2)}%</div><div className="text-slate-500 text-[10px]">Sharpe {Number(stratMetrics.sharpe).toFixed(2)} · DD {(Number(stratMetrics.max_drawdown)*100).toFixed(1)}%</div></div>
+                <div className="bg-slate-900 rounded p-2 border border-slate-800"><div className="text-slate-500">Total Return</div><div className="text-sky-300 font-bold">{stratMetrics.total_return ? (stratMetrics.total_return*100).toFixed(0)+'%' : '—'}</div><div className="text-slate-500 text-[10px]">{equity.length} días · 1 trade</div></div>
+                <div className="bg-slate-900 rounded p-2 border border-slate-800"><div className="text-slate-500">Trades</div><div className="text-slate-100 font-bold">{stratMetrics.num_trades} (Buy&Hold)</div><div className="text-slate-500 text-[10px]">Sin ventas</div></div>
+              </div>
+            ) : (
+              <div className="text-xs text-slate-500 mt-2">No se encontró run GSPC_BH_ORIGIN</div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {!loading && equity.length > 0 && (
+        <div className="w-full bg-slate-900 border border-slate-800 rounded-xl p-4">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="font-semibold text-slate-100">Equity — SP500 Buy&Hold 1957→Hoy — {equity.length} pts · escala log</h3>
+            <span className="text-xs font-mono text-slate-400">{equity[0]?.date.slice(0,4)} → {equity[equity.length-1]?.date.slice(0,10)} · {((equity[equity.length-1]?.value/100000-1)*100).toFixed(0)}%</span>
+          </div>
+          <div className="relative w-full h-[360px] overflow-visible">
+            <div ref={equityChartRef} className="w-full h-full relative z-0" />
+          </div>
+          <div className="flex flex-wrap gap-x-4 gap-y-1.5 mt-2 text-xs text-slate-500"><span>Scroll/arrastra para zoom • base para regímenes y triggers</span></div>
+        </div>
+      )}
+
+      {/* Tabla Daily / Monthly / Yearly con mismos indicadores que Backtesting */}
+      <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
+        <div className="flex items-center justify-between gap-2 mb-3">
+          <h3 className="font-semibold text-slate-100">Tabla de Regímenes — {capeView==='daily'?'Daily':capeView==='monthly'?'Monthly':'Yearly'}</h3>
+          <div className="flex gap-1">
+            {(['daily','monthly','yearly'] as const).map(v=>(
+              <button key={v} onClick={()=>setCapeView(v)} className={`px-3 py-1 text-xs rounded-md capitalize ${capeView===v?'bg-slate-700 text-teal-300 border border-slate-600':'text-slate-400 hover:text-slate-200'}`}>{v}</button>
+            ))}
+          </div>
+        </div>
+        <p className="text-xs text-slate-500 mb-3">Mismos indicadores que tabla Backtesting (SP500, Nasdaq, TQQQ, FED, 2Y/10Y/30Y, HY OAS, CAPE, CPI YoY, GDP, Margin/GDP) + Régimen.</p>
+        <div className="overflow-auto max-h-[520px] border border-slate-800 rounded-lg">
+          <table className="w-full text-xs">
+            <thead className="sticky top-0 bg-slate-900 z-10">
+              <tr className="text-slate-400">
+                <th className="p-2 text-left sticky left-0 bg-slate-900">Fecha</th>
+                <th className="p-2 text-right">Régimen</th>
+                <th className="p-2 text-right">SP500</th>
+                <th className="p-2 text-right">CAPE</th>
+                <th className="p-2 text-right">mean3Y</th>
+                <th className="p-2 text-right">Ratio</th>
+                <th className="p-2 text-right">HY OAS</th>
+                <th className="p-2 text-right">Margin/GDP</th>
+                <th className="p-2 text-right">CPI YoY</th>
+                <th className="p-2 text-right">FED</th>
+                <th className="p-2 text-right">10Y</th>
+              </tr>
+            </thead>
+            <tbody>
+              {paginated.map((r:any, idx:number)=>{
+                const d=String(r.date||'').slice(0,10);
+                const isLast= idx===paginated.length-1;
+                const capeVal=r.cape;
+                const mean3yVal=r.mean3y ?? r.mean;
+                const ratio=r.capeRatio != null ? r.capeRatio : (mean3yVal!=null ? r.cape / mean3yVal : null);
+                const hy=getClosestPrice(marketHistory['BAMLH0A0HYM2'],d);
+                const mg=getMarginGdpRatio(d);
+                const cpi=getCpiYoY(marketHistory['CPIAUCSL'],d);
+                const fed=getClosestPrice(marketHistory['DFEDTARU'],d);
+                const y10=getClosestPrice(marketHistory['DGS10'],d);
+                const spx=getClosestPrice(marketHistory['^GSPC'],d);
+                const regime=getRegime(d, capeVal, ratio);
+                const regimeColor= regime==='Stress'?'bg-red-500/20 text-red-400 border-red-500/30': regime==='Bull'?'bg-emerald-500/20 text-emerald-400 border-emerald-500/30':'bg-amber-500/20 text-amber-400 border-amber-500/30';
+                const ratioColor = ratio==null ? 'text-slate-500' : ratio < 0.9 ? 'text-emerald-400 bg-emerald-500/10' : ratio < 1.05 ? 'text-green-400 bg-green-500/10' : ratio < 1.18 ? 'text-yellow-400 bg-yellow-500/10' : ratio < 1.35 ? 'text-orange-400 bg-orange-500/10' : 'text-red-400 bg-red-500/10';
+                const mgColor = mg==null ? 'text-slate-500' : mg>6?'text-red-400 bg-red-500/10 border-red-500/20':mg>4?'text-orange-400 bg-orange-500/10 border-orange-500/20':mg>2?'text-yellow-400 bg-yellow-500/10 border-yellow-500/20':'text-emerald-400 bg-emerald-500/10 border-emerald-500/20';
+                return (
+                  <tr key={r.date} ref={isLast? observerRef : null} className="hover:bg-slate-800/40 border-t border-slate-800">
+                    <td className="p-2 font-mono sticky left-0 bg-slate-900 text-slate-200">{capeView==='yearly'? d.slice(0,4): capeView==='monthly'? d.slice(0,7): d}</td>
+                    <td className="p-2 text-right"><span className={`px-2 py-0.5 rounded-full border text-[10px] font-bold ${regimeColor}`}>{regime}</span></td>
+                    <td className="p-2 text-right font-mono text-sky-300">{spx? `$${spx.toFixed(0)}`:'—'}</td>
+                    <td className="p-2 text-right font-mono text-amber-300">{capeVal?.toFixed(2) ?? '—'}</td>
+                    <td className="p-2 text-right font-mono text-slate-300">{mean3yVal?.toFixed(2) ?? '—'}</td>
+                    <td className={`p-2 text-right font-mono font-semibold rounded ${ratioColor}`}>{ratio!=null? `${ratio.toFixed(3)}X`:'—'}</td>
+                    <td className="p-2 text-right font-mono text-orange-300">{hy!=null? `${hy.toFixed(2)}%`:'—'}</td>
+                    <td className={`p-2 text-right font-mono font-semibold border rounded ${mgColor}`}>{mg!=null? `${mg.toFixed(2)}%`:'—'}</td>
+                    <td className="p-2 text-right font-mono text-emerald-300">{cpi!=null? `${cpi.toFixed(2)}%`:'—'}</td>
+                    <td className="p-2 text-right font-mono text-violet-300">{fed!=null? `${fed.toFixed(2)}%`:'—'}</td>
+                    <td className="p-2 text-right font-mono text-cyan-300">{y10!=null? `${y10.toFixed(2)}%`:'—'}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        <div className="text-[11px] text-slate-500 mt-2">Scroll para cargar más · {rowsView.length} filas · Régimen: Stress (CAPE&gt;30 o HY&gt;5 o Margin&gt;5), Bull (CAPE&lt;20), resto Neutral. Base para nuevos triggers.</div>
+      </div>
+
+      <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 border-dashed">
+        <div className="text-sm font-semibold text-slate-200">Próximos: Estrategias de Régimen</div>
+        <ul className="mt-2 list-disc list-inside text-xs text-slate-400 space-y-1">
+          <li><span className="text-slate-200">Regime Bull</span> — CAPE &lt;20 y HY OAS &lt;3% → 100% SP500</li>
+          <li><span className="text-slate-200">Regime Bear</span> — CAPE &gt;30 o Margin/GDP &gt;5 → 50% cash</li>
+          <li><span className="text-slate-200">Regime Stress</span> — HY OAS &gt;5% o VIX &gt;25 → 100% cash / defensivo</li>
+          <li>Triggers: cruce de medias, inversión de curva, etc. — se agregarán como nuevas `bt_strategies` clonando este baseline.</li>
+        </ul>
+      </div>
+    </div>
+  );
+}

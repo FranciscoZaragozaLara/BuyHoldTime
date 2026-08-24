@@ -80,7 +80,8 @@
     "tabs": {
       "estrategias": "Strategies",
       "indicadores": "Indicators",
-      "calculadora": "Calculator"
+      "calculadora": "Calculator",
+      "regimes": "Regimes"
     },
     "calculator": {
       "title": "Compound Interest Calculator",
@@ -108,6 +109,20 @@
       "colMultiple": "Multiple",
       "noRows": "Enter years > 0 to see the breakdown",
       "chartTitle": "Growth chart"
+    },
+    "regimes": {
+      "title": "Market Regimes",
+      "subtitle": "Classify the current market environment to adapt your strategy — valuation, rates, credit and leverage in one view.",
+      "currentRegime": "Current regime",
+      "history": "Regime history",
+      "comingSoon": "Regime engine coming soon — CAPE, yield curve, HY OAS and Margin/GDP will define Bull / Bear / Stress states.",
+      "factors": "Key factors",
+      "factorValuation": "Valuation (CAPE & ratio)",
+      "factorRates": "Rates (Fed & curve)",
+      "factorCredit": "Credit (HY OAS)",
+      "factorLeverage": "Leverage (Margin/GDP)",
+      "placeholder": "Select a date to see its regime classification.",
+      "loading": "Loading regimes..."
     }
   },
   "Heatmap": {

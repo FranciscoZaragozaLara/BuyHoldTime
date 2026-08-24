@@ -1,15 +1,18 @@
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import { useTranslations } from 'next-intl';
-import { EquityChart } from '@/components/backtesting/EquityChart';
-import { MetricsTable } from '@/components/backtesting/MetricsTable';
-import { PerformanceTable } from '@/components/backtesting/PerformanceTable';
-import { MallikDetails } from '@/components/backtesting/MallikDetails';
-import { QQQStrategyChart } from '@/components/backtesting/QQQStrategyChart';
+import dynamic from 'next/dynamic';
+import { Suspense } from 'react';
 import { StrategySelector } from '@/components/backtesting/StrategySelector';
-import { StrategyExplorer } from '@/components/backtesting/StrategyExplorer';
-import { IndicatorsPanel } from '@/components/backtesting/IndicatorsPanel';
-import { CalculatorPanel } from '@/components/backtesting/CalculatorPanel';
+const EquityChart = dynamic(() => import('@/components/backtesting/EquityChart').then(m => ({ default: m.EquityChart })), { loading: () => <div className="h-[300px] bg-slate-900 border border-slate-800 rounded-xl animate-pulse" />, ssr: false });
+const MetricsTable = dynamic(() => import('@/components/backtesting/MetricsTable').then(m => ({ default: m.MetricsTable })), { loading: () => <div className="h-[120px] bg-slate-900 border border-slate-800 rounded-xl animate-pulse" />, ssr: false });
+const PerformanceTable = dynamic(() => import('@/components/backtesting/PerformanceTable').then(m => ({ default: m.PerformanceTable })), { loading: () => <div className="h-[200px] bg-slate-900 border border-slate-800 rounded-xl animate-pulse" />, ssr: false });
+const MallikDetails = dynamic(() => import('@/components/backtesting/MallikDetails').then(m => ({ default: m.MallikDetails })), { loading: () => <div className="h-[200px] bg-slate-900 border border-slate-800 rounded-xl animate-pulse" />, ssr: false });
+const QQQStrategyChart = dynamic(() => import('@/components/backtesting/QQQStrategyChart').then(m => ({ default: m.QQQStrategyChart })), { loading: () => <div className="h-[300px] bg-slate-900 border border-slate-800 rounded-xl animate-pulse" />, ssr: false });
+const StrategyExplorer = dynamic(() => import('@/components/backtesting/StrategyExplorer').then(m => ({ default: m.StrategyExplorer })), { loading: () => <div className="h-[400px] bg-slate-900 border border-slate-800 rounded-xl animate-pulse" />, ssr: false });
+const IndicatorsPanel = dynamic(() => import('@/components/backtesting/IndicatorsPanel').then(m => ({ default: m.IndicatorsPanel })), { loading: () => <div className="h-[400px] bg-slate-900 border border-slate-800 rounded-xl animate-pulse" />, ssr: false });
+const CalculatorPanel = dynamic(() => import('@/components/backtesting/CalculatorPanel').then(m => ({ default: m.CalculatorPanel })), { loading: () => <div className="h-[400px] bg-slate-900 border border-slate-800 rounded-xl animate-pulse" />, ssr: false });
+const RegimesPanel = dynamic(() => import('@/components/backtesting/RegimesPanel').then(m => ({ default: m.RegimesPanel })), { loading: () => <div className="h-[300px] bg-slate-900 border border-slate-800 rounded-xl animate-pulse" />, ssr: false });
 
 function StartDateSelector({ dates, selected, onChange }: { dates: any[]; selected: string; onChange: (v: string) => void }) {
   return (
@@ -340,7 +343,7 @@ const fallbackEquity = {
 
 export function BacktestingClient({ initialStrategies, initialRuns }: { initialStrategies: any[]; initialRuns: any }) {
   const t = useTranslations('Backtesting');
-  const [activeTab, setActiveTab] = useState<'estrategias' | 'indicadores' | 'calculadora'>('estrategias');
+  const [activeTab, setActiveTab] = useState<'estrategias' | 'indicadores' | 'calculadora' | 'regimes'>('estrategias');
   const [selected, setSelected] = useState<string[]>(['BH_QQQ', 'BH_TQQQ', 'SCHILLER_TQQQ_3A_RISK_D_V8', 'SCHILLER_TQQQ_3A_RISK_D_V8_ZILPH']);
   const [historicoCode, setHistoricoCode] = useState<string>('SCHILLER_TQQQ_3A_RISK_D_V8_ZILPH');
   const [metrics, setMetrics] = useState<any[]>(fallbackMetrics);
@@ -591,6 +594,7 @@ export function BacktestingClient({ initialStrategies, initialRuns }: { initialS
       <div className="flex gap-1 p-1 bg-slate-900 border border-slate-800 rounded-xl w-fit">
         <button onClick={()=>setActiveTab('estrategias')} className={`px-5 py-2 rounded-lg text-sm font-medium transition ${activeTab==='estrategias' ? 'bg-slate-800 text-teal-400 border border-slate-700' : 'text-slate-400 hover:text-slate-200'}`}>{t('tabs.estrategias')}</button>
         <button onClick={()=>setActiveTab('indicadores')} className={`px-5 py-2 rounded-lg text-sm font-medium transition ${activeTab==='indicadores' ? 'bg-slate-800 text-teal-400 border border-slate-700' : 'text-slate-400 hover:text-slate-200'}`}>{t('tabs.indicadores')}</button>
+        <button onClick={()=>setActiveTab('regimes')} className={`px-5 py-2 rounded-lg text-sm font-medium transition ${activeTab==='regimes' ? 'bg-slate-800 text-teal-400 border border-slate-700' : 'text-slate-400 hover:text-slate-200'}`}>{t('tabs.regimes')}</button>
         <button onClick={()=>setActiveTab('calculadora')} className={`px-5 py-2 rounded-lg text-sm font-medium transition ${activeTab==='calculadora' ? 'bg-slate-800 text-teal-400 border border-slate-700' : 'text-slate-400 hover:text-slate-200'}`}>{t('tabs.calculadora')}</button>
       </div>
       {activeTab==='estrategias' && (
@@ -614,8 +618,9 @@ export function BacktestingClient({ initialStrategies, initialRuns }: { initialS
       <MallikDetails runId={explorerRunId} strategyCode={historicoCode} strategyName={initialStrategies.find(s=>s.code===historicoCode)?.name || historicoCode} run={explorerRun} startDates={startDates} />
         </>
       )}
-      {activeTab==='indicadores' && <IndicatorsPanel />}
-      {activeTab==='calculadora' && <CalculatorPanel />}
+      {activeTab==='indicadores' && <Suspense fallback={<div className="h-[400px] bg-slate-900 border border-slate-800 rounded-xl animate-pulse" />}><IndicatorsPanel /></Suspense>}
+      {activeTab==='calculadora' && <Suspense fallback={<div className="h-[400px] bg-slate-900 border border-slate-800 rounded-xl animate-pulse" />}><CalculatorPanel /></Suspense>}
+      {activeTab==='regimes' && <Suspense fallback={<div className="h-[300px] bg-slate-900 border border-slate-800 rounded-xl animate-pulse" />}><RegimesPanel /></Suspense>}
       <div className="text-xs text-slate-500 border-t border-slate-800 pt-3">
         API: GET /api/backtesting/strategies, /market-data?ticker=QQQ, /runs, /runs/:id/equity, /runs/:id/trades, /runs/:id/allocations, /comparativa?runIds=... — Base: {getApiBase()}
       </div>

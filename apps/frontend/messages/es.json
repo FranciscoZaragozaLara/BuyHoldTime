@@ -80,7 +80,8 @@
     "tabs": {
       "estrategias": "Estrategias",
       "indicadores": "Indicadores",
-      "calculadora": "Calculadora"
+      "calculadora": "Calculadora",
+      "regimes": "Regímenes"
     },
     "calculator": {
       "title": "Calculadora de Interés Compuesto",
@@ -108,6 +109,20 @@
       "colMultiple": "Múltiplo",
       "noRows": "Ingresa años > 0 para ver el desglose",
       "chartTitle": "Gráfica de crecimiento"
+    },
+    "regimes": {
+      "title": "Régimenes de Mercado",
+      "subtitle": "Clasifica el entorno actual para adaptar tu estrategia — valuación, tasas, crédito y apalancamiento en una sola vista.",
+      "currentRegime": "Régimen actual",
+      "history": "Historial de regímenes",
+      "comingSoon": "Motor de regímenes próximamente — CAPE, curva, HY OAS y Margin/GDP definirán estados Alcista / Bajista / Estrés.",
+      "factors": "Factores clave",
+      "factorValuation": "Valuación (CAPE y ratio)",
+      "factorRates": "Tasas (FED y curva)",
+      "factorCredit": "Crédito (HY OAS)",
+      "factorLeverage": "Apalancamiento (Margin/GDP)",
+      "placeholder": "Selecciona una fecha para ver su clasificación de régimen.",
+      "loading": "Cargando regímenes..."
     }
   },
   "Heatmap": {
