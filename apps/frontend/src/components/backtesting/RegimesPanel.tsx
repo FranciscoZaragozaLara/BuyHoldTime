@@ -467,10 +467,9 @@ export function RegimesPanel() {
             <thead className="sticky top-0 bg-slate-900 z-10">
               <tr className="text-slate-400">
                 <th className="p-2 text-left sticky left-0 bg-slate-900">Fecha</th>
-                <th className="p-2 text-right">Régimen</th>
-                <th className="p-2 text-center" title="Múltiplos Altos: CAPE > SMA36M×1.20">📈</th>
-                <th className="p-2 text-center" title="Alta Deuda/PIB: Z>2.0">🏦</th>
-                <th className="p-2 text-center" title="Complacencia OAS: HY<P20 o <3.5% + (1 ó 2)">😴</th>
+                <th className="p-2 text-center" title="Múltiplos Altos: CAPE > SMA_36M×1.20 — Bosque Seco por Múltiplos Altos — Qué mide: Precio relativo (CAPE) — Gatillo: Subida Tasas Fed — Fórmula: CAPE > SMA36M×1.20 — Ej: 2022 Nasdaq -35%">📈</th>
+                <th className="p-2 text-center" title="Alta Deuda/PIB: Z(Margin/GDP) >2.0 — Bosque Seco por Alta Deuda — Qué mide: Apalancamiento sistémico — Gatillo: Margin Call — Fórmula: Z=(Margin/GDP−SMA36M)/σ36M>2.0 — Ej: 1929,2000">🏦</th>
+                <th className="p-2 text-center" title="Complacencia OAS: (HY<P20 OR <3.5%) AND (R1 OR R2) — Complementaria — Qué mide: Ceguera al riesgo (bonos) — Gatillo: Salto spreads +50bps — Fórmula: (HY<P20 OR <3.5%) AND (R1 OR R2) — Ej: 2007 <3% →2008 >11%">😴</th>
                 <th className="p-2 text-right">Portafolio</th>
                 <th className="p-2 text-right">Perf.</th>
                 <th className="p-2 text-right">CAGR</th>
@@ -511,11 +510,10 @@ export function RegimesPanel() {
                 return (
                   <tr key={r.date} ref={isLast? observerRef : null} className="hover:bg-slate-800/40 border-t border-slate-800">
                     <td className="p-2 font-mono sticky left-0 bg-slate-900 text-slate-200">{capeView==='yearly'? d.slice(0,4): capeView==='monthly'? d.slice(0,7): d}</td>
-                    <td className="p-2 text-right"><span className={`px-2 py-0.5 rounded-full border text-[10px] font-bold ${regimeColor}`}>{regime}</span></td>
                     {(() => { const {r1,r2,r3}=getRegimesActive(d, capeVal, mean3yVal); const icon = (active:boolean, on:string, off:string, label:string) => active ? `inline-flex items-center justify-center w-6 h-6 rounded-full ${on} border text-xs` : `inline-flex items-center justify-center w-6 h-6 rounded-full ${off} border text-xs opacity-40`; return (<>
-                    <td className="p-2 text-center"><span className={icon(r1,'bg-amber-500/20 text-amber-300 border-amber-500/30','bg-slate-800 text-slate-500 border-slate-700','📈')} title={r1?'Múltiplos Altos ON: CAPE>SMA×1.20':'OFF'}>{r1?'📈':'⚪'}</span></td>
-                    <td className="p-2 text-center"><span className={icon(r2,'bg-red-500/20 text-red-300 border-red-500/30','bg-slate-800 text-slate-500 border-slate-700','🏦')} title={r2?'Alta Deuda ON: Z>2.0':'OFF'}>{r2?'🏦':'⚪'}</span></td>
-                    <td className="p-2 text-center"><span className={icon(r3,'bg-violet-500/20 text-violet-300 border-violet-500/30','bg-slate-800 text-slate-500 border-slate-700','😴')} title={r3?'Complacencia ON: HY<P20+ (1ó2)':'OFF'}>{r3?'😴':'⚪'}</span></td>
+                    <td className="p-2 text-center"><span className={icon(r1,'bg-amber-500/20 text-amber-300 border-amber-500/30','bg-slate-800 text-slate-500 border-slate-700','📈')} title={r1?'📈 Múltiplos Altos ON — CAPE > SMA36M×1.20 — Qué mide: Precio relativo (CAPE) — Gatillo: Subida Tasas Fed — Fórmula: CAPE > SMA36M×1.20 — Indicador: CAPE/mean3Y · CAPE '+ (capeVal?.toFixed(2) ?? '—') +' > '+ ((mean3yVal ?? 0)*1.2).toFixed(2) : '📈 Múltiplos Altos OFF — CAPE ≤ SMA36M×1.20'}>{r1?'📈':'⚪'}</span></td>
+                    <td className="p-2 text-center"><span className={icon(r2,'bg-red-500/20 text-red-300 border-red-500/30','bg-slate-800 text-slate-500 border-slate-700','🏦')} title={r2?'🏦 Alta Deuda ON — Z(Margin/GDP)>2.0 — Qué mide: Apalancamiento sistémico — Gatillo: Margin Call — Fórmula: Z=(Margin/GDP−SMA36M)/σ36M>2.0 — Ej: 1929,2000':'🏦 Alta Deuda OFF — Z≤2.0'}>{r2?'🏦':'⚪'}</span></td>
+                    <td className="p-2 text-center"><span className={icon(r3,'bg-violet-500/20 text-violet-300 border-violet-500/30','bg-slate-800 text-slate-500 border-slate-700','😴')} title={r3?'😴 Complacencia ON — (HY<P20 OR <3.5%) AND (R1 OR R2) — Qué mide: Ceguera al riesgo (bonos) — Gatillo: Salto spreads +50bps — Complementaria: requiere 1 ó 2 — Ej: 2007 <3%→2008 >11%':'😴 Complacencia OFF — HY ≥P20 y ≥3.5% o sin R1/R2'}>{r3?'😴':'⚪'}</span></td>
                     </>); })()}
                     <td className="p-2 text-right font-mono text-teal-300">{portVal!=null ? `$${Number(portVal).toLocaleString('en-US',{minimumFractionDigits:2, maximumFractionDigits:2})}` : '—'}</td>
                     <td className={`p-2 text-right font-mono ${perf==null?'text-slate-500':perf>=0?'text-emerald-400':'text-red-400'}`}>{perf!=null ? `${perf>=0?'+':''}${perf.toFixed(2)}%` : '—'}</td>
@@ -536,7 +534,7 @@ export function RegimesPanel() {
             </tbody>
           </table>
         </div>
-        <div className="text-[11px] text-slate-500 mt-2">Scroll para cargar más · {rowsView.length} filas · Régimen: Stress (CAPE&gt;30 o HY&gt;5 o Margin&gt;5), Bull (CAPE&lt;20), resto Neutral. Base para nuevos triggers.</div>
+        <div className="text-[11px] text-slate-500 mt-2">Scroll para cargar más · {rowsView.length} filas · 📈 Múltiplos Altos (CAPE&gt;SMA×1.20) · 🏦 Alta Deuda (Z&gt;2.0) · 😴 Complacencia (HY&lt;P20+1ó2). Base para nuevos triggers.</div>
       </div>
 
       <RegimesDocsTable />
