@@ -324,15 +324,15 @@ export function MarginGdpChart({ marketHistory, cape = [] }: Props) {
             <div className="font-semibold text-slate-100 border-b border-slate-700 pb-1.5 mb-1.5">{new Date(tooltip.date).toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' })} <span className="font-normal text-slate-400">· {tooltip.date}</span></div>
             <div className="flex justify-between gap-4 font-mono"><span className="text-slate-400">Margin/GDP</span><span className="text-white font-bold">{tooltip.ratio!=null ? `${tooltip.ratio.toFixed(2)}%` : '—'}</span></div>
             <div className="mt-1.5 pt-1.5 border-t border-slate-700 grid grid-cols-1 gap-1 font-mono text-[11px]">
-              <div className="flex justify-between"><span className="text-slate-500">SP500</span><span className="text-sky-300">{tooltip.spx!=null ? `$${tooltip.spx.toFixed(2)}` : '—'}</span></div>
-              <div className="flex justify-between"><span className="text-slate-500">Nasdaq</span><span className="text-sky-300">{tooltip.ndx!=null ? `$${tooltip.ndx.toFixed(2)}` : '—'}</span></div>
-              <div className="flex justify-between"><span className="text-slate-500">TQQQ</span><span className="text-sky-300">{tooltip.tqqq!=null ? `$${tooltip.tqqq.toFixed(2)}` : '—'}</span></div>
+              <div className="flex justify-between"><span className="text-slate-500">SP500</span><span className="text-sky-300">{tooltip.spx!=null ? `$${Number(tooltip.spx).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}` : '—'}</span></div>
+              <div className="flex justify-between"><span className="text-slate-500">Nasdaq</span><span className="text-sky-300">{tooltip.ndx!=null ? `$${Number(tooltip.ndx).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}` : '—'}</span></div>
+              <div className="flex justify-between"><span className="text-slate-500">TQQQ</span><span className="text-sky-300">{tooltip.tqqq!=null ? `$${Number(tooltip.tqqq).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}` : '—'}</span></div>
               <div className="flex justify-between"><span className="text-orange-400">HY OAS</span><span className="text-orange-300">{tooltip.hyOas!=null ? `${tooltip.hyOas.toFixed(2)}%` : '—'}</span></div>
               <div className="flex justify-between"><span className="text-amber-400">CAPE</span><span className="text-amber-300">{tooltip.cape!=null ? tooltip.cape.toFixed(2) : '—'}</span></div>
               <div className="flex justify-between"><span className="text-violet-400">CAPE Ratio</span><span className="text-violet-300">{tooltip.capeRatio!=null ? `${tooltip.capeRatio.toFixed(3)}X` : '—'}</span></div>
               <div className="flex justify-between"><span className="text-violet-300">CAPE mean3Y</span><span className="text-violet-200">{tooltip.mean3y!=null ? tooltip.mean3y.toFixed(2) : '—'}</span></div>
-              <div className="flex justify-between"><span className="text-orange-400">SMA50 SP500</span><span className="text-orange-300">{tooltip.sma50!=null ? `$${tooltip.sma50.toFixed(2)}` : '—'}</span></div>
-              <div className="flex justify-between"><span className="text-green-400">SMA200 SP500</span><span className="text-green-300">{tooltip.sma200!=null ? `$${tooltip.sma200.toFixed(2)}` : '—'}</span></div>
+              <div className="flex justify-between"><span className="text-orange-400">SMA50 SP500</span><span className="text-orange-300">{tooltip.sma50!=null ? `$${Number(tooltip.sma50).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}` : '—'}</span></div>
+              <div className="flex justify-between"><span className="text-green-400">SMA200 SP500</span><span className="text-green-300">{tooltip.sma200!=null ? `$${Number(tooltip.sma200).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}` : '—'}</span></div>
             </div>
           </div>
         )}

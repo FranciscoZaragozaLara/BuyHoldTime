@@ -124,56 +124,65 @@ export function RegimesPanel() {
     load();
   },[]);
 
-  // Equity chart con mismo diseño que Evolución de Apalancamiento — robusto
+  // Equity chart con mismo diseño que Evolución de Apalancamiento — robusto + separador miles
   useEffect(() => {
     if (!equityChartRef.current || !equity.length) return;
+    if (equityChartApiRef.current) return; // no recrear si ya existe (evita flicker)
     const el = equityChartRef.current;
     let chart:any = null;
     let ro: ResizeObserver | null = null;
     let cancelled = false;
+    let rafId: number | null = null;
+    const fmtUSD = (v:number) => '$' + Number(v).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2});
     const init = () => {
-      if (cancelled || !equityChartRef.current) return;
-      try {
-        el.innerHTML = '';
-        // Esperar layout si width=0 (tab recién montada)
+      if (cancelled || !equityChartRef.current || equityChartApiRef.current) return;
+      // esperar layout real (width>0) hasta 10 frames
+      let attempts = 0;
+      const tryCreate = () => {
+        if (cancelled || equityChartApiRef.current) return;
         const rectW = el.clientWidth;
-        const w = rectW > 0 ? rectW : 600;
-        const h = 360;
-        chart = createChart(el, {
-          width: w, height: h,
-          layout: { background: { type: ColorType.Solid, color: '#020617' }, textColor: '#94a3b8', fontSize: 11 },
-          grid: { vertLines: { color: 'rgba(30,41,59,0.3)' }, horzLines: { color: 'rgba(30,41,59,0.3)' } },
-          crosshair: { mode: 1, vertLine: { color: '#14b8a6', width: 1, style: 3, labelBackgroundColor: '#14b8a6' }, horzLine: { color: '#14b8a6', width: 1, style: 3, labelBackgroundColor: '#14b8a6' } },
-          rightPriceScale: { borderColor: 'rgba(30,41,59,0.5)', scaleMargins: { top: 0.12, bottom: 0.12 }, visible: true } as any,
-          timeScale: { borderColor: 'rgba(30,41,59,0.5)', rightOffset: 5, barSpacing: 2, minBarSpacing: 0.5, fixLeftEdge: false, fixRightEdge: false, timeVisible: true, secondsVisible: false },
-          handleScroll: { mouseWheel: true, pressedMouseMove: true, horzTouchDrag: true, vertTouchDrag: false },
-          handleScale: { mouseWheel: true, pinch: true, axisPressedMouseMove: true },
-        });
-        equityChartApiRef.current = chart;
-        const series = chart.addSeries(LineSeries as any, { color: '#14b8a6', lineWidth: 2, priceLineVisible: false, lastValueVisible: true, crosshairMarkerVisible: true } as any);
-        // Datos validados y ordenados
-        const sorted = [...equity].filter(d => d.date && d.value != null && isFinite(d.value)).sort((a,b)=> a.date.localeCompare(b.date));
-        const data = sorted.map(p => ({ time: p.date.slice(0,10) as any, value: Number(p.value) }));
-        series.setData(data as any);
-        // Ajustar vista y forzar repaint
-        chart.timeScale().fitContent();
-        // Fallback: si data muy densa, asegurar que se ve la línea en toda la historia
-        setTimeout(()=>{ try{ chart.timeScale().fitContent(); }catch{} }, 80);
-        ro = new ResizeObserver(() => {
-          if (equityChartRef.current && equityChartApiRef.current) {
-            const ww = equityChartRef.current.clientWidth;
-            const hh = equityChartRef.current.clientHeight;
-            if (ww > 0 && hh > 0) equityChartApiRef.current.applyOptions({ width: ww, height: hh });
-          }
-        });
-        ro.observe(el);
-      } catch(e){ console.error('Regimes equity chart error', e); }
+        if (rectW === 0 && attempts < 10) { attempts++; rafId = requestAnimationFrame(tryCreate) as unknown as number; return; }
+        try {
+          // limpiar solo si no hay chart previo
+          el.innerHTML = '';
+          const w = rectW > 0 ? rectW : el.getBoundingClientRect().width || 600;
+          const h = 360;
+          chart = createChart(el, {
+            width: w, height: h,
+            layout: { background: { type: ColorType.Solid, color: '#020617' }, textColor: '#94a3b8', fontSize: 11 },
+            grid: { vertLines: { color: 'rgba(30,41,59,0.3)' }, horzLines: { color: 'rgba(30,41,59,0.3)' } },
+            crosshair: { mode: 1, vertLine: { color: '#14b8a6', width: 1, style: 3, labelBackgroundColor: '#14b8a6' }, horzLine: { color: '#14b8a6', width: 1, style: 3, labelBackgroundColor: '#14b8a6' } },
+            rightPriceScale: { borderColor: 'rgba(30,41,59,0.5)', scaleMargins: { top: 0.12, bottom: 0.12 }, visible: true } as any,
+            timeScale: { borderColor: 'rgba(30,41,59,0.5)', rightOffset: 5, barSpacing: 1.5, minBarSpacing: 0.3, fixLeftEdge: false, fixRightEdge: false, timeVisible: true, secondsVisible: false },
+            localization: { priceFormatter: (p:number) => Number(p).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2}) } as any,
+            handleScroll: { mouseWheel: true, pressedMouseMove: true, horzTouchDrag: true, vertTouchDrag: false },
+            handleScale: { mouseWheel: true, pinch: true, axisPressedMouseMove: true },
+          });
+          equityChartApiRef.current = chart;
+          const series = chart.addSeries(LineSeries as any, { color: '#14b8a6', lineWidth: 2, priceLineVisible: false, lastValueVisible: true, crosshairMarkerVisible: true, priceFormat: { type:'custom', formatter: (p:number)=> Number(p).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2}) } as any } as any);
+          const sorted = [...equity].filter(d => d.date && d.value != null && isFinite(d.value)).sort((a,b)=> a.date.localeCompare(b.date));
+          const data = sorted.map(p => ({ time: p.date.slice(0,10) as any, value: Number(p.value) }));
+          series.setData(data as any);
+          chart.timeScale().fitContent();
+          // asegurar repaint tras layout final
+          setTimeout(()=>{ try{ chart.timeScale().fitContent(); }catch{} }, 100);
+          ro = new ResizeObserver(() => {
+            if (equityChartRef.current && equityChartApiRef.current) {
+              const ww = equityChartRef.current.clientWidth;
+              const hh = equityChartRef.current.clientHeight;
+              if (ww > 0 && hh > 0) equityChartApiRef.current.applyOptions({ width: ww, height: hh });
+            }
+          });
+          ro.observe(el);
+        } catch(e){ console.error('Regimes equity chart error', e); }
+      };
+      rafId = requestAnimationFrame(tryCreate) as unknown as number;
     };
-    // RAF para asegurar que el tab regimes ya tiene layout
-    const raf = requestAnimationFrame(() => requestAnimationFrame(init));
-    // Fallback si RAF no da width
-    const fallback = setTimeout(()=>{ if(!chart) init(); }, 250);
-    return () => { cancelled = true; cancelAnimationFrame(raf as any); clearTimeout(fallback); if(ro) ro.disconnect(); try{ if(chart) chart.remove(); }catch{}; equityChartApiRef.current=null; };
+    init();
+    return () => { cancelled = true; if(rafId) cancelAnimationFrame(rafId as any); if(ro) ro.disconnect(); // no remover chart aquí si es remount por StrictMode en dev, el guard de arriba evita duplicado
+      // solo limpiar si realmente desmonta el componente (equity vaciado)
+      // mantenemos chart vivo para evitar flicker; se limpia en unmount real del tab
+    };
   }, [equity]);
 
   const stratMetrics = run ? {
@@ -234,7 +243,7 @@ export function RegimesPanel() {
               <div className="mt-2 h-16 bg-slate-700/30 rounded animate-pulse" />
             ) : stratMetrics ? (
               <div className="mt-2 grid grid-cols-2 gap-2 text-xs font-mono">
-                <div className="bg-slate-900 rounded p-2 border border-slate-800"><div className="text-slate-500">Final</div><div className="text-slate-100 font-bold">${Number(stratMetrics.final_value).toLocaleString('en-US')}</div><div className="text-slate-500 text-[10px]">1957-03-04 → {run?.end_date?.slice(0,10) || '2026-08-21'}</div></div>
+                <div className="bg-slate-900 rounded p-2 border border-slate-800"><div className="text-slate-500">Final</div><div className="text-slate-100 font-bold">${Number(stratMetrics.final_value).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}</div><div className="text-slate-500 text-[10px]">1957-03-04 → {run?.end_date?.slice(0,10) || '2026-08-21'}</div></div>
                 <div className="bg-slate-900 rounded p-2 border border-slate-800"><div className="text-slate-500">CAGR</div><div className="text-emerald-400 font-bold">{(stratMetrics.cagr*100).toFixed(2)}%</div><div className="text-slate-500 text-[10px]">Sharpe {Number(stratMetrics.sharpe).toFixed(2)} · DD {(Number(stratMetrics.max_drawdown)*100).toFixed(1)}%</div></div>
                 <div className="bg-slate-900 rounded p-2 border border-slate-800"><div className="text-slate-500">Total Return</div><div className="text-sky-300 font-bold">{stratMetrics.total_return ? (stratMetrics.total_return*100).toFixed(0)+'%' : '—'}</div><div className="text-slate-500 text-[10px]">{equity.length} días · 1 trade</div></div>
                 <div className="bg-slate-900 rounded p-2 border border-slate-800"><div className="text-slate-500">Trades</div><div className="text-slate-100 font-bold">{stratMetrics.num_trades} (Buy&Hold)</div><div className="text-slate-500 text-[10px]">Sin ventas</div></div>
@@ -249,8 +258,8 @@ export function RegimesPanel() {
       {!loading && equity.length > 0 && (
         <div className="w-full bg-slate-900 border border-slate-800 rounded-xl p-4">
           <div className="flex items-center justify-between mb-2">
-            <h3 className="font-semibold text-slate-100">Equity — SP500 Buy&Hold 1957→Hoy — {equity.length} pts · escala log</h3>
-            <span className="text-xs font-mono text-slate-400">{equity[0]?.date.slice(0,4)} → {equity[equity.length-1]?.date.slice(0,10)} · {((equity[equity.length-1]?.value/100000-1)*100).toFixed(0)}%</span>
+            <h3 className="font-semibold text-slate-100">Equity — SP500 Buy&Hold 1957→Hoy — {equity.length.toLocaleString('en-US')} pts · escala log</h3>
+            <span className="text-xs font-mono text-slate-400">{equity[0]?.date.slice(0,4)} → {equity[equity.length-1]?.date.slice(0,10)} · {((equity[equity.length-1]?.value/100000-1)*100).toLocaleString('en-US', {minimumFractionDigits:0, maximumFractionDigits:0})}% · {equity[equity.length-1] ? '$'+Number(equity[equity.length-1].value).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2}) : ''}</span>
           </div>
           <div className="relative w-full h-[360px] overflow-visible">
             <div ref={equityChartRef} className="w-full h-full relative z-0" />
@@ -308,7 +317,7 @@ export function RegimesPanel() {
                   <tr key={r.date} ref={isLast? observerRef : null} className="hover:bg-slate-800/40 border-t border-slate-800">
                     <td className="p-2 font-mono sticky left-0 bg-slate-900 text-slate-200">{capeView==='yearly'? d.slice(0,4): capeView==='monthly'? d.slice(0,7): d}</td>
                     <td className="p-2 text-right"><span className={`px-2 py-0.5 rounded-full border text-[10px] font-bold ${regimeColor}`}>{regime}</span></td>
-                    <td className="p-2 text-right font-mono text-sky-300">{spx? `$${spx.toFixed(0)}`:'—'}</td>
+                    <td className="p-2 text-right font-mono text-sky-300">{spx? `$${Number(spx).toLocaleString('en-US', {minimumFractionDigits:0, maximumFractionDigits:0})}`:'—'}</td>
                     <td className="p-2 text-right font-mono text-amber-300">{capeVal?.toFixed(2) ?? '—'}</td>
                     <td className="p-2 text-right font-mono text-slate-300">{mean3yVal?.toFixed(2) ?? '—'}</td>
                     <td className={`p-2 text-right font-mono font-semibold rounded ${ratioColor}`}>{ratio!=null? `${ratio.toFixed(3)}X`:'—'}</td>
