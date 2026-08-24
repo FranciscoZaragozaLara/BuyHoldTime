@@ -107,7 +107,7 @@ export function RegimesPanel() {
             const eqRes=await fetch(`${base}/api/backtesting/runs/${first.id}/equity`,{cache:'no-store'});
             if(eqRes.ok){
               const eq=await eqRes.json();
-              setEquity(eq.map((e:any)=>({date:(e.date||'').slice(0,10), value:Number(e.portfolio_value ?? e.portfolioValue)})));
+              setEquity(eq.map((e:any)=>({date:(e.date||'').slice(0,10), value:Number(e.portfolio_value ?? e.portfolioValue), drawdown: e.drawdown != null ? Number(e.drawdown) : null})));
             }
             if(first.metrics) setMetrics(first.metrics);
           } else {
@@ -157,7 +157,7 @@ export function RegimesPanel() {
             const eqRes=await fetch(`${base}/api/backtesting/runs/${first.id}/equity`,{cache:'no-store'});
             if(eqRes.ok){
               const eq=await eqRes.json();
-              setEquity(eq.map((e:any)=>({date:(e.date||'').slice(0,10), value:Number(e.portfolio_value ?? e.portfolioValue)})));
+              setEquity(eq.map((e:any)=>({date:(e.date||'').slice(0,10), value:Number(e.portfolio_value ?? e.portfolioValue), drawdown: e.drawdown != null ? Number(e.drawdown) : null})));
             }
           } else { setRun(null); setMetrics(null); setEquity([]); }
         }
@@ -174,6 +174,7 @@ export function RegimesPanel() {
     let ro: ResizeObserver | null = null;
     let raf:number|null = null;
     let attempts = 0;
+    let handleCrosshair:any = null;
     const tryCreate = () => {
       let el = equityChartRef.current as HTMLDivElement | null;
       if (!el) el = document.getElementById('regimes-equity-chart') as HTMLDivElement | null;
@@ -215,6 +216,33 @@ export function RegimesPanel() {
         console.log('Regimes equity data', data.length, data[0], data[data.length-1]);
         series.setData(data as any);
         chart.timeScale().fitContent();
+        handleCrosshair = (param:any)=>{
+          if(!param.time || !param.point){ setEquityTooltip(null); return; }
+          const toKey = (x:any)=> typeof x==='string'? x : typeof x==='number'? new Date(x*1000).toISOString().slice(0,10) : String(x);
+          const date = toKey(param.time);
+          // find closest equity
+          let best = sorted[0]; let bestDiff = Infinity;
+          for(const e of sorted){ const diff=Math.abs(new Date(e.date).getTime()-new Date(date).getTime()); if(diff<bestDiff){bestDiff=diff; best=e;} }
+          const row = best;
+          if(!row){ setEquityTooltip(null); return; }
+          const iso = row.date.slice(0,10);
+          const val = Number(row.value);
+          const perf = (val/initialEquity-1)*100;
+          const days=(new Date(iso).getTime()-new Date(sorted[0].date).getTime())/86400000;
+          const cagr = days>30 ? (Math.pow(val/initialEquity,365.25/days)-1)*100 : null;
+          const dd = getDrawdownForDate(iso);
+          // regime for that date
+          const capeVal = cape.find((c:any)=>String(c.date).slice(0,10)===iso)?.cape ?? null;
+          const mean3yVal = cape.find((c:any)=>String(c.date).slice(0,10)===iso)?.mean3y ?? null;
+          const ratio = cape.find((c:any)=>String(c.date).slice(0,10)===iso)?.capeRatio ?? (mean3yVal!=null && capeVal!=null ? capeVal/mean3yVal : null);
+          const regime = getRegime(iso, capeVal, ratio);
+          const rect = el.getBoundingClientRect();
+          const cw = rect?.width ?? 600;
+          const tx = Math.max(8, Math.min(param.point.x + 16, cw - 260));
+          const ty = Math.max(8, Math.min(param.point.y - 90, 360));
+          setEquityTooltip({x:tx,y:ty,date:iso,value:val,perf,cagr,regime,drawdown:dd});
+        };
+        try{ chart.subscribeCrosshairMove(handleCrosshair); }catch{}
         requestAnimationFrame(() => {
           try {
             if (el.clientWidth && el.clientWidth !== w) chart.applyOptions({ width: el.clientWidth });
@@ -232,8 +260,15 @@ export function RegimesPanel() {
       } catch(e){ console.error('Regimes equity chart error', e); }
     };
     raf = requestAnimationFrame(tryCreate) as unknown as number;
-    return () => { if(raf) cancelAnimationFrame(raf as any); if(ro) ro.disconnect(); try{ if(chart) chart.remove(); }catch{}; if(equityChartApiRef.current===chart) equityChartApiRef.current=null; };
+    return () => { if(raf) cancelAnimationFrame(raf as any); if(ro) ro.disconnect(); try{ if(chart) chart.unsubscribeCrosshairMove(handleCrosshair); }catch{}; try{ if(chart) chart.remove(); }catch{}; if(equityChartApiRef.current===chart) equityChartApiRef.current=null; setEquityTooltip(null); };
   }, [equity]);
+
+  const equityMap = (()=>{ const m=new Map<string,number>(); for(const e of equity) m.set(e.date, Number(e.value)); return m; })();
+  const equityDrawdownMap = (()=>{ const m=new Map<string,number>(); for(const e of equity) if(e.drawdown!=null) m.set(e.date, Number(e.drawdown)); return m; })();
+  const initialEquity = equity.length ? Number(equity[0].value) : 100000;
+  const getEquityForDate = (iso:string)=> getClosestPrice(equityMap, iso) ?? getRecentPrice(equityMap, iso);
+  const getDrawdownForDate = (iso:string)=> getClosestPrice(equityDrawdownMap, iso);
+  const [equityTooltip, setEquityTooltip] = useState<null|{x:number,y:number,date:string,value:number|null,perf:number|null,cagr:number|null,regime:string,drawdown:number|null}>(null);
 
   const stratMetrics = run ? {
     final_value: metrics?.final_value ?? metrics?.finalValue ?? 17405493,
@@ -319,6 +354,19 @@ export function RegimesPanel() {
           </div>
           <div className="relative w-full h-[360px] overflow-visible">
             <div ref={equityChartRef} id="regimes-equity-chart" className="w-full h-full relative z-0" />
+            {equityTooltip && (
+              <div className="absolute z-50 pointer-events-none bg-slate-800 border border-slate-600 rounded-lg px-3 py-2.5 text-xs shadow-2xl ring-1 ring-white/10 min-w-[240px]" style={{ left: equityTooltip.x, top: equityTooltip.y }}>
+                <div className="font-semibold text-slate-100 border-b border-slate-700 pb-1.5 mb-1.5">{new Date(equityTooltip.date).toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' })} <span className="font-normal text-slate-400">· {equityTooltip.date}</span> <span className={`ml-2 px-2 py-0.5 rounded-full border text-[10px] ${equityTooltip.regime==='Stress'?'bg-red-500/20 text-red-400 border-red-500/30':equityTooltip.regime==='Bull'?'bg-emerald-500/20 text-emerald-400 border-emerald-500/30':'bg-amber-500/20 text-amber-400 border-amber-500/30'}`}>{equityTooltip.regime}</span></div>
+                <div className="grid grid-cols-1 gap-1 font-mono text-[11px]">
+                  <div className="flex justify-between"><span className="text-slate-400">Portafolio</span><span className="text-teal-300 font-bold">{equityTooltip.value!=null ? `$${Number(equityTooltip.value).toLocaleString('en-US',{minimumFractionDigits:2, maximumFractionDigits:2})}` : '—'}</span></div>
+                  <div className="flex justify-between"><span className="text-slate-400">Perf.</span><span className={equityTooltip.perf!=null && equityTooltip.perf>=0 ? 'text-emerald-400' : 'text-red-400'}>{equityTooltip.perf!=null ? `${equityTooltip.perf>=0?'+':''}${equityTooltip.perf.toFixed(2)}%` : '—'}</span></div>
+                  <div className="flex justify-between"><span className="text-slate-400">CAGR</span><span className="text-sky-300">{equityTooltip.cagr!=null ? `${equityTooltip.cagr.toFixed(2)}%` : '—'}</span></div>
+                  <div className="flex justify-between"><span className="text-slate-400">DD</span><span className="text-orange-300">{equityTooltip.drawdown!=null ? `${(equityTooltip.drawdown*100).toFixed(2)}%` : '—'}</span></div>
+                  <div className="flex justify-between"><span className="text-slate-500">Sharpe (total)</span><span className="text-violet-300">{stratMetrics?.sharpe!=null ? Number(stratMetrics.sharpe).toFixed(2) : '—'}</span></div>
+                  <div className="flex justify-between"><span className="text-slate-500">MaxDD (total)</span><span className="text-red-300">{stratMetrics?.max_drawdown!=null ? `${(Number(stratMetrics.max_drawdown)*100).toFixed(1)}%` : '—'}</span></div>
+                </div>
+              </div>
+            )}
           </div>
           <div className="flex flex-wrap gap-x-4 gap-y-1.5 mt-2 text-xs text-slate-500"><span>Scroll/arrastra para zoom • base para regímenes y triggers</span></div>
         </div>
@@ -327,7 +375,7 @@ export function RegimesPanel() {
       {/* Tabla Daily / Monthly / Yearly con mismos indicadores que Backtesting */}
       <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
         <div className="flex items-center justify-between gap-2 mb-3">
-          <h3 className="font-semibold text-slate-100">Tabla de Regímenes — {capeView==='daily'?'Daily':capeView==='monthly'?'Monthly':'Yearly'}</h3>
+          <h3 className="font-semibold text-slate-100">Evolución — {capeView==='daily'?'Daily':capeView==='monthly'?'Monthly':'Yearly'}</h3>
           <div className="flex gap-1">
             {(['daily','monthly','yearly'] as const).map(v=>(
               <button key={v} onClick={()=>setCapeView(v)} className={`px-3 py-1 text-xs rounded-md capitalize ${capeView===v?'bg-slate-700 text-teal-300 border border-slate-600':'text-slate-400 hover:text-slate-200'}`}>{v}</button>
@@ -341,6 +389,10 @@ export function RegimesPanel() {
               <tr className="text-slate-400">
                 <th className="p-2 text-left sticky left-0 bg-slate-900">Fecha</th>
                 <th className="p-2 text-right">Régimen</th>
+                <th className="p-2 text-right">Portafolio</th>
+                <th className="p-2 text-right">Perf.</th>
+                <th className="p-2 text-right">CAGR</th>
+                <th className="p-2 text-right">DD</th>
                 <th className="p-2 text-right">SP500</th>
                 <th className="p-2 text-right">CAPE</th>
                 <th className="p-2 text-right">mean3Y</th>
@@ -369,10 +421,19 @@ export function RegimesPanel() {
                 const regimeColor= regime==='Stress'?'bg-red-500/20 text-red-400 border-red-500/30': regime==='Bull'?'bg-emerald-500/20 text-emerald-400 border-emerald-500/30':'bg-amber-500/20 text-amber-400 border-amber-500/30';
                 const ratioColor = ratio==null ? 'text-slate-500' : ratio < 0.9 ? 'text-emerald-400 bg-emerald-500/10' : ratio < 1.05 ? 'text-green-400 bg-green-500/10' : ratio < 1.18 ? 'text-yellow-400 bg-yellow-500/10' : ratio < 1.35 ? 'text-orange-400 bg-orange-500/10' : 'text-red-400 bg-red-500/10';
                 const mgColor = mg==null ? 'text-slate-500' : mg>6?'text-red-400 bg-red-500/10 border-red-500/20':mg>4?'text-orange-400 bg-orange-500/10 border-orange-500/20':mg>2?'text-yellow-400 bg-yellow-500/10 border-yellow-500/20':'text-emerald-400 bg-emerald-500/10 border-emerald-500/20';
+                const portVal = getEquityForDate(d);
+                const perf = portVal!=null ? (portVal/initialEquity-1)*100 : null;
+                const days = (new Date(d).getTime() - new Date(equity[0]?.date || d).getTime())/86400000;
+                const cagrVal = portVal!=null && days>30 ? (Math.pow(portVal/initialEquity, 365.25/days)-1)*100 : null;
+                const ddVal = getDrawdownForDate(d);
                 return (
                   <tr key={r.date} ref={isLast? observerRef : null} className="hover:bg-slate-800/40 border-t border-slate-800">
                     <td className="p-2 font-mono sticky left-0 bg-slate-900 text-slate-200">{capeView==='yearly'? d.slice(0,4): capeView==='monthly'? d.slice(0,7): d}</td>
                     <td className="p-2 text-right"><span className={`px-2 py-0.5 rounded-full border text-[10px] font-bold ${regimeColor}`}>{regime}</span></td>
+                    <td className="p-2 text-right font-mono text-teal-300">{portVal!=null ? `$${Number(portVal).toLocaleString('en-US',{minimumFractionDigits:2, maximumFractionDigits:2})}` : '—'}</td>
+                    <td className={`p-2 text-right font-mono ${perf==null?'text-slate-500':perf>=0?'text-emerald-400':'text-red-400'}`}>{perf!=null ? `${perf>=0?'+':''}${perf.toFixed(2)}%` : '—'}</td>
+                    <td className={`p-2 text-right font-mono ${cagrVal==null?'text-slate-500':cagrVal>=0?'text-emerald-300':'text-red-300'}`}>{cagrVal!=null ? `${cagrVal.toFixed(2)}%` : '—'}</td>
+                    <td className={`p-2 text-right font-mono ${ddVal==null?'text-slate-500':'text-orange-300'}`}>{ddVal!=null ? `${(ddVal*100).toFixed(2)}%` : (perf!=null && perf<0 ? `${perf.toFixed(2)}%` : '—')}</td>
                     <td className="p-2 text-right font-mono text-sky-300">{spx? `$${Number(spx).toLocaleString('en-US', {minimumFractionDigits:0, maximumFractionDigits:0})}`:'—'}</td>
                     <td className="p-2 text-right font-mono text-amber-300">{capeVal?.toFixed(2) ?? '—'}</td>
                     <td className="p-2 text-right font-mono text-slate-300">{mean3yVal?.toFixed(2) ?? '—'}</td>
