@@ -16,11 +16,11 @@ type Row = {
 const rows: Row[] = [
   {
     regimen: 'Múltiplos Altos',
-    mide: 'Precio relativo (CAPE)',
-    gatillo: 'Subida de Tasas (Fed)',
-    crisis: 'Crisis de Valoración — larga duración',
-    indicador: 'CAPE / mean3Y',
-    umbral: 'CAPE > SMA_36M ×1.12',
+    mide: 'CAPE + Core CPI — 4 fases Scaling (30/70 y 35/65)',
+    gatillo: 'Armado CAPE>1.20 & CPI>1.15 → G1 Fed>0 o 10Y>1.10 (30%) → G2 Fed≥+0.50 & CPI>1.30 (70%) → G3 3M caídas o Pausa 2M (35%) → G4 CPI<1.05 o Fed<0 + SMA50 (65%)',
+    crisis: 'Crisis de Valoración — duración (Scaling Out/In)',
+    indicador: 'CAPE · CPILFESL · DFEDTARU · DGS10 · SMA50',
+    umbral: 'F0 CAPE>1.20 & CPI>1.15 · G1 Fed>0/10Y>1.10 (30%) · G2 Fed≥0.50 & CPI>1.30 (70%) · G3 3M↓/Pausa2M (35%) · G4 CPI<1.05/Fed<0+SMA50 (65%) · Sanación',
     icon: '📈',
     color: 'from-amber-500/20 to-orange-500/20',
     border: 'border-amber-500/30',
@@ -114,18 +114,55 @@ export function RegimesDocsTable() {
         <div className="mt-4 rounded-xl bg-slate-800/50 border border-slate-700 p-4">
           {open === 'Múltiplos Altos' && (
             <div className="text-sm text-slate-300 space-y-3">
-              <div className="font-semibold text-amber-300">1. Bosque Seco por Múltiplos Altos — Riesgo de Duración y Tasas</div>
-              <p className="text-slate-400 text-xs leading-relaxed">Detecta cuando las acciones están extremadamente caras y son vulnerables a cambios en el costo del dinero.</p>
+              <div className="font-semibold text-amber-300">1. Bosque Seco por Múltiplos Altos — 4 Fases + Sanación — Riesgo de Duración y Tasas</div>
+              <p className="text-slate-400 text-xs leading-relaxed">Detecta sobrevaloración + inflación amenazando liquidez. <b className="text-amber-300">Scaling In/Out por tranches</b> calibrado contra choques de inflación y tasas.</p>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-                <div className="bg-slate-900 rounded-lg p-3 border border-slate-700"><span className="text-slate-500 block">El Combustible</span><span className="text-slate-200">Sobrevaloración de ganancias futuras (crecimiento / tecnológicas)</span></div>
-                <div className="bg-slate-900 rounded-lg p-3 border border-slate-700"><span className="text-slate-500 block">La Chispa</span><span className="text-amber-300">Inflación y subidas de tasas de la Fed</span></div>
+                <div className="bg-slate-900 rounded-lg p-3 border border-slate-700"><span className="text-slate-500 block">El Combustible</span><span className="text-slate-200">Sobrevaloración + Core CPI acelerado</span></div>
+                <div className="bg-slate-900 rounded-lg p-3 border border-slate-700"><span className="text-slate-500 block">La Chispa</span><span className="text-amber-300">Fed y Bono 10Y comprimen múltiplos</span></div>
               </div>
-              <div className="bg-amber-950/30 rounded-lg p-3 border border-amber-800/50">
-                <div className="text-xs text-amber-200 font-mono">CAPE &gt; SMA<sub>36M</sub>(CAPE) × 1.12</div>
-                <div className="text-[11px] text-amber-300/70 mt-1">CAPE &gt;20% sobre media 36M → múltiplos estirados</div>
+              <div className="space-y-2">
+                <div className="bg-amber-950/30 rounded-lg p-3 border border-amber-800/50">
+                  <div className="text-[11px] font-semibold text-amber-200">F0 — Condición Estructural (Bosque Seco)</div>
+                  <div className="text-xs text-amber-200 font-mono mt-1">CAPE &gt; SMA<sub>36M</sub>×1.20 AND Core CPI &gt; SMA<sub>12M</sub>×1.15</div>
+                  <div className="text-[11px] text-amber-300/70 mt-1">+20% sobre media 3a y +15% sobre media 12M Core CPI (CPILFESL) → alerta, detiene compras</div>
+                </div>
+                <div className="bg-slate-900 rounded-lg p-3 border border-slate-700">
+                  <div className="text-[11px] font-semibold text-orange-300">Fase Defensiva — Scaling Out</div>
+                  <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-2">
+                    <div className="bg-orange-950/20 rounded p-2 border border-orange-800/30">
+                      <div className="text-[11px] font-semibold text-orange-200">Gatillo 1 — Alerta Temprana (30%)</div>
+                      <div className="text-[11px] font-mono text-orange-100 mt-1">Δ FED &gt;0 OR 10Y &gt; SMA<sub>200</sub>×1.10</div>
+                      <div className="text-[10px] text-slate-400 mt-1">1ª subida Fed o 10Y +10% → vende 30% a SGOV · 70/30</div>
+                    </div>
+                    <div className="bg-red-950/30 rounded p-2 border border-red-800/30">
+                      <div className="text-[11px] font-semibold text-red-200">Gatillo 2 — Venta Total (70%)</div>
+                      <div className="text-[11px] font-mono text-red-100 mt-1">Δ FED ≥+0.50% en 1 junta AND Core CPI &gt; SMA<sub>36M</sub>×1.30</div>
+                      <div className="text-[10px] text-slate-400 mt-1">Jumbo Hike + inflación +30% 3a → vende 70% restante · 0/100</div>
+                    </div>
+                  </div>
+                </div>
+                <div className="bg-slate-900 rounded-lg p-3 border border-slate-700">
+                  <div className="text-[11px] font-semibold text-sky-300">Fase Ofensiva — Scaling In</div>
+                  <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-2">
+                    <div className="bg-sky-950/20 rounded p-2 border border-sky-800/30">
+                      <div className="text-[11px] font-semibold text-sky-200">Gatillo 3 — Compra Asalto (35%)</div>
+                      <div className="text-[11px] font-mono text-sky-100 mt-1">Core CPI 3M caídas vs pico OR Δ FED=0 ×2M</div>
+                      <div className="text-[10px] text-slate-400 mt-1">Desaceleración 3M o Pausa 2M → compra 35% a TQQQ · 35/65</div>
+                    </div>
+                    <div className="bg-emerald-950/20 rounded p-2 border border-emerald-800/30">
+                      <div className="text-[11px] font-semibold text-emerald-200">Gatillo 4 — Compra Total (65%)</div>
+                      <div className="text-[11px] font-mono text-emerald-100 mt-1">(Core CPI &lt; SMA<sub>12M</sub>×1.05 OR Δ FED&lt;0) AND Precio &gt; SMA<sub>50</sub></div>
+                      <div className="text-[10px] text-slate-400 mt-1">Doble Llave Macro+Técnica → inyecta 65% final · 100% riesgo</div>
+                    </div>
+                  </div>
+                </div>
+                <div className="bg-emerald-950/20 rounded-lg p-3 border border-emerald-800/30">
+                  <div className="text-[11px] font-semibold text-emerald-200">Sanación — Falsa Alarma</div>
+                  <div className="text-[11px] font-mono text-emerald-100 mt-1">Core CPI &lt; SMA<sub>12M</sub>×1.05 AND Precio &gt; SMA<sub>50</sub></div>
+                  <div className="text-[10px] text-slate-400 mt-1">Tras G1 (70/30) sin G2 y precio recupera → recompra 30% → 100%</div>
+                </div>
               </div>
-              <p><span className="text-slate-400">Mecánica:</span> Sin quiebras: las empresas siguen ganando, pero tasas al alza comprimen violentamente P/E y CAPE.</p>
-              <p className="bg-slate-800 rounded p-2 border-l-2 border-amber-500 text-xs"><span className="text-slate-400">Ejemplo 2022:</span> Crédito sano, Nasdaq -35% por Fed subiendo tasas destruyendo valoraciones 2021.</p>
+              <p className="bg-slate-800 rounded p-2 border-l-2 border-amber-500 text-xs"><span className="text-slate-400">Ejemplo 2022:</span> Nasdaq -35% — habría hecho Scaling Out en G1 (10Y&gt;SMA200×1.10) y reingreso en G3/G4 tras pausa Fed y CPI&lt;SMA12M×1.05+SMA50.</p>
             </div>
           )}
           {open === 'Alta Deuda/PIB' && (

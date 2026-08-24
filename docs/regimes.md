@@ -5,24 +5,108 @@
 
 ---
 
-## 1. Bosque Seco por Múltiplos Altos — *Riesgo de Duración y Tasas*
+## 1. Bosque Seco por Múltiplos Altos — *Riesgo de Duración y Tasas — Régimen de 4 Fases + Sanación*
 
-**Este régimen detecta cuando las acciones están extremadamente caras y son vulnerables a cambios en el costo del dinero.**
+**Este régimen detecta cuando las acciones están muy sobrevaloradas respecto a su historia reciente y la inflación amenaza la liquidez. Gestiona la exposición mediante **Scaling In/Out por tranches** calibrado dinámicamente contra choques de inflación y tasas.**
 
-- **El Combustible:** La sobrevaloración de las ganancias futuras (acciones de crecimiento / tecnológicas).
-- **La Chispa que lo detona:** La inflación y las subidas de tasas de la Reserva Federal.
+- **El Combustible:** Sobrevaloración de ganancias futuras (crecimiento / tecnológicas) + inflación subyacente acelerada.
+- **La Chispa:** Subidas de la Fed y salto del Bono 10Y que comprimen múltiplos.
+
+### 1. Condición Estructural: Activación del Régimen — *El Bosque está Seco*
+
+El algoritmo entra en **alerta** y detiene las compras pasivas.
 
 **Regla Matemática:**
-
 ```
-CAPE > SMA_36M(CAPE) × 1.20
+CAPE > SMA_36M(CAPE) × 1.20  AND  Core CPI > SMA_12M(Core CPI) × 1.15
+donde Core CPI = CPILFESL (serie mensual) — SMA_12M/SMA_36M mensuales
 ```
 
-> `CAPE` de Shiller por encima de su media móvil 36 meses × 1.20 → múltiplos >20% sobre media de 3 años.
+> `CAPE` +20% sobre media 3a **y** `Core CPI` +15% sobre media 12M → mercado caro **y** liquidez amenazada por inflación.
 
-**Mecánica de la Crisis:** No hay quiebras corporativas ni pánico bancario. Las empresas siguen ganando dinero, pero como las tasas de interés suben, los inversores exigen un mayor rendimiento. Los múltiplos (P/E, CAPE) se comprimen violentamente.
+### 2. Fase Defensiva: Scaling Out — *Protección del Capital*
 
-**Ejemplo Histórico — 2022:** El crédito corporativo estaba sano, pero el Nasdaq colapsó un 35% simplemente porque la inflación forzó a la Fed a subir las tasas, destruyendo las valoraciones de 2021.
+#### Gatillo 1: Alerta Temprana — *Venta del Tranche del 30%*
+
+Objetivo: asegurar liquidez ante el primer encarecimiento del costo del dinero.
+
+**Regla Macro (cualquiera de las dos):**
+```
+Δ FED Target > 0  (la Fed ejecuta su primera subida)
+OR
+Bono 10Y > SMA_200días(Bono 10Y) × 1.10  (rendimiento salta +10% sobre media institucional)
+```
+
+**Acción:** Vender tranche del **30%** de la posición en riesgo (TQQQ) hacia liquidez (SGOV/Cash).
+**Exposición:** 70% Riesgo / 30% Cash.
+
+#### Gatillo 2: Venta Total Defensiva — *Venta del Tranche del 70% restante*
+
+Objetivo: refugio absoluto si la restricción monetaria se vuelve extrema.
+
+**Regla Macro (deben cumplirse ambas):**
+```
+Δ FED Target ≥ +0.50% en una sola junta (subida agresiva / Jumbo Hike)
+AND
+Core CPI > SMA_36M(Core CPI) × 1.30  (inflación +30% sobre promedio 3a — descontrolada)
+```
+
+**Acción:** Vender tranche restante del **70%**.
+**Exposición:** 0% Riesgo / 100% Cash.
+
+### 3. Fase Ofensiva: Scaling In — *Reingreso al Mercado*
+
+#### Gatillo 3: Compra de Asalto — *Inversión del Tranche del 35%*
+
+Objetivo: atrapar el bottom operando la segunda derivada de la inflación (desaceleración), adelantándose al recorte.
+
+**Regla Macro (cualquiera de las dos):**
+```
+Core CPI acumula 3 meses consecutivos de caídas frente a su último pico
+OR
+Δ FED Target = 0 durante 2 meses consecutivos (confirmación de Pausa)
+```
+
+**Acción:** Comprar tranche del **35%** hacia activo de riesgo (TQQQ).
+**Exposición:** 35% Riesgo / 65% Cash.
+
+#### Gatillo 4: Compra Total de Confirmación — *Inversión del Tranche del 65% restante*
+
+Objetivo: desplegar máximo poder de fuego con **Doble Llave** (Macro + Técnico).
+
+**Llave Macro (cualquiera de las dos):**
+```
+Core CPI < SMA_12M(Core CPI) × 1.05  (inflación regresa a media anual)
+OR
+Δ FED Target < 0  (la Fed ejecuta su primer recorte)
+```
+
+**Llave Técnica:**
+```
+Precio > SMA_50días  (índice retoma tendencia alcista institucional)
+```
+
+**Acción:** Si se cumplen **ambas llaves** (Macro + Técnica), inyectar tranche final del **65%**.
+**Exposición:** 100% Riesgo.
+
+### 4. Regla de Excepción: Sanación Técnica — *Resolución de Falsa Alarma*
+
+**Escenario:** El algoritmo ejecutó Gatillo 1 (vendiendo 30%) por susto inicial con tasas, pero la inflación no detonó Gatillo 2 y el mercado se recuperó.
+
+**Condición Previa:** Portafolio en 70% Riesgo / 30% Cash.
+
+**Regla Matemática:**
+```
+Core CPI < SMA_12M(Core CPI) × 1.05  AND  Precio > SMA_50días
+```
+
+**Acción:** Recomprar e inyectar tranche del **30%** para sanar posición.
+**Exposición:** 100% Riesgo.
+
+**Mecánica de la Crisis:** Sin quiebras: tasas al alza comprimen violentamente P/E y CAPE. El Scaling Out/In por tranches protege duración y captura la desinflación.
+
+**Ejemplo Histórico — 2022:** Crédito sano, Nasdaq -35% por Fed subiendo tasas destruyendo valoraciones 2021. Régimen 1 habría escalado out en Gatillo 1 (10Y > SMA200×1.10) y reingresado en Gatillo 3/4 tras pausa de la Fed y Core CPI < SMA12M×1.05 + SMA50.
+
 
 ---
 
@@ -137,11 +221,11 @@ Para un algoritmo robusto, estas tres reglas operan como una **matriz de escaneo
 
 | Régimen | Qué Mide | Qué lo Detona (El Gatillo) | Tipo de Crisis Resultante |
 |---|---|---|---|
-| Múltiplos Altos | Precio relativo (CAPE) | Subida de Tasas (Fed) | Crisis de Valoración (Larga duración) |
+| Múltiplos Altos | Precio relativo (CAPE) + Core CPI — 4 fases Scaling Out/In (30/70 y 35/65) | Armado CAPE>1.20 & CPI>1.15 → G1 Fed>0 o 10Y>1.10 (30%) → G2 Fed≥+0.50 & CPI>1.30 (70%) → G3 3M caídas o Pausa 2M (35%) → G4 CPI<1.05 o Fed<0 + SMA50 (65%) → Sanación | Crisis de Valoración — duración |
 | Alta Deuda/PIB | Apalancamiento Sistémico — 4 fases (armado / 2 gatillos / sanación / desarme) | Armado Z>2.0 en 6M → ROC_3M<0 + SMA50 (30%) → ROC_3M<−σ24M (70%) → Z<0 | Crisis de Venta Forzosa — avalancha escalonada |
 | Complacencia OAS | Ceguera al Riesgo (Bonos) | Salto de Spreads (>+50 bps) | Crisis de Quiebras (Falta de liquidez) |
 
-> **Nota:** Esta es la única tabla vigente. Las reglas válidas son únicamente las de cada sección: `CAPE > SMA_36M×1.12`, `Z>2.0 en 6M (armado con memoria) + ROC_3M/SMA50 (gatillos) + Z<0 (desarme)`, `HY < P20 ó <3.5%`.
+> **Nota:** Esta es la única tabla vigente. Las reglas válidas son únicamente las de cada sección: `CAPE>1.20 & CPI>1.15 + G1/G2 Scaling Out 30/70 + G3/G4 Scaling In 35/65 + Sanación`, `Z>2.0 en 6M (armado con memoria) + ROC_3M/SMA50 (gatillos) + Z<0 (desarme)`, `HY < P20 ó <3.5%`.
 
 ---
 
