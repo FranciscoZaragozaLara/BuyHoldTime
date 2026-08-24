@@ -20,18 +20,18 @@ const rows: Row[] = [
     gatillo: 'Subida de Tasas (Fed)',
     crisis: 'Crisis de Valoración — larga duración',
     indicador: 'CAPE / mean3Y',
-    umbral: 'CAPE > SMA_36M ×1.20',
+    umbral: 'CAPE > SMA_36M ×1.12',
     icon: '📈',
     color: 'from-amber-500/20 to-orange-500/20',
     border: 'border-amber-500/30',
   },
   {
     regimen: 'Alta Deuda/PIB',
-    mide: 'Apalancamiento sistémico',
-    gatillo: 'Caída inicial (Margin Calls)',
-    crisis: 'Crisis de Venta Forzosa — avalancha',
-    indicador: 'FINRA_DEBIT / GDP',
-    umbral: 'Z(Margin/GDP) > +2.0',
+    mide: 'Apalancamiento sistémico — 4 fases',
+    gatillo: 'Armado Z>2.0 en 6M → ROC3M<0+SMA50 (30%) → ROC3M<−σ24M (70%) → Z<0',
+    crisis: 'Crisis de Venta Forzosa — avalancha escalonada',
+    indicador: 'FINRA_DEBIT/GDP · ROC3M · SMA50 · σ24M',
+    umbral: 'F1 Z>2.0 en 6M (armado con memoria) · G1 ROC<0&SMA50 · G2 ROC<−σ · F3/F4 sanación Z<0',
     icon: '🏦',
     color: 'from-red-500/20 to-rose-500/20',
     border: 'border-red-500/30',
@@ -121,7 +121,7 @@ export function RegimesDocsTable() {
                 <div className="bg-slate-900 rounded-lg p-3 border border-slate-700"><span className="text-slate-500 block">La Chispa</span><span className="text-amber-300">Inflación y subidas de tasas de la Fed</span></div>
               </div>
               <div className="bg-amber-950/30 rounded-lg p-3 border border-amber-800/50">
-                <div className="text-xs text-amber-200 font-mono">CAPE &gt; SMA<sub>36M</sub>(CAPE) × 1.20</div>
+                <div className="text-xs text-amber-200 font-mono">CAPE &gt; SMA<sub>36M</sub>(CAPE) × 1.12</div>
                 <div className="text-[11px] text-amber-300/70 mt-1">CAPE &gt;20% sobre media 36M → múltiplos estirados</div>
               </div>
               <p><span className="text-slate-400">Mecánica:</span> Sin quiebras: las empresas siguen ganando, pero tasas al alza comprimen violentamente P/E y CAPE.</p>
@@ -130,18 +130,47 @@ export function RegimesDocsTable() {
           )}
           {open === 'Alta Deuda/PIB' && (
             <div className="text-sm text-slate-300 space-y-3">
-              <div className="font-semibold text-red-300">2. Bosque Seco por Alta Deuda / PIB — Riesgo de Liquidación Forzosa</div>
-              <p className="text-slate-400 text-xs leading-relaxed">Mide apalancamiento sistémico — cuánta deuda toman inversores para comprar acciones.</p>
+              <div className="font-semibold text-red-300">2. Bosque Seco por Alta Deuda / PIB — 4 Fases — Riesgo de Liquidación Forzosa</div>
+              <p className="text-slate-400 text-xs leading-relaxed">Mide apalancamiento sistémico. Estado <b className="text-red-300">armado con memoria</b>: persiste aunque Z baje, hasta sanación o Z&lt;0.</p>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
                 <div className="bg-slate-900 rounded-lg p-3 border border-slate-700"><span className="text-slate-500 block">El Combustible</span><span className="text-slate-200">Dinero prestado (Margin Debt)</span></div>
-                <div className="bg-slate-900 rounded-lg p-3 border border-slate-700"><span className="text-slate-500 block">La Chispa</span><span className="text-red-300">Cualquier caída inicial → Margin Call</span></div>
+                <div className="bg-slate-900 rounded-lg p-3 border border-slate-700"><span className="text-slate-500 block">Estado</span><span className="text-red-300">Armado si Z&gt;2.0 en 6M — detiene compras</span></div>
               </div>
-              <div className="bg-red-950/30 rounded-lg p-3 border border-red-800/50">
-                <div className="text-xs text-red-200 font-mono">Z(Margin/GDP) = (Margin/GDP − SMA<sub>36M</sub>) / σ<sub>36M</sub> &gt; +2.0</div>
-                <div className="text-[11px] text-red-300/70 mt-1">Margin/GDP = FINRA_DEBIT / GDP ×100 · &gt;2σ = hiper-apalancado</div>
+              <div className="space-y-2">
+                <div className="bg-red-950/30 rounded-lg p-3 border border-red-800/50">
+                  <div className="text-[11px] font-semibold text-red-200">Fase 1 — El Armado (Peligro Sistémico)</div>
+                  <div className="text-xs text-red-200 font-mono mt-1">Z(Margin/GDP) &gt; +2.0 en cualquier momento de últimos 6 meses</div>
+                  <div className="text-[11px] text-red-300/70 mt-1">Z=(Margin/GDP−SMA36M)/σ36M · Margin/GDP=FINRA_DEBIT/GDP×100 · <b>con memoria</b>: no se desarma aunque Z baje</div>
+                </div>
+                <div className="bg-slate-900 rounded-lg p-3 border border-slate-700">
+                  <div className="text-[11px] font-semibold text-amber-300">Fase 2 — Scaling Out — Venta Defensiva</div>
+                  <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-2">
+                    <div className="bg-amber-950/20 rounded p-2 border border-amber-800/30">
+                      <div className="text-[11px] font-semibold text-amber-200">Gatillo 1 — Alerta Temprana (30%)</div>
+                      <div className="text-[11px] font-mono text-amber-100 mt-1">ROC₃M(Margin/GDP) &lt; 0  AND  Cierre &lt; SMA₅₀d</div>
+                      <div className="text-[10px] text-slate-400 mt-1">Deuda trimestral deja de crecer + ruptura SMA50 → vende 30% · 70/30</div>
+                    </div>
+                    <div className="bg-red-950/30 rounded p-2 border border-red-800/30">
+                      <div className="text-[11px] font-semibold text-red-200">Gatillo 2 — Pánico Margin Call (70%)</div>
+                      <div className="text-[11px] font-mono text-red-100 mt-1">ROC₃M &lt; −1×σ₂₄M(ROC₃M)</div>
+                      <div className="text-[10px] text-slate-400 mt-1">Caída supera volatilidad 2años → vende 70% restante · 0/100</div>
+                    </div>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  <div className="bg-emerald-950/20 rounded-lg p-3 border border-emerald-800/30">
+                    <div className="text-[11px] font-semibold text-emerald-200">Fase 3 — Sanación (Falsa Alarma)</div>
+                    <div className="text-[11px] font-mono text-emerald-100 mt-1">Cierre &gt; SMA₅₀  AND  ROC₃M &gt; 0</div>
+                    <div className="text-[10px] text-slate-400 mt-1">Tras G1 sin G2 y precio recupera → recompra 30% → 100% exposición</div>
+                  </div>
+                  <div className="bg-slate-800 rounded-lg p-3 border border-slate-700">
+                    <div className="text-[11px] font-semibold text-slate-200">Fase 4 — Desarme Total</div>
+                    <div className="text-[11px] font-mono text-slate-100 mt-1">Z(Margin/GDP) &lt; 0</div>
+                    <div className="text-[10px] text-slate-400 mt-1">Deuda bajo promedio 3a → purga completa → régimen desactivo</div>
+                  </div>
+                </div>
               </div>
-              <p><span className="text-slate-400">Mecánica:</span> Con +2.0 Z-Score, una caída 5-10% detona margin calls → venta forzosa mecánica, avalancha sin importar precio.</p>
-              <p className="bg-slate-800 rounded p-2 border-l-2 border-red-500 text-xs"><span className="text-slate-400">Ejemplo 1929 y 2000:</span> Burbuja Dotcom impulsada por margen extremo → desapalancamiento aniquiló mercado.</p>
+              <p className="bg-slate-800 rounded p-2 border-l-2 border-red-500 text-xs"><span className="text-slate-400">Ejemplo 1929 y 2000:</span> Margen extremo + desapalancamiento aniquiló mercado. Nuevo modelo escalona salida por ROC y SMA50.</p>
             </div>
           )}
           {open === 'Complacencia OAS' && (

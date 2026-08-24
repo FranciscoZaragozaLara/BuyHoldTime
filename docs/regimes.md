@@ -26,24 +26,85 @@ CAPE > SMA_36M(CAPE) × 1.20
 
 ---
 
-## 2. Bosque Seco por Alta Deuda / PIB — *Riesgo de Liquidación Forzosa*
+## 2. Bosque Seco por Alta Deuda / PIB — *Riesgo de Liquidación Forzosa — Régimen de 4 Fases*
 
-**Este régimen mide el nivel de apalancamiento sistémico. Detecta cuánta deuda están tomando los inversores institucionales y minoristas para comprar acciones.**
+**Este régimen mide el nivel de apalancamiento sistémico. Detecta cuánta deuda toman los inversores para comprar acciones y gestiona la exposición mediante un estado de *armado* persistente.**
 
 - **El Combustible:** Dinero prestado (Margin Debt).
-- **La Chispa que lo detona:** Cualquier caída inicial del mercado que detone un Margin Call (llamada de margen).
+- **La Chispa:** Caída inicial que detona Margin Calls y desapalancamiento.
 
-**Regla Matemática (Z-Score de 3 años):**
+### Fase 1: El Armado — *Condición de Peligro Sistémico*
+
+El algoritmo se pone en **alerta máxima** y detiene las compras rutinarias. Es un **estado con memoria**: una vez armado, se mantiene aunque `Z` baje, hasta que ocurra sanación (Fase 3) o desarme total (Fase 4).
+
+**Regla Matemática (ventana de monitoreo 6 meses):**
 
 ```
-Z(Margin/GDP) = ( Margin/GDP - SMA_36M(Margin/GDP) ) / σ_36M(Margin/GDP)  >  +2.0
+ARMADO si  Z(Margin/GDP) > +2.0  en cualquier momento de los últimos 6 meses
+donde Z(Margin/GDP) = ( Margin/GDP − SMA_36M ) / σ_36M
+      Margin/GDP = FINRA_DEBIT / GDP ×100  (serie mensual, 36M)
 ```
 
-> Donde `Margin/GDP = FINRA_DEBIT / GDP ×100`. Z-Score >+2.0 → sistema hiper-apalancado (>2 desviaciones estándar sobre media 36M).
+> `Z > +2.0` → sistema hiper-apalancado (>2σ sobre media 36M). El *armado* persiste — no se desactiva por simple caída de `Z`.
 
-**Mecánica de la Crisis:** Cuando el apalancamiento excede 2 desviaciones estándar (+2.0 Z-Score), el sistema está hiper-apalancado. Si el mercado cae un 5% o 10% por cualquier noticia, los brokers exigen garantías. Los fondos se ven obligados a vender acciones masivamente para cubrir sus deudas, provocando una avalancha de ventas forzosas (venta mecánica sin importar el precio).
+### Fase 2: Scaling Out — *Fase de Venta Defensiva*
 
-**Ejemplo Histórico — 1929 y 2000:** Gran parte de la explosión final de la burbuja Dotcom fue impulsada por deuda de margen extrema que, al desapalancarse, aniquiló el mercado.
+#### Gatillo 1: Alerta Temprana — *Vender Tranche del 30%*
+
+Objetivo: reducir exposición ante primeros síntomas de que el mercado no puede sostener el peso de su deuda.
+
+**Llave Macro (Inicio del Desapalancamiento):**
+```
+ROC_3M(Margin/GDP) < 0
+```
+La deuda trimestral ha dejado de crecer y comienza a contraerse.
+
+**Llave Técnica:**
+```
+Precio de Cierre del Índice < SMA_50días
+```
+
+**Acción:** Si el mercado rompe su media institucional a la baja **y** los inversores empiezan a reducir margen, se vende el primer tranche del 30%.
+**Exposición:** 70% Riesgo / 30% Cash.
+
+#### Gatillo 2: Pánico de Margin Call — *Vender Tranche del 70% restante*
+
+Objetivo: evacuar el mercado porque el desapalancamiento se ha vuelto violento e incontrolable (liquidación forzosa).
+
+**Gatillo Macro (Desapalancamiento Acelerado):**
+```
+ROC_3M(Margin/GDP) < −1 × σ_24M( ROC_3M )
+```
+La caída trimestral rompe el "piso de ruido" y supera la volatilidad histórica de los últimos 2 años.
+
+**Acción:** Confirmación absoluta. Se vende el tranche final del 70%.
+**Exposición:** 0% Riesgo / 100% Cash.
+
+### Fase 3: Regla de Sanación — *Falsa Alarma*
+
+**Escenario:** El algoritmo ejecutó el Gatillo 1 (vendió 30%) por un ligero tropiezo, pero los grandes bancos no entraron en pánico (Gatillo 2 nunca se disparó) y el precio se recuperó.
+
+**Regla Matemática:**
+```
+Precio de Cierre > SMA_50días  AND  ROC_3M(Margin/GDP) > 0
+```
+
+**Acción:** El algoritmo inyecta de regreso el tranche del 30% para devolver el portafolio al **100% de exposición**.
+
+### Fase 4: El Desarme Total — *Fin de la Crisis*
+
+**Regla Matemática:**
+```
+Z(Margin/GDP) < 0
+```
+
+**Lógica:** La avalancha purgó por completo el sistema; el nivel de deuda regresó por debajo de su promedio histórico de 3 años. **El régimen se desactiva.**
+
+> **Nota de implementación — estado con memoria:** El monitoreo mantiene `ARMADO=true` desde el primer `Z>2.0` en 6M hasta que `Z<0` (Fase 4) o sanación (Fase 3 tras Gatillo 1). No basta con que `Z` baje de 2.0 para desarmar.
+
+**Mecánica de la Crisis:** Con `ARMADO`, una caída 5-10% detona margin calls → venta forzosa mecánica, avalancha sin importar precio. Los gatillos 1 y 2 escalonan la salida según `ROC_3M` y `SMA_50`.
+
+**Ejemplo Histórico — 1929 y 2000:** Burbuja Dotcom impulsada por margen extremo → desapalancamiento aniquiló mercado; 1929 colapso por apalancamiento sistémico similar.
 
 ---
 
@@ -77,10 +138,10 @@ Para un algoritmo robusto, estas tres reglas operan como una **matriz de escaneo
 | Régimen | Qué Mide | Qué lo Detona (El Gatillo) | Tipo de Crisis Resultante |
 |---|---|---|---|
 | Múltiplos Altos | Precio relativo (CAPE) | Subida de Tasas (Fed) | Crisis de Valoración (Larga duración) |
-| Alta Deuda/PIB | Apalancamiento Sistémico | Caída inicial (Margin Calls) | Crisis de Venta Forzosa (Avalancha) |
+| Alta Deuda/PIB | Apalancamiento Sistémico — 4 fases (armado / 2 gatillos / sanación / desarme) | Armado Z>2.0 en 6M → ROC_3M<0 + SMA50 (30%) → ROC_3M<−σ24M (70%) → Z<0 | Crisis de Venta Forzosa — avalancha escalonada |
 | Complacencia OAS | Ceguera al Riesgo (Bonos) | Salto de Spreads (>+50 bps) | Crisis de Quiebras (Falta de liquidez) |
 
-> **Nota:** Esta es la única tabla vigente. Las reglas válidas son únicamente las de cada sección: `CAPE > SMA_36M×1.20`, `Z>2.0`, `HY < P20 ó <3.5%`.
+> **Nota:** Esta es la única tabla vigente. Las reglas válidas son únicamente las de cada sección: `CAPE > SMA_36M×1.12`, `Z>2.0 en 6M (armado con memoria) + ROC_3M/SMA50 (gatillos) + Z<0 (desarme)`, `HY < P20 ó <3.5%`.
 
 ---
 
