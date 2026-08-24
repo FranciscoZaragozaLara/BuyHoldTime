@@ -18,6 +18,8 @@ export function RegimesPanel() {
   const [loading, setLoading] = useState(true);
   const equityChartRef = useRef<HTMLDivElement>(null);
   const equityChartApiRef = useRef<any>(null);
+  const [strategies, setStrategies] = useState<any[]>([]);
+  const [selectedCode, setSelectedCode] = useState<string>('SPY_BH_ORIGIN');
   // Tabla régimen: reutiliza misma data que IndicatorsPanel
   const [cape, setCape] = useState<any[]>([]);
   const [marketHistory, setMarketHistory] = useState<Record<string, Map<string, number>>>({});
@@ -84,10 +86,19 @@ export function RegimesPanel() {
     const load=async()=>{
       try{
         const base=getApiBase();
-        const [runRes, capeRes] = await Promise.all([
-          fetch(`${base}/api/backtesting/runs?strategyCode=GSPC_BH_ORIGIN`,{cache:'no-store'}),
+        const [runRes, capeRes, stratRes] = await Promise.all([
+          fetch(`${base}/api/backtesting/runs?strategyCode=${encodeURIComponent(selectedCode)}`,{cache:'no-store'}),
           fetch(`${base}/api/backtesting/shiller-daily?from=1990-01-01`,{cache:'no-store'}),
+          fetch(`${base}/api/backtesting/strategies`,{cache:'no-store'}),
         ]);
+        if(stratRes.ok){
+          const s=await stratRes.json();
+          const list = Array.isArray(s)? s : [];
+          // filtrar solo estrategias BH relevantes para regimes
+          const filtered = list.filter((x:any)=> x.code.includes('_BH') || x.code==='GSPC_BH_ORIGIN' || x.code.startsWith('BH_'));
+          setStrategies(filtered.length? filtered : list);
+          // si el seleccionado no existe en lista, mantenerlo igual (SPY_BH_ORIGIN ya existe)
+        }
         if(runRes.ok){
           const runs=await runRes.json();
           const first=Array.isArray(runs)?runs[0]:runs;
@@ -99,6 +110,8 @@ export function RegimesPanel() {
               setEquity(eq.map((e:any)=>({date:(e.date||'').slice(0,10), value:Number(e.portfolio_value ?? e.portfolioValue)})));
             }
             if(first.metrics) setMetrics(first.metrics);
+          } else {
+            setRun(null); setMetrics(null); setEquity([]);
           }
         }
         if(capeRes.ok) setCape(await capeRes.json());
@@ -122,7 +135,37 @@ export function RegimesPanel() {
       setLoading(false);
     };
     load();
-  },[]);
+  },[selectedCode]);
+
+  // Reload run/equity when selector changes without refetching cape/marketHistory (optimizado)
+  useEffect(()=>{
+    if(!selectedCode) return;
+    const reloadRun = async()=>{
+      try{
+        const base=getApiBase();
+        setLoading(true);
+        // limpiar chart previo para forzar recreate
+        if(equityChartApiRef.current){ try{ equityChartApiRef.current.remove(); }catch{}; equityChartApiRef.current=null; }
+        setEquity([]);
+        const r = await fetch(`${base}/api/backtesting/runs?strategyCode=${encodeURIComponent(selectedCode)}`,{cache:'no-store'});
+        if(r.ok){
+          const runs=await r.json();
+          const first=Array.isArray(runs)?runs[0]:runs;
+          if(first?.id){
+            setRun(first);
+            if(first.metrics) setMetrics(first.metrics);
+            const eqRes=await fetch(`${base}/api/backtesting/runs/${first.id}/equity`,{cache:'no-store'});
+            if(eqRes.ok){
+              const eq=await eqRes.json();
+              setEquity(eq.map((e:any)=>({date:(e.date||'').slice(0,10), value:Number(e.portfolio_value ?? e.portfolioValue)})));
+            }
+          } else { setRun(null); setMetrics(null); setEquity([]); }
+        }
+      }catch{} finally{ setLoading(false); }
+    };
+    // evitar doble fetch inicial (ya lo hizo el primer efecto), solo si ya hay strategies cargadas
+    if(strategies.length) reloadRun();
+  },[selectedCode]);
 
     // Equity chart con mismo diseño que Evolución de Apalancamiento — simple y estable (poll ref + miles)
   useEffect(() => {
@@ -245,18 +288,24 @@ export function RegimesPanel() {
             </div>
           </div>
           <div className="bg-slate-800/60 border border-slate-700 rounded-lg p-4">
-            <div className="text-xs font-semibold text-slate-300">SP500 Buy&Hold — Baseline</div>
+            <div className="flex items-center justify-between gap-2">
+              <div className="text-xs font-semibold text-slate-300">{run?.strategy?.code || selectedCode} — Baseline</div>
+              <select value={selectedCode} onChange={e=>setSelectedCode(e.target.value)} className="px-2 py-1 rounded bg-slate-900 border border-slate-700 text-xs text-slate-200">
+                {strategies.map((s:any)=> <option key={s.code} value={s.code}>{s.code} — {s.name}</option>)}
+                { !strategies.find((s:any)=>s.code===selectedCode) && <option value={selectedCode}>{selectedCode}</option>}
+              </select>
+            </div>
             {loading ? (
               <div className="mt-2 h-16 bg-slate-700/30 rounded animate-pulse" />
             ) : stratMetrics ? (
               <div className="mt-2 grid grid-cols-2 gap-2 text-xs font-mono">
-                <div className="bg-slate-900 rounded p-2 border border-slate-800"><div className="text-slate-500">Final</div><div className="text-slate-100 font-bold">${Number(stratMetrics.final_value).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}</div><div className="text-slate-500 text-[10px]">1957-03-04 → {run?.end_date?.slice(0,10) || '2026-08-21'}</div></div>
+                <div className="bg-slate-900 rounded p-2 border border-slate-800"><div className="text-slate-500">Final</div><div className="text-slate-100 font-bold">${Number(stratMetrics.final_value).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}</div><div className="text-slate-500 text-[10px]">{run ? `${String(run.startDate).slice(0,10)} → ${String(run.endDate).slice(0,10)}` : '—'}</div></div>
                 <div className="bg-slate-900 rounded p-2 border border-slate-800"><div className="text-slate-500">CAGR</div><div className="text-emerald-400 font-bold">{(stratMetrics.cagr*100).toFixed(2)}%</div><div className="text-slate-500 text-[10px]">Sharpe {Number(stratMetrics.sharpe).toFixed(2)} · DD {(Number(stratMetrics.max_drawdown)*100).toFixed(1)}%</div></div>
-                <div className="bg-slate-900 rounded p-2 border border-slate-800"><div className="text-slate-500">Total Return</div><div className="text-sky-300 font-bold">{stratMetrics.total_return ? (stratMetrics.total_return*100).toFixed(0)+'%' : '—'}</div><div className="text-slate-500 text-[10px]">{equity.length} días · 1 trade</div></div>
+                <div className="bg-slate-900 rounded p-2 border border-slate-800"><div className="text-slate-500">Total Return</div><div className="text-sky-300 font-bold">{stratMetrics.total_return ? (stratMetrics.total_return*100).toFixed(0)+'%' : '—'}</div><div className="text-slate-500 text-[10px]">{equity.length.toLocaleString('en-US')} días · {(stratMetrics.num_trades ?? 1).toLocaleString('en-US')} trades</div></div>
                 <div className="bg-slate-900 rounded p-2 border border-slate-800"><div className="text-slate-500">Trades</div><div className="text-slate-100 font-bold">{stratMetrics.num_trades} (Buy&Hold)</div><div className="text-slate-500 text-[10px]">Sin ventas</div></div>
               </div>
             ) : (
-              <div className="text-xs text-slate-500 mt-2">No se encontró run GSPC_BH_ORIGIN</div>
+              <div className="text-xs text-slate-500 mt-2">No se encontró run {selectedCode}</div>
             )}
           </div>
         </div>
@@ -265,7 +314,7 @@ export function RegimesPanel() {
       {!loading && equity.length > 0 && (
         <div className="w-full bg-slate-900 border border-slate-800 rounded-xl p-4">
           <div className="flex items-center justify-between mb-2">
-            <h3 className="font-semibold text-slate-100">Equity — SP500 Buy&Hold 1957→Hoy — {equity.length.toLocaleString('en-US')} pts · escala log</h3>
+            <h3 className="font-semibold text-slate-100">Equity — {run?.strategy?.code || selectedCode} {run?.startDate ? `· ${String(run.startDate).slice(0,10)}→${String(run.endDate).slice(0,10)}` : ''} — {equity.length.toLocaleString('en-US')} pts · escala log</h3>
             <span className="text-xs font-mono text-slate-400">{equity[0]?.date.slice(0,4)} → {equity[equity.length-1]?.date.slice(0,10)} · {((equity[equity.length-1]?.value/100000-1)*100).toLocaleString('en-US', {minimumFractionDigits:0, maximumFractionDigits:0})}% · {equity[equity.length-1] ? '$'+Number(equity[equity.length-1].value).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2}) : ''}</span>
           </div>
           <div className="relative w-full h-[360px] overflow-visible">
