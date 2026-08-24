@@ -106,52 +106,40 @@ export function RegimesPanel() {
   }
 
   function getRegimesActive(d:string, capeVal:number|null, mean3yVal:number|null): {r1:boolean,r2:boolean,r3:boolean,total:number} {
+    const dd=getRegimeDetails(d, capeVal, mean3yVal);
+    return {r1:dd.r1.active, r2:dd.r2.active, r3:dd.r3.active, total: (dd.r1.active?1:0)+(dd.r2.active?1:0)+(dd.r3.active?1:0)};
+  }
+
+  function getRegimeDetails(d:string, capeVal:number|null, mean3yVal:number|null){
     ensureCaches();
-    // R1: CAPE > SMA36M*1.20  (mean3y es SMA36M)
-    const r1 = capeVal!=null && mean3yVal!=null && capeVal > mean3yVal * 1.20;
-    // R2: Z(Margin/GDP) >2.0  ventana 36M
-    let r2=false;
-    const mg=getMarginGdpRatio(d);
-    if(mg!=null){
-      // ventana 36M: tomar últimos 36 mensuales o ~756 diarios según capeView
-      const windowSize = capeView==='daily' ? 756 : capeView==='monthly' ? 36 : 3;
-      const idx = allCapeDates.indexOf(d);
-      if(idx>=0){
-        const slice = allCapeDates.slice(Math.max(0, idx-windowSize+1), idx+1);
-        const vals = slice.map(x=> marginGdpCache.get(x)).filter((v):v is number=>v!=null);
-        if(vals.length>=12){
-          const mean=getSMA(vals);
-          const std= mean!=null ? getStd(vals, mean) : null;
-          if(mean!=null && std!=null && std>0){
-            const z=(mg-mean)/std;
-            r2 = z > 2.0;
-          }
-        }
-      }
+    const windowSize = capeView==='daily' ? 756 : capeView==='monthly' ? 36 : 3;
+    const idx = allCapeDates.indexOf(d);
+    // R1
+    let r1Active=false; let r1Thr:number|null=null; let r1Ratio:number|null=null;
+    if(capeVal!=null && mean3yVal!=null){ r1Thr=mean3yVal*1.20; r1Ratio=capeVal/mean3yVal; r1Active=capeVal > r1Thr; }
+    // R2
+    let r2Active=false; let r2Mg:number|null=getMarginGdpRatio(d); let r2Mean:number|null=null; let r2Std:number|null=null; let r2Z:number|null=null;
+    if(r2Mg!=null && idx>=0){
+      const slice=allCapeDates.slice(Math.max(0, idx-windowSize+1), idx+1);
+      const vals=slice.map(x=> marginGdpCache.get(x)).filter((v):v is number=>v!=null);
+      if(vals.length>=12){ r2Mean=getSMA(vals); r2Std=r2Mean!=null?getStd(vals,r2Mean):null; if(r2Mean!=null && r2Std!=null && r2Std>0){ r2Z=(r2Mg-r2Mean)/r2Std; r2Active=r2Z>2.0; } }
     }
-    // R3: Complacencia complementaria: (HY < P20 OR <3.5) AND (R1 OR R2)
-    let r3=false;
-    const hy=getClosestPrice(marketHistory['BAMLH0A0HYM2'], d);
-    if(hy!=null){
-      const windowSize = capeView==='daily' ? 756 : capeView==='monthly' ? 36 : 3;
-      const idx = allCapeDates.indexOf(d);
-      let complacencia=false;
+    // R3
+    let r3Active=false; let r3Hy:number|null=getClosestPrice(marketHistory['BAMLH0A0HYM2'], d); let r3P20:number|null=null; let r3Complacencia=false; let r3LtP20=false; let r3Lt35=false;
+    if(r3Hy!=null){
+      r3Lt35=r3Hy<3.5;
       if(idx>=0){
-        const slice = allCapeDates.slice(Math.max(0, idx-windowSize+1), idx+1);
-        const vals = slice.map(x=> hyCache.get(x)).filter((v):v is number=>v!=null);
-        if(vals.length>=12){
-          const p20=getPercentile(vals, 0.20);
-          if(p20!=null) complacencia = hy < p20 || hy < 3.5;
-          else complacencia = hy < 3.5;
-        } else {
-          complacencia = hy < 3.5;
-        }
-      } else {
-        complacencia = hy < 3.5;
-      }
-      r3 = complacencia && (r1 || r2);
+        const slice=allCapeDates.slice(Math.max(0, idx-windowSize+1), idx+1);
+        const vals=slice.map(x=> hyCache.get(x)).filter((v):v is number=>v!=null);
+        if(vals.length>=12){ r3P20=getPercentile(vals,0.20); if(r3P20!=null){ r3LtP20=r3Hy<r3P20; r3Complacencia=r3LtP20||r3Lt35; } else r3Complacencia=r3Lt35; } else r3Complacencia=r3Lt35;
+      } else r3Complacencia=r3Lt35;
+      r3Active=r3Complacencia && (r1Active || r2Active);
     }
-    return {r1,r2,r3,total: (r1?1:0)+(r2?1:0)+(r3?1:0)};
+    return {
+      r1:{active:r1Active, cape:capeVal, sma:mean3yVal, thr:r1Thr, ratio:r1Ratio},
+      r2:{active:r2Active, mg:r2Mg, mean:r2Mean, std:r2Std, z:r2Z},
+      r3:{active:r3Active, hy:r3Hy, p20:r3P20, complacencia:r3Complacencia, ltP20:r3LtP20, lt35:r3Lt35, r1:r1Active, r2:r2Active},
+    };
   }
 
   useEffect(()=>{
@@ -510,10 +498,35 @@ export function RegimesPanel() {
                 return (
                   <tr key={r.date} ref={isLast? observerRef : null} className="hover:bg-slate-800/40 border-t border-slate-800">
                     <td className="p-2 font-mono sticky left-0 bg-slate-900 text-slate-200">{capeView==='yearly'? d.slice(0,4): capeView==='monthly'? d.slice(0,7): d}</td>
-                    {(() => { const {r1,r2,r3}=getRegimesActive(d, capeVal, mean3yVal); const icon = (active:boolean, on:string, off:string, label:string) => active ? `inline-flex items-center justify-center w-6 h-6 rounded-full ${on} border text-xs` : `inline-flex items-center justify-center w-6 h-6 rounded-full ${off} border text-xs opacity-40`; return (<>
-                    <td className="p-2 text-center"><span className={icon(r1,'bg-amber-500/20 text-amber-300 border-amber-500/30','bg-slate-800 text-slate-500 border-slate-700','📈')} title={r1?'📈 Múltiplos Altos ON — CAPE > SMA36M×1.20 — Qué mide: Precio relativo (CAPE) — Gatillo: Subida Tasas Fed — Fórmula: CAPE > SMA36M×1.20 — Indicador: CAPE/mean3Y · CAPE '+ (capeVal?.toFixed(2) ?? '—') +' > '+ ((mean3yVal ?? 0)*1.2).toFixed(2) : '📈 Múltiplos Altos OFF — CAPE ≤ SMA36M×1.20'}>{r1?'📈':'⚪'}</span></td>
-                    <td className="p-2 text-center"><span className={icon(r2,'bg-red-500/20 text-red-300 border-red-500/30','bg-slate-800 text-slate-500 border-slate-700','🏦')} title={r2?'🏦 Alta Deuda ON — Z(Margin/GDP)>2.0 — Qué mide: Apalancamiento sistémico — Gatillo: Margin Call — Fórmula: Z=(Margin/GDP−SMA36M)/σ36M>2.0 — Ej: 1929,2000':'🏦 Alta Deuda OFF — Z≤2.0'}>{r2?'🏦':'⚪'}</span></td>
-                    <td className="p-2 text-center"><span className={icon(r3,'bg-violet-500/20 text-violet-300 border-violet-500/30','bg-slate-800 text-slate-500 border-slate-700','😴')} title={r3?'😴 Complacencia ON — (HY<P20 OR <3.5%) AND (R1 OR R2) — Qué mide: Ceguera al riesgo (bonos) — Gatillo: Salto spreads +50bps — Complementaria: requiere 1 ó 2 — Ej: 2007 <3%→2008 >11%':'😴 Complacencia OFF — HY ≥P20 y ≥3.5% o sin R1/R2'}>{r3?'😴':'⚪'}</span></td>
+                    {(() => {
+                      const det=getRegimeDetails(d, capeVal, mean3yVal);
+                      const {r1: d1, r2: d2, r3: d3}=det;
+                      const icon = (active:boolean, on:string, off:string) => active ? `inline-flex items-center justify-center w-6 h-6 rounded-full ${on} border text-xs` : `inline-flex items-center justify-center w-6 h-6 rounded-full ${off} border text-xs opacity-40`;
+                      const fmt=(v:number|null, dec=2)=> v!=null && isFinite(v) ? v.toFixed(dec) : '—';
+                      // R1 tooltip con valores
+                      let t1='';
+                      if(d1.cape==null || d1.sma==null) t1=`📈 Múltiplos Altos — Sin datos\nCAPE ${fmt(d1.cape)} · SMA36M ${fmt(d1.sma)}\nFórmula: CAPE > SMA36M×1.20`;
+                      else if(d1.active) t1=`📈 Múltiplos Altos ON ✓ — DISPARADO\nCAPE ${fmt(d1.cape)} > umbral ${fmt(d1.thr)} (=SMA ${fmt(d1.sma)}×1.20)\nRatio ${fmt(d1.ratio,3)}×  ·  +${fmt(d1.cape! - d1.thr!)} sobre umbral\nPor qué SÍ: CAPE sobrevalorado vs media 36M\nFórmula: CAPE > SMA36M×1.20  ·  Ventana ${capeView} 36M`;
+                      else t1=`📈 Múltiplos Altos OFF — no disparado\nCAPE ${fmt(d1.cape)} ≤ umbral ${fmt(d1.thr)} (=SMA ${fmt(d1.sma)}×1.20)\nRatio ${fmt(d1.ratio,3)}×  ·  faltó ${fmt(d1.thr! - d1.cape!)} para disparo\nPor qué NO: CAPE dentro de media\nFórmula: CAPE > SMA36M×1.20  ·  Ventana ${capeView} 36M`;
+                      // R2 tooltip con Z
+                      let t2='';
+                      if(d2.mg==null) t2=`🏦 Alta Deuda — Sin Margin/GDP\nFórmula: Z=(Margin/GDP−SMA36M)/σ36M>2.0`;
+                      else if(d2.mean==null || d2.std==null) t2=`🏦 Alta Deuda — Ventana insuficiente (<12)\nMargin/GDP ${fmt(d2.mg)}%\nFórmula: Z=(Margin/GDP−SMA36M)/σ36M>2.0  ·  Ventana ${capeView} 36M`;
+                      else if(d2.active) t2=`🏦 Alta Deuda ON ✓ — DISPARADO\nZ=${fmt(d2.z,2)} > 2.0\nMargin/GDP ${fmt(d2.mg)}% vs SMA36M ${fmt(d2.mean)}% (σ ${fmt(d2.std)})\nZ=(${fmt(d2.mg)}−${fmt(d2.mean)})/${fmt(d2.std)}=${fmt(d2.z,2)}\nPor qué SÍ: apalancamiento extremo (Margin Call risk)\nFórmula: Z>2.0  ·  Ventana ${capeView} 36M`;
+                      else t2=`🏦 Alta Deuda OFF — no disparado\nZ=${fmt(d2.z,2)} ≤ 2.0\nMargin/GDP ${fmt(d2.mg)}% vs SMA36M ${fmt(d2.mean)}% (σ ${fmt(d2.std)})\nZ=(${fmt(d2.mg)}−${fmt(d2.mean)})/${fmt(d2.std)}=${fmt(d2.z,2)}  ·  faltó ${fmt(2.0 - (d2.z ?? 0),2)}σ\nPor qué NO: apalancamiento dentro de σ\nFórmula: Z>2.0  ·  Ventana ${capeView} 36M`;
+                      // R3 tooltip con HY y P20
+                      let t3='';
+                      if(d3.hy==null) t3=`😴 Complacencia — Sin HY OAS (BAMLH0A0HYM2)\nFórmula: (HY<P20 OR <3.5%) AND (R1 OR R2)`;
+                      else if(d3.active) t3=`😴 Complacencia ON ✓ — DISPARADO (complementaria)\nHY OAS ${fmt(d3.hy)}%  ·  P20 ${fmt(d3.p20)}% en 36M  ·  <3.5% ${d3.lt35?'SÍ':'NO'}  ·  <P20 ${d3.ltP20?'SÍ':'NO'}\nComplacencia SÍ (HY<P20 ${d3.ltP20?'SÍ':'NO'} OR <3.5 ${d3.lt35?'SÍ':'NO'}) AND (R1=${d3.r1?'ON':'OFF'} OR R2=${d3.r2?'ON':'OFF'})=SÍ\nPor qué SÍ: ceguera al riesgo + Bosque Seco (R1/R2)\nFórmula: (HY<P20 OR <3.5%) AND (R1 OR R2)`;
+                      else {
+                        const compStr = d3.complacencia ? 'SÍ' : 'NO';
+                        const need = (!d3.r1 && !d3.r2) ? 'faltó Bosque Seco (R1 y R2 OFF)' : !d3.complacencia ? `faltó complacencia (HY ${fmt(d3.hy)}% ≥ P20 ${fmt(d3.p20)}% y ≥3.5%)` : '—';
+                        t3=`😴 Complacencia OFF — no disparado\nHY OAS ${fmt(d3.hy)}%  ·  P20 ${fmt(d3.p20)}%  ·  <3.5% ${d3.lt35?'SÍ':'NO'}  ·  <P20 ${d3.ltP20?'SÍ':'NO'}  ·  Complacencia ${compStr}\nR1=${d3.r1?'ON':'OFF'}  R2=${d3.r2?'ON':'OFF'}  →  (R1 OR R2)=${(d3.r1||d3.r2)?'SÍ':'NO'}\nPor qué NO: ${need}\nFórmula: (HY<P20 OR <3.5%) AND (R1 OR R2) — requiere 1 ó 2`;
+                      }
+                      return (<>
+                    <td className="p-2 text-center"><span className={icon(d1.active,'bg-amber-500/20 text-amber-300 border-amber-500/30','bg-slate-800 text-slate-500 border-slate-700')} title={t1}>{d1.active?'📈':'⚪'}</span></td>
+                    <td className="p-2 text-center"><span className={icon(d2.active,'bg-red-500/20 text-red-300 border-red-500/30','bg-slate-800 text-slate-500 border-slate-700')} title={t2}>{d2.active?'🏦':'⚪'}</span></td>
+                    <td className="p-2 text-center"><span className={icon(d3.active,'bg-violet-500/20 text-violet-300 border-violet-500/30','bg-slate-800 text-slate-500 border-slate-700')} title={t3}>{d3.active?'😴':'⚪'}</span></td>
                     </>); })()}
                     <td className="p-2 text-right font-mono text-teal-300">{portVal!=null ? `$${Number(portVal).toLocaleString('en-US',{minimumFractionDigits:2, maximumFractionDigits:2})}` : '—'}</td>
                     <td className={`p-2 text-right font-mono ${perf==null?'text-slate-500':perf>=0?'text-emerald-400':'text-red-400'}`}>{perf!=null ? `${perf>=0?'+':''}${perf.toFixed(2)}%` : '—'}</td>
