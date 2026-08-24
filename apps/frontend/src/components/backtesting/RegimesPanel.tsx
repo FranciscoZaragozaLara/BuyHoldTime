@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useState, useRef } from 'react';
+import { RegimesDocsTable } from './RegimesDocsTable';
 import { useTranslations } from 'next-intl';
 import { createChart, ColorType, LineSeries } from 'lightweight-charts';
 
@@ -452,8 +453,10 @@ export function RegimesPanel() {
         <div className="text-[11px] text-slate-500 mt-2">Scroll para cargar más · {rowsView.length} filas · Régimen: Stress (CAPE&gt;30 o HY&gt;5 o Margin&gt;5), Bull (CAPE&lt;20), resto Neutral. Base para nuevos triggers.</div>
       </div>
 
+      <RegimesDocsTable />
+
       <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 border-dashed">
-        <div className="text-sm font-semibold text-slate-200">Próximos: Estrategias de Régimen</div>
+        <div className="text-sm font-semibold text-slate-200">Próximos: Estrategias de Régimen (no implementado)</div>
         <ul className="mt-2 list-disc list-inside text-xs text-slate-400 space-y-1">
           <li><span className="text-slate-200">Regime Bull</span> — CAPE &lt;20 y HY OAS &lt;3% → 100% SP500</li>
           <li><span className="text-slate-200">Regime Bear</span> — CAPE &gt;30 o Margin/GDP &gt;5 → 50% cash</li>
