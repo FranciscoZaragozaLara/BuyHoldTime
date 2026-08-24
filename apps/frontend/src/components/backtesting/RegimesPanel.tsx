@@ -124,65 +124,72 @@ export function RegimesPanel() {
     load();
   },[]);
 
-  // Equity chart con mismo diseño que Evolución de Apalancamiento — robusto + separador miles
+    // Equity chart con mismo diseño que Evolución de Apalancamiento — simple y estable (poll ref + miles)
   useEffect(() => {
-    if (!equityChartRef.current || !equity.length) return;
-    if (equityChartApiRef.current) return; // no recrear si ya existe (evita flicker)
-    const el = equityChartRef.current;
+    if (!equity.length) return;
     let chart:any = null;
     let ro: ResizeObserver | null = null;
-    let cancelled = false;
-    let rafId: number | null = null;
-    const fmtUSD = (v:number) => '$' + Number(v).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2});
-    const init = () => {
-      if (cancelled || !equityChartRef.current || equityChartApiRef.current) return;
-      // esperar layout real (width>0) hasta 10 frames
-      let attempts = 0;
-      const tryCreate = () => {
-        if (cancelled || equityChartApiRef.current) return;
-        const rectW = el.clientWidth;
-        if (rectW === 0 && attempts < 10) { attempts++; rafId = requestAnimationFrame(tryCreate) as unknown as number; return; }
-        try {
-          // limpiar solo si no hay chart previo
-          el.innerHTML = '';
-          const w = rectW > 0 ? rectW : el.getBoundingClientRect().width || 600;
-          const h = 360;
-          chart = createChart(el, {
-            width: w, height: h,
-            layout: { background: { type: ColorType.Solid, color: '#020617' }, textColor: '#94a3b8', fontSize: 11 },
-            grid: { vertLines: { color: 'rgba(30,41,59,0.3)' }, horzLines: { color: 'rgba(30,41,59,0.3)' } },
-            crosshair: { mode: 1, vertLine: { color: '#14b8a6', width: 1, style: 3, labelBackgroundColor: '#14b8a6' }, horzLine: { color: '#14b8a6', width: 1, style: 3, labelBackgroundColor: '#14b8a6' } },
-            rightPriceScale: { borderColor: 'rgba(30,41,59,0.5)', scaleMargins: { top: 0.12, bottom: 0.12 }, visible: true } as any,
-            timeScale: { borderColor: 'rgba(30,41,59,0.5)', rightOffset: 5, barSpacing: 1.5, minBarSpacing: 0.3, fixLeftEdge: false, fixRightEdge: false, timeVisible: true, secondsVisible: false },
-            localization: { priceFormatter: (p:number) => Number(p).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2}) } as any,
-            handleScroll: { mouseWheel: true, pressedMouseMove: true, horzTouchDrag: true, vertTouchDrag: false },
-            handleScale: { mouseWheel: true, pinch: true, axisPressedMouseMove: true },
-          });
-          equityChartApiRef.current = chart;
-          const series = chart.addSeries(LineSeries as any, { color: '#14b8a6', lineWidth: 2, priceLineVisible: false, lastValueVisible: true, crosshairMarkerVisible: true, priceFormat: { type:'custom', formatter: (p:number)=> Number(p).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2}) } as any } as any);
-          const sorted = [...equity].filter(d => d.date && d.value != null && isFinite(d.value)).sort((a,b)=> a.date.localeCompare(b.date));
-          const data = sorted.map(p => ({ time: p.date.slice(0,10) as any, value: Number(p.value) }));
-          series.setData(data as any);
-          chart.timeScale().fitContent();
-          // asegurar repaint tras layout final
-          setTimeout(()=>{ try{ chart.timeScale().fitContent(); }catch{} }, 100);
-          ro = new ResizeObserver(() => {
-            if (equityChartRef.current && equityChartApiRef.current) {
-              const ww = equityChartRef.current.clientWidth;
-              const hh = equityChartRef.current.clientHeight;
-              if (ww > 0 && hh > 0) equityChartApiRef.current.applyOptions({ width: ww, height: hh });
-            }
-          });
-          ro.observe(el);
-        } catch(e){ console.error('Regimes equity chart error', e); }
-      };
-      rafId = requestAnimationFrame(tryCreate) as unknown as number;
+    let raf:number|null = null;
+    let attempts = 0;
+    const tryCreate = () => {
+      let el = equityChartRef.current as HTMLDivElement | null;
+      if (!el) el = document.getElementById('regimes-equity-chart') as HTMLDivElement | null;
+      // fallback: buscar cualquier div con h-[360px] que contenga nuestro id fallback via query
+      if (!el) {
+        const candidates = document.querySelectorAll('#regimes-equity-chart, div.w-full.h-full.relative');
+        if (candidates.length) el = candidates[0] as HTMLDivElement;
+      }
+      // poll: el aún no disponible
+      if (!el) {
+        if (attempts++ < 100) { raf = requestAnimationFrame(tryCreate) as unknown as number; return; }
+        console.log('REGIMES REF still null after poll');
+        return;
+      }
+      if (equityChartApiRef.current) {
+        try { equityChartApiRef.current.remove(); } catch {}
+        equityChartApiRef.current = null;
+        el.innerHTML = '';
+      }
+      const w = el.clientWidth || (el as any).getBoundingClientRect?.().width || 600;
+      const h = 360;
+      console.log('REGIMES CREATE', w, equity.length);
+      try {
+        chart = createChart(el, {
+          width: w, height: h,
+          layout: { background: { type: ColorType.Solid, color: '#020617' }, textColor: '#94a3b8', fontSize: 11 },
+          grid: { vertLines: { color: 'rgba(30,41,59,0.3)' }, horzLines: { color: 'rgba(30,41,59,0.3)' } },
+          crosshair: { mode: 1, vertLine: { color: '#14b8a6', width: 1, style: 3, labelBackgroundColor: '#14b8a6' }, horzLine: { color: '#14b8a6', width: 1, style: 3, labelBackgroundColor: '#14b8a6' } },
+          rightPriceScale: { borderColor: 'rgba(30,41,59,0.5)', scaleMargins: { top: 0.12, bottom: 0.12 }, visible: true } as any,
+          timeScale: { borderColor: 'rgba(30,41,59,0.5)', rightOffset: 5, barSpacing: 1.5, minBarSpacing: 0.3, fixLeftEdge: false, fixRightEdge: false, timeVisible: true, secondsVisible: false },
+          localization: { priceFormatter: (p:number) => Number(p).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2}) } as any,
+          handleScroll: { mouseWheel: true, pressedMouseMove: true, horzTouchDrag: true, vertTouchDrag: false },
+          handleScale: { mouseWheel: true, pinch: true, axisPressedMouseMove: true },
+        });
+        equityChartApiRef.current = chart;
+        const series = chart.addSeries(LineSeries as any, { color: '#14b8a6', lineWidth: 2, priceLineVisible: false, lastValueVisible: true, crosshairMarkerVisible: true, priceFormat: { type:'custom', formatter: (p:number)=> Number(p).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2}) } as any } as any);
+        const sorted = [...equity].filter(d => d.date && d.value != null && isFinite(d.value)).sort((a,b)=> a.date.localeCompare(b.date));
+        const data = sorted.map(p => ({ time: p.date.slice(0,10) as any, value: Number(p.value) }));
+        console.log('Regimes equity data', data.length, data[0], data[data.length-1]);
+        series.setData(data as any);
+        chart.timeScale().fitContent();
+        requestAnimationFrame(() => {
+          try {
+            if (el.clientWidth && el.clientWidth !== w) chart.applyOptions({ width: el.clientWidth });
+            chart.timeScale().fitContent();
+          } catch {}
+        });
+        ro = new ResizeObserver(() => {
+          if (equityChartRef.current && equityChartApiRef.current) {
+            const ww = equityChartRef.current.clientWidth;
+            const hh = equityChartRef.current.clientHeight;
+            if (ww > 0 && hh > 0) equityChartApiRef.current.applyOptions({ width: ww, height: hh });
+          }
+        });
+        ro.observe(el);
+      } catch(e){ console.error('Regimes equity chart error', e); }
     };
-    init();
-    return () => { cancelled = true; if(rafId) cancelAnimationFrame(rafId as any); if(ro) ro.disconnect(); // no remover chart aquí si es remount por StrictMode en dev, el guard de arriba evita duplicado
-      // solo limpiar si realmente desmonta el componente (equity vaciado)
-      // mantenemos chart vivo para evitar flicker; se limpia en unmount real del tab
-    };
+    raf = requestAnimationFrame(tryCreate) as unknown as number;
+    return () => { if(raf) cancelAnimationFrame(raf as any); if(ro) ro.disconnect(); try{ if(chart) chart.remove(); }catch{}; if(equityChartApiRef.current===chart) equityChartApiRef.current=null; };
   }, [equity]);
 
   const stratMetrics = run ? {
@@ -262,7 +269,7 @@ export function RegimesPanel() {
             <span className="text-xs font-mono text-slate-400">{equity[0]?.date.slice(0,4)} → {equity[equity.length-1]?.date.slice(0,10)} · {((equity[equity.length-1]?.value/100000-1)*100).toLocaleString('en-US', {minimumFractionDigits:0, maximumFractionDigits:0})}% · {equity[equity.length-1] ? '$'+Number(equity[equity.length-1].value).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2}) : ''}</span>
           </div>
           <div className="relative w-full h-[360px] overflow-visible">
-            <div ref={equityChartRef} className="w-full h-full relative z-0" />
+            <div ref={equityChartRef} id="regimes-equity-chart" className="w-full h-full relative z-0" />
           </div>
           <div className="flex flex-wrap gap-x-4 gap-y-1.5 mt-2 text-xs text-slate-500"><span>Scroll/arrastra para zoom • base para regímenes y triggers</span></div>
         </div>
