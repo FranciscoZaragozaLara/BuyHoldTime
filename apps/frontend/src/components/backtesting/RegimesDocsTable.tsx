@@ -38,11 +38,11 @@ const rows: Row[] = [
   },
   {
     regimen: 'Complacencia OAS',
-    mide: 'Ceguera al riesgo (bonos)',
-    gatillo: 'Salto de Spreads (>+50 bps)',
+    mide: 'Ceguera al riesgo (bonos) — complementario',
+    gatillo: 'Salto de Spreads (>+50 bps) + (CAPE alto o Z>2.0)',
     crisis: 'Crisis de Quiebras — falta de liquidez',
-    indicador: 'BAMLH0A0HYM2',
-    umbral: 'HY < P20_36M o <3.5%',
+    indicador: 'BAMLH0A0HYM2 AND (CAPE> SMA36M×1.20 OR Z>2.0)',
+    umbral: 'HY < P20_36M o <3.5%  +  (1 ó 2 activo)',
     icon: '😴',
     color: 'from-violet-500/20 to-purple-500/20',
     border: 'border-violet-500/30',
@@ -146,14 +146,15 @@ export function RegimesDocsTable() {
           )}
           {open === 'Complacencia OAS' && (
             <div className="text-sm text-slate-300 space-y-3">
-              <div className="font-semibold text-violet-300">3. Complacencia en Préstamos HY OAS — Riesgo de Crédito / Quiebra</div>
+              <div className="font-semibold text-violet-300">3. Complacencia en Préstamos HY OAS — Riesgo de Crédito / Quiebra <span className="text-amber-300 text-xs">· Complementario</span></div>
+              <p className="text-amber-200/80 text-xs leading-relaxed bg-amber-950/20 border border-amber-800/30 rounded-lg p-2">⚠️ <b>Complementario:</b> No entra por régimen solo. Requiere bosque seco por <b>1. Múltiplos Altos</b> o <b>2. Alta Deuda/PIB</b>. Solo con altas valoraciones o alto apalancamiento cuenta.</p>
               <p className="text-slate-400 text-xs leading-relaxed">No mide acciones, sino bonos basura. Mide ceguera al riesgo de impago.</p>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
                 <div className="bg-slate-900 rounded-lg p-3 border border-slate-700"><span className="text-slate-500 block">El Combustible</span><span className="text-slate-200">Exceso de confianza · ignorancia de Default Risk</span></div>
                 <div className="bg-slate-900 rounded-lg p-3 border border-slate-700"><span className="text-slate-500 block">La Chispa</span><span className="text-violet-300">Liquidez/recesión que congela crédito</span></div>
               </div>
               <div className="bg-violet-950/30 rounded-lg p-3 border border-violet-800/50">
-                <div className="text-xs text-violet-200 font-mono">HY OAS &lt; Percentil<sub>20</sub>(HY OAS<sub>36M</sub>)  OR  HY OAS &lt; 3.5%</div>
+                <div className="text-xs text-violet-200 font-mono">(HY OAS &lt; P<sub>20,36M</sub> OR &lt;3.5%) <span className="text-amber-300">AND</span> (CAPE &gt; SMA<sub>36M</sub>×1.20 OR Z&gt;2.0)</div>
                 <div className="text-[11px] text-violet-300/70 mt-1">BAMLH0A0HYM2 en percentil 20 → complacencia extrema</div>
               </div>
               <p><span className="text-slate-400">Mecánica:</span> Spread en “perfección absoluta” solo puede subir. Si el crédito se congela, empresas no refinancian → quiebras y colapso accionario.</p>

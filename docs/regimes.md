@@ -47,20 +47,22 @@ Z(Margin/GDP) = ( Margin/GDP - SMA_36M(Margin/GDP) ) / σ_36M(Margin/GDP)  >  +2
 
 ---
 
-## 3. Complacencia en Préstamos HY OAS — *Riesgo de Crédito / Quiebra*
+## 3. Complacencia en Préstamos HY OAS — *Riesgo de Crédito / Quiebra — Complementario*
 
 **Este indicador no mide el mercado de acciones, sino el mercado de bonos basura (High Yield). Mide la ceguera al riesgo: qué tan poco rendimiento extra exigen los inversores para prestarle dinero a empresas al borde de la quiebra.**
+
+> **Regla complementaria:** Este régimen **no se activa por sí solo**. Requiere que el bosque ya esté seco por **altas valoraciones (1. Múltiplos Altos)** o **alto apalancamiento (2. Alta Deuda/PIB)**. La complacencia sin combustible previo no dispara crisis sistémica.
 
 - **El Combustible:** Exceso de confianza e ignorancia del riesgo de impago (Default Risk).
 - **La Chispa que lo detona:** Un evento de liquidez, recesión o quiebra inesperada que congela el crédito.
 
-**Regla Matemática:**
+**Regla Matemática (complementaria):**
 
 ```
-HY OAS < Percentil_20( HY OAS_36M )   OR   HY OAS < 3.5%
+( HY OAS < Percentil_20( HY OAS_36M )  OR  HY OAS < 3.5% )  AND  ( CAPE > SMA_36M(CAPE)×1.20  OR  Z(Margin/GDP) > +2.0 )
 ```
 
-> `BAMLH0A0HYM2` por debajo del percentil 20 histórico de 36 meses o <3.5% → complacencia extrema.
+> `BAMLH0A0HYM2` por debajo del percentil 20 histórico de 36 meses o <3.5% **y** además `CAPE` alto o `Z>2.0` → complacencia con bosque ya seco. Sin 1 o 2, no hay régimen.
 
 **Mecánica de la Crisis:** Cuando el spread (OAS) está en complacencia extrema (por debajo del percentil 20 histórico), el mercado está fijando precios de "perfección absoluta". Significa que el crédito fluye libremente. El peligro es que desde este nivel, el spread solo puede subir. Cuando la realidad golpea y el crédito se congela, las empresas no pueden refinanciar deudas, provocando quiebras y un colapso accionario.
 
@@ -70,7 +72,7 @@ HY OAS < Percentil_20( HY OAS_36M )   OR   HY OAS < 3.5%
 
 ## Resumen de Arquitectura en el Algoritmo
 
-Para un algoritmo robusto, estas tres reglas operan como una **matriz de escaneo de vulnerabilidades**. El “Bosque” puede estar seco por uno, dos o los tres factores al mismo tiempo:
+Para un algoritmo robusto, estas tres reglas operan como una **matriz de escaneo de vulnerabilidades**. El “Bosque” puede estar seco por uno, dos o los tres factores al mismo tiempo. **La complacencia (3) es complementaria: solo cuenta si 1 (múltiplos altos) o 2 (alta deuda) ya están activos; nunca dispara régimen por sí sola.**
 
 | Régimen | Qué Mide | Qué lo Detona (El Gatillo) | Tipo de Crisis Resultante |
 |---|---|---|---|
