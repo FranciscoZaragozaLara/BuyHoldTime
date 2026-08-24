@@ -116,7 +116,7 @@ export function RegimesPanel() {
     const idx = allCapeDates.indexOf(d);
     // R1
     let r1Active=false; let r1Thr:number|null=null; let r1Ratio:number|null=null;
-    if(capeVal!=null && mean3yVal!=null){ r1Thr=mean3yVal*1.20; r1Ratio=capeVal/mean3yVal; r1Active=capeVal > r1Thr; }
+    if(capeVal!=null && mean3yVal!=null){ r1Thr=mean3yVal*1.12; r1Ratio=capeVal/mean3yVal; r1Active=capeVal > r1Thr; }
     // R2
     let r2Active=false; let r2Mg:number|null=getMarginGdpRatio(d); let r2Mean:number|null=null; let r2Std:number|null=null; let r2Z:number|null=null;
     if(r2Mg!=null && idx>=0){
@@ -133,7 +133,7 @@ export function RegimesPanel() {
         const vals=slice.map(x=> hyCache.get(x)).filter((v):v is number=>v!=null);
         if(vals.length>=12){ r3P20=getPercentile(vals,0.20); if(r3P20!=null){ r3LtP20=r3Hy<r3P20; r3Complacencia=r3LtP20||r3Lt35; } else r3Complacencia=r3Lt35; } else r3Complacencia=r3Lt35;
       } else r3Complacencia=r3Lt35;
-      r3Active=r3Complacencia && (r1Active || r2Active);
+      r3Active=r3Complacencia;
     }
     return {
       r1:{active:r1Active, cape:capeVal, sma:mean3yVal, thr:r1Thr, ratio:r1Ratio},
@@ -455,9 +455,9 @@ export function RegimesPanel() {
             <thead className="sticky top-0 bg-slate-900 z-10">
               <tr className="text-slate-400">
                 <th className="p-2 text-left sticky left-0 bg-slate-900">Fecha</th>
-                <th className="p-2 text-center" title="Múltiplos Altos: CAPE > SMA_36M×1.20 — Bosque Seco por Múltiplos Altos — Qué mide: Precio relativo (CAPE) — Gatillo: Subida Tasas Fed — Fórmula: CAPE > SMA36M×1.20 — Ej: 2022 Nasdaq -35%">📈</th>
+                <th className="p-2 text-center" title="Múltiplos Altos: CAPE > SMA_36M×1.12 — Bosque Seco por Múltiplos Altos — Qué mide: Precio relativo (CAPE) — Gatillo: Subida Tasas Fed — Fórmula: CAPE > SMA36M×1.12 — Ej: 2022 Nasdaq -35%">📈</th>
                 <th className="p-2 text-center" title="Alta Deuda/PIB: Z(Margin/GDP) >2.0 — Bosque Seco por Alta Deuda — Qué mide: Apalancamiento sistémico — Gatillo: Margin Call — Fórmula: Z=(Margin/GDP−SMA36M)/σ36M>2.0 — Ej: 1929,2000">🏦</th>
-                <th className="p-2 text-center" title="Complacencia OAS: (HY<P20 OR <3.5%) AND (R1 OR R2) — Complementaria — Qué mide: Ceguera al riesgo (bonos) — Gatillo: Salto spreads +50bps — Fórmula: (HY<P20 OR <3.5%) AND (R1 OR R2) — Ej: 2007 <3% →2008 >11%">😴</th>
+                <th className="p-2 text-center" title="Complacencia OAS: HY<P20 OR <3.5% — Independiente — Qué mide: Ceguera al riesgo (bonos) — Gatillo: Salto spreads +50bps — Fórmula: HY<P20 OR HY<3.5%  ·  Ventana 36M  (independiente de R1/R2) — Ej: 2007 <3% →2008 >11%">😴</th>
                 <th className="p-2 text-right">Portafolio</th>
                 <th className="p-2 text-right">Perf.</th>
                 <th className="p-2 text-right">CAGR</th>
@@ -468,6 +468,7 @@ export function RegimesPanel() {
                 <th className="p-2 text-right">Ratio</th>
                 <th className="p-2 text-right">HY OAS</th>
                 <th className="p-2 text-right">Margin/GDP</th>
+                <th className="p-2 text-right">Z (Mg/GDP)</th>
                 <th className="p-2 text-right">CPI YoY</th>
                 <th className="p-2 text-right">FED</th>
                 <th className="p-2 text-right">10Y</th>
@@ -482,6 +483,9 @@ export function RegimesPanel() {
                 const ratio=r.capeRatio != null ? r.capeRatio : (mean3yVal!=null ? r.cape / mean3yVal : null);
                 const hy=getClosestPrice(marketHistory['BAMLH0A0HYM2'],d);
                 const mg=getMarginGdpRatio(d);
+                const detRow=getRegimeDetails(d, capeVal, mean3yVal);
+                const mgZ=detRow.r2.z;
+                const mgZColor = mgZ==null ? 'text-slate-500' : mgZ>2 ? 'text-red-400 bg-red-500/10 border-red-500/20' : mgZ>1 ? 'text-orange-400 bg-orange-500/10 border-orange-500/20' : mgZ>0.5 ? 'text-yellow-400 bg-yellow-500/10 border-yellow-500/20' : mgZ>-0.5 ? 'text-slate-300 bg-slate-700/30 border-slate-600' : 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20';
                 const cpi=getCpiYoY(marketHistory['CPIAUCSL'],d);
                 const fed=getClosestPrice(marketHistory['DFEDTARU'],d);
                 const y10=getClosestPrice(marketHistory['DGS10'],d);
@@ -499,15 +503,15 @@ export function RegimesPanel() {
                   <tr key={r.date} ref={isLast? observerRef : null} className="hover:bg-slate-800/40 border-t border-slate-800">
                     <td className="p-2 font-mono sticky left-0 bg-slate-900 text-slate-200">{capeView==='yearly'? d.slice(0,4): capeView==='monthly'? d.slice(0,7): d}</td>
                     {(() => {
-                      const det=getRegimeDetails(d, capeVal, mean3yVal);
+                      const det=detRow;
                       const {r1: d1, r2: d2, r3: d3}=det;
                       const icon = (active:boolean, on:string, off:string) => active ? `inline-flex items-center justify-center w-6 h-6 rounded-full ${on} border text-xs` : `inline-flex items-center justify-center w-6 h-6 rounded-full ${off} border text-xs opacity-40`;
                       const fmt=(v:number|null, dec=2)=> v!=null && isFinite(v) ? v.toFixed(dec) : '—';
                       // R1 tooltip con valores
                       let t1='';
-                      if(d1.cape==null || d1.sma==null) t1=`📈 Múltiplos Altos — Sin datos\nCAPE ${fmt(d1.cape)} · SMA36M ${fmt(d1.sma)}\nFórmula: CAPE > SMA36M×1.20`;
-                      else if(d1.active) t1=`📈 Múltiplos Altos ON ✓ — DISPARADO\nCAPE ${fmt(d1.cape)} > umbral ${fmt(d1.thr)} (=SMA ${fmt(d1.sma)}×1.20)\nRatio ${fmt(d1.ratio,3)}×  ·  +${fmt(d1.cape! - d1.thr!)} sobre umbral\nPor qué SÍ: CAPE sobrevalorado vs media 36M\nFórmula: CAPE > SMA36M×1.20  ·  Ventana ${capeView} 36M`;
-                      else t1=`📈 Múltiplos Altos OFF — no disparado\nCAPE ${fmt(d1.cape)} ≤ umbral ${fmt(d1.thr)} (=SMA ${fmt(d1.sma)}×1.20)\nRatio ${fmt(d1.ratio,3)}×  ·  faltó ${fmt(d1.thr! - d1.cape!)} para disparo\nPor qué NO: CAPE dentro de media\nFórmula: CAPE > SMA36M×1.20  ·  Ventana ${capeView} 36M`;
+                      if(d1.cape==null || d1.sma==null) t1=`📈 Múltiplos Altos — Sin datos\nCAPE ${fmt(d1.cape)} · SMA36M ${fmt(d1.sma)}\nFórmula: CAPE > SMA36M×1.12`;
+                      else if(d1.active) t1=`📈 Múltiplos Altos ON ✓ — DISPARADO\nCAPE ${fmt(d1.cape)} > umbral ${fmt(d1.thr)} (=SMA ${fmt(d1.sma)}×1.12)\nRatio ${fmt(d1.ratio,3)}×  ·  +${fmt(d1.cape! - d1.thr!)} sobre umbral\nPor qué SÍ: CAPE sobrevalorado vs media 36M\nFórmula: CAPE > SMA36M×1.12  ·  Ventana ${capeView} 36M`;
+                      else t1=`📈 Múltiplos Altos OFF — no disparado\nCAPE ${fmt(d1.cape)} ≤ umbral ${fmt(d1.thr)} (=SMA ${fmt(d1.sma)}×1.12)\nRatio ${fmt(d1.ratio,3)}×  ·  faltó ${fmt(d1.thr! - d1.cape!)} para disparo\nPor qué NO: CAPE dentro de media\nFórmula: CAPE > SMA36M×1.12  ·  Ventana ${capeView} 36M`;
                       // R2 tooltip con Z
                       let t2='';
                       if(d2.mg==null) t2=`🏦 Alta Deuda — Sin Margin/GDP\nFórmula: Z=(Margin/GDP−SMA36M)/σ36M>2.0`;
@@ -516,12 +520,12 @@ export function RegimesPanel() {
                       else t2=`🏦 Alta Deuda OFF — no disparado\nZ=${fmt(d2.z,2)} ≤ 2.0\nMargin/GDP ${fmt(d2.mg)}% vs SMA36M ${fmt(d2.mean)}% (σ ${fmt(d2.std)})\nZ=(${fmt(d2.mg)}−${fmt(d2.mean)})/${fmt(d2.std)}=${fmt(d2.z,2)}  ·  faltó ${fmt(2.0 - (d2.z ?? 0),2)}σ\nPor qué NO: apalancamiento dentro de σ\nFórmula: Z>2.0  ·  Ventana ${capeView} 36M`;
                       // R3 tooltip con HY y P20
                       let t3='';
-                      if(d3.hy==null) t3=`😴 Complacencia — Sin HY OAS (BAMLH0A0HYM2)\nFórmula: (HY<P20 OR <3.5%) AND (R1 OR R2)`;
-                      else if(d3.active) t3=`😴 Complacencia ON ✓ — DISPARADO (complementaria)\nHY OAS ${fmt(d3.hy)}%  ·  P20 ${fmt(d3.p20)}% en 36M  ·  <3.5% ${d3.lt35?'SÍ':'NO'}  ·  <P20 ${d3.ltP20?'SÍ':'NO'}\nComplacencia SÍ (HY<P20 ${d3.ltP20?'SÍ':'NO'} OR <3.5 ${d3.lt35?'SÍ':'NO'}) AND (R1=${d3.r1?'ON':'OFF'} OR R2=${d3.r2?'ON':'OFF'})=SÍ\nPor qué SÍ: ceguera al riesgo + Bosque Seco (R1/R2)\nFórmula: (HY<P20 OR <3.5%) AND (R1 OR R2)`;
+                      if(d3.hy==null) t3=`😴 Complacencia — Sin HY OAS (BAMLH0A0HYM2)\nFórmula: HY<P20 OR HY<3.5%  ·  Ventana 36M  (independiente de R1/R2)`;
+                      else if(d3.active) t3=`😴 Complacencia ON ✓ — DISPARADO\nHY OAS ${fmt(d3.hy)}%  ·  P20 ${fmt(d3.p20)}% en 36M  ·  <3.5% ${d3.lt35?'SÍ':'NO'}  ·  <P20 ${d3.ltP20?'SÍ':'NO'}\nComplacencia SÍ (HY<P20 ${d3.ltP20?'SÍ':'NO'} OR <3.5 ${d3.lt35?'SÍ':'NO'})\nPor qué SÍ: ceguera al riesgo (bonos baratos)\nFórmula: HY<P20 OR HY<3.5%  ·  Ventana 36M  (independiente de R1/R2)`;
                       else {
                         const compStr = d3.complacencia ? 'SÍ' : 'NO';
-                        const need = (!d3.r1 && !d3.r2) ? 'faltó Bosque Seco (R1 y R2 OFF)' : !d3.complacencia ? `faltó complacencia (HY ${fmt(d3.hy)}% ≥ P20 ${fmt(d3.p20)}% y ≥3.5%)` : '—';
-                        t3=`😴 Complacencia OFF — no disparado\nHY OAS ${fmt(d3.hy)}%  ·  P20 ${fmt(d3.p20)}%  ·  <3.5% ${d3.lt35?'SÍ':'NO'}  ·  <P20 ${d3.ltP20?'SÍ':'NO'}  ·  Complacencia ${compStr}\nR1=${d3.r1?'ON':'OFF'}  R2=${d3.r2?'ON':'OFF'}  →  (R1 OR R2)=${(d3.r1||d3.r2)?'SÍ':'NO'}\nPor qué NO: ${need}\nFórmula: (HY<P20 OR <3.5%) AND (R1 OR R2) — requiere 1 ó 2`;
+                        const need = !d3.complacencia ? `faltó complacencia (HY ${fmt(d3.hy)}% ≥ P20 ${fmt(d3.p20)}% y ≥3.5%)` : '—';
+                        t3=`😴 Complacencia OFF — no disparado\nHY OAS ${fmt(d3.hy)}%  ·  P20 ${fmt(d3.p20)}%  ·  <3.5% ${d3.lt35?'SÍ':'NO'}  ·  <P20 ${d3.ltP20?'SÍ':'NO'}  ·  Complacencia ${compStr}\nR1=${d3.r1?'ON':'OFF'}  R2=${d3.r2?'ON':'OFF'} (informativo, ya no requerido)\nPor qué NO: ${need}\nFórmula: HY<P20 OR HY<3.5%  ·  Ventana 36M  (independiente de R1/R2) — requiere 1 ó 2`;
                       }
                       return (<>
                     <td className="p-2 text-center"><span className={icon(d1.active,'bg-amber-500/20 text-amber-300 border-amber-500/30','bg-slate-800 text-slate-500 border-slate-700')} title={t1}>{d1.active?'📈':'⚪'}</span></td>
@@ -538,6 +542,7 @@ export function RegimesPanel() {
                     <td className={`p-2 text-right font-mono font-semibold rounded ${ratioColor}`}>{ratio!=null? `${ratio.toFixed(3)}X`:'—'}</td>
                     <td className="p-2 text-right font-mono text-orange-300">{hy!=null? `${hy.toFixed(2)}%`:'—'}</td>
                     <td className={`p-2 text-right font-mono font-semibold border rounded ${mgColor}`}>{mg!=null? `${mg.toFixed(2)}%`:'—'}</td>
+                    <td className={`p-2 text-right font-mono font-semibold border rounded ${mgZColor}`} title={mgZ!=null ? `Z=(Mg−SMA)/σ = (${mg?.toFixed(2)}−${detRow.r2.mean?.toFixed(2) ?? '—'})/${detRow.r2.std?.toFixed(2) ?? '—'} = ${mgZ.toFixed(2)}  ·  >2.0 dispara 🏦` : 'Z sin ventana suficiente'}>{mgZ!=null? mgZ.toFixed(2):'—'}</td>
                     <td className="p-2 text-right font-mono text-emerald-300">{cpi!=null? `${cpi.toFixed(2)}%`:'—'}</td>
                     <td className="p-2 text-right font-mono text-violet-300">{fed!=null? `${fed.toFixed(2)}%`:'—'}</td>
                     <td className="p-2 text-right font-mono text-cyan-300">{y10!=null? `${y10.toFixed(2)}%`:'—'}</td>
@@ -547,7 +552,7 @@ export function RegimesPanel() {
             </tbody>
           </table>
         </div>
-        <div className="text-[11px] text-slate-500 mt-2">Scroll para cargar más · {rowsView.length} filas · 📈 Múltiplos Altos (CAPE&gt;SMA×1.20) · 🏦 Alta Deuda (Z&gt;2.0) · 😴 Complacencia (HY&lt;P20+1ó2). Base para nuevos triggers.</div>
+        <div className="text-[11px] text-slate-500 mt-2">Scroll para cargar más · {rowsView.length} filas · 📈 Múltiplos Altos (CAPE&gt;SMA×1.12) · 🏦 Alta Deuda (Z&gt;2.0) · 😴 Complacencia (HY&lt;P20 OR &lt;3.5% independiente). Base para nuevos triggers.</div>
       </div>
 
       <RegimesDocsTable />
