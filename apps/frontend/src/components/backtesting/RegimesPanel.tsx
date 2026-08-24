@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useState, useRef, useMemo, useCallback } from 'react';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { RegimesDocsTable } from './RegimesDocsTable';
 import { useTranslations } from 'next-intl';
 import { createChart, ColorType, LineSeries } from 'lightweight-charts';
@@ -26,6 +27,7 @@ export function RegimesPanel() {
   const [marketHistory, setMarketHistory] = useState<Record<string, Map<string, number>>>({});
   const [capeView, setCapeView] = useState<'daily'|'monthly'|'yearly'>('daily');
   const [visibleCount, setVisibleCount] = useState(15);
+  const [filterYear, setFilterYear] = useState<string>('');
   const [sortCol, setSortCol] = useState<string>('date');
   const [sortDir, setSortDir] = useState<'asc'|'desc'>('desc');
 
@@ -396,8 +398,28 @@ export function RegimesPanel() {
     for(const r of cape) byYear.set(String(r.date||'').slice(0,4), r);
     return Array.from(byYear.values());
   }, [cape, capeView]);
-  const sorted = useMemo(()=> [...rowsView].sort((a:any,b:any)=> sortDir==='desc' ? b.date.localeCompare(a.date) : a.date.localeCompare(b.date)), [rowsView, sortDir]);
+  const availableYears = useMemo(()=>{
+    const s=new Set<string>();
+    for(const r of cape) s.add(String(r.date).slice(0,4));
+    return Array.from(s).sort().reverse();
+  }, [cape]);
+  const filteredRowsView = useMemo(()=>{
+    if(!filterYear) return rowsView;
+    return rowsView.filter((r:any)=> String(r.date).slice(0,4)===filterYear);
+  }, [rowsView, filterYear]);
+  const sorted = useMemo(()=> [...filteredRowsView].sort((a:any,b:any)=> sortDir==='desc' ? b.date.localeCompare(a.date) : a.date.localeCompare(b.date)), [filteredRowsView, sortDir]);
   const paginated = useMemo(()=> sorted.slice(0, visibleCount), [sorted, visibleCount]);
+  // Virtualización para daily con 2-3 años (500-750 filas) — renderiza solo filas visibles
+  const scrollRef = useRef<HTMLDivElement>(null) as React.RefObject<HTMLDivElement>;
+  const virtualizer = useVirtualizer({
+    count: sorted.length,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: () => 36,
+    overscan: 12,
+  });
+  const virtualItems = virtualizer.getVirtualItems();
+  const paddingTop = virtualItems.length ? virtualItems[0].start : 0;
+  const paddingBottom = virtualItems.length ? virtualizer.getTotalSize() - (virtualItems[virtualItems.length-1].end ?? 0) : 0;
   const observerRef = useRef<HTMLTableRowElement|null>(null) as any;
   const tickingRef = useRef(false);
   useEffect(()=>{
@@ -491,15 +513,21 @@ export function RegimesPanel() {
       {/* Tabla Daily / Monthly / Yearly con mismos indicadores que Backtesting */}
       <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
         <div className="flex items-center justify-between gap-2 mb-3">
-          <h3 className="font-semibold text-slate-100">Evolución — {capeView==='daily'?'Daily':capeView==='monthly'?'Monthly':'Yearly'}</h3>
-          <div className="flex gap-1">
-            {(['daily','monthly','yearly'] as const).map(v=>(
-              <button key={v} onClick={()=>setCapeView(v)} className={`px-3 py-1 text-xs rounded-md capitalize ${capeView===v?'bg-slate-700 text-teal-300 border border-slate-600':'text-slate-400 hover:text-slate-200'}`}>{v}</button>
-            ))}
+          <h3 className="font-semibold text-slate-100">Evolución — {capeView==='daily'?'Daily':capeView==='monthly'?'Monthly':'Yearly'} <span className="text-slate-500 font-normal text-xs">· {sorted.length.toLocaleString('en-US')} filas{filterYear?` · ${filterYear}`:''}</span></h3>
+          <div className="flex items-center gap-2">
+            <select value={filterYear} onChange={e=>{ setFilterYear(e.target.value); if(scrollRef.current) scrollRef.current.scrollTop=0; }} className="px-2.5 py-1.5 rounded-lg bg-slate-800 border border-slate-700 text-xs text-slate-200 focus:outline-none focus:border-teal-500">
+              <option value="">Todos ({rowsView.length.toLocaleString('en-US')})</option>
+              {availableYears.map(y=>{ const c=rowsView.filter((r:any)=> String(r.date).slice(0,4)===y).length; return <option key={y} value={y}>{y} · {c.toLocaleString('en-US')} filas</option> })}
+            </select>
+            <div className="flex gap-1">
+              {(['daily','monthly','yearly'] as const).map(v=>(
+                <button key={v} onClick={()=>{ setCapeView(v); setFilterYear(''); }} className={`px-3 py-1 text-xs rounded-md capitalize ${capeView===v?'bg-slate-700 text-teal-300 border border-slate-600':'text-slate-400 hover:text-slate-200'}`}>{v}</button>
+              ))}
+            </div>
           </div>
         </div>
         <p className="text-xs text-slate-500 mb-3">Mismos indicadores que tabla Backtesting (SP500, Nasdaq, TQQQ, FED, 2Y/10Y/30Y, HY OAS, CAPE, CPI YoY, GDP, Margin/GDP) + Régimen.</p>
-        <div className="overflow-auto max-h-[520px] border border-slate-800 rounded-lg">
+        <div ref={scrollRef} className="overflow-auto max-h-[520px] border border-slate-800 rounded-lg">
           <table className="w-full text-xs">
             <thead className="sticky top-0 bg-slate-900 z-10">
               <tr className="text-slate-400">
@@ -524,9 +552,12 @@ export function RegimesPanel() {
               </tr>
             </thead>
             <tbody>
-              {paginated.map((r:any, idx:number)=>{
+              {paddingTop>0 && (<tr><td colSpan={16} style={{ height: paddingTop }} /></tr>)}
+              {virtualItems.map((virtualRow:any)=>{
+                const r:any = sorted[virtualRow.index];
+                const idx = virtualRow.index;
                 const d=String(r.date||'').slice(0,10);
-                const isLast= idx===paginated.length-1;
+                const isLast= false;
                 const capeVal=r.cape;
                 const mean3yVal=r.mean3y ?? r.mean;
                 const ratio=r.capeRatio != null ? r.capeRatio : (mean3yVal!=null ? r.cape / mean3yVal : null);
@@ -600,10 +631,11 @@ export function RegimesPanel() {
                   </tr>
                 );
               })}
+              {paddingBottom>0 && (<tr><td colSpan={16} style={{ height: paddingBottom }} /></tr>)}
             </tbody>
           </table>
         </div>
-        <div className="text-[11px] text-slate-500 mt-2">Scroll para cargar más · {rowsView.length} filas · 📈 Múltiplos Altos (CAPE&gt;SMA×1.12) · 🏦 Alta Deuda (Z&gt;2.0) · 😴 Complacencia (HY&lt;P20 OR &lt;3.5% independiente). Base para nuevos triggers.</div>
+        <div className="text-[11px] text-slate-500 mt-2">Virtualizado · {sorted.length.toLocaleString('en-US')} filas visibles de {rowsView.length.toLocaleString('en-US')} totales · {virtualItems.length} renderizadas · 📈 CAPE&gt;SMA×1.12 · 🏦 Z&gt;2.0 (6M) · 😴 HY&lt;P20 — filtro Año para saltar rápido.</div>
       </div>
 
       <RegimesDocsTable />
