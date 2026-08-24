@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import { RegimesDocsTable } from './RegimesDocsTable';
 import { useTranslations } from 'next-intl';
 import { createChart, ColorType, LineSeries } from 'lightweight-charts';
@@ -88,22 +88,34 @@ export function RegimesPanel() {
   function getStd(values:number[], mean:number): number | null { if(values.length<2) return null; const v=values.reduce((a,b)=>a+Math.pow(b-mean,2),0)/(values.length-1); return Math.sqrt(v); }
   function getPercentile(values:number[], p:number): number | null { if(!values.length) return null; const s=[...values].sort((a,b)=>a-b); const idx=Math.floor(p*s.length); return s[Math.min(idx, s.length-1)]; }
 
-  // Cache para series históricas para cálculo de Z y P20
-  const allCapeDates = cape.map((r:any)=> String(r.date).slice(0,10)).sort();
-  const marginGdpCache = new Map<string, number>();
-  const hyCache = new Map<string, number>();
-  // Prellenar caches si marketHistory disponible
-  function ensureCaches(){
-    if(marginGdpCache.size===0 && cape.length){
-      for(const r of cape){
-        const d=String(r.date).slice(0,10);
-        const mg=getMarginGdpRatio(d);
-        if(mg!=null) marginGdpCache.set(d, mg);
-        const hy=getClosestPrice(marketHistory['BAMLH0A0HYM2'], d);
-        if(hy!=null) hyCache.set(d, hy);
-      }
+  // Cache para series históricas — memoizado (evita reconstruir 9k entradas por cada fila)
+  const allCapeDates = useMemo(()=> cape.map((r:any)=> String(r.date).slice(0,10)).sort(), [cape]);
+  const { marginGdpCache, hyCache } = useMemo(()=>{
+    const mgMap = new Map<string, number>();
+    const hMap = new Map<string, number>();
+    if(!cape.length || !marketHistory['FINRA_DEBIT'] || !marketHistory['GDP']) return { marginGdpCache: mgMap, hyCache: hMap };
+    for(const r of cape){
+      const d=String(r.date).slice(0,10);
+      const finra=getRecentPrice(marketHistory['FINRA_DEBIT'], d, 45);
+      const gdp=getRecentPrice(marketHistory['GDP'], d, 120);
+      const mg = (finra!=null && gdp!=null && gdp!==0) ? (finra/1000)/gdp*100 : null;
+      if(mg!=null) mgMap.set(d, mg);
+      const hy=getClosestPrice(marketHistory['BAMLH0A0HYM2'], d);
+      if(hy!=null) hMap.set(d, hy);
     }
-  }
+    return { marginGdpCache: mgMap, hyCache: hMap };
+  }, [cape, marketHistory]);
+  // Memoizar serie mensual unificada (usada por Z 36M)
+  const { monthlyMgMap, monthlyKeys } = useMemo(()=>{
+    const mMap = new Map<string, number>();
+    for(const dd of allCapeDates){
+      const mKey = dd.slice(0,7);
+      const v = marginGdpCache.get(dd);
+      if(v!=null) mMap.set(mKey, v);
+    }
+    return { monthlyMgMap: mMap, monthlyKeys: Array.from(mMap.keys()).sort() };
+  }, [allCapeDates, marginGdpCache]);
+  function ensureCaches(){ /* no-op: caches ya memoizados */ }
 
   function getRegimesActive(d:string, capeVal:number|null, mean3yVal:number|null): {r1:boolean,r2:boolean,r3:boolean,total:number} {
     const dd=getRegimeDetails(d, capeVal, mean3yVal);
@@ -121,13 +133,7 @@ export function RegimesPanel() {
     let r2Active=false; let r2Mg:number|null=getMarginGdpRatio(d); let r2Mean:number|null=null; let r2Std:number|null=null; let r2Z:number|null=null;
     let r2Armed=false; let r2ArmedMonth:string|null=null;
     if(r2Mg!=null){
-      const monthlyMgMap = new Map<string, number>();
-      for(const dd of allCapeDates){
-        const mKey = dd.slice(0,7);
-        const v = marginGdpCache.get(dd);
-        if(v!=null) monthlyMgMap.set(mKey, v);
-      }
-      const monthlyKeys = Array.from(monthlyMgMap.keys()).sort();
+      // monthlyMgMap/monthlyKeys ya memoizados arriba — no reconstruir por fila
       const curMonth = d.slice(0,7);
       let mIdx = monthlyKeys.indexOf(curMonth);
       if(mIdx===-1){ let best=-1; for(let i=0;i<monthlyKeys.length;i++) if(monthlyKeys[i]<=curMonth) best=i; mIdx=best; }
@@ -360,11 +366,11 @@ export function RegimesPanel() {
     return () => { if(raf) cancelAnimationFrame(raf as any); if(ro) ro.disconnect(); try{ if(chart) chart.unsubscribeCrosshairMove(handleCrosshair); }catch{}; try{ if(chart) chart.remove(); }catch{}; if(equityChartApiRef.current===chart) equityChartApiRef.current=null; setEquityTooltip(null); };
   }, [equity]);
 
-  const equityMap = (()=>{ const m=new Map<string,number>(); for(const e of equity) m.set(e.date, Number(e.value)); return m; })();
-  const equityDrawdownMap = (()=>{ const m=new Map<string,number>(); for(const e of equity) if(e.drawdown!=null) m.set(e.date, Number(e.drawdown)); return m; })();
-  const initialEquity = equity.length ? Number(equity[0].value) : 100000;
-  const getEquityForDate = (iso:string)=> getClosestPrice(equityMap, iso) ?? getRecentPrice(equityMap, iso);
-  const getDrawdownForDate = (iso:string)=> getClosestPrice(equityDrawdownMap, iso);
+  const equityMap = useMemo(()=>{ const m=new Map<string,number>(); for(const e of equity) m.set(e.date, Number(e.value)); return m; }, [equity]);
+  const equityDrawdownMap = useMemo(()=>{ const m=new Map<string,number>(); for(const e of equity) if(e.drawdown!=null) m.set(e.date, Number(e.drawdown)); return m; }, [equity]);
+  const initialEquity = useMemo(()=> equity.length ? Number(equity[0].value) : 100000, [equity]);
+  const getEquityForDate = useCallback((iso:string)=> getClosestPrice(equityMap, iso) ?? getRecentPrice(equityMap, iso), [equityMap]);
+  const getDrawdownForDate = useCallback((iso:string)=> getClosestPrice(equityDrawdownMap, iso), [equityDrawdownMap]);
   const [equityTooltip, setEquityTooltip] = useState<null|{x:number,y:number,date:string,value:number|null,perf:number|null,cagr:number|null,regime:string,drawdown:number|null,r1?:boolean,r2?:boolean,r3?:boolean,total?:number}>(null);
 
   const stratMetrics = run ? {
@@ -376,8 +382,8 @@ export function RegimesPanel() {
     num_trades: metrics?.num_trades ?? 1,
   } : null;
 
-  // Construir filas según vista daily/monthly/yearly — igual que IndicatorsPanel
-  const rowsView = (() => {
+  // Construir filas según vista — memoizado (evita ordenar 9k filas por render)
+  const rowsView = useMemo(()=>{
     if(!cape.length) return [];
     if(capeView==='daily') return cape;
     if(capeView==='monthly'){
@@ -388,17 +394,23 @@ export function RegimesPanel() {
     const byYear=new Map<string,any>();
     for(const r of cape) byYear.set(String(r.date||'').slice(0,4), r);
     return Array.from(byYear.values());
-  })();
-
-  const sorted = [...rowsView].sort((a:any,b:any)=> sortDir==='desc' ? b.date.localeCompare(a.date) : a.date.localeCompare(b.date));
-  const paginated = sorted.slice(0, visibleCount);
+  }, [cape, capeView]);
+  const sorted = useMemo(()=> [...rowsView].sort((a:any,b:any)=> sortDir==='desc' ? b.date.localeCompare(a.date) : a.date.localeCompare(b.date)), [rowsView, sortDir]);
+  const paginated = useMemo(()=> sorted.slice(0, visibleCount), [sorted, visibleCount]);
   const observerRef = useRef<HTMLTableRowElement|null>(null) as any;
+  const tickingRef = useRef(false);
   useEffect(()=>{
     const el=observerRef.current;
     if(!el) return;
     const io=new IntersectionObserver((entries)=>{
-      if(entries[0].isIntersecting) setVisibleCount(c=> Math.min(c+20, rowsView.length));
-    },{rootMargin:'200px'});
+      if(entries[0].isIntersecting && !tickingRef.current){
+        tickingRef.current = true;
+        requestAnimationFrame(()=>{
+          setVisibleCount(c=> Math.min(c+80, rowsView.length));
+          tickingRef.current = false;
+        });
+      }
+    },{rootMargin:'800px'});
     io.observe(el);
     return()=> io.disconnect();
   },[rowsView.length, paginated.length]);
