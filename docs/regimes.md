@@ -18,11 +18,11 @@ El algoritmo entra en **alerta** y detiene las compras pasivas.
 
 **Regla Matemática:**
 ```
-CAPE > SMA_36M(CAPE) × 1.20  AND  Core CPI > SMA_12M(Core CPI) × 1.15
-donde Core CPI = CPILFESL (serie mensual) — SMA_12M/SMA_36M mensuales
+CAPE > SMA_36M(CAPE) × 1.18  AND  Core CPI YoY ≥4.0% AND Core CPI YoY > SMA_12M(Core CPI YoY) × 1.20
+donde Core CPI YoY = (CPILFESL/CPILFESL-12M -1)*100 — SMA_12M YoY mensual
 ```
 
-> `CAPE` +20% sobre media 3a **y** `Core CPI` +15% sobre media 12M → mercado caro **y** liquidez amenazada por inflación.
+> `CAPE` +18% sobre media 3a **y** `Core CPI YoY` ≥4.0% y +20% sobre media 12M YoY → mercado caro **y** liquidez amenazada por inflación.
 
 ### 2. Fase Defensiva: Scaling Out — *Protección del Capital*
 
@@ -34,10 +34,10 @@ Objetivo: asegurar liquidez ante el primer encarecimiento del costo del dinero.
 ```
 Δ FED Target > 0  (la Fed ejecuta su primera subida)
 OR
-Bono 10Y > SMA_200días(Bono 10Y) × 1.10  (rendimiento salta +10% sobre media institucional)
+Bono 10Y > SMA_200días(Bono 10Y) × 1.20  (rendimiento salta +20% sobre media institucional)
 ```
 
-**Acción:** Vender tranche del **30%** de la posición en riesgo (TQQQ) hacia liquidez (SGOV/Cash).
+**Acción:** Vender tranche del **30%** de la posición en riesgo (activo subyacente: SPY / QQQ / TQQQ) hacia liquidez (SGOV/Cash).
 **Exposición:** 70% Riesgo / 30% Cash.
 
 #### Gatillo 2: Venta Total Defensiva — *Venta del Tranche del 70% restante*
@@ -46,9 +46,9 @@ Objetivo: refugio absoluto si la restricción monetaria se vuelve extrema.
 
 **Regla Macro (deben cumplirse ambas):**
 ```
-Δ FED Target ≥ +0.50% en una sola junta (subida agresiva / Jumbo Hike)
+FED > FED_G1 y CPI >SMA36×1.30 y creciente  OR  CPI >4.5% y >CPI_G1 y creciente  +  FED hike en últimos 3m y SPY < SMA50
 AND
-Core CPI > SMA_36M(Core CPI) × 1.30  (inflación +30% sobre promedio 3a — descontrolada)
+Core CPI YoY > SMA_36M(Core CPI YoY) × 1.30 AND Core CPI YoY en crecimiento (YoY actual > YoY mes previo)  (inflación +30% y acelerando)
 ```
 
 **Acción:** Vender tranche restante del **70%**.
@@ -67,7 +67,7 @@ OR
 Δ FED Target = 0 durante 2 meses consecutivos (confirmación de Pausa)
 ```
 
-**Acción:** Comprar tranche del **35%** hacia activo de riesgo (TQQQ).
+**Acción:** Comprar tranche del **35%** hacia activo de riesgo (activo subyacente: SPY / QQQ / TQQQ).
 **Exposición:** 35% Riesgo / 65% Cash.
 
 #### Gatillo 4: Compra Total de Confirmación — *Inversión del Tranche del 65% restante*
@@ -76,7 +76,7 @@ Objetivo: desplegar máximo poder de fuego con **Doble Llave** (Macro + Técnico
 
 **Llave Macro (cualquiera de las dos):**
 ```
-Core CPI < SMA_12M(Core CPI) × 1.05  (inflación regresa a media anual)
+Core CPI YoY < SMA_12M(Core CPI YoY) × 1.05  (inflación regresa a media anual)
 OR
 Δ FED Target < 0  (la Fed ejecuta su primer recorte)
 ```
@@ -97,7 +97,7 @@ Precio > SMA_50días  (índice retoma tendencia alcista institucional)
 
 **Regla Matemática:**
 ```
-Core CPI < SMA_12M(Core CPI) × 1.05  AND  Precio > SMA_50días
+Core CPI YoY < SMA_12M(Core CPI YoY) × 1.05  AND  Precio > SMA_50días
 ```
 
 **Acción:** Recomprar e inyectar tranche del **30%** para sanar posición.
@@ -221,11 +221,11 @@ Para un algoritmo robusto, estas tres reglas operan como una **matriz de escaneo
 
 | Régimen | Qué Mide | Qué lo Detona (El Gatillo) | Tipo de Crisis Resultante |
 |---|---|---|---|
-| Múltiplos Altos | Precio relativo (CAPE) + Core CPI — 4 fases Scaling Out/In (30/70 y 35/65) | Armado CAPE>1.20 & CPI>1.15 → G1 Fed>0 o 10Y>1.10 (30%) → G2 Fed≥+0.50 & CPI>1.30 (70%) → G3 3M caídas o Pausa 2M (35%) → G4 CPI<1.05 o Fed<0 + SMA50 (65%) → Sanación | Crisis de Valoración — duración |
+| Múltiplos Altos | Precio relativo (CAPE) + Core CPI YoY — 4 fases Scaling Out/In (30/70 y 35/65) | Armado CAPE>1.18 & CPI YoY≥4.0 & >SMA12×1.20 → G1 Fed>0 o 10Y>1.10 (30%) → G2 Fed≥+0.50 & CPI>1.30 (70%) → G3 3M caídas o Pausa 2M (35%) → G4 CPI<1.05 o Fed<0 + SMA50 (65%) → Sanación | Crisis de Valoración — duración |
 | Alta Deuda/PIB | Apalancamiento Sistémico — 4 fases (armado / 2 gatillos / sanación / desarme) | Armado Z>2.0 en 6M → ROC_3M<0 + SMA50 (30%) → ROC_3M<−σ24M (70%) → Z<0 | Crisis de Venta Forzosa — avalancha escalonada |
 | Complacencia OAS | Ceguera al Riesgo (Bonos) | Salto de Spreads (>+50 bps) | Crisis de Quiebras (Falta de liquidez) |
 
-> **Nota:** Esta es la única tabla vigente. Las reglas válidas son únicamente las de cada sección: `CAPE>1.20 & CPI>1.15 + G1/G2 Scaling Out 30/70 + G3/G4 Scaling In 35/65 + Sanación`, `Z>2.0 en 6M (armado con memoria) + ROC_3M/SMA50 (gatillos) + Z<0 (desarme)`, `HY < P20 ó <3.5%`.
+> **Nota:** Esta es la única tabla vigente. Las reglas válidas son únicamente las de cada sección: `CAPE>1.18 & CPI YoY≥4.0 & >1.10 + G1/G2 Scaling Out 30/70 + G3/G4 Scaling In 35/65 + Sanación`, `Z>2.0 en 6M (armado con memoria) + ROC_3M/SMA50 (gatillos) + Z<0 (desarme)`, `HY < P20 ó <3.5%`.
 
 ---
 

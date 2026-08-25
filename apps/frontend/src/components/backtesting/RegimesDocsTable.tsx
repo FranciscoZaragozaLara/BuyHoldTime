@@ -17,7 +17,7 @@ const rows: Row[] = [
   {
     regimen: 'Múltiplos Altos',
     mide: 'CAPE + Core CPI — 4 fases Scaling (30/70 y 35/65)',
-    gatillo: 'Armado CAPE>1.20 & CPI>1.15 → G1 Fed>0 o 10Y>1.10 (30%) → G2 Fed≥+0.50 & CPI>1.30 (70%) → G3 3M caídas o Pausa 2M (35%) → G4 CPI<1.05 o Fed<0 + SMA50 (65%)',
+    gatillo: 'Armado CAPE>1.18 & CPI YoY≥4.0 & >1.20 → G1 Fed>0 o 10Y>1.10 (30%) → G2 Fed≥+0.50 & CPI>1.30 (70%) → G3 3M caídas o Pausa 2M (35%) → G4 CPI<1.05 o Fed<0 + SMA50 (65%)',
     crisis: 'Crisis de Valoración — duración (Scaling Out/In)',
     indicador: 'CAPE · CPILFESL · DFEDTARU · DGS10 · SMA50',
     umbral: 'F0 CAPE>1.20 & CPI>1.15 · G1 Fed>0/10Y>1.10 (30%) · G2 Fed≥0.50 & CPI>1.30 (70%) · G3 3M↓/Pausa2M (35%) · G4 CPI<1.05/Fed<0+SMA50 (65%) · Sanación',
@@ -123,7 +123,7 @@ export function RegimesDocsTable() {
               <div className="space-y-2">
                 <div className="bg-amber-950/30 rounded-lg p-3 border border-amber-800/50">
                   <div className="text-[11px] font-semibold text-amber-200">F0 — Condición Estructural (Bosque Seco)</div>
-                  <div className="text-xs text-amber-200 font-mono mt-1">CAPE &gt; SMA<sub>36M</sub>×1.20 AND Core CPI &gt; SMA<sub>12M</sub>×1.15</div>
+                  <div className="text-xs text-amber-200 font-mono mt-1">CAPE &gt; SMA<sub>36M</sub>×1.18 AND Core CPI YoY ≥4.0 &amp; &gt; SMA<sub>12M</sub>×1.20</div>
                   <div className="text-[11px] text-amber-300/70 mt-1">+20% sobre media 3a y +15% sobre media 12M Core CPI (CPILFESL) → alerta, detiene compras</div>
                 </div>
                 <div className="bg-slate-900 rounded-lg p-3 border border-slate-700">
@@ -147,7 +147,7 @@ export function RegimesDocsTable() {
                     <div className="bg-sky-950/20 rounded p-2 border border-sky-800/30">
                       <div className="text-[11px] font-semibold text-sky-200">Gatillo 3 — Compra Asalto (35%)</div>
                       <div className="text-[11px] font-mono text-sky-100 mt-1">Core CPI 3M caídas vs pico OR Δ FED=0 ×2M</div>
-                      <div className="text-[10px] text-slate-400 mt-1">Desaceleración 3M o Pausa 2M → compra 35% a TQQQ · 35/65</div>
+                      <div className="text-[10px] text-slate-400 mt-1">Desaceleración 3M o Pausa 2M → compra 35% a activo subyacente (SPY/QQQ/TQQQ) · 35/65</div>
                     </div>
                     <div className="bg-emerald-950/20 rounded p-2 border border-emerald-800/30">
                       <div className="text-[11px] font-semibold text-emerald-200">Gatillo 4 — Compra Total (65%)</div>
@@ -156,9 +156,9 @@ export function RegimesDocsTable() {
                     </div>
                   </div>
                 </div>
-                <div className="bg-emerald-950/20 rounded-lg p-3 border border-emerald-800/30">
-                  <div className="text-[11px] font-semibold text-emerald-200">Sanación — Falsa Alarma</div>
-                  <div className="text-[11px] font-mono text-emerald-100 mt-1">Core CPI &lt; SMA<sub>12M</sub>×1.05 AND Precio &gt; SMA<sub>50</sub></div>
+                <div className="bg-purple-950/30 rounded-lg p-3 border border-purple-700/50">
+                  <div className="text-[11px] font-semibold text-purple-300">Sanación — Falsa Alarma</div>
+                  <div className="text-[11px] font-mono text-purple-200 mt-1">Core CPI &lt; SMA<sub>12M</sub>×1.05 AND Precio &gt; SMA<sub>50</sub></div>
                   <div className="text-[10px] text-slate-400 mt-1">Tras G1 (70/30) sin G2 y precio recupera → recompra 30% → 100%</div>
                 </div>
               </div>
