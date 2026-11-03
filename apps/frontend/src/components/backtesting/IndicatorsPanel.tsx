@@ -499,7 +499,7 @@ export function IndicatorsPanel() {
   const [markets, setMarkets] = useState<Record<string, number | null>>({});
   const [marketHistory, setMarketHistory] = useState<Record<string, Map<string, number>>>({});
   const [volHistory, setVolHistory] = useState<Record<string, Map<string, number>>>({});
-  const [thermoHist, setThermoHist] = useState<Record<string, { value: number; numerator: number; denominator: number; coverage: number }>>({});
+  const [thermoHist, setThermoHist] = useState<Record<string, { value: number; numerator: number; denominator: number; coverage: number; bonus?: number; bonusLabel?: string; liqBonus?: number; liqBonusLabel?: string }>>({});
   const capeBhtDet = useBhtDetail();
   const liveBhtRef = useRef<{ v: number | null; d: string | null }>({ v: null, d: null });
   const [capeFwdCache, setCapeFwdCache] = useState<Record<string, any>>({});
@@ -994,7 +994,7 @@ export function IndicatorsPanel() {
           const thRes = await fetch(`${base}/api/backtesting/thermo-history?from=1993-01-01`, { cache: 'no-store' });
           if (thRes.ok) {
             const arr = await thRes.json();
-            const m: Record<string, { value: number; numerator: number; denominator: number; coverage: number }> = {};
+            const m: Record<string, { value: number; numerator: number; denominator: number; coverage: number; bonus?: number; bonusLabel?: string; liqBonus?: number; liqBonusLabel?: string }> = {};
             for (const row of arr) m[(row.date || '').slice(0, 10)] = row;
             setThermoHist(m);
           }
@@ -1564,7 +1564,7 @@ export function IndicatorsPanel() {
           <div className="flex items-center gap-2">
           <button onClick={()=>{
             const buildSheet = (view: 'daily'|'monthly'|'yearly')=>{
-              const headers = ['Fecha','SP500', view==='monthly' ? 'Change Monthly' : view==='yearly' ? 'Change Yearly' : 'Change Daily','BHT Index','Perf 1Y','Perf Total','CAGR','Nasdaq','TQQQ','SPX EPS','PE TTM','Fwd PE','CAPE','mean3y','RatioCape','FED Target','2Y','10Y','30Y','HY OAS','HY EY','HY 10Y+OAS','CPI','Core CPI','GDP','FINRA Debit','Margin/GDP','MSACSR','VIX','F&G','Vol SPY','OBV','Fuerza','Tend-OBV','NetAdv','Up/Down','CAPE SMA 3Y','CAPE SMA 5Y','CAPE SMA 10Y','CAPE EMA 3Y','CAPE EMA 5Y','CAPE EMA 10Y'];
+              const headers = ['Fecha','SP500', view==='monthly' ? 'Change Monthly' : view==='yearly' ? 'Change Yearly' : 'Change Daily','BHT Index','Perf 1Y','Perf Total','CAGR','Nasdaq','TQQQ','SPX EPS','PE TTM','Fwd PE','CAPE','mean3y','RatioCape','FED Target','2Y','10Y','30Y','HY OAS','HY EY','HY 10Y+OAS','HY Bonus','LIQ Bonus','M2','M2 YoY','M0','M0 Δ3M','CPI','Core CPI','GDP','FINRA Debit','Margin/GDP','MSACSR','VIX','F&G','Vol SPY','OBV','Fuerza','Tend-OBV','NetAdv','Up/Down','CAPE SMA 3Y','CAPE SMA 5Y','CAPE SMA 10Y','CAPE EMA 3Y','CAPE EMA 5Y','CAPE EMA 10Y'];
               let rowsView: any[] = cape;
               if(view==='monthly'){
                 const byMonth = new Map<string, any>();
@@ -1641,6 +1641,11 @@ export function IndicatorsPanel() {
                 const hyEy = getClosestPrice(marketHistory['BAMLH0A0HYM2EY'], d);
                 const dgs10 = getClosestPrice(marketHistory['DGS10'], d);
                 const hy10y = (dgs10!=null && hyOas!=null) ? dgs10 + hyOas : '';
+                const thRow = thermoHist[d];
+                const m2vX = getRecentPrice(marketHistory['M2SL'], d, 40);
+                const m0vX = getRecentPrice(marketHistory['BOGMBASE'], d, 40);
+                const m2yX = monthlyPctLive(marketHistory['M2SL'], d, 12);
+                const m0dX = monthlyPctLive(marketHistory['BOGMBASE'], d, 3);
                 const cpi = getCpiYoY(marketHistory['CPIAUCSL'], d);
                 const core = getCpiYoY(marketHistory['CPILFESL'], d);
                 const perf1y = getPerf1Y(d);
@@ -1663,7 +1668,7 @@ export function IndicatorsPanel() {
                 const peTtmXls = (spxXls!=null && spxEpsXls!=null && spxEpsXls!==0) ? spxXls/spxEpsXls : null;
                 const fwdPeXls = (spxXls!=null && spxFwdEpsXls!=null && spxFwdEpsXls!==0) ? spxXls/spxFwdEpsXls : null;
                 const brXls = breadthVals(d);
-                return [label, getClosestPrice(marketHistory['^GSPC'], d) ?? '', varDia != null ? Number(varDia.toFixed(2)) : '', thermoHist[d]?.value ?? '', perf1y != null ? Number(perf1y.toFixed(2)) : '', perfTot != null ? Number(perfTot.toFixed(2)) : '', cagr != null ? Number(cagr.toFixed(2)) : '', getClosestPrice(marketHistory['^IXIC'], d) ?? '', getClosestPrice(marketHistory['TQQQ'], d) ?? '', spxEpsXls != null ? Number(spxEpsXls.toFixed(2)) : '', peTtmXls != null ? Number(peTtmXls.toFixed(2)) : '', fwdPeXls != null ? Number(fwdPeXls.toFixed(2)) : '', r.cape ?? '', (r.mean3y ?? r.mean) ?? '', r.capeRatio ?? '', getClosestPrice(marketHistory['DFEDTARU'], d) ?? '', getClosestPrice(marketHistory['DGS2'], d) ?? '', getClosestPrice(marketHistory['DGS10'], d) ?? '', getClosestPrice(marketHistory['DGS30'], d) ?? '', hyOas ?? '', hyEy ?? '', hy10y, cpi ?? '', core ?? '', gdp ?? '', finra ?? '', marginGdp != null ? Number(marginGdp.toFixed(2)) : '', msacsrXls ?? '', vixXls ?? '', fgXls ?? '', volXls ?? '', obvXls ?? '', fuerzaXls != null ? Number(fuerzaXls.toFixed(3)) : '', obvtXls != null ? Number(obvtXls.toFixed(3)) : '', brXls.net ?? '', brXls.ratio ?? '', (r.mean3y ?? -1e9) !== -1e9 ? (r.mean3y ?? r.mean) : '', r.mean5y ?? '', r.mean10y ?? '', (r.mean3y_ema ?? (r as any).mean3yEma) ?? '', (r.mean5y_ema ?? (r as any).mean5yEma) ?? '', (r.mean10y_ema ?? (r as any).mean10yEma) ?? ''];
+                return [label, getClosestPrice(marketHistory['^GSPC'], d) ?? '', varDia != null ? Number(varDia.toFixed(2)) : '', thermoHist[d]?.value ?? '', perf1y != null ? Number(perf1y.toFixed(2)) : '', perfTot != null ? Number(perfTot.toFixed(2)) : '', cagr != null ? Number(cagr.toFixed(2)) : '', getClosestPrice(marketHistory['^IXIC'], d) ?? '', getClosestPrice(marketHistory['TQQQ'], d) ?? '', spxEpsXls != null ? Number(spxEpsXls.toFixed(2)) : '', peTtmXls != null ? Number(peTtmXls.toFixed(2)) : '', fwdPeXls != null ? Number(fwdPeXls.toFixed(2)) : '', r.cape ?? '', (r.mean3y ?? r.mean) ?? '', r.capeRatio ?? '', getClosestPrice(marketHistory['DFEDTARU'], d) ?? '', getClosestPrice(marketHistory['DGS2'], d) ?? '', getClosestPrice(marketHistory['DGS10'], d) ?? '', getClosestPrice(marketHistory['DGS30'], d) ?? '', hyOas ?? '', hyEy ?? '', hy10y, thRow?.bonus ?? '', thRow?.liqBonus ?? '', m2vX ?? '', m2yX != null ? Number(m2yX.toFixed(2)) : '', m0vX ?? '', m0dX != null ? Number(m0dX.toFixed(2)) : '', cpi ?? '', core ?? '', gdp ?? '', finra ?? '', marginGdp != null ? Number(marginGdp.toFixed(2)) : '', msacsrXls ?? '', vixXls ?? '', fgXls ?? '', volXls ?? '', obvXls ?? '', fuerzaXls != null ? Number(fuerzaXls.toFixed(3)) : '', obvtXls != null ? Number(obvtXls.toFixed(3)) : '', brXls.net ?? '', brXls.ratio ?? '', (r.mean3y ?? -1e9) !== -1e9 ? (r.mean3y ?? r.mean) : '', r.mean5y ?? '', r.mean10y ?? '', (r.mean3y_ema ?? (r as any).mean3yEma) ?? '', (r.mean5y_ema ?? (r as any).mean5yEma) ?? '', (r.mean10y_ema ?? (r as any).mean10yEma) ?? ''];
               });
               return { name: `CAPE ${view}`, headers, rows: rowsData };
             };
@@ -1712,6 +1717,12 @@ export function IndicatorsPanel() {
                   {k:'hyOas', label:'HY OAS', cls:'text-right text-orange-300'},
                   {k:'hyEy', label:'HY EY', cls:'text-right text-orange-300'},
                   {k:'hy10y', label:'HY 10Y+OAS', cls:'text-right text-orange-300'},
+                  {k:'hyBonus', label:'HY Bonus', cls:'text-right text-orange-300'},
+                  {k:'liqBonus', label:'LIQ Bonus', cls:'text-right text-emerald-300'},
+                  {k:'m2', label:'M2', cls:'text-right text-teal-300'},
+                  {k:'m2yoy', label:'M2 YoY', cls:'text-right text-teal-300'},
+                  {k:'m0', label:'M0', cls:'text-right text-teal-300'},
+                  {k:'m0d3', label:'M0 Δ3M', cls:'text-right text-teal-300'},
                   {k:'cpi', label:'CPI', cls:'text-right text-emerald-300'},
                   {k:'core', label:'Core CPI', cls:'text-right text-emerald-300'},
                   {k:'gdp', label:'GDP', cls:'text-right text-indigo-300'},
@@ -1787,6 +1798,12 @@ export function IndicatorsPanel() {
                     if(sortCol==='hyOas') return getClosestPrice(marketHistory['BAMLH0A0HYM2'], d) ?? -Infinity;
                     if(sortCol==='hyEy') return getClosestPrice(marketHistory['BAMLH0A0HYM2EY'], d) ?? -Infinity;
                     if(sortCol==='hy10y') { const o=getClosestPrice(marketHistory['BAMLH0A0HYM2'], d); const t=getClosestPrice(marketHistory['DGS10'], d); return (o!=null&&t!=null)? o+t : -Infinity; }
+                    if(sortCol==='hyBonus') return thermoHist[d]?.bonus ?? -Infinity;
+                    if(sortCol==='liqBonus') return thermoHist[d]?.liqBonus ?? -Infinity;
+                    if(sortCol==='m2') return getRecentPrice(marketHistory['M2SL'], d, 40) ?? -Infinity;
+                    if(sortCol==='m2yoy') return monthlyPctLive(marketHistory['M2SL'], d, 12) ?? -Infinity;
+                    if(sortCol==='m0') return getRecentPrice(marketHistory['BOGMBASE'], d, 40) ?? -Infinity;
+                    if(sortCol==='m0d3') return monthlyPctLive(marketHistory['BOGMBASE'], d, 3) ?? -Infinity;
                     if(sortCol==='spxeps') return getRecentPrice(marketHistory['SPX_EPS'], d, 120) ?? -Infinity;
                     if(sortCol==='spxpe') { const p=getClosestPrice(marketHistory['^GSPC'], d); const e=getRecentPrice(marketHistory['SPX_EPS'], d, 120); return (p!=null&&e!=null&&e!==0)? p/e : -Infinity; }
                     if(sortCol==='spxfwdpe') { const p=getClosestPrice(marketHistory['^GSPC'], d); const e=getRecentPrice(marketHistory['SPX_FWD_EPS'], d, 130); return (p!=null&&e!=null&&e!==0)? p/e : -Infinity; }
@@ -1834,6 +1851,18 @@ export function IndicatorsPanel() {
                 const hyOas = getClosestPrice(marketHistory['BAMLH0A0HYM2'], d);
                 const hyEy = getClosestPrice(marketHistory['BAMLH0A0HYM2EY'], d);
                 const hy10y = (dgs10!=null && hyOas!=null) ? dgs10 + hyOas : null;
+                const thR = thermoHist[d];
+                const m2v = getRecentPrice(liqM2Map, d, 40);
+                const m0v = getRecentPrice(liqM0Map, d, 40);
+                const m2y = monthlyPctLive(liqM2Map, d, 12);
+                const m0d = monthlyPctLive(liqM0Map, d, 3);
+                const isLiveRow = sortCol==='date' && sortDir==='desc' && r.date===maxDate;
+                const hyBO = isLiveRow ? hyLiveBonus(hyLiveMap, d, marketHistory['DFEDTARU']) : null;
+                const liqBO = isLiveRow ? liqLiveBonus(liqM2Map, liqM0Map, d, marketHistory['CPIAUCSL']) : null;
+                const hyBv = isLiveRow ? (hyBO?.bonus ?? null) : (thR?.bonus ?? null);
+                const hyBLbl = isLiveRow ? (hyBO?.label ?? '') : (thR?.bonusLabel ?? '');
+                const liqBv = isLiveRow ? (liqBO?.bonus ?? null) : (thR?.liqBonus ?? null);
+                const liqBLbl = isLiveRow ? (liqBO?.label ?? '') : (thR?.liqBonusLabel ?? '');
                 const msacsr = getRecentPrice(marketHistory['MSACSR'], d, 35);
                 const vix = getClosestPrice(marketHistory['VIXCLS'], d);
                 const fg = getClosestPrice(marketHistory['FEAR_GREED'], d);
@@ -1904,6 +1933,12 @@ export function IndicatorsPanel() {
                   <td className="p-2 text-right font-mono text-orange-300 whitespace-nowrap" title="BAMLH0A0HYM2 OAS">{hyOasDisp!=null?`${Number(hyOasDisp).toFixed(2)}%`:'—'}</td>
                   <td className="p-2 text-right font-mono text-orange-300 whitespace-nowrap" title="BAMLH0A0HYM2EY Effective Yield">{hyEyDisp!=null?`${Number(hyEyDisp).toFixed(2)}%`:'—'}</td>
                   <td className="p-2 text-right font-mono text-orange-300 whitespace-nowrap" title="DGS10 + OAS">{hy10yDisp!=null?`${Number(hy10yDisp).toFixed(2)}%`:'—'}</td>
+                  {(()=>{ if(hyBv==null) return <td className="p-2 text-right font-mono text-slate-500 whitespace-nowrap">—</td>; const cls=hyBv>0?'text-orange-300 bg-orange-500/10 font-semibold':'text-slate-400'; return <td className={`p-2 text-right font-mono whitespace-nowrap rounded ${cls}`} title={`Bonus HY Spread ${d}${hyBLbl?` — ${hyBLbl}`:''}`}>{hyBv>0?`+${hyBv}`:'0'}</td>; })()}
+                  {(()=>{ if(liqBv==null) return <td className="p-2 text-right font-mono text-slate-500 whitespace-nowrap">—</td>; const cls=liqBv>0?'text-orange-300 bg-orange-500/10 font-semibold':liqBv<0?'text-emerald-300 bg-emerald-500/10 font-semibold':'text-slate-400'; return <td className={`p-2 text-right font-mono whitespace-nowrap rounded ${cls}`} title={`Bonus liquidez M2/M0 ${d}${liqBLbl?` — ${liqBLbl}`:''}`}>{liqBv!==0?`${liqBv>0?'+':''}${liqBv}`:'0'}</td>; })()}
+                  <td className="p-2 text-right font-mono text-teal-300 whitespace-nowrap" title={`M2 oferta monetaria ${d} (FRED M2SL, billones $)`}>{m2v!=null?`$${(m2v/1000).toFixed(2)}T`:'—'}</td>
+                  {(()=>{ if(m2y==null) return <td className="p-2 text-right font-mono text-slate-500 whitespace-nowrap">—</td>; return <td className="p-2 text-right font-mono text-slate-200 whitespace-nowrap" title={`M2 YoY ${d} — tailwind exige >4% y acelerando vs 3M atrás`}>{m2y>=0?'+':''}{m2y.toFixed(1)}%</td>; })()}
+                  <td className="p-2 text-right font-mono text-teal-300 whitespace-nowrap" title={`M0 base monetaria ${d} (FRED BOGMBASE, billones $)`}>{m0v!=null?`$${(m0v/1000).toFixed(2)}T`:'—'}</td>
+                  {(()=>{ if(m0d==null) return <td className="p-2 text-right font-mono text-slate-500 whitespace-nowrap">—</td>; const cls=m0d>=0?'text-emerald-300':'text-red-400'; return <td className={`p-2 text-right font-mono whitespace-nowrap font-semibold ${cls}`} title={`M0 Δ3M ${d} — ${m0d<0?'≤0: veta el tailwind de liquidez':'positivo: permite tailwind'}`}>{m0d>=0?'+':''}{m0d.toFixed(1)}%</td>; })()}
                   <td className="p-2 text-right font-mono text-emerald-300 whitespace-nowrap">{cpiDisp!=null?`${Number(cpiDisp).toFixed(2)}%`:'—'}</td>
                   <td className="p-2 text-right font-mono text-emerald-300 whitespace-nowrap">{coreDisp!=null?`${Number(coreDisp).toFixed(2)}%`:'—'}</td>
                   <td className="p-2 text-right font-mono text-indigo-300 whitespace-nowrap">{gdpDisp!=null?`$${(Number(gdpDisp)/1000).toFixed(1)}T`:'—'}</td>
