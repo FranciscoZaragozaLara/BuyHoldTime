@@ -4,10 +4,13 @@ import { useTranslations } from 'next-intl';
 import { useMarketSyncStream } from './useMarketSyncStream';
 import MarketSyncModal from './MarketSyncModal';
 import { MarginGdpChart } from './MarginGdpChart';
+import { BhtTimeline } from './BhtTimeline';
+import { BhtStats } from './BhtStats';
 import { CrisisEventsTable } from './CrisisEventsTable';
+import { BHT_BANDS, BHT_CUTS, bhtBand, bhtBandColor } from './bhtBands';
 import { Download } from 'lucide-react';
 import { exportToExcel } from '@/lib/exportExcel';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getLiveStaleTime, isMarketOpen } from '@/lib/queryClient';
 
 function getApiBase() {
@@ -37,7 +40,7 @@ function useLiveTicker(ticker: string){
     refetchOnWindowFocus: false,
     refetchInterval: (q)=>{
       const t = (q.queryKey as string[])[1];
-      if (['DFEDTARU','DGS2','DGS10','DGS30','MSACSR','VIXCLS','BAMLH0A0HYM2','BAMLH0A0HYM2EY','CPIAUCSL','CPILFESL','NYSE_ADV_VOL','NYSE_DEC_VOL','NSDQ_ADV_VOL','NSDQ_DEC_VOL','SPX_ADV_VOL','SPX_DEC_VOL','CAPE'].includes(t)) return false as any;
+      if (['DFEDTARU','DGS2','DGS10','DGS30','MSACSR','VIXCLS','BAMLH0A0HYM2','BAMLH0A0HYM2EY','CPIAUCSL','CPILFESL','M2SL','BOGMBASE','NYSE_ADV_VOL','NYSE_DEC_VOL','NSDQ_ADV_VOL','NSDQ_DEC_VOL','SPX_ADV_VOL','SPX_DEC_VOL','CAPE'].includes(t)) return false as any;
       return isMarketOpen() ? 5*60*1000 : false as any;
     },
   });
@@ -46,16 +49,11 @@ function useLiveTicker(ticker: string){
 // === Termómetro BuyHoldTime: puntaje CAPE 0-100 (100 = riesgo máximo) ===
 // Bandas aprobadas: [lo, hi, puntajeLo, puntajeHi, etiqueta, display]
 const CAPE_SEGS: [number, number, number, number, string, string][] = [
-  [-Infinity, 25, 0, 8, 'Muy barato', '≤ 25'],
-  [25, 29, 8, 25, 'Barato', '25–29'],
-  [29, 31, 25, 35, 'Justo', '29–31'],
-  [31, 35, 35, 50, 'Sobre justo', '31–35'],
-  [35, 39, 50, 68, 'Caro', '35–39'],
-  [39, 40, 68, 68, 'Caro', '35–39'],
-  [40, 44, 68, 88, 'Elevado', '40–44'],
-  [44, 45, 88, 88, 'Elevado', '40–44'],
-  [45, 48, 88, 100, 'Extremo', '≥ 45'],
-  [48, Infinity, 100, 100, 'Extremo', '≥ 45'],
+  [-Infinity, 29, 0, 25, 'Barato', '≤ 29'],
+  [29, 35, 25, 50, 'Justo', '29–35'],
+  [35, 40, 50, 70, 'Caro', '35–40'],
+  [40, 43, 70, 100, 'Elevado', '40–43'],
+  [43, Infinity, 100, 100, 'Extremo', '≥ 43'],
 ];
 function bandScore(segs: [number, number, number, number][], v: number): number {
   for (const [lo, hi, sLo, sHi] of segs) {
@@ -63,68 +61,85 @@ function bandScore(segs: [number, number, number, number][], v: number): number 
   }
   return 100;
 }
-function capeRiskScore(cape: number): number {
+export function capeRiskScore(cape: number): number {
   return bandScore(CAPE_SEGS.map(([lo, hi, sLo, sHi]) => [lo, hi, sLo, sHi] as [number, number, number, number]), cape);
-}
-// PE TTM: <18 muy barato · <20 barato · 24 justo · 26+ caro · 28+ muy caro · 30+ elevado · 32+ extremo
-const PE_SEGS: [number, number, number, number][] = [
-  [-Infinity, 18, 0, 8], [18, 20, 8, 18], [20, 24, 18, 35], [24, 26, 35, 50],
-  [26, 28, 50, 60], [28, 30, 60, 72], [30, 32, 72, 84], [32, 36, 84, 100], [36, Infinity, 100, 100],
-];
-function peRiskScore(pe: number): number {
-  return bandScore(PE_SEGS, pe);
 }
 // Forward PE: misma escala de puntos (Caro = 50–60 como base central)
 const FWD_SEGS: [number, number, number, number][] = [
-  [-Infinity, 13, 0, 8], [13, 15, 8, 18], [15, 17, 18, 35], [17, 19, 35, 50],
-  [19, 21, 50, 60], [21, 23, 60, 72], [23, 25, 72, 84], [25, 29, 84, 100], [29, Infinity, 100, 100],
+  [-Infinity, 15, 0, 25], [15, 19, 25, 50], [19, 22, 50, 80],
+  [22, 24, 80, 100], [24, Infinity, 100, 100],
 ];
 function fwdRiskScore(pe: number): number {
   return bandScore(FWD_SEGS, pe);
 }
-// CAPE Ratio: misma escala (Caro = 50–60 como base central)
+// CAPE Ratio 5 bandas: 1.00→50, 1.05→60, 1.10→70, 1.15→80, 1.20→90, 1.30+→100
 const RATIO_SEGS: [number, number, number, number][] = [
-  [-Infinity, 0.85, 0, 8], [0.85, 0.95, 8, 18], [0.95, 1.00, 18, 35], [1.00, 1.10, 35, 50],
-  [1.10, 1.18, 50, 60], [1.18, 1.30, 60, 72], [1.30, 1.45, 72, 84], [1.45, 1.70, 84, 100], [1.70, Infinity, 100, 100],
+  [-Infinity, 0.90, 0, 20], [0.90, 1.00, 20, 50], [1.00, 1.20, 50, 90],
+  [1.20, 1.30, 90, 100], [1.30, Infinity, 100, 100],
 ];
 function ratioRiskScore(r: number): number {
   return bandScore(RATIO_SEGS, r);
 }
-// CPI YoY: a más inflación, más riesgo (meta Fed 2%)
-const CPI_SEGS: [number, number, number, number][] = [
-  [-Infinity, 1.0, 0, 8], [1.0, 1.5, 8, 20], [1.5, 2.0, 20, 35], [2.0, 2.5, 35, 50],
-  [2.5, 3.0, 50, 62], [3.0, 4.0, 62, 74], [4.0, 6.0, 74, 86], [6.0, 10.0, 86, 100], [10.0, Infinity, 100, 100],
+// CPI momentum: nivel del YoY (40%) + delta vs media 6M de YoY (60%).
+// Un 3.5 acelerando desde 2 pesa más que un 7 cayendo desde 9.
+const CPI_LVL_SEGS: [number, number, number, number][] = [
+  [-Infinity, 1.0, 0, 10], [1.0, 1.5, 10, 25], [1.5, 2.0, 25, 40],
+  [2.0, 2.5, 40, 55], [2.5, 3.0, 55, 70], [3.0, 4.0, 70, 85], [4.0, Infinity, 85, 100],
 ];
-function cpiRiskScore(v: number): number {
-  return bandScore(CPI_SEGS, v);
+const CPI_TRD_SEGS: [number, number, number, number][] = [
+  [-Infinity, -1.5, 0, 10], [-1.5, -0.5, 10, 30], [-0.5, 0.0, 30, 50],
+  [0.0, 0.5, 50, 70], [0.5, 1.5, 70, 90], [1.5, Infinity, 90, 100],
+];
+function cpiMScore(yoy: number, ma: number): number {
+  return 0.4 * bandScore(CPI_LVL_SEGS, yoy) + 0.6 * bandScore(CPI_TRD_SEGS, yoy - ma);
 }
-// FED target (upper): a tasa más alta, más restrictivo = más riesgo
-const FED_SEGS: [number, number, number, number][] = [
-  [-Infinity, 0.5, 0, 8], [0.5, 1.5, 8, 20], [1.5, 2.5, 20, 35], [2.5, 3.5, 35, 50],
-  [3.5, 4.5, 50, 62], [4.5, 5.5, 62, 74], [5.5, 7.0, 74, 86], [7.0, 12.0, 86, 100], [12.0, Infinity, 100, 100],
+// Y2M (2Y Momentum): nivel del Treasury 2Y (40%) + delta vs MA6M (60%).
+// El 2Y descuenta la política Fed meses antes del anuncio (sin su rezago).
+const Y2M_LVL_SEGS: [number, number, number, number][] = [
+  [-Infinity, 1.5, 0, 15], [1.5, 2.5, 15, 30], [2.5, 3.5, 30, 50],
+  [3.5, 4.5, 50, 70], [4.5, 5.5, 70, 88], [5.5, Infinity, 88, 100],
 ];
-function fedRiskScore(v: number): number {
-  return bandScore(FED_SEGS, v);
+const Y2M_TRD_SEGS: [number, number, number, number][] = [
+  [-Infinity, -1.0, 0, 10], [-1.0, -0.4, 10, 30], [-0.4, 0.0, 30, 50],
+  [0.0, 0.4, 50, 70], [0.4, 1.0, 70, 90], [1.0, Infinity, 90, 100],
+];
+function y2mRiskScore(y: number, ma: number): number {
+  return 0.4 * bandScore(Y2M_LVL_SEGS, y) + 0.6 * bandScore(Y2M_TRD_SEGS, y - ma);
 }
-// Treasury 30Y: a yield más alto, mayor descuento = más riesgo para acciones
-const Y30_SEGS: [number, number, number, number][] = [
-  [-Infinity, 2.0, 0, 8], [2.0, 3.0, 8, 20], [3.0, 3.5, 20, 35], [3.5, 4.0, 35, 50],
-  [4.0, 4.5, 50, 62], [4.5, 5.0, 62, 74], [5.0, 6.0, 74, 86], [6.0, 10.0, 86, 100], [10.0, Infinity, 100, 100],
+// Y30M (30Y Momentum): mismo esquema que Y2M — nivel (40%) + delta vs MA6M (60%).
+// Si los bonos se aceleran al alza, frenan economía y liquidez.
+const Y30M_LVL_SEGS: [number, number, number, number][] = [
+  [-Infinity, 2.0, 0, 15], [2.0, 3.0, 15, 30], [3.0, 3.5, 30, 50],
+  [3.5, 4.0, 50, 70], [4.0, 5.0, 70, 88], [5.0, Infinity, 88, 100],
 ];
-function y30RiskScore(v: number): number {
-  return bandScore(Y30_SEGS, v);
+function y30mRiskScore(y: number, ma: number): number {
+  return 0.4 * bandScore(Y30M_LVL_SEGS, y) + 0.6 * bandScore(Y2M_TRD_SEGS, y - ma);
+}
+// HY OAS (spread high-yield): a spread más amplio, más estrés crediticio = más riesgo
+const HY_SEGS: [number, number, number, number][] = [
+  [-Infinity, 3.0, 0, 12], [3.0, 3.5, 12, 25], [3.5, 4.0, 25, 38], [4.0, 5.0, 38, 55],
+  [5.0, 6.5, 55, 68], [6.5, 8.0, 68, 80], [8.0, 11.0, 80, 90], [11.0, Infinity, 90, 100],
+];
+function hyRiskScore(v: number): number {
+  return bandScore(HY_SEGS, v);
 }
 // Margen/PIB: a más apalancamiento, más riesgo de deleveraging
 const MG_SEGS: [number, number, number, number][] = [
-  [-Infinity, 1.5, 0, 8], [1.5, 2.0, 8, 20], [2.0, 2.5, 20, 35], [2.5, 3.0, 35, 50],
-  [3.0, 3.5, 50, 62], [3.5, 4.5, 62, 74], [4.5, 6.0, 74, 86], [6.0, 9.0, 86, 100], [9.0, Infinity, 100, 100],
+  [-Infinity, 2.0, 0, 20], [2.0, 3.0, 20, 50], [3.0, 4.0, 50, 70],
+  [4.0, 4.5, 70, 85], [4.5, 5.0, 85, 100], [5.0, Infinity, 100, 100],
 ];
-function mgRiskScore(v: number): number {
-  return bandScore(MG_SEGS, v);
+// MG momentum: nivel del ratio (40%) + desvío vs MA24M (60%).
+const MG_TRD_SEGS: [number, number, number, number][] = [
+  [-Infinity, -0.9, 0, 10], [-0.9, -0.5, 10, 30], [-0.5, -0.15, 30, 50],
+  [-0.15, 0.15, 50, 50], [0.15, 0.5, 50, 70], [0.5, 0.9, 70, 90], [0.9, Infinity, 90, 100],
+];
+function mgMScore(ratio: number, ma: number): number {
+  return 0.4 * bandScore(MG_SEGS, ratio) + 0.6 * bandScore(MG_TRD_SEGS, ratio - ma);
 }
-// VIX invertido: volatilidad alta = pánico = oportunidad = puntaje bajo
+
+// VIX invertido y sensible: complacencia <20 puntúa alto, pánico ≥30 cae a 0 rápido
 const VIX_SEGS: [number, number, number, number][] = [
-  [-Infinity, 12, 85, 100], [12, 15, 70, 85], [15, 20, 50, 70], [20, 25, 30, 50], [25, 35, 10, 30], [35, Infinity, 0, 10],
+  [-Infinity, 12, 90, 100], [12, 15, 78, 90], [15, 20, 60, 78], [20, 25, 35, 60], [25, 30, 10, 35], [30, Infinity, 0, 10],
 ];
 function vixRiskScore(v: number): number {
   return bandScore(VIX_SEGS, v);
@@ -137,63 +152,103 @@ const MS_SEGS: [number, number, number, number][] = [
 function msRiskScore(v: number): number {
   return bandScore(MS_SEGS, v);
 }
-// PIB real YoY invertido: más crecimiento = menos riesgo
+// PIB real YoY procíclico (sobrecalentamiento): crecimiento muy fuerte = riesgo
+// tardío de ciclo; recesión = score bajo (oportunidad, no frena la recompra).
 const GDP_SEGS: [number, number, number, number][] = [
-  [-Infinity, -1.0, 88, 100], [-1.0, 0, 75, 88], [0, 1.0, 60, 75], [1.0, 2.0, 45, 60],
-  [2.0, 3.0, 25, 45], [3.0, 4.0, 10, 25], [4.0, Infinity, 0, 10],
+  [-Infinity, 0, 0, 10], [0, 1.0, 10, 25], [1.0, 2.0, 25, 45], [2.0, 3.0, 45, 70],
+  [3.0, 4.0, 70, 90], [4.0, Infinity, 90, 100],
 ];
 function gdpRiskScore(v: number): number {
+  // Sin techo (espejo backend): el suelo da score bajo por construcción.
   return bandScore(GDP_SEGS, v);
 }
-const capeScoreColor = (s: number) => s >= 80 ? '#ef4444' : s >= 65 ? '#f97316' : s >= 50 ? '#eab308' : s >= 35 ? '#84cc36' : '#22c55e';
-const capeBandLabel = (cape: number) => cape < 25 ? 'Muy barato' : cape < 29 ? 'Barato' : cape < 31 ? 'Justo' : cape < 35 ? 'Sobre justo' : cape < 40 ? 'Caro' : cape < 45 ? 'Elevado' : 'Extremo';
-const peBandLabel = (pe: number) => pe < 18 ? 'Muy barato' : pe < 20 ? 'Barato' : pe < 24 ? 'Razonable' : pe < 26 ? 'Justo' : pe < 28 ? 'Caro' : pe < 30 ? 'Muy caro' : pe < 32 ? 'Elevado' : 'Extremo';
-const fwdBandLabel = (pe: number) => pe < 13 ? 'Muy barato' : pe < 15 ? 'Barato' : pe < 17 ? 'Razonable' : pe < 19 ? 'Justo' : pe < 21 ? 'Caro' : pe < 23 ? 'Muy caro' : pe < 25 ? 'Elevado' : 'Extremo';
+// Color de semaforización (bandas unificadas en ./bhtBands).
+export const capeScoreColor = bhtBandColor;
+// Etiqueta visible del indicador (la clave interna RATIO se muestra como CAPE Ratio)
+const partName = (k: string) => k === 'RATIO' ? 'CAPE Ratio' : k;
+// Descripción breve por indicador para las tablas de detalle (hover + termómetro).
+const partDesc: Record<string, string> = {
+  CAPE: 'Valuación 10a', PE: 'Precio/Beneficio', FWD: 'PE estimado', RATIO: 'vs media 3a',
+  CPI: 'Inflación', CORE: 'Inflación núcleo', Y2M: '2Y Momentum', '30Y': 'Momentum 30Y',
+  HY: 'Crédito HY', MG: 'Apalancamiento', VIX: 'Volatilidad', FG: 'Sentimiento',
+  MS: 'Vivienda', PIB: 'Crecimiento',
+};
+const partLabel = (k: string) => partDesc[k] ? `${partName(k)} - (${partDesc[k]})` : partName(k);
+const capeBandLabel = (cape: number) => cape < 29 ? 'Barato' : cape < 35 ? 'Justo' : cape < 40 ? 'Caro' : cape < 43 ? 'Elevado' : 'Extremo';
+const fwdBandLabel = (pe: number) => pe < 15 ? 'Barato' : pe < 19 ? 'Justo' : pe < 22 ? 'Caro' : pe < 24 ? 'Elevado' : 'Extremo';
 // Bandas para el popover del orbe: [lo, hi, display, puntos, nivel]
 const CAPE_BANDS: [number, number, string, string, string][] = [
-  [-Infinity, 25, '≤ 25', '0–8', 'Muy barato'], [25, 29, '25–29', '8–25', 'Barato'], [29, 31, '29–31', '25–35', 'Justo'], [31, 35, '31–35', '35–50', 'Sobre justo'], [35, 40, '35–39', '50–68', 'Caro'], [40, 45, '40–44', '68–88', 'Elevado'], [45, Infinity, '≥ 45', '88–100', 'Extremo'],
-];
-const PE_BANDS: [number, number, string, string, string][] = [
-  [-Infinity, 18, '≤ 18', '0–8', 'Muy barato'], [18, 20, '18–20', '8–18', 'Barato'], [20, 24, '20–24', '18–35', 'Razonable'], [24, 26, '24–26', '35–50', 'Justo'], [26, 28, '26–28', '50–60', 'Caro'], [28, 30, '28–30', '60–72', 'Muy caro'], [30, 32, '30–32', '72–84', 'Elevado'], [32, Infinity, '≥ 32', '84–100', 'Extremo'],
+  [-Infinity, 29, '≤ 29', '0–25', 'Barato'], [29, 35, '29–35', '25–50', 'Justo'], [35, 40, '35–40', '50–70', 'Caro'], [40, 43, '40–43', '70–100', 'Elevado'], [43, Infinity, '≥ 43', '100', 'Extremo'],
 ];
 const RATIO_BANDS: [number, number, string, string, string][] = [
-  [-Infinity, 0.85, '≤ 0.85', '0–8', 'Muy barato'], [0.85, 0.95, '0.85–0.95', '8–18', 'Barato'], [0.95, 1.00, '0.95–1.00', '18–35', 'Justo'], [1.00, 1.10, '1.00–1.10', '35–50', 'Sobre justo'], [1.10, 1.18, '1.10–1.18', '50–60', 'Caro'], [1.18, 1.30, '1.18–1.30', '60–72', 'Muy caro'], [1.30, 1.45, '1.30–1.45', '72–84', 'Elevado'], [1.45, Infinity, '≥ 1.45', '84–100', 'Extremo'],
+  [-Infinity, 0.90, '≤ 0.90', '0–20', 'Barato'], [0.90, 1.00, '0.90–1.00', '20–50', 'Justo'], [1.00, 1.20, '1.00–1.20', '50–90', 'Caro'], [1.20, 1.30, '1.20–1.30', '90–100', 'Elevado'], [1.30, Infinity, '≥ 1.30', '100', 'Extremo'],
 ];
-const ratioBandLabel = (r: number) => r < 0.85 ? 'Muy barato' : r < 0.95 ? 'Barato' : r < 1.00 ? 'Justo' : r < 1.10 ? 'Sobre justo' : r < 1.18 ? 'Caro' : r < 1.30 ? 'Muy caro' : r < 1.45 ? 'Elevado' : 'Extremo';
+const ratioBandLabel = (r: number) => r < 0.90 ? 'Barato' : r < 1.00 ? 'Justo' : r < 1.20 ? 'Caro' : r < 1.30 ? 'Elevado' : 'Extremo';
 const CPI_BANDS: [number, number, string, string, string][] = [
-  [-Infinity, 1.0, '≤ 1.0', '0–8', 'Muy baja'], [1.0, 1.5, '1.0–1.5', '8–20', 'Baja'], [1.5, 2.0, '1.5–2.0', '20–35', 'Rumbo a meta'], [2.0, 2.5, '2.0–2.5', '35–50', 'En meta'], [2.5, 3.0, '2.5–3.0', '50–62', 'Elevada'], [3.0, 4.0, '3.0–4.0', '62–74', 'Alta'], [4.0, 6.0, '4.0–6.0', '74–86', 'Muy alta'], [6.0, Infinity, '≥ 6.0', '86–100', 'Extrema'],
+  [-Infinity, 1.0, '≤ 1.0', '0–10', 'Muy baja'], [1.0, 1.5, '1.0–1.5', '10–25', 'Baja'], [1.5, 2.0, '1.5–2.0', '25–40', 'Rumbo a meta'], [2.0, 2.5, '2.0–2.5', '40–55', 'En meta'], [2.5, 3.0, '2.5–3.0', '55–70', 'Elevada'], [3.0, 4.0, '3.0–4.0', '70–85', 'Alta'], [4.0, Infinity, '≥ 4.0', '85–100', 'Extrema'],
 ];
-const cpiBandLabel = (v: number) => v < 1.0 ? 'Muy baja' : v < 1.5 ? 'Baja' : v < 2.0 ? 'Rumbo a meta' : v < 2.5 ? 'En meta' : v < 3.0 ? 'Elevada' : v < 4.0 ? 'Alta' : v < 6.0 ? 'Muy alta' : 'Extrema';
-const FED_BANDS: [number, number, string, string, string][] = [
-  [-Infinity, 0.5, '≤ 0.5', '0–8', 'Estímulo total'], [0.5, 1.5, '0.5–1.5', '8–20', 'Baja'], [1.5, 2.5, '1.5–2.5', '20–35', 'Casi neutral'], [2.5, 3.5, '2.5–3.5', '35–50', 'Neutral'], [3.5, 4.5, '3.5–4.5', '50–62', 'Leve restricción'], [4.5, 5.5, '4.5–5.5', '62–74', 'Restrictiva'], [5.5, 7.0, '5.5–7.0', '74–86', 'Muy restrictiva'], [7.0, Infinity, '≥ 7.0', '86–100', 'Extrema'],
+// Etiqueta por puntaje combinado (nivel+tendencia de inflación).
+const cpiBandLabel = (s: number) => s < 20 ? 'Controlada' : s < 40 ? 'Alivio' : s < 60 ? 'Neutral' : s < 80 ? 'Presión' : 'Descontrol';
+const Y2M_BANDS: [number, number, string, string, string][] = [
+  [-Infinity, 1.5, '≤ 1.5', '0–15', 'Muy bajo'], [1.5, 2.5, '1.5–2.5', '15–30', 'Bajo'], [2.5, 3.5, '2.5–3.5', '30–50', 'Moderado'], [3.5, 4.5, '3.5–4.5', '50–70', 'Neutral-alto'], [4.5, 5.5, '4.5–5.5', '70–88', 'Alto'], [5.5, Infinity, '≥ 5.5', '88–100', 'Extremo'],
 ];
-const fedBandLabel = (v: number) => v < 0.5 ? 'Estímulo total' : v < 1.5 ? 'Baja' : v < 2.5 ? 'Casi neutral' : v < 3.5 ? 'Neutral' : v < 4.5 ? 'Leve restricción' : v < 5.5 ? 'Restrictiva' : v < 7.0 ? 'Muy restrictiva' : 'Extrema';
+// Etiqueta por puntaje combinado (nivel+tendencia), no solo por nivel.
+const y2mBandLabel = (s: number) => s < 20 ? 'Easing descontado' : s < 40 ? 'Alivio en camino' : s < 60 ? 'Neutral' : s < 80 ? 'Endurecimiento' : 'Restricción acelerada';
 const Y30_BANDS: [number, number, string, string, string][] = [
-  [-Infinity, 2.0, '≤ 2.0', '0–8', 'Suelo histórico'], [2.0, 3.0, '2.0–3.0', '8–20', 'Baja'], [3.0, 3.5, '3.0–3.5', '20–35', 'Moderada-baja'], [3.5, 4.0, '3.5–4.0', '35–50', 'Neutral'], [4.0, 4.5, '4.0–4.5', '50–62', 'Elevada'], [4.5, 5.0, '4.5–5.0', '62–74', 'Alta'], [5.0, 6.0, '5.0–6.0', '74–86', 'Muy alta'], [6.0, Infinity, '≥ 6.0', '86–100', 'Extrema'],
+  [-Infinity, 2.0, '≤ 2.0', '0–15', 'Suelo'], [2.0, 3.0, '2.0–3.0', '15–30', 'Baja'], [3.0, 3.5, '3.0–3.5', '30–50', 'Moderada'], [3.5, 4.0, '3.5–4.0', '50–70', 'Neutral-alta'], [4.0, 5.0, '4.0–5.0', '70–88', 'Alta'], [5.0, Infinity, '≥ 5.0', '88–100', 'Extrema'],
 ];
-const y30BandLabel = (v: number) => v < 2.0 ? 'Suelo histórico' : v < 3.0 ? 'Baja' : v < 3.5 ? 'Moderada-baja' : v < 4.0 ? 'Neutral' : v < 4.5 ? 'Elevada' : v < 5.0 ? 'Alta' : v < 6.0 ? 'Muy alta' : 'Extrema';
+// Etiqueta por puntaje combinado (economía/liquidez), no solo por nivel.
+const y30mBandLabel = (s: number) => s < 20 ? 'Liquidez holgada' : s < 40 ? 'Alivio' : s < 60 ? 'Neutral' : s < 80 ? 'Restricción' : 'Freno severo';
+const HY_BANDS: [number, number, string, string, string][] = [
+  [-Infinity, 3.0, '≤ 3.0', '0–12', 'Comprimido'], [3.0, 3.5, '3.0–3.5', '12–25', 'Ajustado'], [3.5, 4.0, '3.5–4.0', '25–38', 'Normal'], [4.0, 5.0, '4.0–5.0', '38–55', 'Elevándose'], [5.0, 6.5, '5.0–6.5', '55–68', 'Estrés'], [6.5, 8.0, '6.5–8.0', '68–80', 'Alto estrés'], [8.0, 11.0, '8.0–11', '80–90', 'Severo'], [11.0, Infinity, '≥ 11', '90–100', 'Extremo'],
+];
+const hyBandLabel = (v: number) => v < 3.0 ? 'Comprimido' : v < 3.5 ? 'Ajustado' : v < 4.0 ? 'Normal' : v < 5.0 ? 'Elevándose' : v < 6.5 ? 'Estrés' : v < 8.0 ? 'Alto estrés' : v < 11.0 ? 'Severo' : 'Extremo';
 const MG_BANDS: [number, number, string, string, string][] = [
-  [-Infinity, 1.5, '≤ 1.5', '0–8', 'Muy bajo'], [1.5, 2.0, '1.5–2.0', '8–20', 'Bajo'], [2.0, 2.5, '2.0–2.5', '20–35', 'Moderado'], [2.5, 3.0, '2.5–3.0', '35–50', 'Normal'], [3.0, 3.5, '3.0–3.5', '50–62', 'Elevado'], [3.5, 4.5, '3.5–4.5', '62–74', 'Alto'], [4.5, 6.0, '4.5–6.0', '74–86', 'Muy alto'], [6.0, Infinity, '≥ 6.0', '86–100', 'Extremo'],
+  [-Infinity, 2.0, '≤ 2.0', '0–20', 'Bajo'], [2.0, 3.0, '2.0–3.0', '20–50', 'Normal'], [3.0, 4.0, '3.0–4.0', '50–70', 'Elevado'], [4.0, 4.5, '4.0–4.5', '70–85', 'Alto'], [4.5, 5.0, '4.5–5.0', '85–100', 'Muy alto'], [5.0, Infinity, '≥ 5.0', '100', 'Extremo'],
 ];
-const mgBandLabel = (v: number) => v < 1.5 ? 'Muy bajo' : v < 2.0 ? 'Bajo' : v < 2.5 ? 'Moderado' : v < 3.0 ? 'Normal' : v < 3.5 ? 'Elevado' : v < 4.5 ? 'Alto' : v < 6.0 ? 'Muy alto' : 'Extremo';
+const mgBandLabel = (s: number) => s < 20 ? 'Desapalancamiento' : s < 40 ? 'Alivio' : s < 60 ? 'Neutral' : s < 80 ? 'Tensión' : 'Euforia';
 const GDP_BANDS: [number, number, string, string, string][] = [
-  [4.0, Infinity, '≥ 4.0', '0–10', 'Muy fuerte'], [3.0, 4.0, '3.0–4.0', '10–25', 'Sólido'], [2.0, 3.0, '2.0–3.0', '25–45', 'Saludable'], [1.0, 2.0, '1.0–2.0', '45–60', 'Desacelera'], [0, 1.0, '0–1.0', '60–75', 'Estancado'], [-1.0, 0, '-1–0', '75–88', 'Contracción'], [-Infinity, -1.0, '< -1.0', '88–100', 'Recesión'],
+  [-Infinity, 0, '< 0', '0–10', 'Recesión'], [0, 1.0, '0–1.0', '10–25', 'Estancado'], [1.0, 2.0, '1.0–2.0', '25–45', 'Desacelera'], [2.0, 3.0, '2.0–3.0', '45–70', 'Saludable'], [3.0, 4.0, '3.0–4.0', '70–90', 'Sólido'], [4.0, Infinity, '≥ 4.0', '90–100', 'Sobrecalentado'],
 ];
 const MS_BANDS: [number, number, string, string, string][] = [
   [-Infinity, 3.5, '≤ 3.5', '0–8', 'Escasez'], [3.5, 4.5, '3.5–4.5', '8–20', 'Ajustado'], [4.5, 5.5, '4.5–5.5', '20–35', 'Equilibrado'], [5.5, 6.5, '5.5–6.5', '35–50', 'Ampliándose'], [6.5, 7.5, '6.5–7.5', '50–62', 'Exceso'], [7.5, 9.0, '7.5–9.0', '62–74', 'Sobreoferta'], [9.0, 11.0, '9.0–11', '74–88', 'Muy frío'], [11.0, Infinity, '≥ 11', '88–100', 'Congelado'],
 ];
 const VIX_BANDS: [number, number, string, string, string][] = [
-  [35, Infinity, '≥ 35', '0–10', 'Pánico'], [25, 35, '25–35', '10–30', 'Miedo'], [20, 25, '20–25', '30–50', 'Inquietud'], [15, 20, '15–20', '50–70', 'Normal'], [12, 15, '12–15', '70–85', 'Complacencia'], [-Infinity, 12, '< 12', '85–100', 'Euforia'],
+  [30, Infinity, '≥ 30', '0–10', 'Pánico'], [25, 30, '25–30', '10–35', 'Miedo'], [20, 25, '20–25', '35–60', 'Inquietud'], [15, 20, '15–20', '60–78', 'Tensión'], [12, 15, '12–15', '78–90', 'Complacencia'], [-Infinity, 12, '< 12', '90–100', 'Euforia'],
 ];
 // Fear & Greed entra directo (ya es 0-100 en la misma dirección)
+// Fear & Greed estirado (espejo backend): ≤10 => 0 y ≥80 => 100, centro intacto
+const FG_SEGS: [number, number, number, number][] = [
+  [-Infinity, 10, 0, 0], [10, 15, 0, 8], [15, 25, 8, 25], [25, 45, 25, 45],
+  [45, 55, 45, 60], [55, 70, 60, 85], [70, 80, 85, 100], [80, Infinity, 100, 100],
+];
+function fgRiskScore(v: number): number {
+  return bandScore(FG_SEGS, v);
+}
 const FG_BANDS: [number, number, string, string, string][] = [
-  [0, 25, '0–25', '0–25', 'Miedo Extremo'], [25, 45, '25–45', '25–45', 'Miedo'], [45, 55, '45–55', '45–55', 'Neutral'], [55, 75, '55–75', '55–75', 'Codicia'], [75, Infinity, '76–100', '76–100', 'Codicia Extrema'],
+  [-Infinity, 10, '≤ 10', '0', 'Miedo Extremo'], [10, 15, '10–15', '0–8', 'Pánico'], [15, 25, '15–25', '8–25', 'Miedo'], [25, 45, '25–45', '25–45', 'Cautela'], [45, 55, '45–55', '45–60', 'Neutral'], [55, 70, '55–70', '60–85', 'Codicia'], [70, 80, '70–80', '85–100', 'Euforia'], [80, Infinity, '≥ 80', '100', 'Codicia Extrema'],
 ];
 const FWD_BANDS: [number, number, string, string, string][] = [
-  [-Infinity, 13, '≤ 13', '0–8', 'Muy barato'], [13, 15, '13–15', '8–18', 'Barato'], [15, 17, '15–17', '18–35', 'Razonable'], [17, 19, '17–19', '35–50', 'Justo'], [19, 21, '19–21', '50–60', 'Caro'], [21, 23, '21–23', '60–72', 'Muy caro'], [23, 25, '23–25', '72–84', 'Elevado'], [25, Infinity, '≥ 25', '84–100', 'Extremo'],
+  [-Infinity, 15, '≤ 15', '0–25', 'Barato'], [15, 19, '15–19', '25–50', 'Justo'], [19, 22, '19–22', '50–80', 'Caro'], [22, 24, '22–24', '80–100', 'Elevado'], [24, Infinity, '≥ 24', '100', 'Extremo'],
 ];
 // Orbe de cristal genérico con puntaje; click/hover muestra valor actual + tabla de ponderación.
-function ScoreOrb({ name, value, dec = 2, weight, score, bands, small = false }: { name: string; value: number; dec?: number; weight: number; score: number; bands: [number, number, string, string, string][]; small?: boolean }) {
+type MomBlend = { level: number; levelScore: number; delta: number; ma: number; maLabel: string; trendScore: number } | null;
+// Etiqueta de tendencia con color semáforo (alcista = riesgo, bajista = alivio).
+function trendTag(d: number): { text: string; color: string } {
+  const a = Math.abs(d);
+  if (a < 0.1) return { text: 'Lateral', color: '#94a3b8' };
+  const mag = a < 0.5 ? 'Leve' : a < 1.0 ? 'Elevada' : 'Extrema';
+  const up = d > 0;
+  const color = mag === 'Leve' ? (up ? '#eab308' : '#84cc36') : mag === 'Elevada' ? (up ? '#f97316' : '#34d399') : (up ? '#ef4444' : '#22c55e');
+  return { text: `${up ? 'Alcista' : 'Bajista'} ${mag}`, color };
+}
+// Desglose nivel+tendencia para indicadores momentum (la tendencia pesa más).
+function momBlend(lvlSegs: [number, number, number, number][], trdSegs: [number, number, number, number][], y: number, ma: number, maLabel = 'MA6M'): Exclude<MomBlend, null> {
+  const levelScore = bandScore(lvlSegs, y);
+  const trendScore = bandScore(trdSegs, y - ma);
+  return { level: y, levelScore, delta: y - ma, ma, maLabel, trendScore };
+}
+function ScoreOrb({ name, value, dec = 2, weight, score, bands, blend = null, small = false }: { name: string; value: number; dec?: number; weight: number; score: number; bands: [number, number, string, string, string][]; blend?: MomBlend; small?: boolean }) {
   const [open, setOpen] = useState(false);
   const c = capeScoreColor(score);
   return (
@@ -207,6 +262,13 @@ function ScoreOrb({ name, value, dec = 2, weight, score, bands, small = false }:
         <div className="absolute z-50 right-0 top-12 w-72 p-3 rounded-xl bg-slate-800 border border-slate-700 shadow-2xl text-left normal-case" onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)}>
           <div className="text-xs font-semibold text-slate-100">Riesgo {name} <span className="font-mono" style={{ color: c }}>{score}/100</span></div>
           <div className="text-[11px] text-slate-400 mt-0.5 font-mono">{name} {value.toFixed(dec)} → <span className="text-sky-300 font-semibold">{score}/100</span> · peso {weight} ÷ peso total</div>
+          {blend && (
+            <div className="mt-1.5 rounded-lg bg-slate-900/70 border border-slate-700/60 px-2 py-1.5 font-mono text-[10px] leading-relaxed">
+              <div className="text-slate-300">Nivel {blend.level.toFixed(2)} → {blend.levelScore.toFixed(1)} <span className="text-slate-500">×0.4</span></div>
+              <div className="text-slate-300">Δ {blend.delta>=0?'+':''}{blend.delta.toFixed(2)}pp vs {blend.maLabel} {blend.ma.toFixed(2)} → {blend.trendScore.toFixed(1)} <span className="text-slate-500">×0.6</span>{(()=>{ const t = trendTag(blend.delta); return <span className="font-bold"> · <span style={{ color: t.color }}>{t.text}</span></span>; })()}</div>
+              <div className="text-slate-100">= <span className="font-bold" style={{ color: capeScoreColor(score) }}>{score}</span> <span className="text-slate-500">tendencia pesa más</span></div>
+            </div>
+          )}
           <table className="w-full mt-2 text-[10px] font-mono">
             <thead><tr className="text-slate-500"><th className="text-left font-normal py-0.5">{name}</th><th className="text-right font-normal">Pts</th><th className="text-right font-normal">Nivel</th></tr></thead>
             <tbody>
@@ -222,17 +284,245 @@ function ScoreOrb({ name, value, dec = 2, weight, score, bands, small = false }:
   );
 }
 
+// Hover compartido del BHT Index: detalle por indicador igual al termómetro.
+// El cierre es diferido (gracia de 350ms) para poder mover el mouse al popup
+// y pulsar el botón Estrategia sin que se cierre en el camino.
+export type BhtHoverState = null | { d: string; x: number; y: number };
+export function useBhtDetail() {
+  const [hover, setHover] = useState<BhtHoverState>(null);
+  const [cache, setCache] = useState<Record<string, any>>({});
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cancelClear = useCallback(() => { if (timer.current) { clearTimeout(timer.current); timer.current = null; } }, []);
+  const scheduleClear = useCallback(() => { cancelClear(); timer.current = setTimeout(() => setHover(null), 350); }, [cancelClear]);
+  useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
+  const setHoverLive = useCallback((v: BhtHoverState | ((s: BhtHoverState) => BhtHoverState)) => { if (v != null) cancelClear(); setHover(v); }, [cancelClear]);
+  const load = (d: string) => {
+    if (cache[d]) return;
+    fetch(`${getApiBase()}/api/backtesting/bht-forward/detail?date=${d}`, { cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => { if (j && !j.error) setCache((m) => ({ ...m, [d]: j })); })
+      .catch(() => {});
+  };
+  return { hover, setHover: setHoverLive, cache, load, scheduleClear, cancelClear };
+}
+
+// Al salir el mouse hacia el popup no se cierra (permite pulsar Estrategia);
+// al salir fuera, cierre diferido.
+export const bhtLeaveGuard = (e: any, det: { scheduleClear: () => void; cancelClear: () => void }) => {
+  if (e?.relatedTarget && (e.relatedTarget as HTMLElement).closest?.('[data-bht-pop]')) det.cancelClear();
+  else det.scheduleClear();
+};
+
+export function BhtDetailPopover({ hover, detail, forward, onLeave, onHold, liveValue }: { hover: { d: string; x: number; y: number }; detail: any; forward?: any; onLeave: () => void; onHold?: () => void; liveValue?: number | null }) {
+  const left = Math.min(Math.max(8, hover.x + 12), (typeof window !== 'undefined' ? window.innerWidth - 540 : 1000));
+  const top = Math.min(Math.max(8, hover.y - 40), (typeof window !== 'undefined' ? window.innerHeight - 320 : 800));
+  const half = detail != null ? Math.ceil(detail.parts.length / 2) : 0;
+  const bd = detail != null ? bhtBand(Number(detail.value)) : null;
+  const headV = liveValue ?? (detail != null ? Number(detail.value) : null);
+  const loadMsg = liveValue != null ? 'Detalle en cálculo (se guarda al cierre)...' : 'Cargando detalle...';
+  const [showStrat, setShowStrat] = useState(false);
+  useEffect(() => { setShowStrat(false); }, [hover.d]);
+  return (
+    <div data-bht-pop className="fixed z-[9999] w-[520px] max-w-[calc(100vw-16px)] p-3 rounded-xl bg-slate-900 border border-slate-700 shadow-2xl text-xs leading-relaxed text-slate-200 text-left pointer-events-none" style={{ left, top }} onMouseEnter={() => onHold?.()} onMouseLeave={onLeave}>
+      <div className="font-bold mb-1.5"><span className="text-sky-300">{hover.d}</span> <span className="text-slate-100">· BHT</span> {headV != null && <span className="font-mono" style={{ color: capeScoreColor(headV) }}>{headV.toFixed(1)}/100</span>}{liveValue != null && <span className="ml-1.5 text-[10px] px-1.5 py-px rounded-full bg-teal-500/20 text-teal-300 font-bold" title="Valor en vivo, igual que el semáforo">en vivo</span>}{bd && (
+        <button type="button" onClick={(e) => { e.stopPropagation(); setShowStrat((v) => !v); }}
+          className="ml-2 px-2 py-0.5 rounded-md text-[11px] font-bold text-slate-900 align-middle cursor-pointer pointer-events-auto"
+          style={{ backgroundColor: bd.color }}>Estrategia {showStrat ? '▾' : '▸'}</button>
+      )}</div>
+      {showStrat && bd && (
+        <div className="mt-1 mb-1.5 p-2 rounded-lg border" style={{ borderColor: `${bd.color}66`, backgroundColor: `${bd.color}14` }}>
+          <div className="font-bold mb-0.5" style={{ color: bd.color }}>Estrategia · {bd.label}</div>
+          <div className="text-slate-200 font-normal leading-snug">{bd.advice}</div>
+        </div>
+      )}
+      {detail == null ? <div className="text-slate-500 font-mono">{loadMsg}</div> : (
+        <>
+          <div className="flex gap-3">
+            {[0, 1].map((col) => (
+              <table key={col} className="flex-1 font-mono text-[11px]">
+                <thead><tr className="text-slate-500"><th className="text-left font-normal py-0.5">Ind</th><th className="text-right font-normal">Valor</th><th className="text-right font-normal">Pts</th><th className="text-right font-normal">Aporte</th></tr></thead>
+                <tbody>
+                  {detail.parts.slice(col * half, (col + 1) * half).map((p: any) => {
+                    const dec = p.key === 'RATIO' ? 3 : p.key === 'FG' ? 0 : p.key === 'MS' ? 1 : 2;
+                    return <tr key={p.key} className="border-t border-slate-800/60"><td className="py-px pr-1 text-slate-300 text-[10px] whitespace-nowrap">{partLabel(p.key)}</td><td className="text-right">{Number(p.value).toFixed(dec)}</td><td className="text-right" style={{ color: capeScoreColor(p.score) }}>{Math.round(p.score)}</td><td className="text-right text-slate-100">{Number(p.aporte).toFixed(1)}</td></tr>;
+                  })}
+                </tbody>
+              </table>
+            ))}
+          </div>
+          {(detail.bonus ?? 0) > 0 && <div className="font-mono text-[11px] mt-1.5 text-orange-300">Bonus HY - (Régimen 3 {detail.bonusLabel ?? ''}): +{Number(detail.bonus).toFixed(0)} (fuera del promedio)</div>}
+          {(detail.liqBonus ?? 0) !== 0 && <div className={`font-mono text-[11px] mt-1 ${Number(detail.liqBonus) > 0 ? 'text-orange-300' : 'text-emerald-300'}`}>Bonus liquidez M2/M0 ({detail.liqBonusLabel ?? ''}): {Number(detail.liqBonus) > 0 ? '+' : ''}{Number(detail.liqBonus).toFixed(0)} (fuera del promedio){detail.liqYoy != null && <> · M2 +{Number(detail.liqYoy).toFixed(1)}%{detail.liqM0d3 != null && <> · M0 Δ3M {Number(detail.liqM0d3) >= 0 ? '+' : ''}{Number(detail.liqM0d3).toFixed(1)}%</>}{detail.liqDrop != null && Number(detail.liqDrop) >= 50 && <> · −{Number(detail.liqDrop).toFixed(0)}% del pico</>}</>}</div>}
+          {(detail.bonus ?? 0) > 0 && detail.bonusHy != null && (
+            <div className="font-mono text-[11px] mt-1 text-slate-400">
+              HY {Number(detail.bonusHy).toFixed(2)}{detail.bonusD1 != null && <> · 1M-atrás {(Number(detail.bonusHy) - Number(detail.bonusD1)).toFixed(2)} · Δ1M {Number(detail.bonusD1) >= 0 ? '+' : ''}{Number(detail.bonusD1).toFixed(2)} (gatillo {'≥'} +1.00)</>}{detail.bonusZ != null && detail.bonusSigma != null && <> · Δ3M {(Number(detail.bonusZ) * Number(detail.bonusSigma)).toFixed(2)} · σ24 {Number(detail.bonusSigma).toFixed(2)} → z {Number(detail.bonusZ) >= 0 ? '+' : ''}{Number(detail.bonusZ).toFixed(1)}σ (gatillo z{'>'}1.5, HY{'>'}5)</>}{detail.bonusFed != null && <> · Fed {Number(detail.bonusFed).toFixed(2)} rescate→tope +5</>}
+            </div>
+          )}
+          <div className="font-mono text-[11px] text-slate-400 mt-1.5">Σ {Number(detail.numerator).toFixed(1)} ÷ {detail.denominator}{(detail.bonus ?? 0) > 0 ? ` + ${Number(detail.bonus).toFixed(0)}` : ''}{(detail.liqBonus ?? 0) !== 0 ? ` ${Number(detail.liqBonus) > 0 ? '+' : ''}${Number(detail.liqBonus).toFixed(0)}` : ''} = <span className="text-slate-100 font-bold">{Number(detail.value).toFixed(1)}</span> · {detail.coverage}/13</div>
+          {forward && (
+            <div className="mt-2 border-t border-slate-800 pt-1.5">
+              <div className="text-slate-400 mb-1">Si comprabas el {hover.d}</div>
+              {(() => {
+                const keys = ['spx', 'ndx', 'tqqq'];
+                const matureY = [1, 2, 3, 5].filter((y) => keys.some((k) => forward[`${k}${y}y`] != null));
+                const showHoy = keys.some((k) => [1, 2, 3, 5].some((y) => forward[`${k}${y}y`] == null)) && keys.some((k) => forward[`${k}Tt`] != null);
+                return (
+                  <table className="w-full font-mono text-[11px]">
+                    <thead><tr className="text-slate-500"><th className="text-left font-normal py-0.5"></th>{matureY.map((y) => <th key={y} className="text-right font-normal">{y}Y</th>)}{showHoy && <th className="text-right font-normal" title="Retorno parcial hasta hoy (horizontes aún no maduros)">~Hoy</th>}</tr></thead>
+                    <tbody>
+                      {([['SPX', 'spx'], ['NDX', 'ndx'], ['TQQQ', 'tqqq']] as const).map(([label, k]) => (
+                        <tr key={k} className="border-t border-slate-800/60">
+                          <td className="py-0.5 text-slate-300">{label}</td>
+                          {matureY.map((y) => {
+                            const v = forward[`${k}${y}y`];
+                            if (v == null) return <td key={y} className="text-right text-slate-600">—</td>;
+                            return <td key={y} className="text-right" style={{ color: v >= 0 ? '#84cc36' : '#f87171' }}>{v >= 0 ? '▲ ' : '▼ '}{Math.abs(v).toFixed(1)}%</td>;
+                          })}
+                          {showHoy && (() => {
+                            const p = forward[`${k}Tt`] != null ? Number(forward[`${k}Tt`]) : null;
+                            if (p == null) return <td className="text-right text-slate-600">—</td>;
+                            return <td className="text-right" style={{ color: p >= 0 ? '#84cc36' : '#f87171' }} title="A hoy (parcial, horizonte no maduro)">~ {p >= 0 ? '▲ ' : '▼ '}{Math.abs(p).toFixed(1)}%</td>;
+                          })()}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )})()}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+// Tabla BHT Forward: BHT Index + precios y retornos forward maduros 1/2/3/5Y.
+// Solo pinta horizontes con fecha objetivo ya cumplida (el resto es '—').
+function BhtForwardTable({ live }: { live: { current: { v: number | null; d: string | null } } }) {
+  const liveBht = live.current.v;
+  const [rows, setRows] = useState<any[]>([]);
+  const [view, setView] = useState<'daily' | 'monthly' | 'yearly'>('daily');
+  const [sortCol, setSortCol] = useState('date');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+  const [count, setCount] = useState(60);
+  const bhtDet = useBhtDetail();
+  const loadRows = useCallback(async () => {
+    try {
+      const r = await fetch(`${getApiBase()}/api/backtesting/bht-forward?from=1993-01-01`, { cache: 'no-store' });
+      if (r.ok) setRows(await r.json());
+    } catch {}
+  }, []);
+  useEffect(() => {
+    loadRows();
+    const onSync = () => loadRows();
+    window.addEventListener('bht:synced', onSync);
+    return () => window.removeEventListener('bht:synced', onSync);
+  }, [loadRows]);
+  useEffect(() => { setCount(60); setSortCol('date'); setSortDir('desc'); }, [view]);
+  if (!rows.length) return null;
+  let list = rows;
+  if (view === 'monthly') { const m = new Map<string, any>(); for (const r of rows) m.set((r.date || '').slice(0, 7), r); list = Array.from(m.values()); }
+  if (view === 'yearly') { const m = new Map<string, any>(); for (const r of rows) m.set((r.date || '').slice(0, 4), r); list = Array.from(m.values()); }
+  const maxDate = list.reduce((mm: any, r: any) => r.date > mm ? r.date : mm, list[0].date);
+  const sorted = [...list].sort((a: any, b: any) => {
+    if (sortCol === 'date') return sortDir === 'desc' ? b.date.localeCompare(a.date) : a.date.localeCompare(b.date);
+    const av = a[sortCol] ?? -Infinity, bv = b[sortCol] ?? -Infinity;
+    if (av === bv) return b.date.localeCompare(a.date);
+    return sortDir === 'desc' ? bv - av : av - bv;
+  });
+  const cols: { k: string; label: string; cls: string }[] = [
+    { k: 'date', label: view === 'monthly' ? 'Mes' : view === 'yearly' ? 'Año' : 'Fecha', cls: 'text-left w-[92px] min-w-[92px] max-w-[92px] sticky left-0 bg-slate-900 z-20 shadow-[2px_0_4px_rgba(0,0,0,0.3)]' },
+    { k: 'bhtValue', label: 'BHT', cls: 'text-right' },
+    { k: 'spx', label: 'SP500', cls: 'text-right text-sky-300' },
+    { k: 'ndx', label: 'Nasdaq', cls: 'text-right text-sky-300' },
+    { k: 'tqqq', label: 'TQQQ', cls: 'text-right text-sky-300' },
+    ...['spx', 'ndx', 'tqqq'].flatMap((p) => [1, 2, 3, 5].map((y) => ({ k: `${p}${y}y`, label: `${p.toUpperCase()} ${y}Y`, cls: 'text-right' }))),
+  ];
+  const retTd = (v: number | null, key: string) => v == null
+    ? <td key={key} className="p-2 text-right font-mono text-slate-600 whitespace-nowrap">—</td>
+    : <td key={key} className={`p-2 text-right font-mono font-semibold whitespace-nowrap rounded ${v >= 0 ? 'text-emerald-400 bg-emerald-500/10' : 'text-red-400 bg-red-500/10'}`}>{v >= 0 ? '▲ ' : '▼ '}{Math.abs(v).toFixed(1)}%</td>;
+  const toggle = (k: string) => {
+    if (sortCol === k) setSortDir((d) => d === 'asc' ? 'desc' : 'asc');
+    else { setSortCol(k); setSortDir('desc'); }
+  };
+  return (
+    <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+        <h3 className="font-semibold text-slate-100">BHT Forward — retornos 1/2/3/5Y maduros</h3>
+        <div className="flex items-center gap-1">
+          {(['daily', 'monthly', 'yearly'] as const).map((v) => (
+            <button key={v} onClick={() => setView(v)} className={`px-3 py-1 text-xs rounded-md capitalize ${view === v ? 'bg-slate-700 text-teal-300 border border-slate-600' : 'text-slate-400 hover:text-slate-200'}`}>{v === 'daily' ? 'Daily' : v === 'monthly' ? 'Monthly' : 'Yearly'}</button>
+          ))}
+        </div>
+      </div>
+      <div className="overflow-x-auto overflow-y-auto max-h-[484px] border border-slate-900 rounded-xl custom-scrollbar">
+        <table className="w-full text-xs relative">
+          <thead className="bg-slate-900 text-slate-400 font-bold border-b border-slate-900 sticky top-0 z-10 shadow-[0_1px_0_0_rgba(15,23,42,0.6)]">
+            <tr>
+              {cols.map((col) => (
+                <th key={col.k} onClick={() => toggle(col.k)} className={`p-2 ${col.cls} cursor-pointer select-none hover:text-teal-300 ${sortCol === col.k ? 'text-teal-300' : ''}`}>
+                  {col.label} <span className="text-[10px]">{sortCol === col.k ? (sortDir === 'asc' ? '▲' : '▼') : '↕'}</span>
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-900/60 bg-slate-950/20 font-mono">
+            {sorted.slice(0, count).map((r: any) => {
+              const d = (r.date || '').slice(0, 10);
+              const isCurrent = sortCol === 'date' && sortDir === 'desc' && r.date === maxDate;
+              return (
+                <tr key={r.date} className={`${isCurrent ? 'bg-teal-500/[0.08] border-l-2 border-l-teal-500 ring-1 ring-teal-500/15' : 'hover:bg-slate-900/40'} transition-colors`}>
+                  <td className={`p-1.5 px-2 font-mono whitespace-nowrap w-[92px] min-w-[92px] max-w-[92px] align-top sticky left-0 z-10 shadow-[2px_0_4px_rgba(0,0,0,0.25)] ${isCurrent ? 'bg-slate-900' : 'bg-slate-950 group-hover:bg-slate-900'}`}><div className="flex flex-col items-start leading-none gap-0.5"><span className={`${isCurrent ? 'text-teal-300 font-bold' : 'text-slate-200'} text-xs`}>{view === 'yearly' ? d.slice(0, 4) : view === 'monthly' ? d.slice(0, 7) : d}</span>{isCurrent && <span className="text-[9px] px-1 py-0.5 rounded bg-teal-500 text-white font-bold leading-none">Actual</span>}</div></td>
+                  {(() => { const isLive = isCurrent && liveBht != null; const v = isLive ? liveBht : r.bhtValue; if (v == null) return <td className="p-2 text-right font-mono text-slate-600 whitespace-nowrap">—</td>; return <td className="p-2 text-right font-mono font-semibold whitespace-nowrap cursor-help" style={{ color: capeScoreColor(v) }} onMouseEnter={(e) => { bhtDet.setHover({ d, x: e.clientX, y: e.clientY }); bhtDet.load(d); }} onMouseMove={(e) => bhtDet.setHover((s) => s && s.d === d ? { ...s, x: e.clientX, y: e.clientY } : s)} onMouseLeave={(e) => bhtLeaveGuard(e, bhtDet)}><span className="border-b border-dotted border-slate-400/40" title={isLive ? 'En vivo (igual que el semáforo)' : undefined}>{Number(v).toFixed(1)}{isLive && <span className="text-teal-300"> •</span>}</span></td>; })()}
+                  <td className="p-2 text-right font-mono text-sky-300 whitespace-nowrap">{r.spx != null ? `$${Number(r.spx).toFixed(2)}` : '—'}</td>
+                  <td className="p-2 text-right font-mono text-sky-300 whitespace-nowrap">{r.ndx != null ? `$${Number(r.ndx).toFixed(2)}` : '—'}</td>
+                  <td className="p-2 text-right font-mono text-sky-300 whitespace-nowrap">{r.tqqq != null ? `$${Number(r.tqqq).toFixed(2)}` : '—'}</td>
+                  {['spx', 'ndx', 'tqqq'].flatMap((p) => [1, 2, 3, 5].map((y) => retTd(r[`${p}${y}y`], `${p}${y}`)))}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      {count < sorted.length && <button onClick={() => setCount((c) => c + 120)} className="mt-2 text-xs text-teal-300 hover:text-teal-200">Ver más ({sorted.length - count} restantes)</button>}
+      <p className="text-[11px] text-slate-500 mt-2">BHT Index al cierre + retornos forward solo con horizonte cumplido · '—' = aún no madura · {rows.length} días</p>
+      {bhtDet.hover && <BhtDetailPopover hover={bhtDet.hover} detail={bhtDet.cache[bhtDet.hover.d]} forward={rows.find((r) => r.date === bhtDet.hover!.d)} onLeave={() => bhtDet.scheduleClear()} onHold={() => bhtDet.cancelClear()} liveValue={(sortCol === 'date' && sortDir === 'desc' && bhtDet.hover.d === maxDate && liveBht != null) ? liveBht : null} />}
+    </div>
+  );
+}
+
 export function IndicatorsPanel() {
   const [indicators, setIndicators] = useState<any[]>([]);
   const [cape, setCape] = useState<any[]>([]);
   const [capeView, setCapeView] = useState<'daily'|'monthly'|'yearly'>('daily');
   const [riskDetailOpen, setRiskDetailOpen] = useState(false);
+  const [thermoView, setThermoView] = useState<'overview' | 'timeline' | 'stats'>('overview');
   const [markets, setMarkets] = useState<Record<string, number | null>>({});
   const [marketHistory, setMarketHistory] = useState<Record<string, Map<string, number>>>({});
   const [volHistory, setVolHistory] = useState<Record<string, Map<string, number>>>({});
+  const [thermoHist, setThermoHist] = useState<Record<string, { value: number; numerator: number; denominator: number; coverage: number }>>({});
+  const capeBhtDet = useBhtDetail();
+  const liveBhtRef = useRef<{ v: number | null; d: string | null }>({ v: null, d: null });
+  const [capeFwdCache, setCapeFwdCache] = useState<Record<string, any>>({});
+  const loadCapeFwd = (d: string) => {
+    if (capeFwdCache[d] !== undefined) return;
+    setCapeFwdCache((m) => ({ ...m, [d]: null }));
+    const from = new Date(d); from.setDate(from.getDate() - 7);
+    fetch(`${getApiBase()}/api/backtesting/bht-forward?from=${from.toISOString().slice(0, 10)}&to=${d}`, { cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : []))
+      .then((rows) => setCapeFwdCache((m) => ({ ...m, [d]: rows.length ? rows[rows.length - 1] : null })))
+      .catch(() => {});
+  };
   const [loading, setLoading] = useState(true);
   const tSync = useTranslations('Backtesting.regimes');
-  const marketSync = useMarketSyncStream(async () => { await loadAll(); });
+  const queryClient = useQueryClient();
+  const marketSync = useMarketSyncStream(async () => {
+    // Tras la extracción, la caché live de react-query (1h FRED / 5-30min mercado)
+    // seguiría sirviendo valores viejos en fila actual, cards y termómetro.
+    // Invalidarla obliga a releer del backend sin recargar la página.
+    await queryClient.invalidateQueries({ queryKey: ['live'] });
+    await loadAll();
+    window.dispatchEvent(new CustomEvent('bht:synced'));
+  });
   const syncing = marketSync.refreshing;
   const [visibleCount, setVisibleCount] = useState(15);
   const [sortCol, setSortCol] = useState<string>('date');
@@ -252,6 +542,8 @@ export function IndicatorsPanel() {
   const liveHyEy = useLiveTicker('BAMLH0A0HYM2EY');
   const liveCpi = useLiveTicker('CPIAUCSL');
   const liveCore = useLiveTicker('CPILFESL');
+  const liveM2 = useLiveTicker('M2SL');
+  const liveM0 = useLiveTicker('BOGMBASE');
   const liveGdp = useLiveTicker('GDP');
   const liveGdpc1 = useLiveTicker('GDPC1');
   const liveFinra = useLiveTicker('FINRA_DEBIT');
@@ -264,7 +556,7 @@ export function IndicatorsPanel() {
   const liveNqDec = useLiveTicker('NSDQ_DEC_VOL');
   const liveSxAdv = useLiveTicker('SPX_ADV_VOL');
   const liveSxDec = useLiveTicker('SPX_DEC_VOL');
-  const liveMap: Record<string, any> = { '^GSPC': liveGspc, '^IXIC': liveIxic, 'TQQQ': liveTqqq, 'CPIAUCSL': liveCpi, 'CPILFESL': liveCore, 'DFEDTARU': liveFed, 'DGS2': live2y, 'DGS10': live10y, 'DGS30': live30y, 'BAMLH0A0HYM2': liveHyOas, 'BAMLH0A0HYM2EY': liveHyEy, 'GDP': liveGdp, 'GDPC1': liveGdpc1, 'FINRA_DEBIT': liveFinra, 'MSACSR': liveMsacsr, 'VIXCLS': liveVix, 'FEAR_GREED': liveFg, 'NYSE_ADV_VOL': liveNyAdv, 'NYSE_DEC_VOL': liveNyDec, 'NSDQ_ADV_VOL': liveNqAdv, 'NSDQ_DEC_VOL': liveNqDec, 'SPX_ADV_VOL': liveSxAdv, 'SPX_DEC_VOL': liveSxDec };
+  const liveMap: Record<string, any> = { '^GSPC': liveGspc, '^IXIC': liveIxic, 'TQQQ': liveTqqq, 'CPIAUCSL': liveCpi, 'CPILFESL': liveCore, 'M2SL': liveM2, 'BOGMBASE': liveM0, 'DFEDTARU': liveFed, 'DGS2': live2y, 'DGS10': live10y, 'DGS30': live30y, 'BAMLH0A0HYM2': liveHyOas, 'BAMLH0A0HYM2EY': liveHyEy, 'GDP': liveGdp, 'GDPC1': liveGdpc1, 'FINRA_DEBIT': liveFinra, 'MSACSR': liveMsacsr, 'VIXCLS': liveVix, 'FEAR_GREED': liveFg, 'NYSE_ADV_VOL': liveNyAdv, 'NYSE_DEC_VOL': liveNyDec, 'NSDQ_ADV_VOL': liveNqAdv, 'NSDQ_DEC_VOL': liveNqDec, 'SPX_ADV_VOL': liveSxAdv, 'SPX_DEC_VOL': liveSxDec };
   // Historial para gráfica: merge BD + live más reciente para siempre estar al día
   const chartHistory = (() => {
     const merged: Record<string, Map<string, number>> = {};
@@ -366,6 +658,22 @@ export function IndicatorsPanel() {
     if (finra==null || gdp==null || gdp===0) return null;
     return (finra/1000)/gdp*100;
   }
+  function getMarginGdpMa24(isoDate: string, n = 24, minReal = 6): number | null {
+    // MA del ratio mensual; antes de 1999 promedia lo disponible de la época.
+    if (!isValidIsoDate(isoDate)) return null;
+    const vals: number[] = [];
+    const base = new Date(isoDate.slice(0, 10));
+    for (let k=0;k<40 && vals.length<n;k++){
+      const e = new Date(base.getFullYear(), base.getMonth()-k+1, 0);
+      const ek = e.toISOString().slice(0,10);
+      if (ek > isoDate.slice(0,10)) continue;
+      const finra = getRecentPrice(marketHistory['FINRA_DEBIT'], ek, 45);
+      const gdp = getRecentPrice(marketHistory['GDP'], ek, 120);
+      if (finra!=null && gdp) vals.push((finra/1000)/gdp*100);
+    }
+    if (vals.length<minReal) return null;
+    return vals.reduce((a,b)=>a+b,0)/vals.length;
+  }
   function getCpiYoY(map: Map<string, number> | undefined, isoDate: string): number | null {
     // Inflación mensual: no se mueve diario — usar mes más reciente <= isoDate
     if (!map || map.size===0 || !isValidIsoDate(isoDate)) return null;
@@ -379,6 +687,145 @@ export function IndicatorsPanel() {
     const prev = getRecentPrice(map, prevIso, 40);
     if (prev==null || prev===0) return null;
     return (cur/prev -1)*100;
+  }
+  function getCpiMa6(map: Map<string, number> | undefined, isoDate: string, n = 6, minObs = 4): number | null {
+    // Media de los últimos n YoY mensuales <= fecha (para series mensuales como CPI).
+    if (!map || map.size===0 || !isValidIsoDate(isoDate)) return null;
+    let anchor: string | null = null;
+    for (let i=0;i<40;i++){ const d=new Date(isoDate); d.setDate(d.getDate()-i); const k=d.toISOString().slice(0,10); if(map.has(k)){ anchor=k; break; } }
+    if(!anchor){ for(const k of map.keys()) if(k<=isoDate && (anchor==null || k>anchor)) anchor=k; }
+    if(!anchor) return null;
+    const a = new Date(anchor);
+    const vals: number[] = [];
+    for (let k=0;k<n;k++){ const ref=new Date(a); ref.setMonth(ref.getMonth()-k); const y=getCpiYoY(map, ref.toISOString().slice(0,10)); if(y!=null) vals.push(y); }
+    if (vals.length<minObs) return null;
+    return vals.reduce((x,y)=>x+y,0)/vals.length;
+  }
+  function getMa126(map: Map<string, number> | undefined, isoDate: string, n = 126, minObs = 100): number | null {
+    // Media móvil de los últimos n cierres <= fecha (walk de observaciones).
+    if (!map || map.size===0 || !isValidIsoDate(isoDate)) return null;
+    const vals: number[] = [];
+    for (let i=0;i<400 && vals.length<n;i++){ const d=new Date(isoDate); d.setDate(d.getDate()-i); const v=map.get(d.toISOString().slice(0,10)); if(v!=null) vals.push(v); }
+    if (vals.length<minObs) return null;
+    return vals.reduce((a,b)=>a+b,0)/vals.length;
+  }
+  // Bonus asimétrico HY OAS (Régimen 3: +5 armado / +10 G1 / +20 G2). Espejo del backend:
+  // solo suma fuera del promedio base, nunca resta. Requiere 36M de historia.
+  function hyBack(map: Map<string, number>, iso: string, months: number, lookback: number): number | null {
+    const d = new Date(iso.slice(0, 10)); d.setMonth(d.getMonth() - months);
+    return getClosestPrice(map, d.toISOString().slice(0, 10), lookback);
+  }
+  function hySigma24(map: Map<string, number>, isoDate: string, minRefs = 18, floor = 0.20): number | null {
+    if (!map || map.size < 500 || !isValidIsoDate(isoDate)) return null;
+    const base = new Date(isoDate.slice(0, 10));
+    const ds: number[] = [];
+    for (let k = 0; k < 24; k++) {
+      const ref = new Date(base.getFullYear(), base.getMonth() - k + 1, 0);
+      const rk = ref.toISOString().slice(0, 10);
+      if (rk > isoDate.slice(0, 10)) continue;
+      const a = getClosestPrice(map, rk, 12);
+      const b = hyBack(map, rk, 3, 45);
+      if (a == null || b == null) continue;
+      ds.push(a - b);
+    }
+    if (ds.length < minRefs) return null;
+    const m = ds.reduce((x, y) => x + y, 0) / ds.length;
+    const sd = Math.sqrt(ds.reduce((x, y) => x + (y - m) * (y - m), 0) / ds.length);
+    return Math.max(sd, floor);
+  }
+  function hyArmed(map: Map<string, number>, isoDate: string): boolean {
+    if (!map || map.size < 500 || !isValidIsoDate(isoDate)) return false;
+    const vals = [...map.entries()].filter(([k]) => k <= isoDate.slice(0, 10)).map(([, v]) => v).sort((a, b) => a - b);
+    if (vals.length < 500) return false;
+    const p20 = vals[Math.floor(vals.length * 0.2)];
+    const back = new Date(isoDate.slice(0, 10)); back.setMonth(back.getMonth() - 6);
+    const bk = back.toISOString().slice(0, 10);
+    for (const [k, v] of map) if (k > bk && k <= isoDate.slice(0, 10) && v < p20) return true;
+    return false;
+  }
+  function fedRescueLive(fed: Map<string, number> | undefined, isoDate: string): number | null {
+    // Espejo de fedRescue backend: ZIRP tras recortes (efectiva <0.75 con >0.75 en 12M previos).
+    if (!fed || fed.size === 0 || !isValidIsoDate(isoDate)) return null;
+    const cur = getClosestPrice(fed, isoDate, 15);
+    if (cur == null || cur >= 0.75) return null;
+    const b = new Date(isoDate); b.setMonth(b.getMonth() - 12);
+    const cut = b.toISOString().slice(0, 10);
+    let mx = -Infinity;
+    for (const [k, v] of fed) if (k <= isoDate.slice(0, 10) && k >= cut && v > mx) mx = v;
+    if (!(mx > 0.75)) return null;
+    return cur;
+  }
+  function hyLiveBonus(map: Map<string, number> | undefined, isoDate: string, fedMap?: Map<string, number>): { bonus: number; label: string; hy: number | null; z: number | null; d1: number | null } {
+    const none = { bonus: 0, label: 'sin dato', hy: null, z: null, d1: null };
+    const cap = (o: { bonus: number; label: string; hy: number | null; z: number | null; d1: number | null }) => {
+      if (o.bonus > 5 && (d3 == null || d3 < 0.5)) {
+        const f = fedRescueLive(fedMap, isoDate);
+        if (f != null) return { ...o, bonus: 5, label: `${o.label} · tope Fed` };
+      }
+      return o;
+    };
+    if (!map || map.size === 0 || !isValidIsoDate(isoDate)) return none;
+    const hy = getClosestPrice(map, isoDate);
+    if (hy == null) return none;
+    const d1v = hyBack(map, isoDate, 1, 45);
+    const d1 = d1v == null ? null : hy - d1v;
+    const d3v = hyBack(map, isoDate, 3, 45);
+    const d3 = d3v == null ? null : hy - d3v;
+    const sig = hySigma24(map, isoDate);
+    const z = d3 == null || sig == null || sig === 0 ? null : d3 / sig;
+    // Tramos extremos por nivel + impulso (solo semáforo, no tocan los gatillos del Régimen 3).
+    if (hy > 10 && d3 != null && d3 > 0) return cap({ bonus: 35, label: `crítico HY>10 Δ3M +${d3.toFixed(2)}`, hy, z, d1 });
+    if (hy > 9 && d3 != null && d3 > 0) return cap({ bonus: 30, label: `severo HY>9 Δ3M +${d3.toFixed(2)}`, hy, z, d1 });
+    if (hy > 8 && d1 != null && d1 > 0) return cap({ bonus: 25, label: `alto HY>8 Δ1M +${d1.toFixed(2)}`, hy, z, d1 });
+    if (d1 != null && d1 >= 1.0) return cap({ bonus: 20, label: `G2 Δ1M +${d1.toFixed(2)}`, hy, z, d1 });
+    if (z != null && z > 1.5 && hy > 5) return cap({ bonus: 10, label: `G1 z +${z.toFixed(1)}σ`, hy, z, d1 });
+    // Estrés sostenido (solo semáforo, no toca los gatillos del Régimen 3).
+    const m3 = d1v != null && d3v != null ? (hy + d1v + d3v) / 3 : null;
+    if (m3 != null && m3 >= 5.75) return { bonus: 5, label: `sostenido ${m3.toFixed(2)}`, hy, z, d1 };
+    if (hyArmed(map, isoDate)) return { bonus: 5, label: 'armado', hy, z, d1 };
+    return { bonus: 0, label: '—', hy, z, d1 };
+  }
+  // % vs la fila de hace N meses (series mensuales FRED). Espejo de getMonthlyPct backend.
+  function monthlyPctLive(map: Map<string, number> | undefined, isoDate: string, monthsBack: number): number | null {
+    if (!map || map.size === 0 || !isValidIsoDate(isoDate)) return null;
+    let anchor: string | null = null;
+    for (let i = 0; i < 40; i++) { const d = new Date(isoDate); d.setDate(d.getDate() - i); const k = d.toISOString().slice(0, 10); if (map.has(k)) { anchor = k; break; } }
+    if (!anchor) { for (const k of map.keys()) if (k <= isoDate && (anchor == null || k > anchor)) anchor = k; }
+    if (!anchor) return null;
+    const a = new Date(anchor); a.setMonth(a.getMonth() - monthsBack);
+    const prev = getRecentPrice(map, a.toISOString().slice(0, 10), 40);
+    const cur = map.get(anchor)!;
+    if (prev == null || prev === 0) return null;
+    return (cur / prev - 1) * 100;
+  }
+  // Bonus simétrico de liquidez M2/M0. Espejo del backend (con veto M0 y clamp anti-overflow):
+  // viento a favor resta (oportunidad), viento en contra suma (riesgo). Prioridad: bazuca > headwind > tailwind.
+  function liqLiveBonus(m2m: Map<string, number> | undefined, m0m: Map<string, number> | undefined, isoDate: string, cpiMap?: Map<string, number>): { bonus: number; label: string; yoy: number | null; m0d3: number | null; drop: number | null } {
+    const none = { bonus: 0, label: 'sin dato', yoy: null, m0d3: null, drop: null };
+    if (!isValidIsoDate(isoDate)) return none;
+    const yoy = monthlyPctLive(m2m, isoDate, 12);
+    if (yoy == null) return none;
+    const m0d3 = monthlyPctLive(m0m, isoDate, 3);
+    const d3 = new Date(isoDate);
+    const tM = (((d3.getMonth() - 3) % 12) + 12) % 12;
+    d3.setMonth(d3.getMonth() - 3);
+    if (d3.getMonth() !== tM) d3.setDate(0);
+    const yoy3 = monthlyPctLive(m2m, d3.toISOString().slice(0, 10), 12);
+    let peak = -Infinity;
+    for (let m = 0; m < 12; m++) { const q = new Date(isoDate); q.setDate(1); q.setMonth(q.getMonth() - m); const v = monthlyPctLive(m2m, q.toISOString().slice(0, 10), 12); if (v != null && v > peak) peak = v; }
+    const drop = peak > 0 ? Math.max(0, (peak - yoy) / peak * 100) : 0;
+    if (m0d3 != null && m0d3 > 30 && yoy > 8) return { bonus: -25, yoy, m0d3, drop, label: `megabazuca M0 Δ3M +${m0d3.toFixed(1)}% M2 +${yoy.toFixed(1)}%` };
+    if (m0d3 != null && m0d3 > 5 && yoy > 8) return { bonus: -20, yoy, m0d3, drop, label: `bazuca M0 Δ3M +${m0d3.toFixed(1)}% M2 +${yoy.toFixed(1)}%` };
+    if (drop >= 50) {
+      const cpi = getCpiYoY(cpiMap, isoDate);
+      let cpiMax: number | null = null;
+      if (cpi != null) { for (let m = 1; m <= 6; m++) { const q = new Date(isoDate); q.setDate(1); q.setMonth(q.getMonth() - m); const v = getCpiYoY(cpiMap, q.toISOString().slice(0, 10)); if (v != null && (cpiMax == null || v > cpiMax)) cpiMax = v; } }
+      if (cpi == null || cpiMax == null || cpi >= cpiMax) return { bonus: 10, yoy, m0d3, drop, label: `viento en contra M2 −${drop.toFixed(0)}% del pico` };
+      return { bonus: 0, yoy, m0d3, drop, label: '—' };
+    }
+    // Veto M0: sin expansión de base monetaria no hay tailwind.
+    if (yoy > 4 && yoy3 != null && yoy > yoy3 && m0d3 != null && m0d3 > 0) return { bonus: -10, yoy, m0d3, drop, label: `viento a favor M2 +${yoy.toFixed(1)}%` };
+    return { bonus: 0, yoy, m0d3, drop, label: '—' };
   }
   function getChange(isoDate: string, view?: 'daily'|'monthly'|'yearly'): number | null {
     // cambio vs periodo anterior según tab: día / mes / año (view override para export Excel)
@@ -543,7 +990,16 @@ export function IndicatorsPanel() {
           // ya viene sin fines de semana desde backend/pipeline
           setCape(j);
         }
-        const tickers = ['TQQQ', 'QQQ', 'SCHD', 'JEPQ', 'SQQQ', 'VOO', 'SPY', '^GSPC', '^IXIC', 'CPIAUCSL', 'CPILFESL', 'DFEDTARU', 'DGS2', 'DGS10', 'DGS30', 'BAMLH0A0HYM2', 'BAMLH0A0HYM2EY', 'GDP', 'GDPC1', 'FINRA_DEBIT', 'MSACSR', 'VIXCLS', 'FEAR_GREED', 'NYSE_ADV_VOL', 'NYSE_DEC_VOL', 'NSDQ_ADV_VOL', 'NSDQ_DEC_VOL', 'SPX_ADV_VOL', 'SPX_DEC_VOL', 'SPX_EPS', 'SPX_FWD_EPS'];
+        try {
+          const thRes = await fetch(`${base}/api/backtesting/thermo-history?from=1993-01-01`, { cache: 'no-store' });
+          if (thRes.ok) {
+            const arr = await thRes.json();
+            const m: Record<string, { value: number; numerator: number; denominator: number; coverage: number }> = {};
+            for (const row of arr) m[(row.date || '').slice(0, 10)] = row;
+            setThermoHist(m);
+          }
+        } catch {}
+        const tickers = ['TQQQ', 'QQQ', 'SCHD', 'JEPQ', 'SQQQ', 'VOO', 'SPY', '^GSPC', '^IXIC', 'CPIAUCSL', 'CPILFESL', 'M2SL', 'BOGMBASE', 'DFEDTARU', 'DGS2', 'DGS10', 'DGS30', 'BAMLH0A0HYM2', 'BAMLH0A0HYM2EY', 'GDP', 'GDPC1', 'FINRA_DEBIT', 'MSACSR', 'VIXCLS', 'FEAR_GREED', 'NYSE_ADV_VOL', 'NYSE_DEC_VOL', 'NSDQ_ADV_VOL', 'NSDQ_DEC_VOL', 'SPX_ADV_VOL', 'SPX_DEC_VOL', 'SPX_EPS', 'SPX_FWD_EPS'];
         const to = new Date().toISOString().slice(0, 10);
         const from = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
         const m: Record<string, number | null> = {};
@@ -622,17 +1078,21 @@ export function IndicatorsPanel() {
   if (loading) return <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 text-sm text-slate-500">Cargando indicadores...</div>;
 
   const capeLast = cape[cape.length - 1];
-  // PE TTM compartido (tarjeta + termómetro): precio live/último cierre ÷ EPS TTM.
   const thermoToday = new Date().toISOString().slice(0, 10);
   const thermoSpx = (liveGspc?.data?.close != null && liveGspc.data.source !== 'db-fallback') ? Number(liveGspc.data.close) : getClosestPrice(marketHistory['^GSPC'], thermoToday);
-  const thermoEps = getRecentPrice(marketHistory['SPX_EPS'], thermoToday, 120);
-  const thermoPe = thermoSpx != null && thermoEps != null && thermoEps !== 0 ? thermoSpx / thermoEps : null;
   const thermoFwdEps = getRecentPrice(marketHistory['SPX_FWD_EPS'], thermoToday, 130);
   const thermoFwd = thermoSpx != null && thermoFwdEps != null && thermoFwdEps !== 0 ? thermoSpx / thermoFwdEps : null;
+  const thermoEps = getRecentPrice(marketHistory['SPX_EPS'], thermoToday, 120);
+  const thermoPe = thermoSpx != null && thermoEps != null && thermoEps !== 0 ? thermoSpx / thermoEps : null;
   const thermoCpi = getCpiYoY(marketHistory['CPIAUCSL'], liveMap['CPIAUCSL']?.data?.date || thermoToday);
   const thermoCore = getCpiYoY(marketHistory['CPILFESL'], liveMap['CPILFESL']?.data?.date || thermoToday);
-  const thermoFed = (liveMap['DFEDTARU']?.data?.close != null && liveMap['DFEDTARU'].data.source !== 'db-fallback') ? Number(liveMap['DFEDTARU'].data.close) : getClosestPrice(marketHistory['DFEDTARU'], thermoToday);
+  const thermoCpiMa = getCpiMa6(marketHistory['CPIAUCSL'], liveMap['CPIAUCSL']?.data?.date || thermoToday);
+  const thermoCoreMa = getCpiMa6(marketHistory['CPILFESL'], liveMap['CPILFESL']?.data?.date || thermoToday);
+  // Y2M reemplaza a FED en el termómetro (DFEDTARU sigue visible en tablas/cards).
+  const thermoY2 = (liveMap['DGS2']?.data?.close != null && liveMap['DGS2'].data.source !== 'db-fallback') ? Number(liveMap['DGS2'].data.close) : getClosestPrice(marketHistory['DGS2'], thermoToday);
+  const thermoY2ma = getMa126(marketHistory['DGS2'], liveMap['DGS2']?.data?.date || thermoToday);
   const thermoMargin = getMarginGdpRatio(thermoToday);
+  const thermoMarginMa = getMarginGdpMa24(thermoToday);
   const thermoMs = (liveMap['MSACSR']?.data?.close != null && liveMap['MSACSR'].data.source !== 'db-fallback') ? Number(liveMap['MSACSR'].data.close) : getRecentPrice(marketHistory['MSACSR'], thermoToday, 60);
   const thermoGdpc1 = (() => {
     const g = liveMap['GDPC1'];
@@ -648,6 +1108,26 @@ export function IndicatorsPanel() {
   const thermoVix = (liveMap['VIXCLS']?.data?.close != null && liveMap['VIXCLS'].data.source !== 'db-fallback') ? Number(liveMap['VIXCLS'].data.close) : getClosestPrice(marketHistory['VIXCLS'], thermoToday);
   const thermoFg = (liveMap['FEAR_GREED']?.data?.close != null && liveMap['FEAR_GREED'].data.source !== 'db-fallback') ? Number(liveMap['FEAR_GREED'].data.close) : getClosestPrice(marketHistory['FEAR_GREED'], thermoToday);
   const thermoY30 = (liveMap['DGS30']?.data?.close != null && liveMap['DGS30'].data.source !== 'db-fallback') ? Number(liveMap['DGS30'].data.close) : getClosestPrice(marketHistory['DGS30'], thermoToday);
+  const thermoY30ma = getMa126(marketHistory['DGS30'], liveMap['DGS30']?.data?.date || thermoToday);
+  // Serie HY con punto live anexado para el bonus Régimen 3 (asimétrico, fuera del promedio).
+  const hyLiveMap: Map<string, number> | undefined = (() => {
+    const base = marketHistory['BAMLH0A0HYM2'];
+    const lq = liveMap['BAMLH0A0HYM2'];
+    if (!base && lq?.data?.close == null) return undefined;
+    const m = new Map(base ?? []);
+    if (lq?.data?.close != null && lq.data.source !== 'db-fallback' && isValidIsoDate(lq.data.date)) m.set(String(lq.data.date).slice(0, 10), Number(lq.data.close));
+    return m;
+  })();
+  // Series M2/M0 con punto live anexado para el bonus simétrico de liquidez.
+  const liqMergeLive = (key: string): Map<string, number> => {
+    const base = marketHistory[key];
+    const lq = liveMap[key];
+    const m = new Map(base ?? []);
+    if (lq?.data?.close != null && lq.data.source !== 'db-fallback' && isValidIsoDate(lq.data.date)) m.set(String(lq.data.date).slice(0, 10), Number(lq.data.close));
+    return m;
+  };
+  const liqM2Map = liqMergeLive('M2SL');
+  const liqM0Map = liqMergeLive('BOGMBASE');
   const liveFreshMin = (iso?: string) => {
     if(!iso) return null;
     const mins = Math.round((Date.now() - new Date(iso).getTime())/60000);
@@ -677,68 +1157,95 @@ export function IndicatorsPanel() {
         // Termómetro compuesto: promedio ponderado base 100 (no suma). Cada indicador aporta
         // puntaje 0-100 × peso; al agregar más, se normaliza entre el peso total acumulado.
         const capeScore = capeLast?.cape != null ? capeRiskScore(capeLast.cape) : null;
-        const peScore = thermoPe != null ? peRiskScore(thermoPe) : null;
         const fwdScore = thermoFwd != null ? fwdRiskScore(thermoFwd) : null;
         const ratioScore = capeLast?.capeRatio != null ? ratioRiskScore(capeLast.capeRatio) : null;
-        const cpiScore = thermoCpi != null ? cpiRiskScore(thermoCpi) : null;
-        const coreScore = thermoCore != null ? cpiRiskScore(thermoCore) : null;
-        const fedScore = thermoFed != null ? fedRiskScore(thermoFed) : null;
-        const y30Score = thermoY30 != null ? y30RiskScore(thermoY30) : null;
-        const mgScore = thermoMargin != null ? mgRiskScore(thermoMargin) : null;
+        const cpiScore = thermoCpi != null && thermoCpiMa != null ? cpiMScore(thermoCpi, thermoCpiMa) : null;
+        const coreScore = thermoCore != null && thermoCoreMa != null ? cpiMScore(thermoCore, thermoCoreMa) : null;
+        const y2mScore = thermoY2 != null && thermoY2ma != null ? y2mRiskScore(thermoY2, thermoY2ma) : null;
+        const y30Score = thermoY30 != null && thermoY30ma != null ? y30mRiskScore(thermoY30, thermoY30ma) : null;
+        const hyB = hyLiveBonus(hyLiveMap, thermoToday, marketHistory['DFEDTARU']);
+        const liqB = liqLiveBonus(liqM2Map, liqM0Map, thermoToday, marketHistory['CPIAUCSL']);
+        const mgScore = thermoMargin != null && thermoMarginMa != null ? mgMScore(thermoMargin, thermoMarginMa) : null;
         const vixScore = thermoVix != null ? vixRiskScore(thermoVix) : null;
-        const fgScore = thermoFg != null ? Math.max(0, Math.min(100, thermoFg)) : null;
+        const fgScore = thermoFg != null ? fgRiskScore(thermoFg) : null;
         const msScore = thermoMs != null ? msRiskScore(thermoMs) : null;
         const gdpScore = thermoGdpc1 != null ? gdpRiskScore(thermoGdpc1) : null;
-        const parts = [...(capeScore != null && capeLast?.cape != null ? [{ key: 'CAPE', score: capeScore, weight: 20, value: capeLast.cape, dec: 2 }] : []), ...(peScore != null && thermoPe != null ? [{ key: 'PE', score: peScore, weight: 10, value: thermoPe, dec: 2 }] : []), ...(fwdScore != null && thermoFwd != null ? [{ key: 'FWD', score: fwdScore, weight: 10, value: thermoFwd, dec: 2 }] : []), ...(ratioScore != null && capeLast?.capeRatio != null ? [{ key: 'RATIO', score: ratioScore, weight: 5, value: capeLast.capeRatio, dec: 3 }] : []), ...(cpiScore != null && thermoCpi != null ? [{ key: 'CPI', score: cpiScore, weight: 10, value: thermoCpi, dec: 2 }] : []), ...(coreScore != null && thermoCore != null ? [{ key: 'CORE', score: coreScore, weight: 5, value: thermoCore, dec: 2 }] : []), ...(fedScore != null && thermoFed != null ? [{ key: 'FED', score: fedScore, weight: 15, value: thermoFed, dec: 2 }] : []), ...(y30Score != null && thermoY30 != null ? [{ key: '30Y', score: y30Score, weight: 10, value: thermoY30, dec: 2 }] : []), ...(mgScore != null && thermoMargin != null ? [{ key: 'MG', score: mgScore, weight: 10, value: thermoMargin, dec: 2 }] : []), ...(vixScore != null && thermoVix != null ? [{ key: 'VIX', score: vixScore, weight: 10, value: thermoVix, dec: 2 }] : []), ...(fgScore != null && thermoFg != null ? [{ key: 'FG', score: fgScore, weight: 10, value: thermoFg, dec: 0 }] : []), ...(msScore != null && thermoMs != null ? [{ key: 'MS', score: msScore, weight: 5, value: thermoMs, dec: 1 }] : []), ...(gdpScore != null && thermoGdpc1 != null ? [{ key: 'PIB', score: gdpScore, weight: 10, value: thermoGdpc1, dec: 2 }] : [])];
+        const parts = [...(capeScore != null && capeLast?.cape != null ? [{ key: 'CAPE', score: capeScore, weight: 20, value: capeLast.cape, dec: 2 }] : []), ...(fwdScore != null && thermoFwd != null ? [{ key: 'FWD', score: fwdScore, weight: 10, value: thermoFwd, dec: 2 }] : []), ...(ratioScore != null && capeLast?.capeRatio != null ? [{ key: 'RATIO', score: ratioScore, weight: 15, value: capeLast.capeRatio, dec: 3 }] : []), ...(cpiScore != null && thermoCpi != null ? [{ key: 'CPI', score: cpiScore, weight: 10, value: thermoCpi, dec: 2 }] : []), ...(coreScore != null && thermoCore != null ? [{ key: 'CORE', score: coreScore, weight: 10, value: thermoCore, dec: 2 }] : []), ...(y2mScore != null && thermoY2 != null ? [{ key: 'Y2M', score: y2mScore, weight: 10, value: thermoY2, dec: 2 }] : []), ...(y30Score != null && thermoY30 != null ? [{ key: '30Y', score: y30Score, weight: 10, value: thermoY30, dec: 2 }] : []), ...(mgScore != null && thermoMargin != null ? [{ key: 'MG', score: mgScore, weight: 10, value: thermoMargin, dec: 2 }] : []), ...(vixScore != null && thermoVix != null ? [{ key: 'VIX', score: vixScore, weight: 10, value: thermoVix, dec: 2 }] : []), ...(fgScore != null && thermoFg != null ? [{ key: 'FG', score: fgScore, weight: 10, value: thermoFg, dec: 0 }] : []), ...(msScore != null && thermoMs != null ? [{ key: 'MS', score: msScore, weight: 5, value: thermoMs, dec: 1 }] : []), ...(gdpScore != null && thermoGdpc1 != null ? [{ key: 'PIB', score: gdpScore, weight: 5, value: thermoGdpc1, dec: 2 }] : [])];
         const wTotal = parts.reduce((m, p) => m + p.weight, 0);
-        const riskScore = wTotal > 0 ? Math.round(parts.reduce((m, p) => m + p.score * p.weight, 0) / wTotal * 10) / 10 : 0;
-        const riskLabel = riskScore < 25 ? 'Miedo Extremo (Alta Oportunidad)' : riskScore < 45 ? 'Miedo (Oportunidad)' : riskScore <= 55 ? 'Neutral' : riskScore <= 75 ? 'Codicia (Riesgo)' : 'Codicia Extrema (Alto Riesgo)';
-        const riskColor = riskScore < 25 ? 'text-emerald-400' : riskScore < 45 ? 'text-lime-400' : riskScore <= 55 ? 'text-yellow-300' : riskScore <= 75 ? 'text-orange-400' : 'text-red-400';
+        const baseScore = wTotal > 0 ? parts.reduce((m, p) => m + p.score * p.weight, 0) / wTotal : 0;
+        const riskScore = Math.round(Math.min(100, Math.max(0, baseScore + hyB.bonus + liqB.bonus)) * 10) / 10;
+        liveBhtRef.current = { v: riskScore, d: new Date().toISOString().slice(0, 10) };
+        const band = bhtBand(riskScore);
+        const riskLabel = band.label;
+        const riskColor = band.textClass;
         const CX = 100, CY = 104, R = 80;
         const polar = (deg:number, r:number) => { const rad = (deg * Math.PI) / 180; return [CX + r * Math.cos(rad), CY - r * Math.sin(rad)] as const; };
-        const arc = (v0:number, v1:number) => { const a0 = 180 - v0 * 1.8, a1 = 180 - v1 * 1.8; const [x0,y0] = polar(a0, R); const [x1,y1] = polar(a1, R); return `M ${x0.toFixed(1)} ${y0.toFixed(1)} A ${R} ${R} 0 0 1 ${x1.toFixed(1)} ${y1.toFixed(1)}`; };
-        const segs = [[0,20,'#22c55e'],[20,40,'#84cc36'],[40,60,'#eab308'],[60,80,'#f97316'],[80,100,'#ef4444']] as const;
-        const [nx,ny] = polar(180 - riskScore * 1.8, R - 24);
+        // Arco proporcional a la frecuencia histórica (√freq: verde 11%, lima 25%,
+        // amarillo 46%, naranja 13%, rojo 6%): las bandas habituales se ven más grandes.
+        const SEGV = [0, ...BHT_CUTS, 100];
+        const SEGARC = [28, 43, 58, 30, 21];
+        const angL = (v:number) => {
+          const c = Math.max(0, Math.min(100, v));
+          let i = SEGV.findIndex((e, k) => k < SEGV.length - 1 && c >= e && (c < SEGV[k + 1] || (k === SEGV.length - 2 && c <= SEGV[k + 1])));
+          if (i < 0) i = SEGV.length - 2;
+          const acc = SEGARC.slice(0, i).reduce((m, x) => m + x, 0);
+          return acc + ((c - SEGV[i]) / (SEGV[i + 1] - SEGV[i])) * SEGARC[i];
+        };
+        const A = (v:number) => 180 - angL(v);
+        const arc = (v0:number, v1:number) => { const a0 = A(v0) - 0.6, a1 = A(v1) + 0.6; const [x0,y0] = polar(a0, R); const [x1,y1] = polar(a1, R); return `M ${x0.toFixed(1)} ${y0.toFixed(1)} A ${R} ${R} 0 0 1 ${x1.toFixed(1)} ${y1.toFixed(1)}`; };
+        const segs = BHT_BANDS.map((b): readonly [number, number, string] => [b.lo, b.hi, b.color]);
+        const [nx,ny] = polar(A(riskScore), R - 24);
+        const [t0x,t0y] = polar(A(0), R + 12);
+        const [t50x,t50y] = polar(A(50), R + 12);
+        const [t100x,t100y] = polar(A(100), R + 12);
         return (
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
           <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
             <h3 className="font-semibold text-slate-100">Termómetro BuyHoldTime</h3>
-            <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700">en construcción</span>
+            <div className="flex items-center gap-2">
+              <div className="inline-flex rounded-lg border border-slate-700 bg-slate-800/60 p-0.5">
+                {(['overview', 'timeline', 'stats'] as const).map((v) => (
+                  <button key={v} type="button" onClick={() => setThermoView(v)}
+                    className={`px-2.5 py-1 text-[11px] rounded-md transition ${thermoView === v ? 'bg-slate-700 text-slate-100 font-bold' : 'text-slate-400 hover:text-slate-200'}`}>
+                    {v === 'overview' ? 'Overview' : v === 'timeline' ? 'Timeline' : 'Stats'}
+                  </button>
+                ))}
+              </div>
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700">en construcción</span>
+            </div>
           </div>
+          {thermoView === 'timeline' && <BhtTimeline />}
+          {thermoView === 'stats' && <BhtStats />}
+          {thermoView === 'overview' && (
           <div className="flex flex-col lg:flex-row items-center gap-6">
             <svg viewBox="0 0 200 118" className="w-full max-w-[440px] flex-[1.2] shrink" role="img" aria-label={`Riesgo ${riskScore} de 100: ${riskLabel}`}>
               {segs.map(([v0,v1,c]) => <path key={v0} d={arc(v0 + 0.8, v1 - 0.8)} fill="none" stroke={c} strokeWidth="16" strokeLinecap="butt" opacity="0.85" />)}
               <line x1={CX} y1={CY} x2={nx} y2={ny} stroke="#e2e8f0" strokeWidth="3" strokeLinecap="round" />
               <circle cx={CX} cy={CY} r="6" fill="#e2e8f0" />
-              <text x="14" y="116" fill="#64748b" fontSize="9" fontFamily="monospace">0</text>
-              <text x="96" y="14" fill="#64748b" fontSize="9" fontFamily="monospace">50</text>
-              <text x="180" y="116" fill="#64748b" fontSize="9" fontFamily="monospace">100</text>
+              <text x={t0x.toFixed(0)} y={t0y.toFixed(0)} fill="#64748b" fontSize="9" fontFamily="monospace">0</text>
+              <text x={t50x.toFixed(0)} y={t50y.toFixed(0)} fill="#64748b" fontSize="9" fontFamily="monospace">50</text>
+              <text x={t100x.toFixed(0)} y={t100y.toFixed(0)} fill="#64748b" fontSize="9" fontFamily="monospace">100</text>
             </svg>
             <div className="flex-1 w-full text-center lg:text-left">
               <div className="font-mono text-5xl font-bold text-slate-100">{riskScore}<span className="text-lg text-slate-500">/100</span></div>
               <div className={`text-base font-semibold mt-1 ${riskColor}`}>{riskLabel}</div>
             </div>
             <ul className="flex-[1.4] w-full space-y-1">
-              {[
-                ['Miedo Extremo (Alta Oportunidad)','0–24','#22c55e','A mayor miedo, mejor oportunidad: evalúa pisos y sobreventa con CAPE y RSI para entrar fuerte en QQQ, TQQQ, SOXX — incluso con margin.'],
-                ['Miedo (Oportunidad)','25–44','#84cc36','Puedes usar margen y apalancados, sin margen extremo; confirma reversión a tendencia alcista para comprar QQQ, TQQQ y calidad undervalued.'],
-                ['Neutral','45–55','#eab308','No compres ni incrementes apalancados o alto margen (TQQQ, SOXL). Estrategia base: Hold de tus posiciones y acumula liquidez y defensivas.'],
-                ['Codicia (Riesgo)','56–75','#f97316','Reduce QQQ/TQQQ/SOXX y baja el margen; mantén al menos 10% en Cash/SGOV para oportunidades.'],
-                ['Codicia Extrema (Alto Riesgo)','76–100','#ef4444','Cero margen y apalancados a menos del 20%; lleva 20–40% a defensivas (SGOV/IB01 o SCHD según tu perfil), acumula CASH para caídas y reduce acciones/ETFs caros de forma incremental según suba el CAPE Ratio.'],
-              ].map(([label,range,c,tip]) => {
-                const on = label === riskLabel;
-                return <li key={label} className={`px-3 py-1.5 rounded-lg text-xs ${on ? 'bg-slate-800 text-slate-100' : 'text-slate-500'}`}>
+              {BHT_BANDS.map((b) => {
+                const on = b.label === riskLabel;
+                return <li key={b.label} className={`px-3 py-1.5 rounded-lg text-xs ${on ? 'bg-slate-800 text-slate-100' : 'text-slate-500'}`}>
                   <div className="flex items-center gap-2.5">
-                    <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{background:c}} />
-                    <span className={`flex-1 ${on ? 'font-semibold' : ''}`}>{label}</span>
-                    <span className="font-mono">{range}</span>
+                    <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{background:b.color}} />
+                    <span className={`flex-1 ${on ? 'font-semibold' : ''}`}>{b.label}</span>
+                    <span className="font-mono">{b.range}</span>
                   </div>
-                  <p className={`mt-0.5 pl-5 text-[11px] leading-snug ${on ? 'text-slate-300' : 'text-slate-500'}`}>{tip}</p>
+                  <p className={`mt-0.5 pl-5 text-[11px] leading-snug ${on ? 'text-slate-300' : 'text-slate-500'}`}>{b.advice}</p>
                 </li>;
               })}
             </ul>
           </div>
-          <p className="text-[11px] text-slate-500 mt-2">Riesgo del mercado general · 0 = riesgo mínimo · 100 = riesgo máximo. Ponderado base 100: {parts.length ? parts.map(p => `${p.key} ${p.score.toFixed(0)}×${p.weight}`).join(' + ') + ` ÷ ${wTotal}` : 'sin indicadores'} · ${parts.length} indicador${parts.length === 1 ? '' : 'es'} (más por agregar: crédito, volatilidad, amplitud).</p>
+          )}
+          <p className="text-[11px] text-slate-500 mt-2">Riesgo del mercado general · 0 = riesgo mínimo · 100 = riesgo máximo. Ponderado base 100: {parts.length ? parts.map(p => `${partName(p.key)} ${p.score.toFixed(0)}×${p.weight}`).join(' + ') + ` ÷ ${wTotal}` : 'sin indicadores'}{hyB.bonus > 0 ? ` + bonus HY ${hyB.label} (+${hyB.bonus})` : ''}{liqB.bonus !== 0 ? ` + bonus liquidez ${liqB.label} (${liqB.bonus > 0 ? '+' : ''}${liqB.bonus})` : ''} · {parts.length} indicadores + bonus crédito y liquidez.</p>
           <button type="button" onClick={() => setRiskDetailOpen(o => !o)} className="mt-2 text-xs px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800 text-slate-200 hover:text-teal-300 hover:border-slate-600 transition">
             {riskDetailOpen ? '▾ Ocultar detalle' : '▸ Ver detalle del cálculo'}
           </button>
@@ -751,15 +1258,29 @@ export function IndicatorsPanel() {
                 <tbody>
                   {parts.map(p => (
                     <tr key={p.key} className="border-b border-slate-800/60 text-slate-300">
-                      <td className="px-3 py-1.5">{p.key}</td>
+                      <td className="px-3 py-1.5">{partLabel(p.key)}</td>
                       <td className="text-right px-3 py-1.5">{p.value.toFixed(p.dec)}</td>
                       <td className="text-right px-3 py-1.5" style={{ color: capeScoreColor(p.score) }}>{p.score.toFixed(0)}</td>
                       <td className="text-right px-3 py-1.5 text-slate-400">{p.weight}</td>
                       <td className="text-right px-3 py-1.5 text-sky-300">{(p.score * p.weight / (wTotal || 1)).toFixed(1)}</td>
                     </tr>
                   ))}
+                  <tr className="border-b border-slate-800/60 text-slate-300">
+                    <td className="px-3 py-1.5">HY Bonus - (Régimen 3 {hyB.label})</td>
+                    <td className="text-right px-3 py-1.5">{hyB.hy != null ? hyB.hy.toFixed(2) : '—'}</td>
+                    <td className="text-right px-3 py-1.5" style={{ color: hyB.bonus > 0 ? '#f97316' : '#64748b' }}>{hyB.bonus > 0 ? `+${hyB.bonus}` : '0'}</td>
+                    <td className="text-right px-3 py-1.5 text-slate-400">—</td>
+                    <td className="text-right px-3 py-1.5 text-sky-300">+{hyB.bonus.toFixed(1)}</td>
+                  </tr>
+                  <tr className="border-b border-slate-800/60 text-slate-300">
+                    <td className="px-3 py-1.5">Bonus liquidez M2/M0 ({liqB.label})</td>
+                    <td className="text-right px-3 py-1.5">{liqB.yoy != null ? `M2 +${liqB.yoy.toFixed(1)}%` : '—'}{liqB.m0d3 != null ? ` · M0 ${liqB.m0d3 >= 0 ? '+' : ''}${liqB.m0d3.toFixed(1)}%` : ''}</td>
+                    <td className="text-right px-3 py-1.5" style={{ color: liqB.bonus > 0 ? '#f97316' : liqB.bonus < 0 ? '#34d399' : '#64748b' }}>{liqB.bonus !== 0 ? `${liqB.bonus > 0 ? '+' : ''}${liqB.bonus}` : '0'}</td>
+                    <td className="text-right px-3 py-1.5 text-slate-400">—</td>
+                    <td className="text-right px-3 py-1.5 text-sky-300">{liqB.bonus !== 0 ? `${liqB.bonus > 0 ? '+' : ''}${liqB.bonus.toFixed(1)}` : '0.0'}</td>
+                  </tr>
                   <tr className="text-slate-100 font-semibold">
-                    <td className="px-3 py-1.5" colSpan={4}>Puntaje final = Σ ÷ {wTotal}</td>
+                    <td className="px-3 py-1.5" colSpan={4}>Puntaje final = Σ ÷ {wTotal}{hyB.bonus > 0 ? ` + bonus ${hyB.bonus}` : ''}{liqB.bonus !== 0 ? ` ${liqB.bonus > 0 ? '+' : ''}${liqB.bonus} liq` : ''}</td>
                     <td className="text-right px-3 py-1.5">{riskScore.toFixed(1)}</td>
                   </tr>
                 </tbody>
@@ -780,7 +1301,7 @@ export function IndicatorsPanel() {
           inflation: 'CPI YoY = (CPI_t / CPI_{t-12} -1)*100. >3% presiona Fed a subir tasas. Dato mensual FRED CPIAUCSL.',
           core_inflation: 'Core CPI sin alimentos/energía. Más estable, la Fed lo mira para decidir tasas.',
           fed_rate: 'FED Target Upper (DFEDTARU). 0.25% 2008-2015 ZIRP, hoy ~3.75%. Sube para frenar inflación.',
-          treasury_30y: 'Treasury 30Y = tasa libre de riesgo larga. Base para valorar acciones vs bonos.',
+          treasury_30y: '30Y Momentum: nivel del Treasury 30Y + delta vs MA6M. Se acelera al alza = freno a economía y liquidez (riesgo); cae = alivio. Base para valorar acciones vs bonos.',
           vix: 'VIX = volatilidad implícita S&P 500. >30 pánico, <15 complacencia.',
           fear_greed: 'Fear & Greed 0-100. <25 miedo (oportunidad), >75 avaricia (riesgo).',
           '^GSPC': 'S&P 500 (^GSPC) = índice 500 grandes USA. Referencia del mercado.',
@@ -792,18 +1313,20 @@ export function IndicatorsPanel() {
           'SCHD': 'SCHD = Dividendos calidad. Inception 2011-10-20.',
           'JEPQ': 'JEPQ = Nasdaq con covered calls + yield. Inception 2022-05-03.',
           'SQQQ': 'SQQQ = -3× QQQ (inverso). Cobertura bajista.',
-          'DFEDTARU': 'FED Target Upper. Ver fed_rate.',
-          'DGS2': 'Treasury 2Y = tasa corta. 2Y > 10Y = curva invertida (anticipa recesión).',
+          'DFEDTARU': 'FED Target Upper = techo del rango de tasa de la Fed. 0.25% en ZIRP 2008-2015; sube para frenar inflación, baja para rescatar.',
+          'DGS2': '2Y Momentum: nivel del Treasury 2Y + delta vs MA6M. Sube acelerado = endurecimiento descontado (riesgo); cae desde alto = alivio (oportunidad). Anticipa a la Fed. 2Y > 10Y = curva invertida.',
           'DGS10': 'Treasury 10Y = risk-free. Base para HY 10Y+OAS.',
-          'DGS30': 'Treasury 30Y = larga. Ver treasury_30y.',
-          'CPIAUCSL': 'CPI YoY = inflación total. Ver inflation.',
-          'CPILFESL': 'Core CPI YoY. Ver core_inflation.',
+          'DGS30': 'Treasury 30Y = bono del Tesoro a 30 años. Nivel + delta vs MA6M: al alza frena economía y liquidez (riesgo); a la baja alivia. Base para valorar acciones vs bonos.',
+          'CPIAUCSL': 'CPI YoY = (CPI_t / CPI_{t-12} -1)*100, inflación total. >3% presiona a la Fed a subir tasas. Dato mensual FRED.',
+          'M2SL': 'M2 = oferta monetaria amplia (efectivo + depósitos + money-market, billones $, FRED mensual). YoY >4% y acelerando + M0 expandiendo = viento a favor: bonus −10 al semáforo (oportunidad).',
+          'BOGMBASE': 'M0 = base monetaria (efectivo + reservas bancarias, FRED mensual). Δ3M >+5% con M2 >8% = bazuca Fed −20; >+30% = megabazuca −25. Si Δ3M ≤ 0 veta el tailwind.',
+          'CPILFESL': 'Core CPI sin alimentos ni energía. Más estable; es lo que la Fed mira para decidir tasas.',
           'BAMLH0A0HYM2': 'HY OAS = prima riesgo high-yield sobre Treasuries. >5% estrés (2008/2020). Proxy BAA10Y*1.91 pre-2023.',
           'BAMLH0A0HYM2EY': 'HY Effective Yield = tasa total HY (cupón+precio). Lo que pagan empresas HY.',
           'GDP': 'GDP = PIB nominal trimestral USA (FRED GDP, $ billones SAAR). >4% nominal fuerte, <2% débil. Se muestra con YoY nominal y real.',
           'GDPC1': 'GDPC1 = PIB real (ajustado inflación, billones 2017$). >2% expansión, <0% recesión. FRED GDPC1, YoY real = crecimiento volumen.',
           'FINRA_DEBIT': 'FINRA Debit = saldos deudores en cuentas de margen (FINRA, millones $). Alto = apalancamiento elevado, riesgo de margin calls. Dato mensual, Excel FINRA. 1997→hoy.',
-          'MARGIN_GDP': 'Apalancamiento/PIB = FINRA Debit / PIB nominal. >6% extremo (euforia apalancada, riesgo de crash), 4-6% elevado, 2-4% normal, <2% bajo. Anticipa deleveraging.',
+          'MARGIN_GDP': 'Apalancamiento/PIB = FINRA Debit / PIB nominal. ≥5% extremo (euforia apalancada, riesgo de crash), 4-5% muy alto, 3-4% elevado, 2-3% normal, <2% bajo. Anticipa deleveraging.',
           'MSACSR': 'Meses de inventario de casas nuevas USA (FRED MSACSR, mensual). >6m = exceso de oferta (mercado frío, caen precios), 4-6m equilibrado, <4m escasez (mercado caliente). Anticipa freno en construcción y consumo.',
           'VIXCLS': 'VIX = volatilidad implícita S&P 500 a 30 días (FRED VIXCLS, diario). >30 pánico (oportunidad), 15-20 normal, <15 complacencia.',
           'FEAR_GREED': 'CNN Fear & Greed 0-100 (diario, ~1Y historia). <25 miedo extremo (oportunidad), 25-45 miedo, 45-55 neutral, 55-75 codicia, >75 codicia extrema (riesgo).',
@@ -817,6 +1340,7 @@ export function IndicatorsPanel() {
         const catOrder = [
           { key: 'valoracion', label: 'Valoración', icon: '📊', keys: ['schiller_pe','pe_ratio','fwd_pe_ratio'] },
           { key: 'inflacion', label: 'Inflación y Política Monetaria', icon: '🏛️', keys: ['inflation','core_inflation','fed_rate'] },
+          { key: 'liquidez', label: 'Liquidez', icon: '💧', keys: ['M2SL','BOGMBASE'] },
           { key: 'sentimiento', label: 'Sentimiento', icon: '😱', keys: ['VIXCLS','FEAR_GREED'] },
           { key: 'apalancamiento', label: 'Apalancamiento', icon: '💳', keys: ['FINRA_DEBIT','MARGIN_GDP'] },
           { key: 'tasas', label: 'Curva y Crédito', icon: '📈', keys: ['treasury_30y','DGS2','DGS10','DGS30','BAMLH0A0HYM2','BAMLH0A0HYM2EY'] },
@@ -826,6 +1350,21 @@ export function IndicatorsPanel() {
           { key: 'mercado', label: 'Mercado al contado', icon: '💹', keys: ['^GSPC','^IXIC','TQQQ','QQQ','SPY','VOO','SCHD','JEPQ','SQQQ'] },
         ];
         const indByKey = new Map(indicators.map((i:any)=>[i.key, i]));
+        const marketName: Record<string, string> = {
+          'DGS2': 'Treasury 2Y', 'DGS10': 'Treasury 10Y', 'DGS30': 'Treasury 30Y',
+          'BAMLH0A0HYM2': 'High-Yield Spread', 'BAMLH0A0HYM2EY': 'High-Yield Yield',
+          'DFEDTARU': 'Tasa Fed', 'CPIAUCSL': 'Inflación (CPI)', 'CPILFESL': 'Inflación núcleo',
+          'M2SL': 'Oferta monetaria M2', 'BOGMBASE': 'Base monetaria M0',
+          'GDP': 'PIB nominal USA', 'GDPC1': 'PIB real USA', 'FINRA_DEBIT': 'Deuda de margen',
+          'MARGIN_GDP': 'Apalancamiento / PIB', 'MSACSR': 'Inventario vivienda',
+          'VIXCLS': 'Volatilidad VIX', 'FEAR_GREED': 'Miedo y Avaricia',
+          '^GSPC': 'S&P 500', '^IXIC': 'Nasdaq', 'TQQQ': 'TQQQ 3×', 'QQQ': 'Nasdaq 100',
+          'SPY': 'S&P 500 ETF', 'VOO': 'S&P 500 Vanguard', 'SCHD': 'Dividendos SCHD',
+          'JEPQ': 'Nasdaq cubierto JEPQ', 'SQQQ': 'Inverso SQQQ',
+          'SPX_ADV_VOL': 'Vol. al alza S&P', 'SPX_DEC_VOL': 'Vol. a la baja S&P',
+          'NYSE_ADV_VOL': 'Vol. al alza NYSE', 'NYSE_DEC_VOL': 'Vol. a la baja NYSE',
+          'NSDQ_ADV_VOL': 'Vol. al alza Nasdaq', 'NSDQ_DEC_VOL': 'Vol. a la baja Nasdaq',
+        };
         const mktTickers = Object.keys(markets);
         const renderTooltip = (text:string) => (
           <div className="group relative inline-flex ml-1">
@@ -843,24 +1382,20 @@ export function IndicatorsPanel() {
           const useLive = liveVal!=null && liveSrc!=='db-fallback';
           const isInflation = ind.key==='inflation' || ind.key==='core_inflation';
           const inflationYoY = isInflation ? getCpiYoY(marketHistory[liveKey!], liveMap[liveKey!]?.data?.date || new Date().toISOString().slice(0,10)) : null;
-          const displayValue = isSchiller && capeLast?.cape != null ? capeLast.cape : (isInflation && inflationYoY!=null ? inflationYoY : (useLive ? liveVal : ind.currentValue));
+          const displayValue = isSchiller && capeLast?.cape != null ? capeLast.cape : (isInflation && inflationYoY!=null ? inflationYoY : (ind.key==='fwd_pe_ratio' && thermoFwd!=null ? thermoFwd : (ind.key==='pe_ratio' && thermoPe!=null ? thermoPe : (useLive ? liveVal : ind.currentValue))));
           const displayStatus = isSchiller && capeLast?.cape != null ? (capeLast.cape >= 30 ? 'High' : capeLast.cape >= 20 ? 'Normal' : 'Low') : ind.status;
           const tip = tooltipMap[ind.key] || ind.description || '';
           // Grupo banda+orbe estándar: una sola config por tarjeta con puntaje.
           const sg = isSchiller && capeLast?.cape != null
-            ? { label: capeBandLabel(capeLast.cape), score: Math.round(capeRiskScore(capeLast.cape)), name: 'CAPE', value: capeLast.cape, dec: 2, weight: 20, bands: CAPE_BANDS }
-            : ind.key === 'pe_ratio' && thermoPe != null
-            ? { label: peBandLabel(thermoPe), score: Math.round(peRiskScore(thermoPe)), name: 'PE TTM', value: thermoPe, dec: 2, weight: 10, bands: PE_BANDS }
+            ? { label: capeBandLabel(capeLast.cape), score: Math.round(capeRiskScore(capeLast.cape)), name: 'CAPE', value: capeLast.cape, dec: 2, weight: 20, bands: CAPE_BANDS, blend: null as MomBlend }
             : ind.key === 'fwd_pe_ratio' && thermoFwd != null
-            ? { label: fwdBandLabel(thermoFwd), score: Math.round(fwdRiskScore(thermoFwd)), name: 'Fwd PE', value: thermoFwd, dec: 2, weight: 10, bands: FWD_BANDS }
-            : ind.key === 'inflation' && thermoCpi != null
-            ? { label: cpiBandLabel(thermoCpi), score: Math.round(cpiRiskScore(thermoCpi)), name: 'CPI', value: thermoCpi, dec: 2, weight: 10, bands: CPI_BANDS }
-            : ind.key === 'core_inflation' && thermoCore != null
-            ? { label: cpiBandLabel(thermoCore), score: Math.round(cpiRiskScore(thermoCore)), name: 'Core', value: thermoCore, dec: 2, weight: 5, bands: CPI_BANDS }
-            : ind.key === 'fed_rate' && thermoFed != null
-            ? { label: fedBandLabel(thermoFed), score: Math.round(fedRiskScore(thermoFed)), name: 'FED', value: thermoFed, dec: 2, weight: 15, bands: FED_BANDS }
-            : ind.key === 'treasury_30y' && thermoY30 != null
-            ? { label: y30BandLabel(thermoY30), score: Math.round(y30RiskScore(thermoY30)), name: '30Y', value: thermoY30, dec: 2, weight: 10, bands: Y30_BANDS }
+            ? { label: fwdBandLabel(thermoFwd), score: Math.round(fwdRiskScore(thermoFwd)), name: 'Fwd PE', value: thermoFwd, dec: 2, weight: 10, bands: FWD_BANDS, blend: null as MomBlend }
+            : ind.key === 'inflation' && thermoCpi != null && thermoCpiMa != null
+            ? { label: cpiBandLabel(cpiMScore(thermoCpi, thermoCpiMa)), score: Math.round(cpiMScore(thermoCpi, thermoCpiMa)), name: 'CPI', value: thermoCpi, dec: 2, weight: 10, bands: CPI_BANDS, blend: momBlend(CPI_LVL_SEGS, CPI_TRD_SEGS, thermoCpi, thermoCpiMa) as MomBlend }
+            : ind.key === 'core_inflation' && thermoCore != null && thermoCoreMa != null
+            ? { label: cpiBandLabel(cpiMScore(thermoCore, thermoCoreMa)), score: Math.round(cpiMScore(thermoCore, thermoCoreMa)), name: 'Core', value: thermoCore, dec: 2, weight: 10, bands: CPI_BANDS, blend: momBlend(CPI_LVL_SEGS, CPI_TRD_SEGS, thermoCore, thermoCoreMa) as MomBlend }
+            : ind.key === 'treasury_30y' && thermoY30 != null && thermoY30ma != null
+            ? { label: y30mBandLabel(y30mRiskScore(thermoY30, thermoY30ma)), score: Math.round(y30mRiskScore(thermoY30, thermoY30ma)), name: '30Y', value: thermoY30, dec: 2, weight: 10, bands: Y30_BANDS, blend: momBlend(Y30M_LVL_SEGS, Y2M_TRD_SEGS, thermoY30, thermoY30ma) as MomBlend }
             : null;
           return (
             <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 group/card">
@@ -871,7 +1406,7 @@ export function IndicatorsPanel() {
                 {sg ? (
                   <span className="ml-auto inline-flex items-center gap-1.5 rounded-full border border-slate-700/70 bg-slate-800/50 py-0.5 pl-2.5 pr-1">
                     {(()=>{ const c = capeScoreColor(sg.score); return <span className="text-xs font-semibold" style={{ color: c }}>{sg.label}</span>; })()}
-                    <ScoreOrb name={sg.name} value={sg.value} dec={sg.dec} weight={sg.weight} score={sg.score} bands={sg.bands} small />
+                    <ScoreOrb name={sg.name} value={sg.value} dec={sg.dec} weight={sg.weight} score={sg.score} bands={sg.bands} blend={sg.blend} small />
                   </span>
                 )
                 : <span className={`text-xs px-2 py-0.5 rounded-full border ${displayStatus==='High'?'bg-orange-500/20 text-orange-400 border-orange-500/30':displayStatus==='Greed'?'bg-emerald-500/20 text-emerald-400 border-emerald-500/30':'bg-slate-800 text-slate-400 border-slate-700'}`}>{displayStatus}</span>}
@@ -889,14 +1424,18 @@ export function IndicatorsPanel() {
             const ratio = finraVal!=null && gdpVal!=null && gdpVal!==0 ? (finraVal/1000)/gdpVal*100 : null;
             const tip = tooltipMap[t] || '';
             const fresh = liveFreshMin(liveFinra?.data?.date || liveGdp?.data?.date);
-            const level = ratio==null ? null : ratio>6?'Extremo': ratio>4?'Elevado': ratio>2?'Normal':'Bajo';
-            const levelColor = ratio==null?'text-slate-400': ratio>6?'text-red-400': ratio>4?'text-orange-400': ratio>2?'text-yellow-400':'text-emerald-400';
+            const level = ratio==null ? null : ratio>=5?'Extremo': ratio>=4.5?'Muy alto': ratio>=4?'Alto': ratio>=3?'Elevado': ratio>=2?'Normal':'Bajo';
+            const levelColor = ratio==null?'text-slate-400': ratio>=5?'text-red-400': ratio>=4?'text-orange-400': ratio>=2?'text-yellow-400':'text-emerald-400';
+            const mgM = ((): { ma: number; d: number; score: number; levelScore: number; trendScore: number } | null => { if(ratio==null) return null; const ma = getMarginGdpMa24(new Date().toISOString().slice(0,10)); if(ma==null) return null; const b = momBlend(MG_SEGS, MG_TRD_SEGS, ratio, ma); return { ma, d: b.delta, score: Math.round(0.4*b.levelScore+0.6*b.trendScore), levelScore: b.levelScore, trendScore: b.trendScore }; })();
             return (
               <div className="border rounded-lg px-3 py-2 bg-rose-500/10 border-rose-500/30 ring-1 ring-rose-500/20">
                 <div className="text-xs text-slate-500 flex items-center gap-1.5">MARGIN_GDP {tip && renderTooltip(tip)} <span className="text-[10px] px-1.5 py-0.5 rounded bg-rose-500 text-white font-bold">Ratio</span></div>
-                <div className="font-mono text-slate-100 text-lg flex items-center gap-2">{ratio!=null? `${ratio.toFixed(2)}%`:'—'}{ratio!=null && <span className="ml-auto"><ScoreOrb name="Margen/PIB" value={ratio} weight={10} score={Math.round(mgRiskScore(ratio))} bands={MG_BANDS} small /></span>}</div>
+              <div className="font-semibold text-slate-100 truncate">{marketName['MARGIN_GDP']}</div>
+                <div className="font-mono text-slate-100 text-lg flex items-center gap-2">{ratio!=null? `${ratio.toFixed(2)}%`:'—'}{ratio!=null && mgM!=null && <span className="ml-auto"><ScoreOrb name="Margen/PIB" value={ratio} weight={10} score={mgM.score} bands={MG_BANDS} blend={{ level: ratio, levelScore: mgM.levelScore, delta: mgM.d, ma: mgM.ma, maLabel: 'MA24M', trendScore: mgM.trendScore }} small /></span>}</div>
                 {ratio!=null && <div className={`text-[11px] font-mono font-semibold ${levelColor}`}>{level} · FINRA ${(finraVal!/1000).toFixed(0)}B / GDP ${(gdpVal!/1000).toFixed(1)}T</div>}
+                {ratio!=null && mgM!=null && <div className="text-[11px] font-mono font-semibold text-slate-400">Δ {mgM.d>=0?'+':''}{mgM.d.toFixed(2)}pp vs MA24M {mgM.ma.toFixed(2)}% · <span style={{color: capeScoreColor(mgM.score)}}>{mgBandLabel(mgM.score)}</span></div>}
                 {fresh && <div className="text-[11px] text-slate-500">{fresh} · FINRA/GDP</div>}
+                {tip && <div className="text-xs text-slate-500 mt-2 line-clamp-2">{tip}</div>}
               </div>
             );
           }
@@ -913,10 +1452,21 @@ export function IndicatorsPanel() {
           const isMsacsr = t==='MSACSR';
           const isVix = t==='VIXCLS';
           const isFg = t==='FEAR_GREED';
+          const isHyOas = t==='BAMLH0A0HYM2';
+          const isM2 = t==='M2SL';
+          const isM0 = t==='BOGMBASE';
           const isBreadth = t==='NYSE_ADV_VOL'||t==='NYSE_DEC_VOL'||t==='NSDQ_ADV_VOL'||t==='NSDQ_DEC_VOL'||t==='SPX_ADV_VOL'||t==='SPX_DEC_VOL';
-          const fmt = (n:number) => isGDP ? `$${(n/1000).toFixed(1)}T` : isFinra ? `$${(n/1000).toFixed(0)}B` : isMsacsr ? `${n.toFixed(1)} m` : isVix ? n.toFixed(2) : isFg ? n.toFixed(0) : isBreadth ? `${(n/1e9).toFixed(2)}B` : isYield ? `${n.toFixed(2)}%` : `$${n.toFixed(2)}`;
+          const fmt = (n:number) => isGDP ? `$${(n/1000).toFixed(1)}T` : (isM2||isM0) ? `$${(n/1000).toFixed(2)}T` : isFinra ? `$${(n/1000).toFixed(0)}B` : isMsacsr ? `${n.toFixed(1)} m` : isVix ? n.toFixed(2) : isFg ? n.toFixed(0) : isBreadth ? `${(n/1e9).toFixed(2)}B` : isYield ? `${n.toFixed(2)}%` : `$${n.toFixed(2)}`;
           // CPI cards: YoY mensual fijo (no diario) — live usa mes más reciente
           const cpiYoYForCard = isCpi ? getCpiYoY(marketHistory[t], liveMap[t]?.data?.date || new Date().toISOString().slice(0,10)) : null;
+          const cpiMForCard = ((): { yoy: number; ma: number; d: number; score: number; levelScore: number; trendScore: number } | null => { if(!isCpi) return null; const yoy = cpiYoYForCard; if(yoy==null) return null; const ma = getCpiMa6(marketHistory[t], liveMap[t]?.data?.date || new Date().toISOString().slice(0,10)); if(ma==null) return null; const b = momBlend(CPI_LVL_SEGS, CPI_TRD_SEGS, yoy, ma); return { yoy, ma, d: b.delta, score: Math.round(0.4*b.levelScore+0.6*b.trendScore), levelScore: b.levelScore, trendScore: b.trendScore }; })();
+          // Y2M para la card DGS2: nivel + delta vs MA6M (reemplaza a FED en el termo).
+          const y2mForCard = ((): { cur: number; ma: number; d: number; score: number; levelScore: number; trendScore: number } | null => { if(t!=='DGS2') return null; const cur = showLive ? Number(live) : (v!=null ? Number(v) : null); if(cur==null) return null; const refRaw = q?.data?.date; const refDate = isValidIsoDate(refRaw) ? String(refRaw).slice(0,10) : new Date().toISOString().slice(0,10); const ma = getMa126(marketHistory['DGS2'], refDate); if(ma==null) return null; const b = momBlend(Y2M_LVL_SEGS, Y2M_TRD_SEGS, cur, ma); return { cur, ma, d: b.delta, score: Math.round(0.4*b.levelScore+0.6*b.trendScore), levelScore: b.levelScore, trendScore: b.trendScore }; })();
+          const y30mForCard = ((): { cur: number; ma: number; d: number; score: number; levelScore: number; trendScore: number } | null => { if(t!=='DGS30') return null; const cur = showLive ? Number(live) : (v!=null ? Number(v) : null); if(cur==null) return null; const refRaw = q?.data?.date; const refDate = isValidIsoDate(refRaw) ? String(refRaw).slice(0,10) : new Date().toISOString().slice(0,10); const ma = getMa126(marketHistory['DGS30'], refDate); if(ma==null) return null; const b = momBlend(Y30M_LVL_SEGS, Y2M_TRD_SEGS, cur, ma); return { cur, ma, d: b.delta, score: Math.round(0.4*b.levelScore+0.6*b.trendScore), levelScore: b.levelScore, trendScore: b.trendScore }; })();
+          // HY OAS: card informativa sin orbe de peso — bonus asimétrico Régimen 3 fuera del promedio.
+          const hyCardB = isHyOas ? hyLiveBonus(hyLiveMap, isValidIsoDate(q?.data?.date) ? String(q.data.date).slice(0, 10) : new Date().toISOString().slice(0, 10), marketHistory['DFEDTARU']) : null;
+          // M2/M0: cards informativas con el bonus simétrico de liquidez (fuera del promedio, como HY).
+          const liqCardB = (isM2||isM0) ? liqLiveBonus(liqM2Map, liqM0Map, isValidIsoDate(q?.data?.date) ? String(q.data.date).slice(0, 10) : new Date().toISOString().slice(0, 10), marketHistory['CPIAUCSL']) : null;
           const gdpYoY = (()=>{ if(t!=='GDP') return null; const cur = showLive ? Number(live) : (v!=null? Number(v): null); if(cur==null) return null; const refRaw = q?.data?.date; const refDate = isValidIsoDate(refRaw) ? String(refRaw).slice(0,10) : new Date().toISOString().slice(0,10); const d=new Date(refDate); d.setFullYear(d.getFullYear()-1); const iso=d.toISOString().slice(0,10); const prev=getClosestPrice(marketHistory['GDP'], iso, 95) ?? getClosestPrice(marketHistory['GDP'], refDate, 95);
             let p = prev; if(p==null){ const qd = new Date(refDate); qd.setMonth(qd.getMonth()-12); p = getClosestPrice(marketHistory['GDP'], qd.toISOString().slice(0,10), 95); } if(p==null || p===0) return null; return (cur/p -1)*100; })();
           const gdpc1YoY = (()=>{ if(t!=='GDP') return null; const fwdRaw = liveGdpc1?.data?.date; const fwdDate = isValidIsoDate(fwdRaw) ? String(fwdRaw).slice(0,10) : new Date().toISOString().slice(0,10); const curReal = liveGdpc1?.data?.close ?? getClosestPrice(marketHistory['GDPC1'], fwdDate, 95); if(curReal==null) return null; const refRaw = isValidIsoDate(liveGdpc1?.data?.date) ? liveGdpc1?.data?.date : q?.data?.date; const refDate = isValidIsoDate(refRaw) ? String(refRaw).slice(0,10) : new Date().toISOString().slice(0,10); const d=new Date(refDate); d.setFullYear(d.getFullYear()-1); const iso=d.toISOString().slice(0,10); const prev=getClosestPrice(marketHistory['GDPC1'], iso, 95); let p=prev; if(p==null){ const qd=new Date(refDate); qd.setMonth(qd.getMonth()-12); p=getClosestPrice(marketHistory['GDPC1'], qd.toISOString().slice(0,10),95);} if(p==null||p===0) return null; return (curReal/p -1)*100; })();
@@ -926,23 +1476,36 @@ export function IndicatorsPanel() {
             return (
               <div className={`border rounded-lg px-3 py-2 ${showLive ? 'bg-teal-500/10 border-teal-500/30 ring-1 ring-teal-500/20' : 'bg-slate-800/60 border-slate-700'}`}>
                 <div className="text-xs text-slate-500 flex items-center gap-1.5">{t} {tip && renderTooltip(tip)} {showLive && <span className="text-[10px] px-1.5 py-0.5 rounded bg-teal-500 text-white font-bold">Actual</span>}</div>
-                <div className="font-mono text-slate-100">{cpiYoYForCard!=null ? `${cpiYoYForCard.toFixed(2)}%` : '—'} <span className="text-[10px] text-slate-500">YoY</span></div>
+                <div className="font-semibold text-slate-100 truncate">{marketName[t] ?? t}</div>
+                <div className="font-mono text-slate-100 flex items-center gap-2">{cpiYoYForCard!=null ? `${cpiYoYForCard.toFixed(2)}%` : '—'} <span className="text-[10px] text-slate-500">YoY</span>{cpiMForCard!=null && <span className="ml-auto"><ScoreOrb name={t==='CPIAUCSL'?'CPI':'Core'} value={cpiMForCard.yoy} dec={2} weight={10} score={cpiMForCard.score} bands={CPI_BANDS} blend={{ level: cpiMForCard.yoy, levelScore: cpiMForCard.levelScore, delta: cpiMForCard.d, ma: cpiMForCard.ma, maLabel: 'MA6M', trendScore: cpiMForCard.trendScore }} small /></span>}</div>
                 {idxVal!=null && <div className="text-[10px] font-mono text-slate-500">Índice {idxVal.toFixed(2)}</div>}
+                {cpiMForCard!=null && <div className="text-[11px] font-mono font-semibold text-slate-400">Δ {cpiMForCard.d>=0?'+':''}{cpiMForCard.d.toFixed(2)}pp vs MA6M {cpiMForCard.ma.toFixed(2)}% · <span style={{color: capeScoreColor(cpiMForCard.score)}}>{cpiBandLabel(cpiMForCard.score)}</span></div>}
                 {fresh && <div className="text-[11px] text-slate-500">{fresh} · {src}</div>}
+                {tip && <div className="text-xs text-slate-500 mt-2 line-clamp-2">{tip}</div>}
               </div>
             );
           }
           return (
             <div className={`border rounded-lg px-3 py-2 ${showLive ? 'bg-teal-500/10 border-teal-500/30 ring-1 ring-teal-500/20' : 'bg-slate-800/60 border-slate-700'}`}>
               <div className="text-xs text-slate-500 flex items-center gap-1.5">{t} {tip && renderTooltip(tip)} {showLive && <span className="text-[10px] px-1.5 py-0.5 rounded bg-teal-500 text-white font-bold">Actual</span>}</div>
+              <div className="font-semibold text-slate-100 truncate">{marketName[t] ?? t}</div>
               <div className="font-mono text-slate-100 flex items-center gap-2">{showLive ? fmt(Number(live)) : (v!=null ? fmt(Number(v)) : '—')}{(()=>{ const vv = showLive ? Number(live) : (v!=null ? Number(v) : null); if (vv == null) return null;
                 if (isVix) return <span className="ml-auto"><ScoreOrb name="VIX" value={vv} weight={10} score={Math.round(vixRiskScore(vv))} bands={VIX_BANDS} small /></span>;
-                if (isFg) { const s = Math.max(0, Math.min(100, Math.round(vv))); return <span className="ml-auto"><ScoreOrb name="F&G" value={vv} weight={10} score={s} bands={FG_BANDS} small /></span>; }
+                if (isFg) { const s = Math.round(fgRiskScore(vv)); return <span className="ml-auto"><ScoreOrb name="F&G" value={vv} weight={10} score={s} bands={FG_BANDS} small /></span>; }
+                if (isHyOas && hyCardB != null) return <span className={`ml-auto text-[10px] px-1.5 py-0.5 rounded-full border font-mono ${hyCardB.bonus > 0 ? 'bg-orange-500/20 text-orange-300 border-orange-500/30' : 'bg-slate-800 text-slate-400 border-slate-700'}`}>bonus {hyCardB.bonus > 0 ? `+${hyCardB.bonus}` : '+0'}</span>;
+                if ((isM2||isM0) && liqCardB != null) return <span className={`ml-auto text-[10px] px-1.5 py-0.5 rounded-full border font-mono ${liqCardB.bonus > 0 ? 'bg-orange-500/20 text-orange-300 border-orange-500/30' : liqCardB.bonus < 0 ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : 'bg-slate-800 text-slate-400 border-slate-700'}`}>liq {liqCardB.bonus !== 0 ? `${liqCardB.bonus > 0 ? '+' : ''}${liqCardB.bonus}` : '0'}</span>;
                 if (isMsacsr) return <span className="ml-auto"><ScoreOrb name="MSACSR" value={vv} dec={1} weight={5} score={Math.round(msRiskScore(vv))} bands={MS_BANDS} small /></span>;
-                if (isGDP && gdpc1YoY != null) return <span className="ml-auto"><ScoreOrb name="PIB real" value={gdpc1YoY} weight={10} score={Math.round(gdpRiskScore(gdpc1YoY))} bands={GDP_BANDS} small /></span>;
+                if (t==='DGS2' && y2mForCard!=null) return <span className="ml-auto"><ScoreOrb name="2Y Mom" value={y2mForCard.cur} dec={2} weight={10} score={y2mForCard.score} bands={Y2M_BANDS} blend={{ level: y2mForCard.cur, levelScore: y2mForCard.levelScore, delta: y2mForCard.d, ma: y2mForCard.ma, maLabel: 'MA6M', trendScore: y2mForCard.trendScore }} small /></span>;
+                if (t==='DGS30' && y30mForCard!=null) return <span className="ml-auto"><ScoreOrb name="30Y Mom" value={y30mForCard.cur} dec={2} weight={10} score={y30mForCard.score} bands={Y30_BANDS} blend={{ level: y30mForCard.cur, levelScore: y30mForCard.levelScore, delta: y30mForCard.d, ma: y30mForCard.ma, maLabel: 'MA6M', trendScore: y30mForCard.trendScore }} small /></span>;
+                if (isGDP && gdpc1YoY != null) return <span className="ml-auto"><ScoreOrb name="PIB real" value={gdpc1YoY} weight={5} score={Math.round(gdpRiskScore(gdpc1YoY))} bands={GDP_BANDS} small /></span>;
                 return null; })()}</div>
+              {t==='DGS2' && y2mForCard!=null && <div className="text-[11px] font-mono font-semibold text-slate-400">Δ {y2mForCard.d>=0?'+':''}{y2mForCard.d.toFixed(2)}pp vs MA6M {y2mForCard.ma.toFixed(2)}% · <span style={{color: capeScoreColor(y2mForCard.score)}}>{y2mBandLabel(y2mForCard.score)}</span></div>}
+              {isHyOas && hyCardB != null && hyCardB.hy != null && <div className="text-[11px] font-mono font-semibold text-slate-400">{hyBandLabel(hyCardB.hy)} · <span className={hyCardB.bonus > 0 ? 'text-orange-300' : 'text-slate-500'}>Régimen 3 {hyCardB.bonus > 0 ? `${hyCardB.label} (+${hyCardB.bonus})` : 'inactivo — solo suma, nunca resta'}</span></div>}
+              {(isM2||isM0) && liqCardB != null && liqCardB.yoy != null && <div className="text-[11px] font-mono font-semibold text-slate-400">M2 YoY +{liqCardB.yoy.toFixed(1)}% · M0 Δ3M {liqCardB.m0d3 != null ? `${liqCardB.m0d3 >= 0 ? '+' : ''}${liqCardB.m0d3.toFixed(1)}%` : '—'} · <span className={liqCardB.bonus > 0 ? 'text-orange-300' : liqCardB.bonus < 0 ? 'text-emerald-300' : 'text-slate-500'}>{liqCardB.bonus !== 0 ? `${liqCardB.label} (${liqCardB.bonus > 0 ? '+' : ''}${liqCardB.bonus})` : 'sin bonus'}</span></div>}
+              {t==='DGS30' && y30mForCard!=null && <div className="text-[11px] font-mono font-semibold text-slate-400">Δ {y30mForCard.d>=0?'+':''}{y30mForCard.d.toFixed(2)}pp vs MA6M {y30mForCard.ma.toFixed(2)}% · <span style={{color: capeScoreColor(y30mForCard.score)}}>{y30mBandLabel(y30mForCard.score)}</span></div>}
               {isGDP && (gdpYoY!=null || gdpc1YoY!=null) && <div className="flex gap-2 text-[11px] font-mono font-semibold"><span className={gdpYoY!=null && gdpYoY>=0?'text-emerald-400':'text-red-400'}>{gdpYoY!=null? `${gdpYoY>=0?'▲':'▼'} ${Math.abs(gdpYoY).toFixed(2)}% Nom`:'— Nom'}</span><span className="text-slate-600">·</span><span className={gdpc1YoY!=null && gdpc1YoY>=0?'text-sky-400':'text-orange-400'}>{gdpc1YoY!=null? `${gdpc1YoY>=0?'▲':'▼'} ${Math.abs(gdpc1YoY).toFixed(2)}% Real`:'— Real'}</span></div>}
               {fresh && <div className="text-[11px] text-slate-500">{fresh} · {src}</div>}
+              {tip && <div className="text-xs text-slate-500 mt-2 line-clamp-2">{tip}</div>}
             </div>
           );
         };
@@ -969,7 +1532,7 @@ export function IndicatorsPanel() {
                           <span className="text-xl font-mono" style={{ color: c }}>{ratio.toFixed(3)}X</span>
                           <span className="ml-auto inline-flex items-center gap-1.5 rounded-full border border-slate-700/70 bg-slate-800/50 py-0.5 pl-2.5 pr-1">
                             <span className="text-xs font-semibold" style={{ color: c }}>{ratioBandLabel(ratio)}</span>
-                            <ScoreOrb name="Ratio" value={ratio} dec={3} weight={5} score={s} bands={RATIO_BANDS} small />
+                            <ScoreOrb name="CAPE Ratio" value={ratio} dec={3} weight={15} score={s} bands={RATIO_BANDS} small />
                           </span>
                         </div>
                         <div className="text-xs text-slate-500 mt-2 line-clamp-2">Valuación relativa a su media de 3 años. {`Sincronizado: ${ratio.toFixed(3)} @ ${(capeLast.date||'').slice(0,10)}`}</div>
@@ -1001,7 +1564,7 @@ export function IndicatorsPanel() {
           <div className="flex items-center gap-2">
           <button onClick={()=>{
             const buildSheet = (view: 'daily'|'monthly'|'yearly')=>{
-              const headers = ['Fecha','SP500', view==='monthly' ? 'Change Monthly' : view==='yearly' ? 'Change Yearly' : 'Change Daily','Perf 1Y','Perf Total','CAGR','Nasdaq','TQQQ','SPX EPS','PE TTM','Fwd PE','CAPE','mean3y','RatioCape','FED Target','2Y','10Y','30Y','HY OAS','HY EY','HY 10Y+OAS','CPI','Core CPI','GDP','FINRA Debit','Margin/GDP','MSACSR','VIX','F&G','Vol SPY','OBV','Fuerza','Tend-OBV','NetAdv','Up/Down','CAPE SMA 3Y','CAPE SMA 5Y','CAPE SMA 10Y','CAPE EMA 3Y','CAPE EMA 5Y','CAPE EMA 10Y'];
+              const headers = ['Fecha','SP500', view==='monthly' ? 'Change Monthly' : view==='yearly' ? 'Change Yearly' : 'Change Daily','BHT Index','Perf 1Y','Perf Total','CAGR','Nasdaq','TQQQ','SPX EPS','PE TTM','Fwd PE','CAPE','mean3y','RatioCape','FED Target','2Y','10Y','30Y','HY OAS','HY EY','HY 10Y+OAS','CPI','Core CPI','GDP','FINRA Debit','Margin/GDP','MSACSR','VIX','F&G','Vol SPY','OBV','Fuerza','Tend-OBV','NetAdv','Up/Down','CAPE SMA 3Y','CAPE SMA 5Y','CAPE SMA 10Y','CAPE EMA 3Y','CAPE EMA 5Y','CAPE EMA 10Y'];
               let rowsView: any[] = cape;
               if(view==='monthly'){
                 const byMonth = new Map<string, any>();
@@ -1050,6 +1613,7 @@ export function IndicatorsPanel() {
                   if(sortCol==='cape') return r.cape ?? -1e9;
                   if(sortCol==='mean3y') return (r.mean3y ?? r.mean ?? -1e9);
                   if(sortCol==='ratio') return r.capeRatio ?? -1e9;
+                  if(sortCol==='termo') return thermoHist[d]?.value ?? -1e9;
                   if(sortCol==='sma3y') return (r.mean3y ?? -1e9);
                   if(sortCol==='sma5y') return (r.mean5y ?? -1e9);
                   if(sortCol==='sma10y') return (r.mean10y ?? -1e9);
@@ -1099,7 +1663,7 @@ export function IndicatorsPanel() {
                 const peTtmXls = (spxXls!=null && spxEpsXls!=null && spxEpsXls!==0) ? spxXls/spxEpsXls : null;
                 const fwdPeXls = (spxXls!=null && spxFwdEpsXls!=null && spxFwdEpsXls!==0) ? spxXls/spxFwdEpsXls : null;
                 const brXls = breadthVals(d);
-                return [label, getClosestPrice(marketHistory['^GSPC'], d) ?? '', varDia != null ? Number(varDia.toFixed(2)) : '', perf1y != null ? Number(perf1y.toFixed(2)) : '', perfTot != null ? Number(perfTot.toFixed(2)) : '', cagr != null ? Number(cagr.toFixed(2)) : '', getClosestPrice(marketHistory['^IXIC'], d) ?? '', getClosestPrice(marketHistory['TQQQ'], d) ?? '', spxEpsXls != null ? Number(spxEpsXls.toFixed(2)) : '', peTtmXls != null ? Number(peTtmXls.toFixed(2)) : '', fwdPeXls != null ? Number(fwdPeXls.toFixed(2)) : '', r.cape ?? '', (r.mean3y ?? r.mean) ?? '', r.capeRatio ?? '', getClosestPrice(marketHistory['DFEDTARU'], d) ?? '', getClosestPrice(marketHistory['DGS2'], d) ?? '', getClosestPrice(marketHistory['DGS10'], d) ?? '', getClosestPrice(marketHistory['DGS30'], d) ?? '', hyOas ?? '', hyEy ?? '', hy10y, cpi ?? '', core ?? '', gdp ?? '', finra ?? '', marginGdp != null ? Number(marginGdp.toFixed(2)) : '', msacsrXls ?? '', vixXls ?? '', fgXls ?? '', volXls ?? '', obvXls ?? '', fuerzaXls != null ? Number(fuerzaXls.toFixed(3)) : '', obvtXls != null ? Number(obvtXls.toFixed(3)) : '', brXls.net ?? '', brXls.ratio ?? '', (r.mean3y ?? -1e9) !== -1e9 ? (r.mean3y ?? r.mean) : '', r.mean5y ?? '', r.mean10y ?? '', (r.mean3y_ema ?? (r as any).mean3yEma) ?? '', (r.mean5y_ema ?? (r as any).mean5yEma) ?? '', (r.mean10y_ema ?? (r as any).mean10yEma) ?? ''];
+                return [label, getClosestPrice(marketHistory['^GSPC'], d) ?? '', varDia != null ? Number(varDia.toFixed(2)) : '', thermoHist[d]?.value ?? '', perf1y != null ? Number(perf1y.toFixed(2)) : '', perfTot != null ? Number(perfTot.toFixed(2)) : '', cagr != null ? Number(cagr.toFixed(2)) : '', getClosestPrice(marketHistory['^IXIC'], d) ?? '', getClosestPrice(marketHistory['TQQQ'], d) ?? '', spxEpsXls != null ? Number(spxEpsXls.toFixed(2)) : '', peTtmXls != null ? Number(peTtmXls.toFixed(2)) : '', fwdPeXls != null ? Number(fwdPeXls.toFixed(2)) : '', r.cape ?? '', (r.mean3y ?? r.mean) ?? '', r.capeRatio ?? '', getClosestPrice(marketHistory['DFEDTARU'], d) ?? '', getClosestPrice(marketHistory['DGS2'], d) ?? '', getClosestPrice(marketHistory['DGS10'], d) ?? '', getClosestPrice(marketHistory['DGS30'], d) ?? '', hyOas ?? '', hyEy ?? '', hy10y, cpi ?? '', core ?? '', gdp ?? '', finra ?? '', marginGdp != null ? Number(marginGdp.toFixed(2)) : '', msacsrXls ?? '', vixXls ?? '', fgXls ?? '', volXls ?? '', obvXls ?? '', fuerzaXls != null ? Number(fuerzaXls.toFixed(3)) : '', obvtXls != null ? Number(obvtXls.toFixed(3)) : '', brXls.net ?? '', brXls.ratio ?? '', (r.mean3y ?? -1e9) !== -1e9 ? (r.mean3y ?? r.mean) : '', r.mean5y ?? '', r.mean10y ?? '', (r.mean3y_ema ?? (r as any).mean3yEma) ?? '', (r.mean5y_ema ?? (r as any).mean5yEma) ?? '', (r.mean10y_ema ?? (r as any).mean10yEma) ?? ''];
               });
               return { name: `CAPE ${view}`, headers, rows: rowsData };
             };
@@ -1129,6 +1693,7 @@ export function IndicatorsPanel() {
                   {k:'date', label:'Fecha', cls:'text-left w-[92px] min-w-[92px] max-w-[92px] sticky left-0 bg-slate-900 z-20 shadow-[2px_0_4px_rgba(0,0,0,0.3)]'},
                   {k:'spx', label:'SP500', cls:'text-right text-sky-300'},
                   {k:'change', label:changeLabel(), cls:'text-right text-cyan-300'},
+                  {k:'termo', label:'BHT Index', cls:'text-right'},
                   {k:'perf1y', label:'Perf 1Y', cls:'text-right text-lime-300'},
                   {k:'perfTotal', label:'Perf Total', cls:'text-right text-teal-300'},
                   {k:'cagr', label:'CAGR', cls:'text-right text-amber-300'},
@@ -1228,6 +1793,7 @@ export function IndicatorsPanel() {
                     if(sortCol==='cape') return r.cape ?? -Infinity;
                     if(sortCol==='mean3y') return (r.mean3y ?? r.mean ?? -Infinity);
                     if(sortCol==='ratio') return r.capeRatio ?? -Infinity;
+                    if(sortCol==='termo') return thermoHist[d]?.value ?? -Infinity;
                     if(sortCol==='sma3y') return (r.mean3y ?? -Infinity);
                     if(sortCol==='sma5y') return (r.mean5y ?? -Infinity);
                     if(sortCol==='sma10y') return (r.mean10y ?? -Infinity);
@@ -1319,6 +1885,7 @@ export function IndicatorsPanel() {
                   <td className={`p-1.5 px-2 font-mono whitespace-nowrap w-[92px] min-w-[92px] max-w-[92px] align-top sticky left-0 z-10 shadow-[2px_0_4px_rgba(0,0,0,0.25)] ${isCurrent ? 'bg-slate-900' : 'bg-slate-950 group-hover:bg-slate-900'}`}><div className="flex flex-col items-start leading-none gap-0.5"><span className={`${isCurrent ? 'text-teal-300 font-bold' : 'text-slate-200'} text-xs`}>{capeView==='yearly' ? d.slice(0,4) : capeView==='monthly' ? d.slice(0,7) : d}</span>{isCurrent && <span className="text-[9px] px-1 py-0.5 rounded bg-teal-500 text-white font-bold leading-none">Actual</span>}</div></td>
                   {(()=>{ if(spxDisp==null) return <td className="p-2 text-right font-mono text-sky-300 whitespace-nowrap">—</td>; return <td className="p-2 text-right font-mono text-sky-300 whitespace-nowrap cursor-help" onMouseEnter={(e)=> setStockHover({ticker:'^GSPC', d, x: e.clientX, y: e.clientY, cape: r.cape ?? null, ratio: r.capeRatio ?? null})} onMouseMove={(e)=> setStockHover(s=> s && s.ticker==='^GSPC' && s.d===d ? {...s, x:e.clientX, y:e.clientY}: s)} onMouseLeave={()=> setStockHover(null)}><span className="border-b border-dotted border-sky-400/40">${Number(spxDisp).toFixed(2)}</span></td>; })()}
                   {(()=>{ const p=getChange(d); if(p==null) return <td className="p-2 text-right font-mono whitespace-nowrap text-slate-500">—</td>; const cls = p>1?'text-emerald-400 bg-emerald-500/10':p>0.25?'text-green-400 bg-green-500/10':p>0?'text-yellow-400 bg-yellow-500/10':p>-0.5?'text-orange-400 bg-orange-500/10':'text-red-400 bg-red-500/10'; const arrow = p>0?'▲':'▼'; return <td className={`p-2 text-right font-mono whitespace-nowrap font-semibold rounded ${cls}`} title={changeTitle(d)}>{arrow} {p.toFixed(2)}%</td>; })()}
+                  {(()=>{ const th = thermoHist[d]; const isLive = isCurrent && liveBhtRef.current.v != null; if (th == null && !isLive) return <td className="p-2 text-right font-mono text-slate-500 whitespace-nowrap">—</td>; const thv = isLive ? liveBhtRef.current.v! : th.value; const c = capeScoreColor(thv); return <td className="p-2 text-right font-mono font-semibold whitespace-nowrap cursor-help" style={{color:c}} onMouseEnter={(e)=>{ capeBhtDet.setHover({d, x:e.clientX, y:e.clientY}); capeBhtDet.load(d); loadCapeFwd(d); }} onMouseMove={(e)=> capeBhtDet.setHover((s)=> s && s.d===d ? {...s, x:e.clientX, y:e.clientY} : s)} onMouseLeave={(e)=> bhtLeaveGuard(e, capeBhtDet)}><span className="border-b border-dotted border-slate-400/40" title={isLive ? 'En vivo (igual que el semáforo)' : undefined}>{thv.toFixed(1)}{isLive && <span className="text-teal-300"> •</span>}</span></td>; })()}
                   {(()=>{ const p=getPerf1Y(d); if(p==null) return <td className="p-2 text-right font-mono whitespace-nowrap text-slate-500">—</td>; const mature=isPerf1YMature(d); const cls = !mature ? 'text-sky-300 bg-sky-500/10 italic' : p>15?'text-emerald-400 bg-emerald-500/10':p>5?'text-green-400 bg-green-500/10':p>0?'text-yellow-400 bg-yellow-500/10':p>-5?'text-orange-400 bg-orange-500/10':'text-red-400 bg-red-500/10'; const arrow = p>0?'▲':'▼'; const tip = mature ? `SP500 ${d} → +12m` : `SP500 ${d} → hoy: parcial anualizado (${perf1YElapsedMonths(d)}m transcurridos, no maduro)`; return <td className={`p-2 text-right font-mono whitespace-nowrap font-semibold rounded ${cls}`} title={tip}>{arrow} {!mature?'~ ':''}{p.toFixed(2)}%</td>; })()}
                   {(()=>{ const p=getPerfTotal(d); if(p==null) return <td className="p-2 text-right font-mono whitespace-nowrap text-slate-500">—</td>; const cls = p>100?'text-emerald-300 bg-emerald-500/15':p>50?'text-emerald-400 bg-emerald-500/10':p>15?'text-green-400 bg-green-500/10':p>0?'text-yellow-400 bg-yellow-500/10':p>-10?'text-orange-400 bg-orange-500/10':'text-red-400 bg-red-500/10'; const arrow = p>0?'▲':'▼'; const todayS = new Date().toISOString().slice(0,10); return <td className={`p-2 text-right font-mono whitespace-nowrap font-semibold rounded ${cls}`} title={`SP500 ${d} → hoy ${todayS}`}>{arrow} {p.toFixed(2)}%</td>; })()}
                   {(()=>{ const p=getCAGR(d); if(p==null) return <td className="p-2 text-right font-mono whitespace-nowrap text-slate-500">—</td>; const cls = p>15?'text-emerald-400 bg-emerald-500/10':p>10?'text-green-400 bg-green-500/10':p>5?'text-yellow-400 bg-yellow-500/10':p>0?'text-orange-400 bg-orange-500/10':'text-red-400 bg-red-500/10'; const arrow = p>0?'▲':'▼'; const years = ((new Date().getTime()-new Date(d).getTime())/(365.25*24*60*60*1000)).toFixed(1); return <td className={`p-2 text-right font-mono whitespace-nowrap font-semibold rounded ${cls}`} title={`CAGR ${d} → hoy (${years}a): (Phoy/Pd)^(1/años)-1`}>{arrow} {p.toFixed(2)}%</td>; })()}
@@ -1364,6 +1931,8 @@ export function IndicatorsPanel() {
         </div>
         <p className="text-[11px] text-slate-500 mt-2">Scroll para cargar más · {cape.length} días (1990→hoy, sin fines de semana) · SP500/Nasdaq/TQQQ cierre diario · SMA/EMA 3/5/10 sobre CAPE diario · Ratio semaforizado</p>
       </div>
+      <BhtForwardTable live={liveBhtRef} />
+      {capeBhtDet.hover && <BhtDetailPopover hover={capeBhtDet.hover} detail={capeBhtDet.cache[capeBhtDet.hover.d]} forward={capeFwdCache[capeBhtDet.hover.d]} onLeave={() => capeBhtDet.scheduleClear()} onHold={() => capeBhtDet.cancelClear()} liveValue={(capeBhtDet.hover.d === liveBhtRef.current.d && liveBhtRef.current.v != null) ? liveBhtRef.current.v : null} />}
       {stockHover && (()=>{ const {ticker, d, x, y, cape:chCape, ratio:chRatio}=stockHover; const price=getClosestPrice(marketHistory[ticker], d); const p1y=getTickerPrice1Y(ticker,d); const perf1y=getTickerPerf1Y(ticker,d); const todayP=getTodayPrice(ticker); const perfTot=getTickerPerfTotal(ticker,d); const cagr=getTickerCAGR(ticker,d); const years=((new Date().getTime()-new Date(d).getTime())/(365.25*24*60*60*1000)).toFixed(1); const label=ticker==='^GSPC'?'SP500':ticker==='^IXIC'?'Nasdaq':ticker; const left = Math.min(Math.max(8, x+12), (typeof window!=='undefined'? window.innerWidth-332: 1000)); const top = Math.min(Math.max(8, y+12), (typeof window!=='undefined'? window.innerHeight-260: 800)); const nextD = (()=>{ const nd=new Date(d); nd.setMonth(nd.getMonth()+12); return nd.toISOString().slice(0,10); })(); return <div className="fixed z-[9999] w-[320px] p-3 rounded-xl bg-slate-900 border border-slate-700 shadow-2xl text-xs leading-relaxed text-slate-200 text-left" style={{left, top}} onMouseLeave={()=>setStockHover(null)}><div className="font-bold text-sky-300 mb-1.5 flex justify-between"><span>{label} · {d}</span><span className="text-slate-400 font-mono">CAPE {chCape?.toFixed(2) ?? '—'} · {chRatio!=null? chRatio.toFixed(2)+'×':'—'}</span></div><div className="grid grid-cols-2 gap-1.5 font-mono text-[11px]"><div className="bg-slate-800/60 rounded p-1.5 border border-slate-700"><div className="text-slate-500">Precio entonces</div><div className="text-slate-100 font-bold">{price!=null? '$'+Number(price).toFixed(2):'—'}</div></div><div className="bg-slate-800/60 rounded p-1.5 border border-slate-700"><div className="text-slate-500">Hoy {new Date().toISOString().slice(0,10)}</div><div className="text-slate-100 font-bold">{todayP!=null? '$'+Number(todayP).toFixed(2):'—'} <span className={perfTot!=null && perfTot>0?'text-emerald-400':'text-red-400'}>{perfTot!=null? (perfTot>0?'▲ ':'▼ ')+perfTot.toFixed(2)+'%':'—'}</span></div></div><div className="bg-slate-800/60 rounded p-1.5 border border-slate-700"><div className="text-slate-500">+1 año {nextD}</div><div className="text-slate-100 font-bold">{p1y!=null? '$'+Number(p1y).toFixed(2):'—'} <span className={perf1y!=null && perf1y>0?'text-emerald-400':'text-red-400'}>{perf1y!=null? (perf1y>0?'▲ ':'▼ ')+perf1y.toFixed(2)+'%':'—'}</span></div></div><div className="bg-slate-800/60 rounded p-1.5 border border-slate-700"><div className="text-slate-500">CAGR ({years}a)</div><div className="text-amber-300 font-bold">{cagr!=null? (cagr>0?'▲ ':'▼ ')+cagr.toFixed(2)+'%':'—'}</div></div></div><div className="text-[10px] text-slate-500 mt-1.5">{ticker==='TQQQ'?'TQQQ 3× Nasdaq · inception 2010-02-11':'S&P 500 / Nasdaq · valor nominal + performance 1Y y total'} · CAPE ratio = CAPE/mean3y</div></div>; })()}
     </div>
   );
