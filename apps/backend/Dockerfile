@@ -2,14 +2,19 @@
 # Contexto de build: raíz del monorepo  (docker build -f apps/backend/Dockerfile .)
 FROM node:22-bookworm-slim
 
-# Python (scripts de backtesting), openssl (motor de migraciones de Prisma) y tini (PID 1)
+# openssl (motor de migraciones de Prisma), tini (PID 1) y certificados
 RUN apt-get update \
- && apt-get install -y --no-install-recommends python3 python3-venv python3-pip openssl ca-certificates tini \
+ && apt-get install -y --no-install-recommends openssl ca-certificates tini \
  && rm -rf /var/lib/apt/lists/*
 
+# Python de los scripts de backtesting: el mismo CPython 3.11.x que usa el entorno de desarrollo
+# (uv lo descarga; el Python de Debian es 3.11.2 y algunas dependencias exigen >= 3.11.5).
+COPY --from=ghcr.io/astral-sh/uv:0.13.7 /uv /usr/local/bin/uv
+ENV UV_PYTHON_INSTALL_DIR=/opt/python UV_PYTHON_PREFERENCE=only-managed
 COPY apps/backend/docker/python-requirements.txt /tmp/python-requirements.txt
-RUN python3 -m venv /opt/venv \
- && /opt/venv/bin/pip install --no-cache-dir -r /tmp/python-requirements.txt
+RUN uv venv --python 3.11 /opt/venv \
+ && uv pip install --python /opt/venv/bin/python -r /tmp/python-requirements.txt \
+ && rm /usr/local/bin/uv
 ENV PATH="/opt/venv/bin:${PATH}"
 
 RUN npm install -g pnpm@11.4.0

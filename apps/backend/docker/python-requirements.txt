@@ -1,5 +1,5 @@
 # Mantener idéntico a BackTesting/requirements.txt (lock completo, CPython 3.11).
-# La imagen usa el Python 3.11 de Debian bookworm, igual que el entorno de desarrollo.
+# La imagen instala el mismo CPython 3.11 con uv.
 backtrader==1.9.78.123
 beautifulsoup4==4.15.0
 certifi==2026.10.23
