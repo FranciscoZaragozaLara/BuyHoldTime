@@ -26,7 +26,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
     { name: t('home'), path: `/${locale}`, icon: <Compass size={18} /> },
     { name: t('prices'), path: `/${locale}/prices`, icon: <TrendingUp size={18} /> },
     { name: t('indicators'), path: `/${locale}/indicators`, icon: <BarChart3 size={18} /> },
-    { name: t('backtester'), path: `/${locale}/backtester`, icon: <Briefcase size={18} /> },
+    { name: t('backtester'), path: `/${locale}/backtesting`, icon: <Briefcase size={18} /> },
     ...(role === 'ADMIN' ? [{ name: 'Admin', path: `/${locale}/admin`, icon: <Briefcase size={18} /> }] : []),
   ];
 
