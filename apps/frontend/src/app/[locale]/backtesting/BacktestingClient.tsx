@@ -1,4 +1,5 @@
 'use client';
+import { getApiBase, BACKEND_PREFIX } from '@/lib/apiBase';
 import { useState, useEffect, useMemo } from 'react';
 import { useTranslations } from 'next-intl';
 import dynamic from 'next/dynamic';
@@ -315,11 +316,6 @@ function SingleStrategyHistoryTable({ strategies, startDates, onCodeChange, exte
   );
 }
 
-function getApiBase() {
-  if (process.env.NEXT_PUBLIC_API_URL) return process.env.NEXT_PUBLIC_API_URL;
-  if (typeof window !== 'undefined') return `http://${window.location.hostname}:4000`;
-  return 'http://localhost:4000';
-}
 
 const fallbackMetrics = [
   { strategy: 'BH_QQQ', cagr: 0.1962, total_return: 18.11, sharpe: 1.05, max_drawdown: 0.351, max_dd_length: 493, num_trades: 1, win_rate: 0, sqn: 0, final_value: 1911247 },
@@ -622,7 +618,7 @@ export function BacktestingClient({ initialStrategies, initialRuns }: { initialS
       {activeTab==='calculadora' && <Suspense fallback={<div className="h-[400px] bg-slate-900 border border-slate-800 rounded-xl animate-pulse" />}><CalculatorPanel /></Suspense>}
       {activeTab==='regimes' && <Suspense fallback={<div className="h-[300px] bg-slate-900 border border-slate-800 rounded-xl animate-pulse" />}><RegimesPanel /></Suspense>}
       <div className="text-xs text-slate-500 border-t border-slate-800 pt-3">
-        API: GET /api/backtesting/strategies, /market-data?ticker=QQQ, /runs, /runs/:id/equity, /runs/:id/trades, /runs/:id/allocations, /comparativa?runIds=... — Base: {getApiBase()}
+        API: GET /api/backtesting/strategies, /market-data?ticker=QQQ, /runs, /runs/:id/equity, /runs/:id/trades, /runs/:id/allocations, /comparativa?runIds=... — Base: {BACKEND_PREFIX}
       </div>
       </div>
     </div>

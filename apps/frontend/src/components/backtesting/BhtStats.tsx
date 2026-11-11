@@ -1,13 +1,9 @@
 'use client';
+import { getApiBase } from '@/lib/apiBase';
 import React, { useEffect, useState } from 'react';
 import { bhtBandColor } from './bhtBands';
 import { capeRiskScore } from './IndicatorsPanel';
 
-function getApiBase() {
-  if (process.env.NEXT_PUBLIC_API_URL) return process.env.NEXT_PUBLIC_API_URL;
-  if (typeof window !== 'undefined') return `http://${window.location.hostname}:4000`;
-  return 'http://localhost:4000';
-}
 
 type Agg = { n: number; min: number; avg: number; max: number } | null;
 type Bucket = { lo: number; n: number; pct: number; min: number; avg: number; max: number; y3: Agg; cagr3: number | null };

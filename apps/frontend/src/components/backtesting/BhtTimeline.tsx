@@ -1,14 +1,10 @@
 'use client';
+import { getApiBase } from '@/lib/apiBase';
 import React, { useEffect, useRef, useState } from 'react';
 import { createChart, ColorType, IChartApi, LineSeries } from 'lightweight-charts';
 import { BhtDetailPopover, useBhtDetail, bhtLeaveGuard } from './IndicatorsPanel';
 import { BHT_CUTS, bhtBandColor } from './bhtBands';
 
-function getApiBase() {
-  if (process.env.NEXT_PUBLIC_API_URL) return process.env.NEXT_PUBLIC_API_URL;
-  if (typeof window !== 'undefined') return `http://${window.location.hostname}:4000`;
-  return 'http://localhost:4000';
-}
 
 type RangeKey = '1A' | '3A' | '5A' | '10A';
 const RANGE_YEARS: Record<RangeKey, number> = { '1A': 1, '3A': 3, '5A': 5, '10A': 10 };

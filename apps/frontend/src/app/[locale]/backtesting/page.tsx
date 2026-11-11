@@ -1,8 +1,9 @@
+import { getApiBase } from '@/lib/apiBase';
 import { BacktestingClient } from './BacktestingClient';
 
 async function getStrategies() {
   try {
-    const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+    const base = getApiBase();
     const res = await fetch(`${base}/api/backtesting/strategies`, { cache: 'no-store' });
     if (res.ok) return await res.json();
   } catch {}
@@ -10,7 +11,7 @@ async function getStrategies() {
 }
 async function getRuns() {
   try {
-    const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+    const base = getApiBase();
     const res = await fetch(`${base}/api/backtesting/runs`, { cache: 'no-store' });
     if (res.ok) return await res.json();
   } catch {}

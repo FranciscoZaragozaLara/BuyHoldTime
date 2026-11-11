@@ -1,4 +1,5 @@
 'use client';
+import { getApiBase } from '@/lib/apiBase';
 import { useCallback, useEffect, useState, useRef, useMemo } from 'react';
 import { useTranslations } from 'next-intl';
 import { useMarketSyncStream } from './useMarketSyncStream';
@@ -13,11 +14,6 @@ import { exportToExcel } from '@/lib/exportExcel';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getLiveStaleTime, isMarketOpen } from '@/lib/queryClient';
 
-function getApiBase() {
-  if (process.env.NEXT_PUBLIC_API_URL) return process.env.NEXT_PUBLIC_API_URL;
-  if (typeof window !== 'undefined') return `http://${window.location.hostname}:4000`;
-  return 'http://localhost:4000';
-}
 
 function useLiveTicker(ticker: string){
   return useQuery({

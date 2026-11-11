@@ -1,4 +1,5 @@
 'use client';
+import { getApiBase } from '@/lib/apiBase';
 import { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useVirtualizer } from '@tanstack/react-virtual';
@@ -10,11 +11,6 @@ import { createChart, ColorType, LineSeries, createSeriesMarkers } from 'lightwe
 import { applyCrisisMarkers, snapToTime } from '@/lib/crisisEvents';
 import { CrisisEventsTable } from './CrisisEventsTable';
 
-function getApiBase() {
-  if (process.env.NEXT_PUBLIC_API_URL) return process.env.NEXT_PUBLIC_API_URL;
-  if (typeof window !== 'undefined') return `http://${window.location.hostname}:4000`;
-  return 'http://localhost:4000';
-}
 
 export function RegimesPanel() {
   const t = useTranslations('Backtesting.regimes');

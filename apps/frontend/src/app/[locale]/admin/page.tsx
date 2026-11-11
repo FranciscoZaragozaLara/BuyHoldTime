@@ -1,4 +1,5 @@
 'use client';
+import { getApiBase } from '@/lib/apiBase';
 
 import React, { useEffect, useState } from 'react';
 import { useAuth, UserRole } from '@/context/AuthContext';
@@ -36,7 +37,7 @@ export default function AdminPage() {
   const [error, setError] = useState<string | null>(null);
   const [updatingUserRole, setUpdatingUserRole] = useState<string | null>(null);
 
-  const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+  const apiBase = getApiBase();
 
   const fetchData = async () => {
     if (!token || role !== 'ADMIN') return;

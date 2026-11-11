@@ -1,4 +1,5 @@
 'use client';
+import { getApiBase } from '@/lib/apiBase';
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import {
@@ -56,7 +57,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
           // Sincronizar con el backend
           try {
-            const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+            const apiBase = getApiBase();
             const res = await fetch(`${apiBase}/auth/sync`, {
               method: 'POST',
               headers: {

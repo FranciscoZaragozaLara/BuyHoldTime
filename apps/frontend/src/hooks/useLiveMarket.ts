@@ -1,12 +1,8 @@
 'use client';
+import { getApiBase } from '@/lib/apiBase';
 import { useQuery } from '@tanstack/react-query';
 import { getLiveStaleTime, isMarketOpen } from '@/lib/queryClient';
 
-function getApiBase() {
-  if (process.env.NEXT_PUBLIC_API_URL) return process.env.NEXT_PUBLIC_API_URL;
-  if (typeof window !== 'undefined') return `http://${window.location.hostname}:4000`;
-  return 'http://localhost:4000';
-}
 
 export interface LivePrice {
   ticker: string;

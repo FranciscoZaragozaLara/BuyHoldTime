@@ -1,13 +1,9 @@
 'use client';
+import { getApiBase } from '@/lib/apiBase';
 import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { createChart, ColorType, IChartApi, LineSeries, AreaSeries } from 'lightweight-charts';
 import { Layers, Calendar, TrendingUp } from 'lucide-react';
 
-function getApiBase() {
-  if (process.env.NEXT_PUBLIC_API_URL) return process.env.NEXT_PUBLIC_API_URL;
-  if (typeof window !== 'undefined') return `http://${window.location.hostname}:4000`;
-  return 'http://localhost:4000';
-}
 const fmtMoney = (v: number) => `$${Number(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const fmtPct = (v: number) => `${(v * 100).toFixed(1)}%`;
 const fmtNum = (v: number|null|undefined) => v==null||isNaN(Number(v)) ? '—' : Number(v).toFixed(2);

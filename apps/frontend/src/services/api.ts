@@ -1,3 +1,4 @@
+import { getApiBase } from '@/lib/apiBase';
 export interface Ticker {
   id: string;
   symbol: string;
@@ -91,12 +92,7 @@ export interface Subscription {
 }
 
 function getApiBaseUrl(): string {
-  // On the server (SSR/ISR), always use the internal backend URL
-  if (process.env.NEXT_PUBLIC_API_URL) return process.env.NEXT_PUBLIC_API_URL;
-  if (typeof window !== 'undefined' && window.location?.hostname) {
-    return `http://${window.location.hostname}:4000`;
-  }
-  return 'http://localhost:4000';
+  return getApiBase();
 }
 
 export async function getTickers(): Promise<Ticker[]> {

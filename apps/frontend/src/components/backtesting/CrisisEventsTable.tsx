@@ -1,4 +1,5 @@
 'use client';
+import { getApiBase } from '@/lib/apiBase';
 import React, { useEffect, useState } from 'react';
 import { CRISIS_EVENTS } from '@/lib/crisisEvents';
 import { BhtDetailPopover, bhtLeaveGuard, capeScoreColor, useBhtDetail } from './IndicatorsPanel';
@@ -6,11 +7,6 @@ import { BhtDetailPopover, bhtLeaveGuard, capeScoreColor, useBhtDetail } from '.
 const fmt$ = (v: number) => '$' + Number(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const fmt0 = (v: number) => '$' + Number(v).toLocaleString('en-US', { maximumFractionDigits: 0 });
 
-function getApiBase() {
-  if (process.env.NEXT_PUBLIC_API_URL) return process.env.NEXT_PUBLIC_API_URL;
-  if (typeof window !== 'undefined') return `http://${window.location.hostname}:4000`;
-  return 'http://localhost:4000';
-}
 
 // Tabla de grandes crisis (SP500 >-20% desde 1990) con pico/suelo de nuestra BD.
 // BHT Index de pico y suelo con el hover de detalle compartido (partes + forwards).
