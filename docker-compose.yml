@@ -12,8 +12,8 @@ services:
       - "--providers.docker.exposedbydefault=false"
       - "--entrypoints.web.address=:80"
     ports:
-      - "80:80"
-      - "8080:8080" # Traefik Dashboard (http://localhost:8080)
+      - "127.0.0.1:80:80"
+      - "127.0.0.1:8080:8080" # Traefik Dashboard (http://localhost:8080)
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     networks:
@@ -25,10 +25,10 @@ services:
     container_name: buyholdtime-db
     restart: always
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres_secure_password
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?define POSTGRES_PASSWORD en .env (raíz)}
       POSTGRES_DB: buyholdtime
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -41,7 +41,7 @@ services:
     container_name: buyholdtime-cache
     restart: always
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     volumes:
       - redis_data:/data
     networks:
@@ -54,7 +54,7 @@ services:
     restart: always
     environment:
       PGADMIN_DEFAULT_EMAIL: admin@buyholdtime.com
-      PGADMIN_DEFAULT_PASSWORD: admin_secure_password
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:?define PGADMIN_PASSWORD en .env (raíz)}
     depends_on:
       - database
     volumes:
@@ -67,22 +67,8 @@ services:
     networks:
       - buyholdtime-network
 
-# NOTA: En el futuro, cuando agreguemos los contenedores de producción del Frontend (Next.js) y Backend (NestJS), 
-# se añadirán a este archivo con las siguientes etiquetas de Traefik:
-#
-#  frontend:
-#    ...
-#    labels:
-#      - "traefik.enable=true"
-#      - "traefik.http.routers.frontend.rule=Host(`buyholdtime.localhost`)"
-#      - "traefik.http.routers.frontend.entrypoints=web"
-#
-#  backend:
-#    ...
-#    labels:
-#      - "traefik.enable=true"
-#      - "traefik.http.routers.backend.rule=Host(`api.buyholdtime.localhost`)"
-#      - "traefik.http.routers.backend.entrypoints=web"
+# DESARROLLO LOCAL: solo infraestructura, accesible únicamente desde 127.0.0.1.
+# Producción (frontend + backend en contenedores): docker-compose.prod.yml
 
 networks:
   buyholdtime-network:

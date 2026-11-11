@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { BACKTEST_DIR } from '../../config/backtest-dir';
 import { PrismaService } from '../../prisma/prisma.service';
 import NodeCache from 'node-cache';
 import { getHyBonus, getHySigma24, getLiqBonus, getOilBonus, PriceMap } from './thermo-history';
@@ -132,7 +133,7 @@ export class BacktestingService {
     }
     // Spawn python backtest - only V8 supported for now, others use same pipeline with startDate override via env
     const { spawn } = await import('child_process');
-    const base = '/Users/zilphfanel/Documents/AgyApps/BackTesting';
+    const base = BACKTEST_DIR;
     // inferir ticker desde code si no está en paramsSchema
     const inferTicker = (code: string, strat: any): string | undefined => {
       const explicit = (strat?.paramsSchema?.ticker as string | undefined)?.toUpperCase();
@@ -150,7 +151,7 @@ export class BacktestingService {
     // Resolución dinámica de script: convención run_<code>.py -> genérico bh por ticker
     const resolveScript = (code: string, strat: any): string => {
       const fsSync = require('fs');
-      const basePath = '/Users/zilphfanel/Documents/AgyApps/BackTesting';
+      const basePath = BACKTEST_DIR;
       const lower = code.toLowerCase();
       const inferredTicker = inferTicker(code, strat)?.toLowerCase();
       const candidates = [
@@ -411,7 +412,7 @@ export class BacktestingService {
     const { spawn } = await import('child_process');
     const fsSync = await import('fs');
     const pathMod = await import('path');
-    const base = '/Users/zilphfanel/Documents/AgyApps/BackTesting';
+    const base = BACKTEST_DIR;
     const inferTicker = (code: string, strat: any): string | undefined => {
       const explicit = (strat?.paramsSchema?.ticker as string | undefined)?.toUpperCase();
       if (explicit) return explicit;

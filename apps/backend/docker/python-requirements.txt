@@ -1,0 +1,9 @@
+# Dependencias Python que el backend usa al lanzar los scripts de BackTesting.
+# Mantener alineado con BackTesting/requirements.txt (fija versiones exactas allí con pip freeze).
+pandas>=2.2
+numpy
+backtrader
+yfinance
+requests
+psycopg2-binary
+matplotlib

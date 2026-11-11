@@ -5,6 +5,10 @@ import path from "path";
 const withNextIntl = createNextIntlPlugin();
 
 const nextConfig: NextConfig = {
+  // Imagen Docker mínima (.next/standalone). La raíz del trazado es el monorepo.
+  output: 'standalone',
+  outputFileTracingRoot: path.join(__dirname, '../../'),
+
   allowedDevOrigins: ['192.168.50.107:3002', '192.168.50.107', 'localhost:3002'],
 
   // ── Proxy al backend NestJS ────────────────────────────────────────────────

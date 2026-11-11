@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { BACKTEST_DIR } from '../../config/backtest-dir';
 import { Cron } from '@nestjs/schedule';
 import { spawn } from 'child_process';
 import * as fs from 'fs';
@@ -74,7 +75,7 @@ export function buildShillerPlanchadoLine(headerLine: string, lastLine: string, 
 @Injectable()
 export class MarketSyncService {
   private readonly logger = new Logger(MarketSyncService.name);
-  private readonly base = '/Users/zilphfanel/Documents/AgyApps/BackTesting';
+  private readonly base = BACKTEST_DIR;
   private fullSyncRunning = false;
   constructor(private readonly prisma: PrismaService) {}
 

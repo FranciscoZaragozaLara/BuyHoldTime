@@ -1,0 +1,21 @@
+.git
+**/node_modules
+**/dist
+**/.next
+**/.turbo
+.vite
+**/test-results
+**/playwright-report
+apps/frontend/tests
+apps/backend/test
+# Secretos y datos locales: nunca dentro de una imagen
+**/.env
+**/.env.*
+!**/.env.example
+apps/backend/buyholdtime-*.json
+**/*serviceAccount*.json
+**/*.xlsx
+source
+docs
+**/.DS_Store
+**/*.log
