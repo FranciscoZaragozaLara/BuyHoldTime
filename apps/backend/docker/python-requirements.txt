@@ -1,11 +1,11 @@
-# Dependencias Python que el backend usa al lanzar los scripts de BackTesting.
-# Mantener alineado con BackTesting/requirements.txt (fija versiones exactas allí con pip freeze).
-pandas>=2.2
-numpy
-backtrader
-yfinance
-requests
-psycopg2-binary
-matplotlib
-openpyxl
-xlrd
+# Mantener idéntico a BackTesting/requirements.txt (versiones exactas del entorno de desarrollo).
+# Desarrollo: Python 3.9.6; la imagen usa el Python 3.11 de Debian bookworm.
+pandas==2.3.3
+numpy==2.0.2
+backtrader==1.9.78.123
+yfinance==1.2.0
+requests==2.32.5
+psycopg2-binary==2.9.12
+matplotlib==3.9.4
+openpyxl==3.1.5
+xlrd==2.0.2
