@@ -1,4 +1,5 @@
 import { isValidApiKey } from './api-key.util';
+import { isBootstrapAdmin } from './admin-bootstrap.util';
 import { Controller, Get, Post, Body, UseGuards, Request, Headers, UnauthorizedException, BadRequestException, HttpCode, HttpStatus } from '@nestjs/common';
 import { FirebaseAuthGuard, AuthenticatedUser } from './guards/firebase-auth.guard';
 import { RolesGuard } from './guards/roles.guard';
@@ -48,8 +49,9 @@ export class AuthController {
 
     let assignedRole: Role = Role.FREE_USER;
 
-    // Bootstrap primer usuario Admin para zilph.zaragoza@gmail.com
-    if (user.email.toLowerCase() === 'zilph.zaragoza@gmail.com') {
+    // Bootstrap del primer admin: BOOTSTRAP_ADMIN_EMAIL + correo verificado.
+    const isBootstrap = isBootstrapAdmin(user.email, user.claims?.email_verified);
+    if (isBootstrap) {
       assignedRole = Role.ADMIN;
     }
 
@@ -85,7 +87,7 @@ export class AuthController {
           console.error('Error setting custom claims for initial admin:', err.message);
         }
       }
-    } else if (user.email.toLowerCase() === 'zilph.zaragoza@gmail.com' && dbUser.role !== Role.ADMIN) {
+    } else if (isBootstrap && dbUser.role !== Role.ADMIN) {
       dbUser = await this.prisma.user.update({
         where: { id: dbUser.id },
         data: { role: Role.ADMIN },
