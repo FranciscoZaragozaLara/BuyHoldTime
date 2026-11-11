@@ -3,7 +3,7 @@ version: '3.8'
 services:
   # Traefik: Edge Router & Reverse Proxy
   router:
-    image: traefik:v2.10
+    image: traefik:v3.6
     container_name: buyholdtime-router
     restart: always
     command:
