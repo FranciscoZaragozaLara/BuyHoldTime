@@ -1,0 +1,6 @@
+{
+  "name": "bht-bands",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Configuracion anual de bandas de semaforizacion del BHT Index (fuente unica compartida por frontend y backend)"
+}

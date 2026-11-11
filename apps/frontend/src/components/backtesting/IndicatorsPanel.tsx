@@ -216,6 +216,14 @@ const MS_BANDS: [number, number, string, string, string][] = [
 const VIX_BANDS: [number, number, string, string, string][] = [
   [30, Infinity, '≥ 30', '0–10', 'Pánico'], [25, 30, '25–30', '10–35', 'Miedo'], [20, 25, '20–25', '35–60', 'Inquietud'], [15, 20, '15–20', '60–78', 'Tensión'], [12, 15, '12–15', '78–90', 'Complacencia'], [-Infinity, 12, '< 12', '90–100', 'Euforia'],
 ];
+// WTI ratio vs SMA36M (bandas validadas 2003-2026, espejo del bonus oil del semáforo)
+const OIL_SEGS: [number, number, number, number][] = [
+  [-Infinity, 0.70, 0, 15], [0.70, 0.90, 15, 35], [0.90, 1.20, 35, 65], [1.20, 1.45, 65, 85], [1.45, Infinity, 85, 100],
+];
+function oilRiskScore(ratio: number): number { return bandScore(OIL_SEGS, ratio); }
+const OIL_BANDS: [number, number, string, string, string][] = [
+  [1.45, Infinity, '≥ 1.45', '85–100', 'Shock'], [1.20, 1.45, '1.20–1.45', '65–85', 'Caro'], [0.90, 1.20, '0.90–1.20', '35–65', 'Neutral'], [0.70, 0.90, '0.70–0.90', '15–35', 'Barato'], [-Infinity, 0.70, '< 0.70', '0–15', 'Alivio'],
+];
 // Fear & Greed entra directo (ya es 0-100 en la misma dirección)
 // Fear & Greed estirado (espejo backend): ≤10 => 0 y ≥80 => 100, centro intacto
 const FG_SEGS: [number, number, number, number][] = [
@@ -315,7 +323,11 @@ export const bhtLeaveGuard = (e: any, det: { scheduleClear: () => void; cancelCl
 
 export function BhtDetailPopover({ hover, detail, forward, onLeave, onHold, liveValue }: { hover: { d: string; x: number; y: number }; detail: any; forward?: any; onLeave: () => void; onHold?: () => void; liveValue?: number | null }) {
   const left = Math.min(Math.max(8, hover.x + 12), (typeof window !== 'undefined' ? window.innerWidth - 540 : 1000));
-  const top = Math.min(Math.max(8, hover.y - 40), (typeof window !== 'undefined' ? window.innerHeight - 320 : 800));
+  // A la derecha y debajo del cursor para no tapar el punto observado; si no cabe
+  // abajo, se voltea arriba del cursor.
+  const winH = typeof window !== 'undefined' ? window.innerHeight : 800;
+  const below = hover.y + 16;
+  const top = below > winH - 560 ? Math.max(8, hover.y - 560) : Math.max(8, below);
   const half = detail != null ? Math.ceil(detail.parts.length / 2) : 0;
   const bd = detail != null ? bhtBand(Number(detail.value)) : null;
   const headV = liveValue ?? (detail != null ? Number(detail.value) : null);
@@ -352,12 +364,13 @@ export function BhtDetailPopover({ hover, detail, forward, onLeave, onHold, live
           </div>
           {(detail.bonus ?? 0) > 0 && <div className="font-mono text-[11px] mt-1.5 text-orange-300">Bonus HY - (Régimen 3 {detail.bonusLabel ?? ''}): +{Number(detail.bonus).toFixed(0)} (fuera del promedio)</div>}
           {(detail.liqBonus ?? 0) !== 0 && <div className={`font-mono text-[11px] mt-1 ${Number(detail.liqBonus) > 0 ? 'text-orange-300' : 'text-emerald-300'}`}>Bonus liquidez M2/M0 ({detail.liqBonusLabel ?? ''}): {Number(detail.liqBonus) > 0 ? '+' : ''}{Number(detail.liqBonus).toFixed(0)} (fuera del promedio){detail.liqYoy != null && <> · M2 +{Number(detail.liqYoy).toFixed(1)}%{detail.liqM0d3 != null && <> · M0 Δ3M {Number(detail.liqM0d3) >= 0 ? '+' : ''}{Number(detail.liqM0d3).toFixed(1)}%</>}{detail.liqDrop != null && Number(detail.liqDrop) >= 50 && <> · −{Number(detail.liqDrop).toFixed(0)}% del pico</>}</>}</div>}
+          {(detail.oilBonus ?? 0) !== 0 && <div className={`font-mono text-[11px] mt-1 ${Number(detail.oilBonus) > 0 ? 'text-orange-300' : 'text-emerald-300'}`}>Bonus petróleo WTI ({detail.oilBonusLabel ?? ''}): {Number(detail.oilBonus) > 0 ? '+' : ''}{Number(detail.oilBonus).toFixed(0)} (fuera del promedio){detail.oilPrice != null && <> · ${Number(detail.oilPrice).toFixed(2)}{detail.oilRatio != null && <> · ×{Number(detail.oilRatio).toFixed(2)} SMA36M</>}</>}</div>}
           {(detail.bonus ?? 0) > 0 && detail.bonusHy != null && (
             <div className="font-mono text-[11px] mt-1 text-slate-400">
               HY {Number(detail.bonusHy).toFixed(2)}{detail.bonusD1 != null && <> · 1M-atrás {(Number(detail.bonusHy) - Number(detail.bonusD1)).toFixed(2)} · Δ1M {Number(detail.bonusD1) >= 0 ? '+' : ''}{Number(detail.bonusD1).toFixed(2)} (gatillo {'≥'} +1.00)</>}{detail.bonusZ != null && detail.bonusSigma != null && <> · Δ3M {(Number(detail.bonusZ) * Number(detail.bonusSigma)).toFixed(2)} · σ24 {Number(detail.bonusSigma).toFixed(2)} → z {Number(detail.bonusZ) >= 0 ? '+' : ''}{Number(detail.bonusZ).toFixed(1)}σ (gatillo z{'>'}1.5, HY{'>'}5)</>}{detail.bonusFed != null && <> · Fed {Number(detail.bonusFed).toFixed(2)} rescate→tope +5</>}
             </div>
           )}
-          <div className="font-mono text-[11px] text-slate-400 mt-1.5">Σ {Number(detail.numerator).toFixed(1)} ÷ {detail.denominator}{(detail.bonus ?? 0) > 0 ? ` + ${Number(detail.bonus).toFixed(0)}` : ''}{(detail.liqBonus ?? 0) !== 0 ? ` ${Number(detail.liqBonus) > 0 ? '+' : ''}${Number(detail.liqBonus).toFixed(0)}` : ''} = <span className="text-slate-100 font-bold">{Number(detail.value).toFixed(1)}</span> · {detail.coverage}/13</div>
+          <div className="font-mono text-[11px] text-slate-400 mt-1.5">Σ {Number(detail.numerator).toFixed(1)} ÷ {detail.denominator}{(detail.bonus ?? 0) > 0 ? ` + ${Number(detail.bonus).toFixed(0)}` : ''}{(detail.liqBonus ?? 0) !== 0 ? ` ${Number(detail.liqBonus) > 0 ? '+' : ''}${Number(detail.liqBonus).toFixed(0)}` : ''}{(detail.oilBonus ?? 0) !== 0 ? ` ${Number(detail.oilBonus) > 0 ? '+' : ''}${Number(detail.oilBonus).toFixed(0)}` : ''} = <span className="text-slate-100 font-bold">{Number(detail.value).toFixed(1)}</span> · {detail.coverage}/13</div>
           {forward && (
             <div className="mt-2 border-t border-slate-800 pt-1.5">
               <div className="text-slate-400 mb-1">Si comprabas el {hover.d}</div>
@@ -365,23 +378,30 @@ export function BhtDetailPopover({ hover, detail, forward, onLeave, onHold, live
                 const keys = ['spx', 'ndx', 'tqqq'];
                 const matureY = [1, 2, 3, 5].filter((y) => keys.some((k) => forward[`${k}${y}y`] != null));
                 const showHoy = keys.some((k) => [1, 2, 3, 5].some((y) => forward[`${k}${y}y`] == null)) && keys.some((k) => forward[`${k}Tt`] != null);
+                const lineColor: Record<string, string> = { spx: '#38bdf8', ndx: '#a78bfa', tqqq: '#f472b6' };
+                const fmtFull = (v: number) => '$' + Math.round(v).toLocaleString('en-US');
+                const base = (k: string) => forward[k] != null ? Number(forward[k]) : null;
+                const nomCell = (key: string | number, k: string, pct: number | null, title: string, prefix = '') => {
+                  if (pct == null) return <td key={key} className="text-right text-slate-600">—</td>;
+                  const v = Number(pct);
+                  const b = base(k);
+                  const nom = b != null ? fmtFull(b * (1 + v / 100)) : null;
+                  return <td key={key} className="text-right" title={title}>
+                    <div style={{ color: v >= 0 ? '#84cc36' : '#f87171' }}>{prefix}{v >= 0 ? '▲ ' : '▼ '}{Math.abs(v).toFixed(1)}%</div>
+                    {nom != null && <div className="text-[10px]" style={{ color: lineColor[k], opacity: 0.8 }}>{nom}</div>}
+                  </td>;
+                };
                 return (
                   <table className="w-full font-mono text-[11px]">
                     <thead><tr className="text-slate-500"><th className="text-left font-normal py-0.5"></th>{matureY.map((y) => <th key={y} className="text-right font-normal">{y}Y</th>)}{showHoy && <th className="text-right font-normal" title="Retorno parcial hasta hoy (horizontes aún no maduros)">~Hoy</th>}</tr></thead>
                     <tbody>
                       {([['SPX', 'spx'], ['NDX', 'ndx'], ['TQQQ', 'tqqq']] as const).map(([label, k]) => (
                         <tr key={k} className="border-t border-slate-800/60">
-                          <td className="py-0.5 text-slate-300">{label}</td>
-                          {matureY.map((y) => {
-                            const v = forward[`${k}${y}y`];
-                            if (v == null) return <td key={y} className="text-right text-slate-600">—</td>;
-                            return <td key={y} className="text-right" style={{ color: v >= 0 ? '#84cc36' : '#f87171' }}>{v >= 0 ? '▲ ' : '▼ '}{Math.abs(v).toFixed(1)}%</td>;
-                          })}
-                          {showHoy && (() => {
-                            const p = forward[`${k}Tt`] != null ? Number(forward[`${k}Tt`]) : null;
-                            if (p == null) return <td className="text-right text-slate-600">—</td>;
-                            return <td className="text-right" style={{ color: p >= 0 ? '#84cc36' : '#f87171' }} title="A hoy (parcial, horizonte no maduro)">~ {p >= 0 ? '▲ ' : '▼ '}{Math.abs(p).toFixed(1)}%</td>;
-                          })()}
+                          <td className="py-0.5 font-bold" style={{ color: lineColor[k] }}>{label}
+                            {base(k) != null && <div className="text-[10px] font-normal" style={{ opacity: 0.8 }}>{fmtFull(base(k)!)}</div>}
+                          </td>
+                          {matureY.map((y) => nomCell(y, k, forward[`${k}${y}y`], `${label} ${y}Y desde ${hover.d}: nominal entonces → nominal +${y}a`))}
+                          {showHoy && nomCell('hoy', k, forward[`${k}Tt`], `${label} a hoy (parcial, horizonte no maduro)`, '~ ')}
                         </tr>
                       ))}
                     </tbody>
@@ -403,7 +423,10 @@ function BhtForwardTable({ live }: { live: { current: { v: number | null; d: str
   const [view, setView] = useState<'daily' | 'monthly' | 'yearly'>('daily');
   const [sortCol, setSortCol] = useState('date');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
-  const [count, setCount] = useState(60);
+  // Estándar de tablas: scroll infinito (ver tabla CAPE). Sin botón "Ver más".
+  const [visibleCount, setVisibleCount] = useState(60);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const sentinelRef = useRef<HTMLTableRowElement | null>(null) as any;
   const bhtDet = useBhtDetail();
   const loadRows = useCallback(async () => {
     try {
@@ -417,7 +440,16 @@ function BhtForwardTable({ live }: { live: { current: { v: number | null; d: str
     window.addEventListener('bht:synced', onSync);
     return () => window.removeEventListener('bht:synced', onSync);
   }, [loadRows]);
-  useEffect(() => { setCount(60); setSortCol('date'); setSortDir('desc'); }, [view]);
+  useEffect(() => { setVisibleCount(60); setSortCol('date'); setSortDir('desc'); }, [view]);
+  // Scroll infinito: al acercarse al fondo (+60 filas). Sentinela como fallback.
+  useEffect(() => {
+    if (visibleCount >= 10000) return;
+    const observer = new IntersectionObserver((entries) => {
+      if (entries[0].isIntersecting) setVisibleCount((prev: number) => Math.min(prev + 60, 10000));
+    }, { threshold: 0.1 });
+    if (sentinelRef.current) observer.observe(sentinelRef.current);
+    return () => observer.disconnect();
+  }, [visibleCount, view, rows.length, sortCol, sortDir]);
   if (!rows.length) return null;
   let list = rows;
   if (view === 'monthly') { const m = new Map<string, any>(); for (const r of rows) m.set((r.date || '').slice(0, 7), r); list = Array.from(m.values()); }
@@ -454,7 +486,12 @@ function BhtForwardTable({ live }: { live: { current: { v: number | null; d: str
           ))}
         </div>
       </div>
-      <div className="overflow-x-auto overflow-y-auto max-h-[484px] border border-slate-900 rounded-xl custom-scrollbar">
+      <div ref={scrollRef} onScroll={(e) => {
+            const el = e.currentTarget as HTMLDivElement;
+            if (el.scrollTop + el.clientHeight >= el.scrollHeight - 80) {
+              setVisibleCount((prev) => Math.min(prev + 60, 10000));
+            }
+          }} className="overflow-x-auto overflow-y-auto max-h-[484px] border border-slate-900 rounded-xl custom-scrollbar">
         <table className="w-full text-xs relative">
           <thead className="bg-slate-900 text-slate-400 font-bold border-b border-slate-900 sticky top-0 z-10 shadow-[0_1px_0_0_rgba(15,23,42,0.6)]">
             <tr>
@@ -466,11 +503,12 @@ function BhtForwardTable({ live }: { live: { current: { v: number | null; d: str
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-900/60 bg-slate-950/20 font-mono">
-            {sorted.slice(0, count).map((r: any) => {
+            {sorted.slice(0, visibleCount).map((r: any, idx: number) => {
               const d = (r.date || '').slice(0, 10);
               const isCurrent = sortCol === 'date' && sortDir === 'desc' && r.date === maxDate;
+              const isLast = idx === Math.min(visibleCount, sorted.length) - 1 && visibleCount < sorted.length;
               return (
-                <tr key={r.date} className={`${isCurrent ? 'bg-teal-500/[0.08] border-l-2 border-l-teal-500 ring-1 ring-teal-500/15' : 'hover:bg-slate-900/40'} transition-colors`}>
+                <tr key={r.date} ref={isLast ? sentinelRef : null} className={`${isCurrent ? 'bg-teal-500/[0.08] border-l-2 border-l-teal-500 ring-1 ring-teal-500/15' : 'hover:bg-slate-900/40'} transition-colors`}>
                   <td className={`p-1.5 px-2 font-mono whitespace-nowrap w-[92px] min-w-[92px] max-w-[92px] align-top sticky left-0 z-10 shadow-[2px_0_4px_rgba(0,0,0,0.25)] ${isCurrent ? 'bg-slate-900' : 'bg-slate-950 group-hover:bg-slate-900'}`}><div className="flex flex-col items-start leading-none gap-0.5"><span className={`${isCurrent ? 'text-teal-300 font-bold' : 'text-slate-200'} text-xs`}>{view === 'yearly' ? d.slice(0, 4) : view === 'monthly' ? d.slice(0, 7) : d}</span>{isCurrent && <span className="text-[9px] px-1 py-0.5 rounded bg-teal-500 text-white font-bold leading-none">Actual</span>}</div></td>
                   {(() => { const isLive = isCurrent && liveBht != null; const v = isLive ? liveBht : r.bhtValue; if (v == null) return <td className="p-2 text-right font-mono text-slate-600 whitespace-nowrap">—</td>; return <td className="p-2 text-right font-mono font-semibold whitespace-nowrap cursor-help" style={{ color: capeScoreColor(v) }} onMouseEnter={(e) => { bhtDet.setHover({ d, x: e.clientX, y: e.clientY }); bhtDet.load(d); }} onMouseMove={(e) => bhtDet.setHover((s) => s && s.d === d ? { ...s, x: e.clientX, y: e.clientY } : s)} onMouseLeave={(e) => bhtLeaveGuard(e, bhtDet)}><span className="border-b border-dotted border-slate-400/40" title={isLive ? 'En vivo (igual que el semáforo)' : undefined}>{Number(v).toFixed(1)}{isLive && <span className="text-teal-300"> •</span>}</span></td>; })()}
                   <td className="p-2 text-right font-mono text-sky-300 whitespace-nowrap">{r.spx != null ? `$${Number(r.spx).toFixed(2)}` : '—'}</td>
@@ -483,8 +521,7 @@ function BhtForwardTable({ live }: { live: { current: { v: number | null; d: str
           </tbody>
         </table>
       </div>
-      {count < sorted.length && <button onClick={() => setCount((c) => c + 120)} className="mt-2 text-xs text-teal-300 hover:text-teal-200">Ver más ({sorted.length - count} restantes)</button>}
-      <p className="text-[11px] text-slate-500 mt-2">BHT Index al cierre + retornos forward solo con horizonte cumplido · '—' = aún no madura · {rows.length} días</p>
+      <p className="text-[11px] text-slate-500 mt-2">BHT Index al cierre + retornos forward solo con horizonte cumplido · '—' = aún no madura · {Math.min(visibleCount, sorted.length)} de {sorted.length} en vista ({rows.length} días){visibleCount < sorted.length ? ' — desplázate para más' : ''}</p>
       {bhtDet.hover && <BhtDetailPopover hover={bhtDet.hover} detail={bhtDet.cache[bhtDet.hover.d]} forward={rows.find((r) => r.date === bhtDet.hover!.d)} onLeave={() => bhtDet.scheduleClear()} onHold={() => bhtDet.cancelClear()} liveValue={(sortCol === 'date' && sortDir === 'desc' && bhtDet.hover.d === maxDate && liveBht != null) ? liveBht : null} />}
     </div>
   );
@@ -499,7 +536,7 @@ export function IndicatorsPanel() {
   const [markets, setMarkets] = useState<Record<string, number | null>>({});
   const [marketHistory, setMarketHistory] = useState<Record<string, Map<string, number>>>({});
   const [volHistory, setVolHistory] = useState<Record<string, Map<string, number>>>({});
-  const [thermoHist, setThermoHist] = useState<Record<string, { value: number; numerator: number; denominator: number; coverage: number; bonus?: number; bonusLabel?: string; liqBonus?: number; liqBonusLabel?: string }>>({});
+  const [thermoHist, setThermoHist] = useState<Record<string, { value: number; numerator: number; denominator: number; coverage: number; bonus?: number; bonusLabel?: string; liqBonus?: number; liqBonusLabel?: string; oilBonus?: number; oilBonusLabel?: string }>>({});
   const capeBhtDet = useBhtDetail();
   const liveBhtRef = useRef<{ v: number | null; d: string | null }>({ v: null, d: null });
   const [capeFwdCache, setCapeFwdCache] = useState<Record<string, any>>({});
@@ -544,6 +581,7 @@ export function IndicatorsPanel() {
   const liveCore = useLiveTicker('CPILFESL');
   const liveM2 = useLiveTicker('M2SL');
   const liveM0 = useLiveTicker('BOGMBASE');
+  const liveOil = useLiveTicker('DCOILWTICO');
   const liveGdp = useLiveTicker('GDP');
   const liveGdpc1 = useLiveTicker('GDPC1');
   const liveFinra = useLiveTicker('FINRA_DEBIT');
@@ -556,7 +594,7 @@ export function IndicatorsPanel() {
   const liveNqDec = useLiveTicker('NSDQ_DEC_VOL');
   const liveSxAdv = useLiveTicker('SPX_ADV_VOL');
   const liveSxDec = useLiveTicker('SPX_DEC_VOL');
-  const liveMap: Record<string, any> = { '^GSPC': liveGspc, '^IXIC': liveIxic, 'TQQQ': liveTqqq, 'CPIAUCSL': liveCpi, 'CPILFESL': liveCore, 'M2SL': liveM2, 'BOGMBASE': liveM0, 'DFEDTARU': liveFed, 'DGS2': live2y, 'DGS10': live10y, 'DGS30': live30y, 'BAMLH0A0HYM2': liveHyOas, 'BAMLH0A0HYM2EY': liveHyEy, 'GDP': liveGdp, 'GDPC1': liveGdpc1, 'FINRA_DEBIT': liveFinra, 'MSACSR': liveMsacsr, 'VIXCLS': liveVix, 'FEAR_GREED': liveFg, 'NYSE_ADV_VOL': liveNyAdv, 'NYSE_DEC_VOL': liveNyDec, 'NSDQ_ADV_VOL': liveNqAdv, 'NSDQ_DEC_VOL': liveNqDec, 'SPX_ADV_VOL': liveSxAdv, 'SPX_DEC_VOL': liveSxDec };
+  const liveMap: Record<string, any> = { '^GSPC': liveGspc, '^IXIC': liveIxic, 'TQQQ': liveTqqq, 'CPIAUCSL': liveCpi, 'CPILFESL': liveCore, 'M2SL': liveM2, 'BOGMBASE': liveM0, 'DCOILWTICO': liveOil, 'DFEDTARU': liveFed, 'DGS2': live2y, 'DGS10': live10y, 'DGS30': live30y, 'BAMLH0A0HYM2': liveHyOas, 'BAMLH0A0HYM2EY': liveHyEy, 'GDP': liveGdp, 'GDPC1': liveGdpc1, 'FINRA_DEBIT': liveFinra, 'MSACSR': liveMsacsr, 'VIXCLS': liveVix, 'FEAR_GREED': liveFg, 'NYSE_ADV_VOL': liveNyAdv, 'NYSE_DEC_VOL': liveNyDec, 'NSDQ_ADV_VOL': liveNqAdv, 'NSDQ_DEC_VOL': liveNqDec, 'SPX_ADV_VOL': liveSxAdv, 'SPX_DEC_VOL': liveSxDec };
   // Historial para gráfica: merge BD + live más reciente para siempre estar al día
   const chartHistory = (() => {
     const merged: Record<string, Map<string, number>> = {};
@@ -827,6 +865,38 @@ export function IndicatorsPanel() {
     if (yoy > 4 && yoy3 != null && yoy > yoy3 && m0d3 != null && m0d3 > 0) return { bonus: -10, yoy, m0d3, drop, label: `viento a favor M2 +${yoy.toFixed(1)}%` };
     return { bonus: 0, yoy, m0d3, drop, label: '—' };
   }
+  // Ratio WTI / SMA36M con anclas mensuales. Espejo del backend (bandas 0.70/0.90/1.20/1.45).
+  function oilRatioLive(wtim: Map<string, number> | undefined, isoDate: string): { ratio: number | null; price: number | null } {
+    if (!wtim || wtim.size === 0 || !isValidIsoDate(isoDate)) return { ratio: null, price: null };
+    const price = getRecentPrice(wtim, isoDate, 10);
+    if (price == null) return { ratio: null, price: null };
+    let anchor: string | null = null;
+    for (let i = 0; i < 40; i++) { const dd = new Date(isoDate + 'T12:00:00Z'); dd.setDate(dd.getDate() - i); const k = dd.toISOString().slice(0, 10); if (wtim.has(k)) { anchor = k; break; } }
+    if (!anchor) { for (const k of wtim.keys()) if (k <= isoDate && (anchor == null || k > anchor)) anchor = k; }
+    if (!anchor) return { ratio: null, price: null };
+    const vals: number[] = [];
+    for (let m = 0; m < 36; m++) { const q = new Date(anchor + 'T12:00:00Z'); q.setDate(1); q.setMonth(q.getMonth() - m); const v = getRecentPrice(wtim, q.toISOString().slice(0, 10), 10); if (v != null) vals.push(v); }
+    if (vals.length < 30) return { ratio: null, price };
+    return { ratio: price / (vals.reduce((a, b) => a + b, 0) / vals.length), price };
+  }
+  // Bonus simétrico de petróleo WTI. Espejo del backend (con guarda anti-spike).
+  function oilLiveBonus(wtim: Map<string, number> | undefined, isoDate: string): { bonus: number; label: string; ratio: number | null; price: number | null } {
+    const none = { bonus: 0, label: 'sin dato', ratio: null, price: null };
+    if (!isValidIsoDate(isoDate)) return none;
+    const { ratio, price } = oilRatioLive(wtim, isoDate);
+    if (ratio == null) return { bonus: 0, label: 'sin dato', ratio, price };
+    const f = (r: number) => `×${r.toFixed(2)}`;
+    if (ratio >= 1.45) {
+      const q = new Date(isoDate + 'T12:00:00Z'); q.setDate(1); q.setMonth(q.getMonth() - 1);
+      const prev = oilRatioLive(wtim, q.toISOString().slice(0, 10)).ratio;
+      if (prev != null && prev < 1.20) return { bonus: 5, label: `caro WTI ${f(ratio)} (sin persistencia)`, ratio, price };
+      return { bonus: 10, label: `shock WTI ${f(ratio)}`, ratio, price };
+    }
+    if (ratio >= 1.20) return { bonus: 5, label: `caro WTI ${f(ratio)}`, ratio, price };
+    if (ratio >= 0.90) return { bonus: 0, label: '—', ratio, price };
+    if (ratio >= 0.70) return { bonus: -5, label: `barato WTI ${f(ratio)}`, ratio, price };
+    return { bonus: -10, label: `alivio WTI ${f(ratio)}`, ratio, price };
+  }
   function getChange(isoDate: string, view?: 'daily'|'monthly'|'yearly'): number | null {
     // cambio vs periodo anterior según tab: día / mes / año (view override para export Excel)
     const v = view ?? capeView;
@@ -994,12 +1064,12 @@ export function IndicatorsPanel() {
           const thRes = await fetch(`${base}/api/backtesting/thermo-history?from=1993-01-01`, { cache: 'no-store' });
           if (thRes.ok) {
             const arr = await thRes.json();
-            const m: Record<string, { value: number; numerator: number; denominator: number; coverage: number; bonus?: number; bonusLabel?: string; liqBonus?: number; liqBonusLabel?: string }> = {};
+            const m: Record<string, { value: number; numerator: number; denominator: number; coverage: number; bonus?: number; bonusLabel?: string; liqBonus?: number; liqBonusLabel?: string; oilBonus?: number; oilBonusLabel?: string }> = {};
             for (const row of arr) m[(row.date || '').slice(0, 10)] = row;
             setThermoHist(m);
           }
         } catch {}
-        const tickers = ['TQQQ', 'QQQ', 'SCHD', 'JEPQ', 'SQQQ', 'VOO', 'SPY', '^GSPC', '^IXIC', 'CPIAUCSL', 'CPILFESL', 'M2SL', 'BOGMBASE', 'DFEDTARU', 'DGS2', 'DGS10', 'DGS30', 'BAMLH0A0HYM2', 'BAMLH0A0HYM2EY', 'GDP', 'GDPC1', 'FINRA_DEBIT', 'MSACSR', 'VIXCLS', 'FEAR_GREED', 'NYSE_ADV_VOL', 'NYSE_DEC_VOL', 'NSDQ_ADV_VOL', 'NSDQ_DEC_VOL', 'SPX_ADV_VOL', 'SPX_DEC_VOL', 'SPX_EPS', 'SPX_FWD_EPS'];
+        const tickers = ['TQQQ', 'QQQ', 'SCHD', 'JEPQ', 'SQQQ', 'VOO', 'SPY', '^GSPC', '^IXIC', 'CPIAUCSL', 'CPILFESL', 'M2SL', 'BOGMBASE', 'DCOILWTICO', 'DFEDTARU', 'DGS2', 'DGS10', 'DGS30', 'BAMLH0A0HYM2', 'BAMLH0A0HYM2EY', 'GDP', 'GDPC1', 'FINRA_DEBIT', 'MSACSR', 'VIXCLS', 'FEAR_GREED', 'NYSE_ADV_VOL', 'NYSE_DEC_VOL', 'NSDQ_ADV_VOL', 'NSDQ_DEC_VOL', 'SPX_ADV_VOL', 'SPX_DEC_VOL', 'SPX_EPS', 'SPX_FWD_EPS'];
         const to = new Date().toISOString().slice(0, 10);
         const from = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
         const m: Record<string, number | null> = {};
@@ -1128,6 +1198,7 @@ export function IndicatorsPanel() {
   };
   const liqM2Map = liqMergeLive('M2SL');
   const liqM0Map = liqMergeLive('BOGMBASE');
+  const oilMapM = liqMergeLive('DCOILWTICO');
   const liveFreshMin = (iso?: string) => {
     if(!iso) return null;
     const mins = Math.round((Date.now() - new Date(iso).getTime())/60000);
@@ -1165,6 +1236,7 @@ export function IndicatorsPanel() {
         const y30Score = thermoY30 != null && thermoY30ma != null ? y30mRiskScore(thermoY30, thermoY30ma) : null;
         const hyB = hyLiveBonus(hyLiveMap, thermoToday, marketHistory['DFEDTARU']);
         const liqB = liqLiveBonus(liqM2Map, liqM0Map, thermoToday, marketHistory['CPIAUCSL']);
+        const oilB = oilLiveBonus(oilMapM, thermoToday);
         const mgScore = thermoMargin != null && thermoMarginMa != null ? mgMScore(thermoMargin, thermoMarginMa) : null;
         const vixScore = thermoVix != null ? vixRiskScore(thermoVix) : null;
         const fgScore = thermoFg != null ? fgRiskScore(thermoFg) : null;
@@ -1173,7 +1245,7 @@ export function IndicatorsPanel() {
         const parts = [...(capeScore != null && capeLast?.cape != null ? [{ key: 'CAPE', score: capeScore, weight: 20, value: capeLast.cape, dec: 2 }] : []), ...(fwdScore != null && thermoFwd != null ? [{ key: 'FWD', score: fwdScore, weight: 10, value: thermoFwd, dec: 2 }] : []), ...(ratioScore != null && capeLast?.capeRatio != null ? [{ key: 'RATIO', score: ratioScore, weight: 15, value: capeLast.capeRatio, dec: 3 }] : []), ...(cpiScore != null && thermoCpi != null ? [{ key: 'CPI', score: cpiScore, weight: 10, value: thermoCpi, dec: 2 }] : []), ...(coreScore != null && thermoCore != null ? [{ key: 'CORE', score: coreScore, weight: 10, value: thermoCore, dec: 2 }] : []), ...(y2mScore != null && thermoY2 != null ? [{ key: 'Y2M', score: y2mScore, weight: 10, value: thermoY2, dec: 2 }] : []), ...(y30Score != null && thermoY30 != null ? [{ key: '30Y', score: y30Score, weight: 10, value: thermoY30, dec: 2 }] : []), ...(mgScore != null && thermoMargin != null ? [{ key: 'MG', score: mgScore, weight: 10, value: thermoMargin, dec: 2 }] : []), ...(vixScore != null && thermoVix != null ? [{ key: 'VIX', score: vixScore, weight: 10, value: thermoVix, dec: 2 }] : []), ...(fgScore != null && thermoFg != null ? [{ key: 'FG', score: fgScore, weight: 10, value: thermoFg, dec: 0 }] : []), ...(msScore != null && thermoMs != null ? [{ key: 'MS', score: msScore, weight: 5, value: thermoMs, dec: 1 }] : []), ...(gdpScore != null && thermoGdpc1 != null ? [{ key: 'PIB', score: gdpScore, weight: 5, value: thermoGdpc1, dec: 2 }] : [])];
         const wTotal = parts.reduce((m, p) => m + p.weight, 0);
         const baseScore = wTotal > 0 ? parts.reduce((m, p) => m + p.score * p.weight, 0) / wTotal : 0;
-        const riskScore = Math.round(Math.min(100, Math.max(0, baseScore + hyB.bonus + liqB.bonus)) * 10) / 10;
+        const riskScore = Math.round(Math.min(100, Math.max(0, baseScore + hyB.bonus + liqB.bonus + oilB.bonus)) * 10) / 10;
         liveBhtRef.current = { v: riskScore, d: new Date().toISOString().slice(0, 10) };
         const band = bhtBand(riskScore);
         const riskLabel = band.label;
@@ -1222,9 +1294,9 @@ export function IndicatorsPanel() {
               {segs.map(([v0,v1,c]) => <path key={v0} d={arc(v0 + 0.8, v1 - 0.8)} fill="none" stroke={c} strokeWidth="16" strokeLinecap="butt" opacity="0.85" />)}
               <line x1={CX} y1={CY} x2={nx} y2={ny} stroke="#e2e8f0" strokeWidth="3" strokeLinecap="round" />
               <circle cx={CX} cy={CY} r="6" fill="#e2e8f0" />
-              <text x={t0x.toFixed(0)} y={t0y.toFixed(0)} fill="#64748b" fontSize="9" fontFamily="monospace">0</text>
-              <text x={t50x.toFixed(0)} y={t50y.toFixed(0)} fill="#64748b" fontSize="9" fontFamily="monospace">50</text>
-              <text x={t100x.toFixed(0)} y={t100y.toFixed(0)} fill="#64748b" fontSize="9" fontFamily="monospace">100</text>
+              <text x={t0x.toFixed(0)} y={t0y.toFixed(0)} fill="#cbd5e1" fontSize="10" fontFamily="monospace" fontWeight="bold" textAnchor="start">0</text>
+              <text x={t50x.toFixed(0)} y={t50y.toFixed(0)} fill="#cbd5e1" fontSize="10" fontFamily="monospace" fontWeight="bold" textAnchor="middle">50</text>
+              <text x={t100x.toFixed(0)} y={t100y.toFixed(0)} fill="#cbd5e1" fontSize="10" fontFamily="monospace" fontWeight="bold" textAnchor="end">100</text>
             </svg>
             <div className="flex-1 w-full text-center lg:text-left">
               <div className="font-mono text-5xl font-bold text-slate-100">{riskScore}<span className="text-lg text-slate-500">/100</span></div>
@@ -1245,7 +1317,7 @@ export function IndicatorsPanel() {
             </ul>
           </div>
           )}
-          <p className="text-[11px] text-slate-500 mt-2">Riesgo del mercado general · 0 = riesgo mínimo · 100 = riesgo máximo. Ponderado base 100: {parts.length ? parts.map(p => `${partName(p.key)} ${p.score.toFixed(0)}×${p.weight}`).join(' + ') + ` ÷ ${wTotal}` : 'sin indicadores'}{hyB.bonus > 0 ? ` + bonus HY ${hyB.label} (+${hyB.bonus})` : ''}{liqB.bonus !== 0 ? ` + bonus liquidez ${liqB.label} (${liqB.bonus > 0 ? '+' : ''}${liqB.bonus})` : ''} · {parts.length} indicadores + bonus crédito y liquidez.</p>
+          <p className="text-[11px] text-slate-500 mt-2">Riesgo del mercado general · 0 = riesgo mínimo · 100 = riesgo máximo. Ponderado base 100: {parts.length ? parts.map(p => `${partName(p.key)} ${p.score.toFixed(0)}×${p.weight}`).join(' + ') + ` ÷ ${wTotal}` : 'sin indicadores'}{hyB.bonus > 0 ? ` + bonus HY ${hyB.label} (+${hyB.bonus})` : ''}{liqB.bonus !== 0 ? ` + bonus liquidez ${liqB.label} (${liqB.bonus > 0 ? '+' : ''}${liqB.bonus})` : ''}{oilB.bonus !== 0 ? ` + bonus petróleo ${oilB.label} (${oilB.bonus > 0 ? '+' : ''}${oilB.bonus})` : ''} · {parts.length} indicadores + bonus crédito, liquidez y petróleo.</p>
           <button type="button" onClick={() => setRiskDetailOpen(o => !o)} className="mt-2 text-xs px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800 text-slate-200 hover:text-teal-300 hover:border-slate-600 transition">
             {riskDetailOpen ? '▾ Ocultar detalle' : '▸ Ver detalle del cálculo'}
           </button>
@@ -1279,8 +1351,15 @@ export function IndicatorsPanel() {
                     <td className="text-right px-3 py-1.5 text-slate-400">—</td>
                     <td className="text-right px-3 py-1.5 text-sky-300">{liqB.bonus !== 0 ? `${liqB.bonus > 0 ? '+' : ''}${liqB.bonus.toFixed(1)}` : '0.0'}</td>
                   </tr>
+                  <tr className="border-b border-slate-800/60 text-slate-300">
+                    <td className="px-3 py-1.5">Bonus petróleo WTI ({oilB.label})</td>
+                    <td className="text-right px-3 py-1.5">{oilB.price != null ? `$${oilB.price.toFixed(2)}` : '—'}{oilB.ratio != null ? ` · ×${oilB.ratio.toFixed(2)}` : ''}</td>
+                    <td className="text-right px-3 py-1.5" style={{ color: oilB.bonus > 0 ? '#f97316' : oilB.bonus < 0 ? '#34d399' : '#64748b' }}>{oilB.bonus !== 0 ? `${oilB.bonus > 0 ? '+' : ''}${oilB.bonus}` : '0'}</td>
+                    <td className="text-right px-3 py-1.5 text-slate-400">—</td>
+                    <td className="text-right px-3 py-1.5 text-sky-300">{oilB.bonus !== 0 ? `${oilB.bonus > 0 ? '+' : ''}${oilB.bonus.toFixed(1)}` : '0.0'}</td>
+                  </tr>
                   <tr className="text-slate-100 font-semibold">
-                    <td className="px-3 py-1.5" colSpan={4}>Puntaje final = Σ ÷ {wTotal}{hyB.bonus > 0 ? ` + bonus ${hyB.bonus}` : ''}{liqB.bonus !== 0 ? ` ${liqB.bonus > 0 ? '+' : ''}${liqB.bonus} liq` : ''}</td>
+                    <td className="px-3 py-1.5" colSpan={4}>Puntaje final = Σ ÷ {wTotal}{hyB.bonus > 0 ? ` + bonus ${hyB.bonus}` : ''}{liqB.bonus !== 0 ? ` ${liqB.bonus > 0 ? '+' : ''}${liqB.bonus} liq` : ''}{oilB.bonus !== 0 ? ` ${oilB.bonus > 0 ? '+' : ''}${oilB.bonus} oil` : ''}</td>
                     <td className="text-right px-3 py-1.5">{riskScore.toFixed(1)}</td>
                   </tr>
                 </tbody>
@@ -1320,6 +1399,7 @@ export function IndicatorsPanel() {
           'CPIAUCSL': 'CPI YoY = (CPI_t / CPI_{t-12} -1)*100, inflación total. >3% presiona a la Fed a subir tasas. Dato mensual FRED.',
           'M2SL': 'M2 = oferta monetaria amplia (efectivo + depósitos + money-market, billones $, FRED mensual). YoY >4% y acelerando + M0 expandiendo = viento a favor: bonus −10 al semáforo (oportunidad).',
           'BOGMBASE': 'M0 = base monetaria (efectivo + reservas bancarias, FRED mensual). Δ3M >+5% con M2 >8% = bazuca Fed −20; >+30% = megabazuca −25. Si Δ3M ≤ 0 veta el tailwind.',
+          'DCOILWTICO': 'WTI = petróleo $/barril (FRED diario). Ratio vs SMA36M: shock ≥1.45 → +10, caro ≥1.20 → +5, barato <0.90 → −5, alivio <0.70 → −10 al semáforo. El +10 exige mes previo ya caro (guarda anti-spike).',
           'CPILFESL': 'Core CPI sin alimentos ni energía. Más estable; es lo que la Fed mira para decidir tasas.',
           'BAMLH0A0HYM2': 'HY OAS = prima riesgo high-yield sobre Treasuries. >5% estrés (2008/2020). Proxy BAA10Y*1.91 pre-2023.',
           'BAMLH0A0HYM2EY': 'HY Effective Yield = tasa total HY (cupón+precio). Lo que pagan empresas HY.',
@@ -1341,6 +1421,7 @@ export function IndicatorsPanel() {
           { key: 'valoracion', label: 'Valoración', icon: '📊', keys: ['schiller_pe','pe_ratio','fwd_pe_ratio'] },
           { key: 'inflacion', label: 'Inflación y Política Monetaria', icon: '🏛️', keys: ['inflation','core_inflation','fed_rate'] },
           { key: 'liquidez', label: 'Liquidez', icon: '💧', keys: ['M2SL','BOGMBASE'] },
+          { key: 'energia', label: 'Energía', icon: '🛢️', keys: ['DCOILWTICO'] },
           { key: 'sentimiento', label: 'Sentimiento', icon: '😱', keys: ['VIXCLS','FEAR_GREED'] },
           { key: 'apalancamiento', label: 'Apalancamiento', icon: '💳', keys: ['FINRA_DEBIT','MARGIN_GDP'] },
           { key: 'tasas', label: 'Curva y Crédito', icon: '📈', keys: ['treasury_30y','DGS2','DGS10','DGS30','BAMLH0A0HYM2','BAMLH0A0HYM2EY'] },
@@ -1355,6 +1436,7 @@ export function IndicatorsPanel() {
           'BAMLH0A0HYM2': 'High-Yield Spread', 'BAMLH0A0HYM2EY': 'High-Yield Yield',
           'DFEDTARU': 'Tasa Fed', 'CPIAUCSL': 'Inflación (CPI)', 'CPILFESL': 'Inflación núcleo',
           'M2SL': 'Oferta monetaria M2', 'BOGMBASE': 'Base monetaria M0',
+          'DCOILWTICO': 'Petróleo WTI',
           'GDP': 'PIB nominal USA', 'GDPC1': 'PIB real USA', 'FINRA_DEBIT': 'Deuda de margen',
           'MARGIN_GDP': 'Apalancamiento / PIB', 'MSACSR': 'Inventario vivienda',
           'VIXCLS': 'Volatilidad VIX', 'FEAR_GREED': 'Miedo y Avaricia',
@@ -1455,6 +1537,7 @@ export function IndicatorsPanel() {
           const isHyOas = t==='BAMLH0A0HYM2';
           const isM2 = t==='M2SL';
           const isM0 = t==='BOGMBASE';
+          const isOil = t==='DCOILWTICO';
           const isBreadth = t==='NYSE_ADV_VOL'||t==='NYSE_DEC_VOL'||t==='NSDQ_ADV_VOL'||t==='NSDQ_DEC_VOL'||t==='SPX_ADV_VOL'||t==='SPX_DEC_VOL';
           const fmt = (n:number) => isGDP ? `$${(n/1000).toFixed(1)}T` : (isM2||isM0) ? `$${(n/1000).toFixed(2)}T` : isFinra ? `$${(n/1000).toFixed(0)}B` : isMsacsr ? `${n.toFixed(1)} m` : isVix ? n.toFixed(2) : isFg ? n.toFixed(0) : isBreadth ? `${(n/1e9).toFixed(2)}B` : isYield ? `${n.toFixed(2)}%` : `$${n.toFixed(2)}`;
           // CPI cards: YoY mensual fijo (no diario) — live usa mes más reciente
@@ -1467,6 +1550,8 @@ export function IndicatorsPanel() {
           const hyCardB = isHyOas ? hyLiveBonus(hyLiveMap, isValidIsoDate(q?.data?.date) ? String(q.data.date).slice(0, 10) : new Date().toISOString().slice(0, 10), marketHistory['DFEDTARU']) : null;
           // M2/M0: cards informativas con el bonus simétrico de liquidez (fuera del promedio, como HY).
           const liqCardB = (isM2||isM0) ? liqLiveBonus(liqM2Map, liqM0Map, isValidIsoDate(q?.data?.date) ? String(q.data.date).slice(0, 10) : new Date().toISOString().slice(0, 10), marketHistory['CPIAUCSL']) : null;
+          // WTI: card informativa con el bonus simétrico de petróleo (fuera del promedio, como HY/LIQ).
+          const oilCardB = isOil ? oilLiveBonus(oilMapM, isValidIsoDate(q?.data?.date) ? String(q.data.date).slice(0, 10) : new Date().toISOString().slice(0, 10)) : null;
           const gdpYoY = (()=>{ if(t!=='GDP') return null; const cur = showLive ? Number(live) : (v!=null? Number(v): null); if(cur==null) return null; const refRaw = q?.data?.date; const refDate = isValidIsoDate(refRaw) ? String(refRaw).slice(0,10) : new Date().toISOString().slice(0,10); const d=new Date(refDate); d.setFullYear(d.getFullYear()-1); const iso=d.toISOString().slice(0,10); const prev=getClosestPrice(marketHistory['GDP'], iso, 95) ?? getClosestPrice(marketHistory['GDP'], refDate, 95);
             let p = prev; if(p==null){ const qd = new Date(refDate); qd.setMonth(qd.getMonth()-12); p = getClosestPrice(marketHistory['GDP'], qd.toISOString().slice(0,10), 95); } if(p==null || p===0) return null; return (cur/p -1)*100; })();
           const gdpc1YoY = (()=>{ if(t!=='GDP') return null; const fwdRaw = liveGdpc1?.data?.date; const fwdDate = isValidIsoDate(fwdRaw) ? String(fwdRaw).slice(0,10) : new Date().toISOString().slice(0,10); const curReal = liveGdpc1?.data?.close ?? getClosestPrice(marketHistory['GDPC1'], fwdDate, 95); if(curReal==null) return null; const refRaw = isValidIsoDate(liveGdpc1?.data?.date) ? liveGdpc1?.data?.date : q?.data?.date; const refDate = isValidIsoDate(refRaw) ? String(refRaw).slice(0,10) : new Date().toISOString().slice(0,10); const d=new Date(refDate); d.setFullYear(d.getFullYear()-1); const iso=d.toISOString().slice(0,10); const prev=getClosestPrice(marketHistory['GDPC1'], iso, 95); let p=prev; if(p==null){ const qd=new Date(refDate); qd.setMonth(qd.getMonth()-12); p=getClosestPrice(marketHistory['GDPC1'], qd.toISOString().slice(0,10),95);} if(p==null||p===0) return null; return (curReal/p -1)*100; })();
@@ -1494,6 +1579,7 @@ export function IndicatorsPanel() {
                 if (isFg) { const s = Math.round(fgRiskScore(vv)); return <span className="ml-auto"><ScoreOrb name="F&G" value={vv} weight={10} score={s} bands={FG_BANDS} small /></span>; }
                 if (isHyOas && hyCardB != null) return <span className={`ml-auto text-[10px] px-1.5 py-0.5 rounded-full border font-mono ${hyCardB.bonus > 0 ? 'bg-orange-500/20 text-orange-300 border-orange-500/30' : 'bg-slate-800 text-slate-400 border-slate-700'}`}>bonus {hyCardB.bonus > 0 ? `+${hyCardB.bonus}` : '+0'}</span>;
                 if ((isM2||isM0) && liqCardB != null) return <span className={`ml-auto text-[10px] px-1.5 py-0.5 rounded-full border font-mono ${liqCardB.bonus > 0 ? 'bg-orange-500/20 text-orange-300 border-orange-500/30' : liqCardB.bonus < 0 ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : 'bg-slate-800 text-slate-400 border-slate-700'}`}>liq {liqCardB.bonus !== 0 ? `${liqCardB.bonus > 0 ? '+' : ''}${liqCardB.bonus}` : '0'}</span>;
+                if (isOil && oilCardB != null && oilCardB.ratio != null) { const s = Math.round(oilRiskScore(oilCardB.ratio)); return <span className="ml-auto"><ScoreOrb name="WTI" value={oilCardB.ratio} dec={2} weight={0} score={s} bands={OIL_BANDS} small /></span>; }
                 if (isMsacsr) return <span className="ml-auto"><ScoreOrb name="MSACSR" value={vv} dec={1} weight={5} score={Math.round(msRiskScore(vv))} bands={MS_BANDS} small /></span>;
                 if (t==='DGS2' && y2mForCard!=null) return <span className="ml-auto"><ScoreOrb name="2Y Mom" value={y2mForCard.cur} dec={2} weight={10} score={y2mForCard.score} bands={Y2M_BANDS} blend={{ level: y2mForCard.cur, levelScore: y2mForCard.levelScore, delta: y2mForCard.d, ma: y2mForCard.ma, maLabel: 'MA6M', trendScore: y2mForCard.trendScore }} small /></span>;
                 if (t==='DGS30' && y30mForCard!=null) return <span className="ml-auto"><ScoreOrb name="30Y Mom" value={y30mForCard.cur} dec={2} weight={10} score={y30mForCard.score} bands={Y30_BANDS} blend={{ level: y30mForCard.cur, levelScore: y30mForCard.levelScore, delta: y30mForCard.d, ma: y30mForCard.ma, maLabel: 'MA6M', trendScore: y30mForCard.trendScore }} small /></span>;
@@ -1502,6 +1588,7 @@ export function IndicatorsPanel() {
               {t==='DGS2' && y2mForCard!=null && <div className="text-[11px] font-mono font-semibold text-slate-400">Δ {y2mForCard.d>=0?'+':''}{y2mForCard.d.toFixed(2)}pp vs MA6M {y2mForCard.ma.toFixed(2)}% · <span style={{color: capeScoreColor(y2mForCard.score)}}>{y2mBandLabel(y2mForCard.score)}</span></div>}
               {isHyOas && hyCardB != null && hyCardB.hy != null && <div className="text-[11px] font-mono font-semibold text-slate-400">{hyBandLabel(hyCardB.hy)} · <span className={hyCardB.bonus > 0 ? 'text-orange-300' : 'text-slate-500'}>Régimen 3 {hyCardB.bonus > 0 ? `${hyCardB.label} (+${hyCardB.bonus})` : 'inactivo — solo suma, nunca resta'}</span></div>}
               {(isM2||isM0) && liqCardB != null && liqCardB.yoy != null && <div className="text-[11px] font-mono font-semibold text-slate-400">M2 YoY +{liqCardB.yoy.toFixed(1)}% · M0 Δ3M {liqCardB.m0d3 != null ? `${liqCardB.m0d3 >= 0 ? '+' : ''}${liqCardB.m0d3.toFixed(1)}%` : '—'} · <span className={liqCardB.bonus > 0 ? 'text-orange-300' : liqCardB.bonus < 0 ? 'text-emerald-300' : 'text-slate-500'}>{liqCardB.bonus !== 0 ? `${liqCardB.label} (${liqCardB.bonus > 0 ? '+' : ''}${liqCardB.bonus})` : 'sin bonus'}</span></div>}
+              {isOil && oilCardB != null && oilCardB.ratio != null && <div className="text-[11px] font-mono font-semibold text-slate-400">×{oilCardB.ratio.toFixed(2)} SMA36M · <span className={oilCardB.bonus > 0 ? 'text-orange-300' : oilCardB.bonus < 0 ? 'text-emerald-300' : 'text-slate-500'}>{oilCardB.bonus !== 0 ? `${oilCardB.label} (${oilCardB.bonus > 0 ? '+' : ''}${oilCardB.bonus})` : 'neutral'}</span></div>}
               {t==='DGS30' && y30mForCard!=null && <div className="text-[11px] font-mono font-semibold text-slate-400">Δ {y30mForCard.d>=0?'+':''}{y30mForCard.d.toFixed(2)}pp vs MA6M {y30mForCard.ma.toFixed(2)}% · <span style={{color: capeScoreColor(y30mForCard.score)}}>{y30mBandLabel(y30mForCard.score)}</span></div>}
               {isGDP && (gdpYoY!=null || gdpc1YoY!=null) && <div className="flex gap-2 text-[11px] font-mono font-semibold"><span className={gdpYoY!=null && gdpYoY>=0?'text-emerald-400':'text-red-400'}>{gdpYoY!=null? `${gdpYoY>=0?'▲':'▼'} ${Math.abs(gdpYoY).toFixed(2)}% Nom`:'— Nom'}</span><span className="text-slate-600">·</span><span className={gdpc1YoY!=null && gdpc1YoY>=0?'text-sky-400':'text-orange-400'}>{gdpc1YoY!=null? `${gdpc1YoY>=0?'▲':'▼'} ${Math.abs(gdpc1YoY).toFixed(2)}% Real`:'— Real'}</span></div>}
               {fresh && <div className="text-[11px] text-slate-500">{fresh} · {src}</div>}
@@ -1564,7 +1651,7 @@ export function IndicatorsPanel() {
           <div className="flex items-center gap-2">
           <button onClick={()=>{
             const buildSheet = (view: 'daily'|'monthly'|'yearly')=>{
-              const headers = ['Fecha','SP500', view==='monthly' ? 'Change Monthly' : view==='yearly' ? 'Change Yearly' : 'Change Daily','BHT Index','Perf 1Y','Perf Total','CAGR','Nasdaq','TQQQ','SPX EPS','PE TTM','Fwd PE','CAPE','mean3y','RatioCape','FED Target','2Y','10Y','30Y','HY OAS','HY EY','HY 10Y+OAS','HY Bonus','LIQ Bonus','M2','M2 YoY','M0','M0 Δ3M','CPI','Core CPI','GDP','FINRA Debit','Margin/GDP','MSACSR','VIX','F&G','Vol SPY','OBV','Fuerza','Tend-OBV','NetAdv','Up/Down','CAPE SMA 3Y','CAPE SMA 5Y','CAPE SMA 10Y','CAPE EMA 3Y','CAPE EMA 5Y','CAPE EMA 10Y'];
+              const headers = ['Fecha','SP500', view==='monthly' ? 'Change Monthly' : view==='yearly' ? 'Change Yearly' : 'Change Daily','BHT Index','Perf 1Y','Perf Total','CAGR','Nasdaq','TQQQ','SPX EPS','PE TTM','Fwd PE','CAPE','mean3y','RatioCape','FED Target','2Y','10Y','30Y','HY OAS','HY EY','HY 10Y+OAS','HY Bonus','LIQ Bonus','Oil Bonus','WTI','WTI xSMA36','M2','M2 YoY','M0','M0 Δ3M','CPI','Core CPI','GDP','FINRA Debit','Margin/GDP','MSACSR','VIX','F&G','Vol SPY','OBV','Fuerza','Tend-OBV','NetAdv','Up/Down','CAPE SMA 3Y','CAPE SMA 5Y','CAPE SMA 10Y','CAPE EMA 3Y','CAPE EMA 5Y','CAPE EMA 10Y'];
               let rowsView: any[] = cape;
               if(view==='monthly'){
                 const byMonth = new Map<string, any>();
@@ -1646,6 +1733,8 @@ export function IndicatorsPanel() {
                 const m0vX = getRecentPrice(marketHistory['BOGMBASE'], d, 40);
                 const m2yX = monthlyPctLive(marketHistory['M2SL'], d, 12);
                 const m0dX = monthlyPctLive(marketHistory['BOGMBASE'], d, 3);
+                const wtiX = getRecentPrice(marketHistory['DCOILWTICO'], d, 10);
+                const wtiRtX = oilRatioLive(marketHistory['DCOILWTICO'], d).ratio;
                 const cpi = getCpiYoY(marketHistory['CPIAUCSL'], d);
                 const core = getCpiYoY(marketHistory['CPILFESL'], d);
                 const perf1y = getPerf1Y(d);
@@ -1668,7 +1757,7 @@ export function IndicatorsPanel() {
                 const peTtmXls = (spxXls!=null && spxEpsXls!=null && spxEpsXls!==0) ? spxXls/spxEpsXls : null;
                 const fwdPeXls = (spxXls!=null && spxFwdEpsXls!=null && spxFwdEpsXls!==0) ? spxXls/spxFwdEpsXls : null;
                 const brXls = breadthVals(d);
-                return [label, getClosestPrice(marketHistory['^GSPC'], d) ?? '', varDia != null ? Number(varDia.toFixed(2)) : '', thermoHist[d]?.value ?? '', perf1y != null ? Number(perf1y.toFixed(2)) : '', perfTot != null ? Number(perfTot.toFixed(2)) : '', cagr != null ? Number(cagr.toFixed(2)) : '', getClosestPrice(marketHistory['^IXIC'], d) ?? '', getClosestPrice(marketHistory['TQQQ'], d) ?? '', spxEpsXls != null ? Number(spxEpsXls.toFixed(2)) : '', peTtmXls != null ? Number(peTtmXls.toFixed(2)) : '', fwdPeXls != null ? Number(fwdPeXls.toFixed(2)) : '', r.cape ?? '', (r.mean3y ?? r.mean) ?? '', r.capeRatio ?? '', getClosestPrice(marketHistory['DFEDTARU'], d) ?? '', getClosestPrice(marketHistory['DGS2'], d) ?? '', getClosestPrice(marketHistory['DGS10'], d) ?? '', getClosestPrice(marketHistory['DGS30'], d) ?? '', hyOas ?? '', hyEy ?? '', hy10y, thRow?.bonus ?? '', thRow?.liqBonus ?? '', m2vX ?? '', m2yX != null ? Number(m2yX.toFixed(2)) : '', m0vX ?? '', m0dX != null ? Number(m0dX.toFixed(2)) : '', cpi ?? '', core ?? '', gdp ?? '', finra ?? '', marginGdp != null ? Number(marginGdp.toFixed(2)) : '', msacsrXls ?? '', vixXls ?? '', fgXls ?? '', volXls ?? '', obvXls ?? '', fuerzaXls != null ? Number(fuerzaXls.toFixed(3)) : '', obvtXls != null ? Number(obvtXls.toFixed(3)) : '', brXls.net ?? '', brXls.ratio ?? '', (r.mean3y ?? -1e9) !== -1e9 ? (r.mean3y ?? r.mean) : '', r.mean5y ?? '', r.mean10y ?? '', (r.mean3y_ema ?? (r as any).mean3yEma) ?? '', (r.mean5y_ema ?? (r as any).mean5yEma) ?? '', (r.mean10y_ema ?? (r as any).mean10yEma) ?? ''];
+                return [label, getClosestPrice(marketHistory['^GSPC'], d) ?? '', varDia != null ? Number(varDia.toFixed(2)) : '', thermoHist[d]?.value ?? '', perf1y != null ? Number(perf1y.toFixed(2)) : '', perfTot != null ? Number(perfTot.toFixed(2)) : '', cagr != null ? Number(cagr.toFixed(2)) : '', getClosestPrice(marketHistory['^IXIC'], d) ?? '', getClosestPrice(marketHistory['TQQQ'], d) ?? '', spxEpsXls != null ? Number(spxEpsXls.toFixed(2)) : '', peTtmXls != null ? Number(peTtmXls.toFixed(2)) : '', fwdPeXls != null ? Number(fwdPeXls.toFixed(2)) : '', r.cape ?? '', (r.mean3y ?? r.mean) ?? '', r.capeRatio ?? '', getClosestPrice(marketHistory['DFEDTARU'], d) ?? '', getClosestPrice(marketHistory['DGS2'], d) ?? '', getClosestPrice(marketHistory['DGS10'], d) ?? '', getClosestPrice(marketHistory['DGS30'], d) ?? '', hyOas ?? '', hyEy ?? '', hy10y, thRow?.bonus ?? '', thRow?.liqBonus ?? '', thRow?.oilBonus ?? '', wtiX ?? '', wtiRtX != null ? Number(wtiRtX.toFixed(3)) : '', m2vX ?? '', m2yX != null ? Number(m2yX.toFixed(2)) : '', m0vX ?? '', m0dX != null ? Number(m0dX.toFixed(2)) : '', cpi ?? '', core ?? '', gdp ?? '', finra ?? '', marginGdp != null ? Number(marginGdp.toFixed(2)) : '', msacsrXls ?? '', vixXls ?? '', fgXls ?? '', volXls ?? '', obvXls ?? '', fuerzaXls != null ? Number(fuerzaXls.toFixed(3)) : '', obvtXls != null ? Number(obvtXls.toFixed(3)) : '', brXls.net ?? '', brXls.ratio ?? '', (r.mean3y ?? -1e9) !== -1e9 ? (r.mean3y ?? r.mean) : '', r.mean5y ?? '', r.mean10y ?? '', (r.mean3y_ema ?? (r as any).mean3yEma) ?? '', (r.mean5y_ema ?? (r as any).mean5yEma) ?? '', (r.mean10y_ema ?? (r as any).mean10yEma) ?? ''];
               });
               return { name: `CAPE ${view}`, headers, rows: rowsData };
             };
@@ -1719,6 +1808,9 @@ export function IndicatorsPanel() {
                   {k:'hy10y', label:'HY 10Y+OAS', cls:'text-right text-orange-300'},
                   {k:'hyBonus', label:'HY Bonus', cls:'text-right text-orange-300'},
                   {k:'liqBonus', label:'LIQ Bonus', cls:'text-right text-emerald-300'},
+                  {k:'oilBonus', label:'Oil Bonus', cls:'text-right text-amber-300'},
+                  {k:'wti', label:'WTI', cls:'text-right text-amber-300'},
+                  {k:'wtiRatio', label:'WTI ×SMA36', cls:'text-right text-amber-300'},
                   {k:'m2', label:'M2', cls:'text-right text-teal-300'},
                   {k:'m2yoy', label:'M2 YoY', cls:'text-right text-teal-300'},
                   {k:'m0', label:'M0', cls:'text-right text-teal-300'},
@@ -1800,6 +1892,9 @@ export function IndicatorsPanel() {
                     if(sortCol==='hy10y') { const o=getClosestPrice(marketHistory['BAMLH0A0HYM2'], d); const t=getClosestPrice(marketHistory['DGS10'], d); return (o!=null&&t!=null)? o+t : -Infinity; }
                     if(sortCol==='hyBonus') return thermoHist[d]?.bonus ?? -Infinity;
                     if(sortCol==='liqBonus') return thermoHist[d]?.liqBonus ?? -Infinity;
+                    if(sortCol==='oilBonus') return thermoHist[d]?.oilBonus ?? -Infinity;
+                    if(sortCol==='wti') return getRecentPrice(marketHistory['DCOILWTICO'], d, 10) ?? -Infinity;
+                    if(sortCol==='wtiRatio') return oilRatioLive(marketHistory['DCOILWTICO'], d).ratio ?? -Infinity;
                     if(sortCol==='m2') return getRecentPrice(marketHistory['M2SL'], d, 40) ?? -Infinity;
                     if(sortCol==='m2yoy') return monthlyPctLive(marketHistory['M2SL'], d, 12) ?? -Infinity;
                     if(sortCol==='m0') return getRecentPrice(marketHistory['BOGMBASE'], d, 40) ?? -Infinity;
@@ -1859,10 +1954,15 @@ export function IndicatorsPanel() {
                 const isLiveRow = sortCol==='date' && sortDir==='desc' && r.date===maxDate;
                 const hyBO = isLiveRow ? hyLiveBonus(hyLiveMap, d, marketHistory['DFEDTARU']) : null;
                 const liqBO = isLiveRow ? liqLiveBonus(liqM2Map, liqM0Map, d, marketHistory['CPIAUCSL']) : null;
+                const oilBO = isLiveRow ? oilLiveBonus(oilMapM, d) : null;
                 const hyBv = isLiveRow ? (hyBO?.bonus ?? null) : (thR?.bonus ?? null);
                 const hyBLbl = isLiveRow ? (hyBO?.label ?? '') : (thR?.bonusLabel ?? '');
                 const liqBv = isLiveRow ? (liqBO?.bonus ?? null) : (thR?.liqBonus ?? null);
                 const liqBLbl = isLiveRow ? (liqBO?.label ?? '') : (thR?.liqBonusLabel ?? '');
+                const oilBv = isLiveRow ? (oilBO?.bonus ?? null) : (thR?.oilBonus ?? null);
+                const oilBLbl = isLiveRow ? (oilBO?.label ?? '') : (thR?.oilBonusLabel ?? '');
+                const oilRt = isLiveRow ? (oilBO?.ratio ?? null) : oilRatioLive(marketHistory['DCOILWTICO'], d).ratio;
+                const oilPx = isLiveRow ? (oilBO?.price ?? null) : getRecentPrice(marketHistory['DCOILWTICO'], d, 10);
                 const msacsr = getRecentPrice(marketHistory['MSACSR'], d, 35);
                 const vix = getClosestPrice(marketHistory['VIXCLS'], d);
                 const fg = getClosestPrice(marketHistory['FEAR_GREED'], d);
@@ -1935,6 +2035,9 @@ export function IndicatorsPanel() {
                   <td className="p-2 text-right font-mono text-orange-300 whitespace-nowrap" title="DGS10 + OAS">{hy10yDisp!=null?`${Number(hy10yDisp).toFixed(2)}%`:'—'}</td>
                   {(()=>{ if(hyBv==null) return <td className="p-2 text-right font-mono text-slate-500 whitespace-nowrap">—</td>; const cls=hyBv>0?'text-orange-300 bg-orange-500/10 font-semibold':'text-slate-400'; return <td className={`p-2 text-right font-mono whitespace-nowrap rounded ${cls}`} title={`Bonus HY Spread ${d}${hyBLbl?` — ${hyBLbl}`:''}`}>{hyBv>0?`+${hyBv}`:'0'}</td>; })()}
                   {(()=>{ if(liqBv==null) return <td className="p-2 text-right font-mono text-slate-500 whitespace-nowrap">—</td>; const cls=liqBv>0?'text-orange-300 bg-orange-500/10 font-semibold':liqBv<0?'text-emerald-300 bg-emerald-500/10 font-semibold':'text-slate-400'; return <td className={`p-2 text-right font-mono whitespace-nowrap rounded ${cls}`} title={`Bonus liquidez M2/M0 ${d}${liqBLbl?` — ${liqBLbl}`:''}`}>{liqBv!==0?`${liqBv>0?'+':''}${liqBv}`:'0'}</td>; })()}
+                  {(()=>{ if(oilBv==null) return <td className="p-2 text-right font-mono text-slate-500 whitespace-nowrap">—</td>; const cls=oilBv>0?'text-orange-300 bg-orange-500/10 font-semibold':oilBv<0?'text-emerald-300 bg-emerald-500/10 font-semibold':'text-slate-400'; return <td className={`p-2 text-right font-mono whitespace-nowrap rounded ${cls}`} title={`Bonus petróleo WTI ${d}${oilBLbl?` — ${oilBLbl}`:''}`}>{oilBv!==0?`${oilBv>0?'+':''}${oilBv}`:'0'}</td>; })()}
+                  {(()=>{ if(oilPx==null) return <td className="p-2 text-right font-mono text-slate-500 whitespace-nowrap">—</td>; return <td className="p-2 text-right font-mono text-amber-300 whitespace-nowrap" title={`WTI ${d} (FRED DCOILWTICO, $/barril)`}>${oilPx.toFixed(2)}</td>; })()}
+                  {(()=>{ if(oilRt==null) return <td className="p-2 text-right font-mono text-slate-500 whitespace-nowrap">—</td>; return <td className="p-2 text-right font-mono text-slate-200 whitespace-nowrap" title={`WTI / SMA36M ${d} — shock ≥1.45, caro ≥1.20, barato <0.90, alivio <0.70`}>{oilRt.toFixed(2)}×</td>; })()}
                   <td className="p-2 text-right font-mono text-teal-300 whitespace-nowrap" title={`M2 oferta monetaria ${d} (FRED M2SL, billones $)`}>{m2v!=null?`$${(m2v/1000).toFixed(2)}T`:'—'}</td>
                   {(()=>{ if(m2y==null) return <td className="p-2 text-right font-mono text-slate-500 whitespace-nowrap">—</td>; return <td className="p-2 text-right font-mono text-slate-200 whitespace-nowrap" title={`M2 YoY ${d} — tailwind exige >4% y acelerando vs 3M atrás`}>{m2y>=0?'+':''}{m2y.toFixed(1)}%</td>; })()}
                   <td className="p-2 text-right font-mono text-teal-300 whitespace-nowrap" title={`M0 base monetaria ${d} (FRED BOGMBASE, billones $)`}>{m0v!=null?`$${(m0v/1000).toFixed(2)}T`:'—'}</td>

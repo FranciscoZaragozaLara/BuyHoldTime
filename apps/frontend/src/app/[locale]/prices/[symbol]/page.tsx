@@ -186,8 +186,8 @@ export default async function TickerDetailsPage({
   let offlineFallback = false;
 
   try {
-    // Load historical limit of 8000 days (~32 years) to get all data since 1997
-    details = await getTickerDetails(symbol, 8000);
+    // Load historical limit of 8000 days (~32 years) to get all data since 1997 (no-store: supera el límite 2MB del data cache)
+    details = await getTickerDetails(symbol, 8000, true);
   } catch (err) {
     console.error(`Failed to load details for ${symbol}, falling back to mock:`, err);
     offlineFallback = true;

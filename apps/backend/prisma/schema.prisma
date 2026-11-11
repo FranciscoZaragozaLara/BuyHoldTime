@@ -311,3 +311,48 @@ model BtAllocation {
   @@index([runId, date])
   @@map("bt_allocations")
 }
+
+// Termómetro BuyHoldTime al cierre: subconjunto disponible por fecha.
+// value = numerator/denominator (base 100); coverage = nº indicadores incluidos.
+model BtThermoHistory {
+  date        DateTime @db.Date @id
+  value       Float
+  numerator   Float
+  denominator Float
+  coverage    Int
+  bonus       Float    @default(0)
+  bonusLabel  String?  @map("bonus_label")
+  liqBonus    Float    @default(0) @map("liq_bonus")
+  liqBonusLabel String? @map("liq_bonus_label")
+  oilBonus    Float    @default(0) @map("oil_bonus")
+  oilBonusLabel String? @map("oil_bonus_label")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("bt_thermo_history")
+}
+
+// BHT Index + precios y retornos forward maduros (1/2/3/5Y) por índice.
+// Solo se guardan horizontes con fecha objetivo <= último dato disponible.
+model BtBhtForward {
+  date      DateTime @db.Date @id
+  bhtValue  Float?   @map("bht_value")
+  spx       Float?
+  ndx       Float?
+  tqqq      Float?
+  spx1y     Float?   @map("spx_1y")
+  spx2y     Float?   @map("spx_2y")
+  spx3y     Float?   @map("spx_3y")
+  spx5y     Float?   @map("spx_5y")
+  ndx1y     Float?   @map("ndx_1y")
+  ndx2y     Float?   @map("ndx_2y")
+  ndx3y     Float?   @map("ndx_3y")
+  ndx5y     Float?   @map("ndx_5y")
+  tqqq1y    Float?   @map("tqqq_1y")
+  tqqq2y    Float?   @map("tqqq_2y")
+  tqqq3y    Float?   @map("tqqq_3y")
+  tqqq5y    Float?   @map("tqqq_5y")
+  parts     Json?
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("bt_bht_forward")
+}

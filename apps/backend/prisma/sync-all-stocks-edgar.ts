@@ -69,8 +69,11 @@ async function main() {
     console.error('Error fetching SEC CIK mapping:', err.message);
   }
 
-  const tickers = await prisma.ticker.findMany();
-  console.log(`Found ${tickers.length} tickers in database.`);
+  const onlySymbols = (process.env.SYMBOLS || '').split(',').map(s => s.trim().toUpperCase()).filter(Boolean);
+  const tickers = await prisma.ticker.findMany({
+    ...(onlySymbols.length > 0 ? { where: { symbol: { in: onlySymbols } } } : {}),
+  });
+  console.log(`Found ${tickers.length} tickers in database.${onlySymbols.length > 0 ? ` (filtro SYMBOLS=${onlySymbols.join(',')})` : ''}`);
 
   const skippedSymbols = new Set(['VOO', 'SPY', 'QQQ', 'TQQQ', 'SCHD', 'SOXX', 'SOXL', 'SMH', 'IBB', 'NLR', 'TSM', 'ASML', 'ARM', 'PDD', 'BRK.B']);
   let processedCount = 0;

@@ -3,6 +3,55 @@ import { ITickerRepositorySymbol } from '../ports/ticker-repository.interface';
 import type { ITickerRepository } from '../ports/ticker-repository.interface';
 import YahooFinance from 'yahoo-finance2';
 
+// CRITICAL DO NOT MODIFY — Reglas docs/eps-quarterly-calculation-rules.md:
+// los trimestres estimados del backfill DEBEN etiquetarse con la matriz fiscal
+// (closingMonth), nunca por mes calendario. Etiquetar por calendario rompe la
+// invariante 4/4 (duplica periodos, ej. dos Q2) y contamina el TTM.
+function getFiscalPeriodAndYear(endYr: number, endMo: number, closingMonth: number): { period: string; fyNum: number } {
+  let period = 'Q1';
+  let fyNum = endYr;
+  if (closingMonth === 8 || closingMonth === 9 || closingMonth === 10) {
+    if (endMo >= 11 || endMo <= 1) { period = 'Q1'; fyNum = (endMo === 11 || endMo === 12) ? endYr + 1 : endYr; }
+    else if (endMo >= 2 && endMo <= 4) { period = 'Q2'; fyNum = endYr; }
+    else if (endMo >= 5 && endMo <= 7) { period = 'Q3'; fyNum = endYr; }
+    else if (endMo >= 8 && endMo <= 10) { period = 'Q4'; fyNum = endYr; }
+  } else if (closingMonth === 6 || closingMonth === 7) {
+    if (endMo >= 8 && endMo <= 10) { period = 'Q1'; fyNum = endYr + 1; }
+    else if (endMo >= 11 || endMo <= 1) { period = 'Q2'; fyNum = (endMo === 11 || endMo === 12) ? endYr + 1 : endYr; }
+    else if (endMo >= 2 && endMo <= 4) { period = 'Q3'; fyNum = endYr; }
+    else if (endMo >= 5 && endMo <= 7) { period = 'Q4'; fyNum = endYr; }
+  } else if (closingMonth === 1 || closingMonth === 2) {
+    if (endMo >= 3 && endMo <= 5) { period = 'Q1'; fyNum = endYr + 1; }
+    else if (endMo >= 6 && endMo <= 8) { period = 'Q2'; fyNum = endYr + 1; }
+    else if (endMo >= 9 && endMo <= 11) { period = 'Q3'; fyNum = endYr + 1; }
+    else if (endMo === 12 || endMo <= 2) { period = 'Q4'; fyNum = (endMo === 12) ? endYr + 1 : endYr; }
+  } else {
+    if (endMo <= 3) { period = 'Q1'; fyNum = endYr; }
+    else if (endMo <= 6) { period = 'Q2'; fyNum = endYr; }
+    else if (endMo <= 9) { period = 'Q3'; fyNum = endYr; }
+    else { period = 'Q4'; fyNum = endYr; }
+  }
+  return { period, fyNum };
+}
+
+// Infiere el closingMonth fiscal calibrando candidatos contra las filas reales
+// de FMP (period/fiscalYear auditados). Default 12 (cierre diciembre).
+function inferClosingMonth(realQuarters: Array<{ date: string; period: string; fiscalYear: string }>): number {
+  const usable = realQuarters.filter(
+    (q) => ['Q1', 'Q2', 'Q3', 'Q4'].includes(q.period) && /^\d{4}$/.test(String(q.fiscalYear || '')) && q.date,
+  );
+  if (usable.length === 0) return 12;
+  for (const cm of [1, 2, 6, 7, 8, 9, 10, 12]) {
+    const ok = usable.every((q) => {
+      const [y, m] = q.date.slice(0, 7).split('-').map(Number);
+      const { period, fyNum } = getFiscalPeriodAndYear(y, m, cm);
+      return period === q.period && fyNum === Number(q.fiscalYear);
+    });
+    if (ok) return cm;
+  }
+  return 12;
+}
+
 @Injectable()
 export class SyncTickersUseCase {
   private readonly logger = new Logger(SyncTickersUseCase.name);
@@ -448,6 +497,8 @@ export class SyncTickersUseCase {
             const oldestReal = realQuarters[0];
             const oldestRealDate = new Date(oldestReal.date);
             const startDate = new Date('1997-03-31');
+            // Etiquetado fiscal (no calendario): infiere closingMonth de las filas FMP reales
+            const closingMonth = inferClosingMonth(realQuarters as any);
 
             const estimatedDates: Date[] = [];
             let d = new Date(oldestRealDate);
@@ -467,17 +518,13 @@ export class SyncTickersUseCase {
                 const estimatedRev = oldestReal.revenue / Math.pow(1 + quarterlyGrowthRate, quartersBack);
                 const estimatedNet = oldestReal.netIncome / Math.pow(1 + quarterlyGrowthRate, quartersBack);
 
-                const month = qDate.getMonth() + 1;
-                let period = 'Q4';
-                if (month <= 3) period = 'Q1';
-                else if (month <= 6) period = 'Q2';
-                else if (month <= 9) period = 'Q3';
+                const { period, fyNum } = getFiscalPeriodAndYear(qDate.getFullYear(), qDate.getMonth() + 1, closingMonth);
 
                 if (estimatedEpsDil > 0 && isFinite(estimatedEpsDil)) {
                   quarterMap.set(dateStr, {
                     date: dateStr,
                     period,
-                    fiscalYear: String(qDate.getFullYear()),
+                    fiscalYear: String(fyNum),
                     revenue: Math.round(estimatedRev),
                     netIncome: Math.round(estimatedNet),
                     eps: parseFloat(estimatedEpsBas.toFixed(4)),

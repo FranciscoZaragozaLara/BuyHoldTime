@@ -27,7 +27,7 @@ export function createAppQueryClient() {
 }
 
 export function getLiveStaleTime(ticker: string): number {
-  const fredTickers = ['DFEDTARU','DGS2','DGS10','DGS30'];
+  const fredTickers = ['DFEDTARU','DGS2','DGS10','DGS30','MSACSR','VIXCLS'];
   if (fredTickers.includes(ticker)) return 60 * 60 * 1000; // 1h for FED/treasury
   if (ticker === 'CAPE' || ticker === 'schiller_pe') return 24 * 60 * 60 * 1000; // 24h
   // market tickers

@@ -321,6 +321,52 @@ export function getLiqBonus(m2map: PriceMap | undefined, m0map: PriceMap | undef
   return { bonus: 0, yoy, m0d3, drop, label: '—' };
 }
 
+export interface OilBonus { bonus: number; ratio: number | null; price: number | null; label: string }
+
+/** Anclas mensuales: última obs ≤ día 1 de cada mes hacia atrás (sin overflow de fin de mes). */
+function monthlyAnchors(map: PriceMap, anchor: string, n: number): number[] {
+  const vals: number[] = [];
+  for (let m = 0; m < n; m++) {
+    const q = new Date(anchor + 'T12:00:00Z'); q.setDate(1); q.setMonth(q.getMonth() - m);
+    const v = getRecentPrice(map, q.toISOString().slice(0, 10), 10);
+    if (v != null) vals.push(v);
+  }
+  return vals;
+}
+
+export function getOilRatio(wtiMap: PriceMap | undefined, isoDate: string): { ratio: number | null; price: number | null } {
+  // Ratio WTI / SMA36M: numerador = último cierre, base = media de 36 anclas mensuales.
+  // Mata el efecto-base del YoY (rebote desde crash no flaggea shock si el nivel es barato).
+  if (!wtiMap || wtiMap.size === 0 || !isValidIsoDate(isoDate)) return { ratio: null, price: null };
+  const price = getRecentPrice(wtiMap, isoDate, 10);
+  if (price == null) return { ratio: null, price: null };
+  let anchor: string | null = null;
+  for (let i = 0; i < 40; i++) { const d = new Date(isoDate + 'T12:00:00Z'); d.setDate(d.getDate() - i); const k = d.toISOString().slice(0, 10); if (wtiMap.has(k)) { anchor = k; break; } }
+  if (!anchor) { for (const k of wtiMap.keys()) if (k <= isoDate && (anchor == null || k > anchor)) anchor = k; }
+  if (!anchor) return { ratio: null, price: null };
+  const vals = monthlyAnchors(wtiMap, anchor, 36);
+  if (vals.length < 30) return { ratio: null, price }; // fail closed sin 3Y de historia
+  return { ratio: price / (vals.reduce((a, b) => a + b, 0) / vals.length), price };
+}
+
+export function getOilBonus(wtiMap: PriceMap | undefined, isoDate: string): OilBonus {
+  // Bonus simétrico de petróleo WTI por ratio vs SMA36M (bandas validadas 2003-2026).
+  const { ratio, price } = getOilRatio(wtiMap, isoDate);
+  if (ratio == null) return { bonus: 0, ratio, price, label: 'sin dato' };
+  const f = (r: number) => `×${r.toFixed(2)}`;
+  if (ratio >= 1.45) {
+    // Guarda anti-spike: sin mes previo ya caro (≥1.20) el +10 se topa a +5.
+    const q = new Date(isoDate + 'T12:00:00Z'); q.setDate(1); q.setMonth(q.getMonth() - 1);
+    const prev = getOilRatio(wtiMap, q.toISOString().slice(0, 10)).ratio;
+    if (prev != null && prev < 1.20) return { bonus: 5, ratio, price, label: `caro WTI ${f(ratio)} (sin persistencia)` };
+    return { bonus: 10, ratio, price, label: `shock WTI ${f(ratio)}` };
+  }
+  if (ratio >= 1.20) return { bonus: 5, ratio, price, label: `caro WTI ${f(ratio)}` };
+  if (ratio >= 0.90) return { bonus: 0, ratio, price, label: '—' };
+  if (ratio >= 0.70) return { bonus: -5, ratio, price, label: `barato WTI ${f(ratio)}` };
+  return { bonus: -10, ratio, price, label: `alivio WTI ${f(ratio)}` };
+}
+
 export function getCpiMa6(map: PriceMap | undefined, isoDate: string, n = 6, minObs = 4): number | null {
   // Media de los últimos n YoY mensuales <= fecha (para series mensuales como CPI).
   if (!map || map.size === 0 || !isValidIsoDate(isoDate)) return null;
@@ -393,7 +439,7 @@ export function getGdpc1YoY(s: Series, isoDate: string): number | null {
 }
 
 export interface ThermoPart { key: string; score: number; weight: number; value: number }
-export interface ThermoDay { value: number; numerator: number; denominator: number; coverage: number; parts: ThermoPart[]; bonus: number; bonusLabel: string; liqBonus: number; liqBonusLabel: string }
+export interface ThermoDay { value: number; numerator: number; denominator: number; coverage: number; parts: ThermoPart[]; bonus: number; bonusLabel: string; liqBonus: number; liqBonusLabel: string; oilBonus: number; oilBonusLabel: string }
 
 export function computeThermoDay(
   isoDate: string,
@@ -438,8 +484,10 @@ export function computeThermoDay(
   if (!parts.length) return null;
   // Bonus liquidez M2/M0 (simétrico: resta en oportunidad, suma en riesgo).
   const liqB = getLiqBonus(s['M2SL'], s['BOGMBASE'], isoDate, s['CPIAUCSL']);
+  // Bonus petróleo WTI por ratio vs SMA36M (simétrico, fuera del promedio).
+  const oilB = getOilBonus(s['DCOILWTICO'], isoDate);
   const numerator = parts.reduce((m, p) => m + p.score * p.weight, 0);
   const denominator = parts.reduce((m, p) => m + p.weight, 0);
-  const value = Math.round(Math.min(100, Math.max(0, numerator / denominator + hyB.bonus + liqB.bonus)) * 10) / 10;
-  return { value, numerator, denominator, coverage: parts.length, parts, bonus: hyB.bonus, bonusLabel: hyB.label, liqBonus: liqB.bonus, liqBonusLabel: liqB.label };
+  const value = Math.round(Math.min(100, Math.max(0, numerator / denominator + hyB.bonus + liqB.bonus + oilB.bonus)) * 10) / 10;
+  return { value, numerator, denominator, coverage: parts.length, parts, bonus: hyB.bonus, bonusLabel: hyB.label, liqBonus: liqB.bonus, liqBonusLabel: liqB.label, oilBonus: oilB.bonus, oilBonusLabel: oilB.label };
 }

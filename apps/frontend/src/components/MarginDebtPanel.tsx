@@ -306,15 +306,19 @@ export function MarginDebtPanel({ summary: initialSummary, history: initialHisto
     }
 
     // Separate effect to handle range zoom without recreating the chart or series
-    if (history.length > 0 && chartRef.current) {
-      const fromIndex = Math.max(0, history.length - selectedRange);
-      const fromDate = history[fromIndex]?.date.substring(0, 10);
-      const toDate = history[history.length - 1]?.date.substring(0, 10);
-      if (fromDate && toDate) {
-        chartRef.current.timeScale().setVisibleRange({
-          from: fromDate as any,
-          to: toDate as any,
-        });
+    // (usa cleanHistory ordenado: el mock de respaldo viene descendente y
+    // from>to hacía explotar lightweight-charts con "right should be >= left")
+    if (cleanHistory.length > 0 && chartRef.current) {
+      const fromIndex = Math.max(0, cleanHistory.length - selectedRange);
+      const fromDate = cleanHistory[fromIndex]?.date.substring(0, 10);
+      const toDate = cleanHistory[cleanHistory.length - 1]?.date.substring(0, 10);
+      if (fromDate && toDate && fromDate <= toDate) {
+        try {
+          chartRef.current.timeScale().setVisibleRange({
+            from: fromDate as any,
+            to: toDate as any,
+          });
+        } catch {}
       }
     }
 
@@ -336,14 +340,17 @@ export function MarginDebtPanel({ summary: initialSummary, history: initialHisto
   // Separate effect to update visible range when selectedRange changes
   useEffect(() => {
     if (chartRef.current && history.length > 0) {
-      const fromIndex = Math.max(0, history.length - selectedRange);
-      const fromDate = history[fromIndex]?.date.substring(0, 10);
-      const toDate = history[history.length - 1]?.date.substring(0, 10);
-      if (fromDate && toDate) {
-        chartRef.current.timeScale().setVisibleRange({
-          from: fromDate as any,
-          to: toDate as any,
-        });
+      const sorted = [...history].filter(h => h.date).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+      const fromIndex = Math.max(0, sorted.length - selectedRange);
+      const fromDate = sorted[fromIndex]?.date.substring(0, 10);
+      const toDate = sorted[sorted.length - 1]?.date.substring(0, 10);
+      if (fromDate && toDate && fromDate <= toDate) {
+        try {
+          chartRef.current.timeScale().setVisibleRange({
+            from: fromDate as any,
+            to: toDate as any,
+          });
+        } catch {}
       }
     }
   }, [selectedRange, history]);

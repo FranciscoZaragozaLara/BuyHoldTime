@@ -1,6 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import NodeCache from 'node-cache';
+import { getHyBonus, getHySigma24, getLiqBonus, getOilBonus, PriceMap } from './thermo-history';
+
+// Día con mercado (lun–vie). Sáb/dom no operan y el BHT no se calcula.
+export function isTradingDayIso(isoDate: string): boolean {
+  const dow = new Date(isoDate.slice(0, 10) + 'T12:00:00Z').getUTCDay();
+  return dow !== 0 && dow !== 6;
+}
 
 @Injectable()
 export class BacktestingService {
@@ -290,7 +297,7 @@ export class BacktestingService {
             commission: t.commission ?? 0,
             datetime: new Date(t.datetime || t.date),
             targetPct: t.target_pct ?? t.targetPct ?? null,
-            indicators: t.indicators ?? {},
+            indicators: t.indicators ?? (t.gatilho || t.gatillo || t.reason ? { gatilho: t.gatilho ?? t.gatillo ?? t.reason, reason: t.reason ?? t.gatilho ?? t.gatillo } : {}),
           }));
           for (let i = 0; i < tradeData.length; i += 200) {
             await this.prisma.btTrade.createMany({ data: tradeData.slice(i, i + 200), skipDuplicates: true });
@@ -323,7 +330,8 @@ export class BacktestingService {
 
   async getLivePrice(ticker: string) {
     const t = ticker.trim();
-    const isFred = ['DFEDTARU','DGS2','DGS10','DGS30','BAMLH0A0HYM2','BAMLH0A0HYM2EY','CPIAUCSL','CPILFESL','GDP','GDPC1'].includes(t);
+    const isFred = ['DFEDTARU','DGS2','DGS10','DGS30','BAMLH0A0HYM2','BAMLH0A0HYM2EY','CPIAUCSL','CPILFESL','GDP','GDPC1','MSACSR','VIXCLS'].includes(t);
+    const isCnn = t === 'FEAR_GREED';
     const cacheKey = `live:${t}`;
     const cached = this.liveCache.get(cacheKey) as any;
     if (cached) return cached;
@@ -337,13 +345,35 @@ export class BacktestingService {
           const text = await res.text();
           const lines = text.trim().split('\n');
           // header DATE,VALUE ; last non-dot value (handle observation_date,GDP)
-          for (let i = lines.length - 1; i >= 1; i--) {
-            const line = lines[i].trim();
-            if (!line) continue;
-            const parts = line.split(',');
-            const d = (parts[0]||'').slice(0,10);
-            const v = parseFloat(parts[1]);
-            if (d && !isNaN(v)) { result = { ticker: t, close: v, date: d, source: 'FRED' }; break; }
+          // Guarda anti-basura: FRED a veces devuelve página HTML de error con 200
+          // (se coló date:"<link href",close:400). Exigir header CSV y fecha ISO real.
+          const isIsoDate = (s: string) => /^\d{4}-\d{2}-\d{2}$/.test(s) && !isNaN(new Date(s).getTime());
+          const header0 = (lines[0] || '').trim().toLowerCase();
+          const looksCsv = header0.startsWith('observation_date') || header0.startsWith('date');
+          if (looksCsv) {
+            for (let i = lines.length - 1; i >= 1; i--) {
+              const line = lines[i].trim();
+              if (!line) continue;
+              const parts = line.split(',');
+              const d = (parts[0] || '').slice(0, 10);
+              const v = parseFloat(parts[1]);
+              if (isIsoDate(d) && !isNaN(v)) { result = { ticker: t, close: v, date: d, source: 'FRED' }; break; }
+            }
+          }
+        }
+      } else if (isCnn) {
+        const url = 'https://production.dataviz.cnn.io/index/fearandgreed/graphdata';
+        const res: any = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36', 'Accept': 'application/json', 'Referer': 'https://www.cnn.com/markets/fear-and-greed' } as any, signal: AbortSignal.timeout(12000) } as any);
+        if (res.ok) {
+          const cj: any = await res.json();
+          const pts: any[] = cj?.fear_and_greed_historical?.data || [];
+          for (let i = pts.length - 1; i >= 0; i--) {
+            const v = Number(pts[i]?.y);
+            if (isFinite(v)) {
+              const d = new Date(Number(pts[i]?.x)).toISOString().slice(0, 10);
+              result = { ticker: t, close: v, date: d, source: 'CNN' };
+              break;
+            }
           }
         }
       } else {
@@ -378,6 +408,311 @@ export class BacktestingService {
     return result;
   }
 
+  async streamRefreshRuns(res: any, strategyCodes: string[]) {
+    const send = (obj: any) => { try { res.write(`data: ${JSON.stringify(obj)}\n\n`); } catch {} };
+    let clientClosed = false;
+    try { res.on('close', () => { clientClosed = true; }); } catch {}
+    try {
+    const { spawn } = await import('child_process');
+    const fsSync = await import('fs');
+    const pathMod = await import('path');
+    const base = '/Users/zilphfanel/Documents/AgyApps/BackTesting';
+    const inferTicker = (code: string, strat: any): string | undefined => {
+      const explicit = (strat?.paramsSchema?.ticker as string | undefined)?.toUpperCase();
+      if (explicit) return explicit;
+      const c = code.toUpperCase();
+      if (c.includes('SCHD')) return 'SCHD';
+      if (c.includes('JEPQ')) return 'JEPQ';
+      if (c.includes('SQQQ')) return 'SQQQ';
+      if (c.includes('TQQQ')) return 'TQQQ';
+      if (c.includes('VOO')) return 'VOO';
+      if (c.includes('SPY')) return 'SPY';
+      if (c.includes('QQQ')) return 'QQQ';
+      return undefined;
+    };
+    const resolveScript = (code: string, strat: any): string => {
+      const lower = code.toLowerCase();
+      const baseLower = lower.replace(/_v\d+$/, '');
+      const inferredTicker = inferTicker(code, strat)?.toLowerCase();
+      const candidates = [`run_${lower}.py`, `run_${baseLower}.py`, `run_${inferredTicker}_bh.py`].filter(Boolean) as string[];
+      for (const c of candidates) if (fsSync.existsSync(`${base}/${c}`)) return c;
+      if (code.includes('SCHILLER') && code.includes('TQQQ')) {
+        const variants: Record<string, string> = { SCHILLER_TQQQ_5A: 'run_risk_d_v4.py' };
+        if (variants[code] && fsSync.existsSync(`${base}/${variants[code]}`)) return variants[code];
+      }
+      if (code.startsWith('BH_') || code.includes('_BH')) return 'run_generic_bh.py';
+      const ticker = (inferredTicker || strat?.paramsSchema?.ticker?.toLowerCase()) as string | undefined;
+      if (ticker && fsSync.existsSync(`${base}/run_${ticker}_bh.py`)) return `run_${ticker}_bh.py`;
+      return 'run_generic_bh.py';
+    };
+    for (const code of strategyCodes) {
+      const startTs = Date.now();
+      send({ type: 'start', strategyCode: code, status: 'updating' });
+      let totalDays = 0, newDays = 0, beforeDate: string | null = null, beforeValue: number | null = null, afterDate: string | null = null, afterValue: number | null = null, status: 'success' | 'error' = 'success', error: string | null = null;
+      try {
+        const strat: any = await this.prisma.btStrategy.findUnique({ where: { code } });
+        if (!strat) throw new Error(`Strategy ${code} not found`);
+        const inception = this.resolveInception(strat as any);
+        const runs = await this.prisma.btBacktestRun.findMany({ where: { strategyId: strat.id }, orderBy: { startDate: 'desc' } });
+        let target = runs.find((r) => r.startDate.toISOString().slice(0, 10) === inception) || runs[0];
+        if (!target) throw new Error(`No run for ${code}`);
+        // START_DATE dinámico: usa el startDate del run objetivo, no siempre inception (evita mezclar BH_QQQ 1999 vs 2026-04-01)
+        const targetStart = target.startDate.toISOString().slice(0,10);
+        if (targetStart !== inception) {
+          console.warn(`[streamRefreshRuns] ${code} target ${targetStart} != inception ${inception}, usando targetStart para regenerar`); 
+        }
+        const beforeCount = await this.prisma.btEquityCurve.count({ where: { runId: target.id } });
+        const lastBefore: any = await this.prisma.btEquityCurve.findFirst({ where: { runId: target.id }, orderBy: { date: 'desc' } });
+        if (lastBefore) { beforeDate = lastBefore.date.toISOString().slice(0, 10); beforeValue = Number(lastBefore.portfolioValue); totalDays = beforeCount; }
+        // Run python to regenerate file up to today
+        const script = resolveScript(code, strat);
+        const ticker = inferTicker(code, strat);
+        await new Promise<void>((resolve, reject) => {
+          const env: any = { ...process.env, START_DATE: targetStart, STRATEGY_CODE: code };
+          if (ticker) env.TICKER = ticker.toUpperCase();
+          const proc = spawn('python3', [pathMod.join(base, script)], { cwd: base, env });
+          let stderr = '';
+          proc.stderr.on('data', (d) => (stderr += d.toString()));
+          proc.on('close', (c) => (c === 0 ? resolve() : reject(new Error(`${script} exit ${c}: ${stderr.slice(0,500)}`))));
+        });
+        // Si se usó script base para variante _V*, copiar resultados al nombre esperado (dinámico para cualquier futura estrategia)
+        try {
+          const lowerBase = code.toLowerCase().replace(/_v\d+$/,'');
+          const lowerExpect = code.toLowerCase();
+          if (lowerBase !== lowerExpect) {
+            const toCopy = ['.json','_trades.json','_allocations.json','_equity_full.json','_events.json',`_${targetStart}.json`,`_${targetStart}_trades.json`,`_${targetStart}_allocations.json`,`_${targetStart}_equity.json`,`_${targetStart}_events.json`];
+            for (const suf of toCopy) {
+              const src = pathMod.join(base, `result_${lowerBase}${suf}`);
+              const dst = pathMod.join(base, `result_${lowerExpect}${suf}`);
+              if (fsSync.existsSync(src) && !fsSync.existsSync(dst)) {
+                try { fsSync.copyFileSync(src, dst); } catch {}
+              } else if (fsSync.existsSync(src) && fsSync.existsSync(dst)) {
+                // si ambos existen y el src es más reciente, propagar (evita stale V2)
+                try {
+                  const sStat = fsSync.statSync(src);
+                  const dStat = fsSync.statSync(dst);
+                  if (sStat.mtimeMs > dStat.mtimeMs) fsSync.copyFileSync(src, dst);
+                } catch {}
+              }
+            }
+          }
+        } catch {}
+        // Read equity file — for BH strategies prefer generic BH file (SPY_BH_ORIGIN maps to result_spy_bh_...)
+        const lower = code.toLowerCase();
+        const isBH = code.includes('_BH') || code.startsWith('BH_');
+        const bhCandidates = isBH && ticker ? [`result_${ticker.toLowerCase()}_bh_${targetStart}_equity.json`, `result_${ticker.toLowerCase()}_bh_equity_full.json`] : [];
+        const candidates = isBH ? [...bhCandidates, `result_${lower}_${targetStart}_equity.json`, `result_${lower}_equity_full.json`, `result_${lower}.json`] : [`result_${lower}_${targetStart}_equity.json`, `result_${lower}_equity_full.json`, `result_${lower}.json`];
+        let eq: any[] | null = null;
+        for (const c of candidates) { const p = pathMod.join(base, c); if (fsSync.existsSync(p)) { try { const raw = JSON.parse(fsSync.readFileSync(p, 'utf8')); eq = Array.isArray(raw) ? raw : raw.equity || null; if (eq && eq.length && eq[0].portfolioValue == null && eq[0].portfolio_value != null) eq = eq.map((e:any)=>({ date: e.date, portfolioValue: e.portfolio_value })); break; } catch {} } }
+        // fallback: try reading generic bh file
+        if (!eq) {
+          const alt = pathMod.join(base, `result_${(ticker||'').toLowerCase()}_bh_${targetStart}_equity.json`);
+          if (fsSync.existsSync(alt)) eq = JSON.parse(fsSync.readFileSync(alt, 'utf8'));
+        }
+        if (!eq || !eq.length) throw new Error('Equity file not found after python');
+        const totalAfter = eq.length;
+        const lastAfter = eq[eq.length - 1];
+        afterDate = (lastAfter.date || lastAfter.Date || '').slice(0,10);
+        afterValue = Number(lastAfter.portfolioValue ?? lastAfter.portfolio_value);
+        totalDays = totalAfter;
+        // Detect discontinuity: si la curva regenerada difiere de la DB en maxDate, forzar reseed completo (evita salto 62M->96M por cambio de lógica)
+        const maxRow: any = await this.prisma.btEquityCurve.findFirst({ where: { runId: target.id }, orderBy: { date: 'desc' } });
+        const maxDate = maxRow ? maxRow.date.toISOString().slice(0,10) : inception;
+        // valor de la curva regenerada en maxDate para comparar discontinuidad
+        const eqByDate = new Map(eq.map((e:any)=>[(e.date||'').slice(0,10), Number(e.portfolioValue ?? e.portfolio_value)]));
+        const regenAtMax = eqByDate.get(maxDate);
+        const dbAtMax = maxRow ? Number(maxRow.portfolioValue) : null;
+        const todayStr = new Date().toISOString().slice(0,10);
+        // Verificar 10 días previos por si alguno quedó con corte parcial (intradía) y planchar a cierre final (sin límite 1.5% para intradía)
+        const checkDays = 10;
+        let intradayFixed = 0;
+        for (let i=0;i<checkDays;i++) {
+          const d = new Date(); d.setDate(d.getDate()-i);
+          const ds = d.toISOString().slice(0,10);
+          const dbVal: any = await this.prisma.btEquityCurve.findFirst({ where: { runId: target.id, date: new Date(ds) } });
+          if (!dbVal) continue;
+          const regenVal = eqByDate.get(ds);
+          if (regenVal==null || regenVal===Number(dbVal.portfolioValue)) continue;
+          await this.prisma.btEquityCurve.updateMany({ where: { runId: target.id, date: new Date(ds) }, data: { portfolioValue: regenVal } });
+          intradayFixed++;
+        }
+        // Si el dato más reciente es intradía (hoy) y no es final, actualizarlo en próximos días: si regenAtMax difiere y maxDate==today, hacer upsert aunque no haya missing
+        const isIntradayUpdate = maxDate === todayStr && regenAtMax!=null && dbAtMax!=null && regenAtMax !== dbAtMax;
+        const needsFullReseed = regenAtMax!=null && dbAtMax!=null && Math.abs(regenAtMax-dbAtMax)/Math.max(1,Math.abs(dbAtMax)) > 0.015;
+        if ((isIntradayUpdate || intradayFixed>0) && !needsFullReseed) {
+          if (isIntradayUpdate) {
+            await this.prisma.btEquityCurve.updateMany({ where: { runId: target.id, date: new Date(maxDate) }, data: { portfolioValue: regenAtMax! } });
+          }
+          // also update allocation for that date if exists in file
+          const allocForToday = eq.find((e:any)=> (e.date||'').slice(0,10)===maxDate);
+          // allocations are per date, update if needed
+          try{
+            const allocMapToday = new Map(eq.map((e:any)=>[(e.date||'').slice(0,10), e]));
+            // no-op, allocations will be handled via full reseed if needed, but at least equity is final
+          }catch{}
+          if (afterDate) await this.prisma.btBacktestRun.update({ where: { id: target.id }, data: { endDate: new Date(afterDate) } });
+          if (afterValue != null) await this.prisma.btBacktestMetrics.updateMany({ where: { runId: target.id }, data: { finalValue: afterValue } });
+          newDays = 1;
+        } else if (needsFullReseed) {
+          // cambio de lógica detectado: borrar y reinsertar toda la curva para evitar salto artificial
+          await this.prisma.btEquityCurve.deleteMany({ where: { runId: target.id } });
+          await this.prisma.btAllocation.deleteMany({ where: { runId: target.id } });
+          await this.prisma.btTrade.deleteMany({ where: { runId: target.id } });
+          const allocCandidatesFull = [`result_${lower}_${targetStart}_allocations.json`, `result_${lower}_allocations.json`];
+          let allocsFull: any[] = [];
+          for (const c of allocCandidatesFull) { const p = pathMod.join(base,c); if (fsSync.existsSync(p)) { try{ allocsFull = JSON.parse(fsSync.readFileSync(p,'utf8')); break;}catch{}} }
+          const tradeCandidatesFull = [`result_${lower}_${targetStart}_trades.json`, `result_${lower}_trades.json`];
+          let tradesFull: any[] = [];
+          for (const c of tradeCandidatesFull) { const p = pathMod.join(base,c); if (fsSync.existsSync(p)) { try{ tradesFull = JSON.parse(fsSync.readFileSync(p,'utf8')); break;}catch{}} }
+          for (let i=0;i<eq.length;i+=500){
+            const chunk = eq.slice(i,i+500);
+            await this.prisma.btEquityCurve.createMany({ data: chunk.map((e:any)=>({ runId: target.id, date: new Date((e.date||'').slice(0,10)), portfolioValue: Number(e.portfolioValue ?? e.portfolio_value) })), skipDuplicates: true });
+          }
+          for (let i=0;i<allocsFull.length;i+=500){
+            const ch = allocsFull.slice(i,i+500);
+            await this.prisma.btAllocation.createMany({ data: ch.map((a:any)=>({
+              runId: target.id, date: new Date(a.date), tqqqPct: a.tqqq_pct ?? a.tqqqPct ?? 1, cashPct: a.cash_pct ?? a.cashPct ?? 0,
+              tqqqValue: a.tqqq_value ?? a.tqqqValue ?? a.schd_value ?? 0, cashValue: a.cash_value ?? a.cashValue ?? 0,
+              portfolioValue: a.portfolio_value ?? a.portfolioValue, targetPct: a.target_pct ?? a.targetPct ?? null, indicators: a.indicators ?? {},
+            })), skipDuplicates: true });
+          }
+          if (tradesFull.length) {
+            for (let i=0;i<tradesFull.length;i+=200){
+              const ch = tradesFull.slice(i,i+200);
+              await this.prisma.btTrade.createMany({ data: ch.map((t:any)=>({
+                runId: target.id, ticker: t.ticker || (code.includes('SCHD') ? 'SCHD' : (code.includes('SPY') ? 'SPY' : 'TQQQ')),
+                side: t.side, size: t.size, price: t.price, value: t.value, commission: t.commission ?? 0,
+                datetime: new Date(t.datetime || t.date), targetPct: t.target_pct ?? t.targetPct ?? null,
+                indicators: t.indicators ?? (t.gatilho || t.gatillo || t.reason ? { gatilho: t.gatilho ?? t.gatillo ?? t.reason, reason: t.reason ?? t.gatilho ?? t.gatillo } : {}),
+              })), skipDuplicates: true });
+            }
+          }
+          if (afterDate) await this.prisma.btBacktestRun.update({ where: { id: target.id }, data: { endDate: new Date(afterDate) } });
+          if (afterValue != null) await this.prisma.btBacktestMetrics.updateMany({ where: { runId: target.id }, data: { finalValue: afterValue } });
+          newDays = eq.length;
+        } else {
+        const missing = eq.filter((e:any) => (e.date||'').slice(0,10) > maxDate);
+        newDays = missing.length;
+        if (missing.length) {
+          // allocations patch
+          const allocCandidates = [`result_${lower}_${targetStart}_allocations.json`, `result_${lower}_allocations.json`];
+          let allocs: any[] = [];
+          for (const c of allocCandidates) { const p = pathMod.join(base,c); if (fsSync.existsSync(p)) { try{ allocs = JSON.parse(fsSync.readFileSync(p,'utf8')); break;}catch{}} }
+          const allocByDate = new Map(allocs.map((a:any)=>[(a.date||'').slice(0,10), a]));
+          for (let i=0;i<missing.length;i+=500){
+            const chunk = missing.slice(i,i+500);
+            await this.prisma.btEquityCurve.createMany({ data: chunk.map((e:any)=>({ runId: target.id, date: new Date((e.date||'').slice(0,10)), portfolioValue: Number(e.portfolioValue ?? e.portfolio_value) })), skipDuplicates: true });
+          }
+          // allocations for missing
+          const missingAllocs = missing.map((e:any)=> allocByDate.get((e.date||'').slice(0,10))).filter(Boolean);
+          for (let i=0;i<missingAllocs.length;i+=500){
+            const ch = missingAllocs.slice(i,i+500);
+            await this.prisma.btAllocation.createMany({ data: ch.map((a:any)=>({
+              runId: target.id, date: new Date(a.date), tqqqPct: a.tqqq_pct ?? a.tqqqPct ?? 1, cashPct: a.cash_pct ?? a.cashPct ?? 0,
+              tqqqValue: a.tqqq_value ?? a.tqqqValue ?? a.schd_value ?? 0, cashValue: a.cash_value ?? a.cashValue ?? 0,
+              portfolioValue: a.portfolio_value ?? a.portfolioValue, targetPct: a.target_pct ?? a.targetPct ?? null, indicators: a.indicators ?? {},
+            })), skipDuplicates: true });
+          }
+          if (afterDate) await this.prisma.btBacktestRun.update({ where: { id: target.id }, data: { endDate: new Date(afterDate) } });
+          if (afterValue != null) await this.prisma.btBacktestMetrics.updateMany({ where: { runId: target.id }, data: { finalValue: afterValue } });
+        }
+        }
+      } catch (e:any) { status='error'; error = e.message?.slice(0,400) || String(e); }
+      const nominal = beforeValue!=null && afterValue!=null ? afterValue - beforeValue : null;
+      const pct = beforeValue!=null && afterValue!=null && beforeValue!==0 ? (afterValue/beforeValue-1)*100 : null;
+      send({ type: 'progress', strategyCode: code, totalDays, newDays, beforeDate, beforeValue, afterDate, afterValue, nominal, pct, status, error, durationMs: Date.now()-startTs });
+      if (clientClosed) break;
+      await new Promise(r=>setTimeout(r,120));
+    }
+    } catch(e:any){ try{ send({ type: 'progress', strategyCode: 'SYSTEM', status: 'error', error: String(e?.message||e).slice(0,400)}); }catch{} }
+    try{ send({ type: 'done' }); }catch{}
+    try{ res.end(); }catch{}
+  }
+
+  async getThermoHistory(from?: string, to?: string) {
+    const rows = await this.prisma.btThermoHistory.findMany({
+      where: { date: { ...(from ? { gte: new Date(from) } : {}), ...(to ? { lte: new Date(to) } : {}) } },
+      orderBy: { date: 'asc' },
+      select: { date: true, value: true, numerator: true, denominator: true, coverage: true, bonus: true, bonusLabel: true, liqBonus: true, liqBonusLabel: true, oilBonus: true, oilBonusLabel: true },
+    });
+    return rows.map((r) => ({ date: r.date.toISOString().slice(0, 10), value: r.value, numerator: r.numerator, denominator: r.denominator, coverage: r.coverage, bonus: r.bonus, bonusLabel: r.bonusLabel, liqBonus: (r as any).liqBonus ?? 0, liqBonusLabel: (r as any).liqBonusLabel ?? null, oilBonus: (r as any).oilBonus ?? 0, oilBonusLabel: (r as any).oilBonusLabel ?? null }));
+  }
+
+  async getBhtForward(from?: string, to?: string) {
+    const rows = await this.prisma.btBhtForward.findMany({
+      where: { date: { ...(from ? { gte: new Date(from) } : {}), ...(to ? { lte: new Date(to) } : {}) } },
+      orderBy: { date: 'asc' },
+    });
+    // Últimos cierres para el "a hoy" de horizontes no maduros.
+    const latest = await Promise.all(
+      ['^GSPC', '^IXIC', 'TQQQ'].map((t) => this.prisma.btMarketData.findFirst({ where: { ticker: t }, orderBy: { date: 'desc' } })),
+    );
+    const L = {
+      spx: latest[0]?.close != null ? Number(latest[0]?.close) : null,
+      ndx: latest[1]?.close != null ? Number(latest[1]?.close) : null,
+      tqqq: latest[2]?.close != null ? Number(latest[2]?.close) : null,
+    };
+    const tt = (base: any, now: number | null) => {
+      const b = base != null ? Number(base) : null;
+      return b != null && b !== 0 && now != null ? (now / b - 1) * 100 : null;
+    };
+    return rows.map((r) => ({
+      date: r.date.toISOString().slice(0, 10), bhtValue: r.bhtValue, spx: r.spx, ndx: r.ndx, tqqq: r.tqqq,
+      spx1y: r.spx1y, spx2y: r.spx2y, spx3y: r.spx3y, spx5y: r.spx5y,
+      ndx1y: r.ndx1y, ndx2y: r.ndx2y, ndx3y: r.ndx3y, ndx5y: r.ndx5y,
+      tqqq1y: r.tqqq1y, tqqq2y: r.tqqq2y, tqqq3y: r.tqqq3y, tqqq5y: r.tqqq5y,
+      spxTt: tt(r.spx, L.spx), ndxTt: tt(r.ndx, L.ndx), tqqqTt: tt(r.tqqq, L.tqqq),
+    }));
+  }
+
+  async getBhtForwardDetail(date: string) {
+    if (!date) return { error: 'date required' };
+    const r = await this.prisma.btBhtForward.findUnique({ where: { date: new Date(date) } });
+    if (!r) return { error: 'not found' };
+    const parts = (r.parts as any[]) ?? [];
+    const numerator = parts.reduce((m, p) => m + Number(p.score) * Number(p.weight), 0);
+    const denominator = parts.reduce((m, p) => m + Number(p.weight), 0);
+    const th = await this.prisma.btThermoHistory.findUnique({ where: { date: r.date }, select: { bonus: true, bonusLabel: true, liqBonus: true, liqBonusLabel: true, oilBonus: true, oilBonusLabel: true } });
+    // Insumos del trigger del bonus HY (valor, Δ1M, z y σ24) para transparentar el disparo en el hover.
+    let bonusHy: number | null = null, bonusD1: number | null = null, bonusZ: number | null = null, bonusSigma: number | null = null, bonusFed: number | null = null;
+    try {
+      const iso = r.date.toISOString().slice(0, 10);
+      const hyRows = await this.prisma.btMarketData.findMany({ where: { ticker: { in: ['BAMLH0A0HYM2', 'DFEDTARU'] }, date: { lte: r.date } }, orderBy: { date: 'desc' }, take: 2200 });
+      const hyMap: PriceMap = new Map(hyRows.filter((x: any) => x.ticker === 'BAMLH0A0HYM2').map((x: any) => [x.date.toISOString().slice(0, 10), Number(x.close)]));
+      const fedMap: PriceMap = new Map(hyRows.filter((x: any) => x.ticker === 'DFEDTARU').map((x: any) => [x.date.toISOString().slice(0, 10), Number(x.close)]));
+      const hb = getHyBonus(hyMap, iso, fedMap);
+      bonusHy = hb.hy; bonusD1 = hb.d1; bonusZ = hb.z; bonusFed = hb.fed;
+      bonusSigma = getHySigma24(hyMap, iso);
+    } catch {}
+    // Insumos del bonus de liquidez M2/M0 para transparentar el disparo en el hover.
+    let liqYoy: number | null = null, liqM0d3: number | null = null, liqDrop: number | null = null;
+    try {
+      const iso = r.date.toISOString().slice(0, 10);
+      const liqRows = await this.prisma.btMarketData.findMany({ where: { ticker: { in: ['M2SL', 'BOGMBASE', 'CPIAUCSL'] }, date: { lte: r.date } }, orderBy: { date: 'desc' }, take: 600 });
+      const m2Map: PriceMap = new Map(liqRows.filter((x: any) => x.ticker === 'M2SL').map((x: any) => [x.date.toISOString().slice(0, 10), Number(x.close)]));
+      const m0Map: PriceMap = new Map(liqRows.filter((x: any) => x.ticker === 'BOGMBASE').map((x: any) => [x.date.toISOString().slice(0, 10), Number(x.close)]));
+      const cpiMap: PriceMap = new Map(liqRows.filter((x: any) => x.ticker === 'CPIAUCSL').map((x: any) => [x.date.toISOString().slice(0, 10), Number(x.close)]));
+      const lb = getLiqBonus(m2Map, m0Map, iso, cpiMap);
+      liqYoy = lb.yoy; liqM0d3 = lb.m0d3; liqDrop = lb.drop;
+    } catch {}
+    // Insumos del bonus de petróleo WTI (precio y ratio vs SMA36M) para el hover.
+    let oilPrice: number | null = null, oilRatio: number | null = null;
+    try {
+      const iso = r.date.toISOString().slice(0, 10);
+      const oilRows = await this.prisma.btMarketData.findMany({ where: { ticker: 'DCOILWTICO', date: { lte: r.date } }, orderBy: { date: 'desc' }, take: 1300 });
+      const oilMap: PriceMap = new Map(oilRows.map((x: any) => [x.date.toISOString().slice(0, 10), Number(x.close)]));
+      const ob = getOilBonus(oilMap, iso);
+      oilPrice = ob.price; oilRatio = ob.ratio;
+    } catch {}
+    return {
+      date: r.date.toISOString().slice(0, 10), value: r.bhtValue, numerator, denominator, coverage: parts.length,
+      bonus: th?.bonus ?? 0, bonusLabel: th?.bonusLabel ?? null, bonusHy, bonusD1, bonusZ, bonusSigma, bonusFed,
+      liqBonus: (th as any)?.liqBonus ?? 0, liqBonusLabel: (th as any)?.liqBonusLabel ?? null, liqYoy, liqM0d3, liqDrop,
+      oilBonus: (th as any)?.oilBonus ?? 0, oilBonusLabel: (th as any)?.oilBonusLabel ?? null, oilPrice, oilRatio,
+      parts: parts.map((p) => ({ key: p.key, value: p.value, score: p.score, weight: p.weight, aporte: denominator ? (p.score * p.weight) / denominator : null })),
+    };
+  }
+
   async getShillerDaily(from?: string, to?: string) {
     const fs = await import('fs');
     const csvPath = '/tmp/shiller_daily.csv';
@@ -406,6 +741,8 @@ export class BacktestingService {
       if (!date) continue;
       if (from && date < from) continue;
       if (to && date > to) continue;
+      // Sin fines de semana: el mercado no opera y el BHT no se calcula esos días.
+      if (!isTradingDayIso(date)) continue;
       const cape = parseFloat(cols[capeIdx]);
       const capeSma3 = sma3Idx>=0 ? parseFloat(cols[sma3Idx]) : null;
       const capeSma5 = sma5Idx>=0 ? parseFloat(cols[sma5Idx]) : null;

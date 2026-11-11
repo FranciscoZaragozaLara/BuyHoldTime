@@ -1,7 +1,7 @@
 # Régimenes de Mercado — Documentación Completa
 
-> **Objetivo:** Escanear vulnerabilidades del “bosque seco”. Tres regímenes detectan *combustible* distinto; la *chispa* (gatillo) determina el tipo de crisis. **No implementado aún en backtesting** — solo documentación para consulta.
-> Última actualización: 2026-08-24 · Fuente: BuyHoldTime / BestTimeToInvest — Segunda parte (texto completo pegado)
+> **Objetivo:** Escanear vulnerabilidades del “bosque seco”. Tres regímenes detectan *combustible* distinto; la *chispa* (gatillo) determina el tipo de crisis.
+> Última actualización: 2026-08-26 · Fuente: BuyHoldTime / BestTimeToInvest — Activo en backtesting: `SPY_REGIMEN1`, `SPY_REGIMEN3`, `TQQQ_REGIMEN1`, `TQQQ_EXCLUSIVE_R1R3_V2` (mutex `G2 1.00`)
 
 ---
 
@@ -34,7 +34,7 @@ Objetivo: asegurar liquidez ante el primer encarecimiento del costo del dinero.
 ```
 Δ FED Target > 0  (la Fed ejecuta su primera subida)
 OR
-Bono 10Y > SMA_200días(Bono 10Y) × 1.20  (rendimiento salta +20% sobre media institucional)
+Bono 10Y > SMA_200días(Bono 10Y) × 1.10  (rendimiento salta +10% sobre media institucional — afinado 1.10 vs 1.20)
 ```
 
 **Acción:** Vender tranche del **30%** de la posición en riesgo (activo subyacente: SPY / QQQ / TQQQ) hacia liquidez (SGOV/Cash).
@@ -192,26 +192,105 @@ Z(Margin/GDP) < 0
 
 ---
 
-## 3. Complacencia en Préstamos HY OAS — *Riesgo de Crédito / Quiebra — Complementario*
+## 3. Complacencia Crediticia & Riesgo Sistémico (HY OAS) — *Riesgo de Crédito, Liquidez y Quiebras Sistémicas — 4 Fases + Sanación*
 
-**Este indicador no mide el mercado de acciones, sino el mercado de bonos basura (High Yield). Mide la ceguera al riesgo: qué tan poco rendimiento extra exigen los inversores para prestarle dinero a empresas al borde de la quiebra.**
+> **Estado:** Activo desde 2026-08-25 — `SPY_REGIMEN3` 1993-01-29 / `TQQQ_EXCLUSIVE_R1R3_V2` 2010-02-11. Umbrales afinados 5.0%/1.5σ/**1.00%** tras simulación `TQQQ 2011` (0.75% disparaba bear -19% falso; 1.00% lo convierte en `SAN`). `G2 0.75%` legacy en `SPY_COMBINED_R1R3`; `1.00%` vigente en `TQQQ_EXCLUSIVE_V2`.
 
-> **Regla complementaria:** Este régimen **no se activa por sí solo**. Requiere que el bosque ya esté seco por **altas valoraciones (1. Múltiplos Altos)** o **alto apalancamiento (2. Alta Deuda/PIB)**. La complacencia sin combustible previo no dispara crisis sistémica.
+### 1. Objetivo del Régimen
+Proteger el portafolio contra el **congelamiento del crédito, crisis de liquidez interbancaria y quiebras sistémicas masivas**, utilizando el diferencial de bonos de alto rendimiento (High Yield Option-Adjusted Spread — `BAMLH0A0HYM2`) en combinación con confirmación técnica de la acción del precio (`SMA_50/30/100`).
 
-- **El Combustible:** Exceso de confianza e ignorancia del riesgo de impago (Default Risk).
-- **La Chispa que lo detona:** Un evento de liquidez, recesión o quiebra inesperada que congela el crédito.
+### 2. Estado de Armado (Fase de Vigilancia)
+El sistema **no puede disparar defensas** a menos que el mercado se encuentre en **complacencia extrema previa**:
 
-**Regla Matemática (complementaria):**
-
+**Regla de Armado (ventana móvil 6 meses):**
 ```
-( HY OAS < Percentil_20( HY OAS_36M )  OR  HY OAS < 3.5% )  AND  ( CAPE > SMA_36M(CAPE)×1.20  OR  Z(Margin/GDP) > +2.0 )
+ARMADO si  HY OAS < Percentil_20( HY OAS_36M )  en algún momento de los últimos 6 meses
 ```
+Significado: El mercado de deuda cobra muy poco riesgo → escenario típico previo a burbuja/sobrecalentamiento. Es condición **necesaria pero no suficiente**; sin armado no hay G1/G2.
 
-> `BAMLH0A0HYM2` por debajo del percentil 20 histórico de 36 meses o <3.5% **y** además `CAPE` alto o `Z>2.0` → complacencia con bosque ya seco. Sin 1 o 2, no hay régimen.
+> Fuente `BAMLH0A0HYM2`, ventana 36M para percentil, ventana 6M para armado. Ejemplo 2007: OAS <3.0% → 2008 >11%.
 
-**Mecánica de la Crisis:** Cuando el spread (OAS) está en complacencia extrema (por debajo del percentil 20 histórico), el mercado está fijando precios de "perfección absoluta". Significa que el crédito fluye libremente. El peligro es que desde este nivel, el spread solo puede subir. Cuando la realidad golpea y el crédito se congela, las empresas no pueden refinanciar deudas, provocando quiebras y un colapso accionario.
+### 3. Gatillos de Salida / Defensa — Scaling Out
 
-**Ejemplo Histórico — 2007 (antes de la GFC):** El OAS estaba por debajo del 3.0%. Nadie creía que hubiera riesgo. Cuando estalló la crisis subprime en 2008, el OAS saltó a más del 11%.
+#### Gatillo 1 — Alerta Temprana (30% → SGOV) — *Doble Llave Estricta*
+Propósito: Reducir exposición preventiva ante encarecimiento anormal del endeudamiento.
+
+**Condiciones (ambas):**
+```
+Macro (Doble Llave Estricta):
+  Δ HY OAS_3M > 1.5 × σ_24M(Δ HY OAS_3M)  AND  HY OAS > 5.0%
+  (spread sube >1.5σ en 3M y nivel absoluto >5.0%)
+AND
+Técnico:
+  Precio < SMA_50días  (subyacente pierde tendencia institucional de mediano plazo)
+```
+**Acción:** Venta 30% a Cash/SGOV.
+**Exposición:** 70% Riesgo / 30% Cash.
+
+#### Gatillo 2 — Pánico Sistémico (70% restante → SGOV) — *Doble Llave de Pánico*
+Propósito: Botón de emergencia ante colapso vertical del crédito.
+
+**Condiciones (ambas):**
+```
+Macro (Violencia de Mercado — cualquiera):
+  Δ HY OAS_1M ≥ +1.00%  OR  HY OAS > SMA_36M(HY OAS) × 1.30
+  (salto ≥100pb en 1M o +30% sobre media 36M — TQQQ_EXCLUSIVE_V2; 0.75% legacy SPY)
+AND
+Técnico:
+  Precio < SMA_50días
+```
+**Acción:** Venta 70% restante.
+**Exposición:** 0% Riesgo / 100% Cash (defensa total).
+
+### 4. Gatillo de Sanación — Recuperación Parcial
+Escenario: Solo G1 ejecutado (70/30), G2 nunca activado.
+
+**Condiciones (ambas):**
+```
+Macro:
+  HY OAS < SMA_3M(HY OAS)
+  (spread perfora a la baja su media 3M → presión cedió)
+AND
+Técnico:
+  Precio > SMA_50días
+```
+**Acción:** Recompra 30% → **100% Riesgo** (restauración completa).
+
+### 5. Gatillos de Reingreso Post-Evacuación Total — Scaling In
+
+#### Gatillo 3 — Primera Recompra Post-Crisis (0% → 30%)
+Escenario: Portafolio 100% cash tras G2.
+
+**Condiciones (ambas):**
+```
+Macro:
+  HY OAS < SMA_3M(HY OAS)
+AND
+Técnico:
+  Precio > SMA_30días  (S&P 500 supera media corta)
+```
+*Nota de Ingeniería:* Configurado en `SMA_30` para velocidad en rebotes; evaluar alternativa `SMA_50` para mitigar bull traps.
+**Acción:** Inyección primer bloque.
+**Exposición:** 30% Riesgo / 70% Cash.
+
+#### Gatillo 4 — Reingreso Masivo (30% → 100%)
+Escenario: Con G3 ejecutado (30%), confirma fin del peligro sistémico.
+
+**Condiciones (ambas):**
+```
+Macro (Fin del Peligro):
+  HY OAS < SMA_12M(HY OAS)
+  (spread perfora media 1 año → normalización bonos)
+AND
+Técnico (Tendencia Mediano-Largo Plazo):
+  Precio > SMA_100días  (S&P 500 consolida recuperación)
+```
+*Nota de Ingeniería:* Configurado en `SMA_100` para reducir cash drag; documentada opción `SMA_200` como estándar institucional estricto.
+**Acción:** Recompra restante → **100% Riesgo / 0% Cash** (normalizado).
+
+**Mecánica de la Crisis:** Con `OAS` en complacencia extrema (<P20), el spread solo puede subir. Cuando el crédito se congela, empresas no refinancian → quiebras y colapso accionario. Los gatillos escalonan salida/entrada por `σ_24M`, `SMA_50/30/100` y medias `3M/12M/36M`.
+
+**Ejemplo Histórico — 2007-2008:** OAS <3.0% complacencia → salto >11% → Régimen 3 habría hecho `G1` con `Δ3M>1.2σ + >4.3% + <SMA50` y evacuación `G2` con `Δ1M≥+0.50%`.
 
 ---
 
@@ -223,10 +302,10 @@ Para un algoritmo robusto, estas tres reglas operan como una **matriz de escaneo
 |---|---|---|---|
 | Múltiplos Altos | Precio relativo (CAPE) + Core CPI YoY — 4 fases Scaling Out/In (30/70 y 35/65) | Armado CAPE>1.18 & CPI YoY≥4.0 & >SMA12×1.20 → G1 Fed>0 o 10Y>1.10 (30%) → G2 Fed≥+0.50 & CPI>1.30 (70%) → G3 3M caídas o Pausa 2M (35%) → G4 CPI<1.05 o Fed<0 + SMA50 (65%) → Sanación | Crisis de Valoración — duración |
 | Alta Deuda/PIB | Apalancamiento Sistémico — 4 fases (armado / 2 gatillos / sanación / desarme) | Armado Z>2.0 en 6M → ROC_3M<0 + SMA50 (30%) → ROC_3M<−σ24M (70%) → Z<0 | Crisis de Venta Forzosa — avalancha escalonada |
-| Complacencia OAS | Ceguera al Riesgo (Bonos) | Salto de Spreads (>+50 bps) | Crisis de Quiebras (Falta de liquidez) |
+| Complacencia Crediticia HY OAS | Ceguera al Riesgo + Liquidez Sistémica — 4 fases + Sanación | Armado HY < P20_36M en 6M → G1 Δ3M>1.5σ & >5.0% + <SMA50 (30%) → G2 Δ1M≥+1.00% o >SMA36M×1.30 (70%) → Sanación <SMA3M + >SMA50 → G3 <SMA3M + >SMA30 (30%) → G4 <SMA12M + >SMA100 (70%) · **TQQQ_EXCLUSIVE_V2 1.00%** | Crisis de Quiebras/Liquidez — congelamiento crédito |
 
-> **Nota:** Esta es la única tabla vigente. Las reglas válidas son únicamente las de cada sección: `CAPE>1.18 & CPI YoY≥4.0 & >1.10 + G1/G2 Scaling Out 30/70 + G3/G4 Scaling In 35/65 + Sanación`, `Z>2.0 en 6M (armado con memoria) + ROC_3M/SMA50 (gatillos) + Z<0 (desarme)`, `HY < P20 ó <3.5%`.
+> **Nota:** Esta es la única tabla vigente. Las reglas válidas son únicamente las de cada sección: `R1: CAPE>1.18 & CPI≥4.0 & >1.20 + G1/G2 30/70 + G3/G4 35/65 + Sanación (10Y×1.10)`, `R2: Z>2.0 en 6M + ROC_3M/SMA50 + Z<0`, `R3: HY<P20 en 6M → G1 Δ3M>1.5σ & >5.0% + <SMA50 (30%) → G2 Δ1M≥+1.00% o >SMA36M×1.30 (70%) → G3 <SMA3M+>SMA30 (30%) → G4 <SMA12M+>SMA100 (70%) · V2 1.00%`. `SPY_COMBINED_R1R3` legacy 0.75% · `TQQQ_EXCLUSIVE_V2` 1.00%.
 
 ---
 
-*Este documento es solo referencia, basado exclusivamente en la segunda parte pegada. La implementación de reglas en backtesting se hará en fase posterior. Ver componente `RegimesDocsTable.tsx` para vista interactiva.*
+*Documento vivo — thresholds e indicadores coinciden con backtesting. Mutex exclusivo `TQQQ_EXCLUSIVE_V2` (`G2 1.00%`) documentado arriba. Ver `RegimesDocsTable.tsx` para vista interactiva.*

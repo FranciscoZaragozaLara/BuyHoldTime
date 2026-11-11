@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Query, Param } from '@nestjs/common';
+import { Controller, Get, Post, Body, Query, Param, Res } from '@nestjs/common';
 import { BacktestingService } from './backtesting.service';
 
 @Controller('api/backtesting')
@@ -33,6 +33,19 @@ export class BacktestingController {
   @Post('runs/run-and-seed')
   runAndSeed(@Body() body: { strategyCode: string; startDate: string }) { return this.svc.runAndSeed(body.strategyCode, body.startDate); }
 
+  @Post('runs/refresh-stream')
+  async refreshRunsStream(@Body() body: { strategyCodes: string[] }, @Res() res: any) {
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache, no-transform');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('X-Accel-Buffering', 'no');
+    res.setHeader('Content-Encoding', 'identity');
+    res.flushHeaders?.();
+    const codes = Array.isArray(body.strategyCodes) ? body.strategyCodes.filter(Boolean) : [];
+    await this.svc.streamRefreshRuns(res, codes);
+  }
+
   @Get('runs/:id/equity')
   getEquity(@Param('id') id: string) { return this.svc.getEquity(id); }
 
@@ -47,6 +60,15 @@ export class BacktestingController {
 
   @Get('shiller-daily')
   getShillerDaily(@Query('from') from?: string, @Query('to') to?: string) { return this.svc.getShillerDaily(from, to); }
+
+  @Get('thermo-history')
+  getThermoHistory(@Query('from') from?: string, @Query('to') to?: string) { return this.svc.getThermoHistory(from, to); }
+
+  @Get('bht-forward')
+  getBhtForward(@Query('from') from?: string, @Query('to') to?: string) { return this.svc.getBhtForward(from, to); }
+
+  @Get('bht-forward/detail')
+  getBhtForwardDetail(@Query('date') date: string) { return this.svc.getBhtForwardDetail(date); }
 
   @Get('market-data/live')
   getLive(@Query('ticker') ticker: string) {

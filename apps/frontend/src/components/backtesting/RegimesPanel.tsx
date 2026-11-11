@@ -1,9 +1,14 @@
 'use client';
 import { useEffect, useState, useRef, useMemo, useCallback } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { RegimesDocsTable } from './RegimesDocsTable';
+import { RegimesDocsTable, type RegimeLive } from './RegimesDocsTable';
 import { useTranslations } from 'next-intl';
+import { useMarketSyncStream } from './useMarketSyncStream';
+import MarketSyncModal from './MarketSyncModal';
 import { createChart, ColorType, LineSeries, createSeriesMarkers } from 'lightweight-charts';
+import { applyCrisisMarkers, snapToTime } from '@/lib/crisisEvents';
+import { CrisisEventsTable } from './CrisisEventsTable';
 
 function getApiBase() {
   if (process.env.NEXT_PUBLIC_API_URL) return process.env.NEXT_PUBLIC_API_URL;
@@ -23,9 +28,15 @@ export function RegimesPanel() {
   const [loading, setLoading] = useState(true);
   const equityChartRef = useRef<HTMLDivElement>(null);
   const equityChartApiRef = useRef<any>(null);
+  const queryClient = useQueryClient();
   const [strategies, setStrategies] = useState<any[]>([]);
   const [selectedA, setSelectedA] = useState<string>('SPY_REGIMEN1');
   const [selectedB, setSelectedB] = useState<string>('SPY_BH_ORIGIN');
+  const [selectedAStart, setSelectedAStart] = useState<string>('');
+  const [selectedBStart, setSelectedBStart] = useState<string>('');
+  const [runsA, setRunsA] = useState<any[]>([]);
+  const [runsB, setRunsB] = useState<any[]>([]);
+  const [startDatesMap, setStartDatesMap] = useState<Map<string,string>>(new Map());
   const [tradesA, setTradesA] = useState<any[]>([]);
   const [tradesB, setTradesB] = useState<any[]>([]);
   // Tabla régimen: reutiliza misma data que IndicatorsPanel
@@ -123,14 +134,21 @@ export function RegimesPanel() {
     }
     return { monthlyMgMap: mMap, monthlyKeys: Array.from(mMap.keys()).sort() };
   }, [allCapeDates, marginGdpCache]);
-  // Core CPI mensual memoizado — YoY % (corrige puntos→% y fill 90d para Aug)
+  // Core CPI mensual memoizado — YoY % por FECHA (no por índice) — Agosto sin dato mantiene Julio hasta publicar
   const { cpiMonthlyMap, cpiKeys, cpiSma12Map, cpiYoYMap, cpiYoYSma12Map, monthLastDate } = useMemo(()=>{
     const cmap = new Map<string, number>();
     const lastMap = new Map<string, string>();
-    for(const dd of allCapeDates){
-      const mk=dd.slice(0,7);
-      const v=marketHistory['CPILFESL']?.get(dd) ?? getClosestPrice(marketHistory['CPILFESL'], dd, 90) ?? getRecentPrice(marketHistory['CPILFESL'], dd, 90);
-      if(v!=null){ cmap.set(mk, v); lastMap.set(mk, dd); }
+    // Solo meses con dato real FRED (sin ffill): August sin publicar no crea entrada, su YoY queda en Julio
+    const src = marketHistory['CPILFESL'];
+    if(src){
+      for(const [dateStr, val] of src.entries()){
+        const mk = dateStr.slice(0,7);
+        // FRED mensual viene el día 01 — agrupamos por mes, último valor del mes
+        if(val!=null && isFinite(val)){
+          cmap.set(mk, val as number);
+          lastMap.set(mk, dateStr);
+        }
+      }
     }
     const keys = Array.from(cmap.keys()).sort();
     const smaMap = new Map<string, number>();
@@ -139,18 +157,12 @@ export function RegimesPanel() {
       const vals=sKeys.map(k=> cmap.get(k)).filter((v):v is number=>v!=null) as number[];
       if(vals.length>=6) smaMap.set(keys[i], vals.reduce((a,b)=>a+b,0)/vals.length);
     }
-    // YoY % a partir de niveles mensuales (evita getCpiYoY diario, más estable)
+    // YoY % por FECHA exacta mismo mes hace 12m (no shift índice) — evita Oct faltante
     const yoYMap = new Map<string, number>();
-    for(let i=0;i<keys.length;i++){
-      if(i>=12){
-        const cur = cmap.get(keys[i]); const prev = cmap.get(keys[i-12]);
-        if(cur!=null && prev!=null && prev!==0) yoYMap.set(keys[i], (cur/prev-1)*100);
-      } else if(i>=1){
-        // fallback: busca clave 12m atrás por fecha si índice no alineado (meses faltantes)
-        const curMk = keys[i]; const d=new Date(curMk+'-15'); d.setFullYear(d.getFullYear()-1); const prevMk = d.toISOString().slice(0,7);
-        const cur = cmap.get(curMk); const prev = cmap.get(prevMk);
-        if(cur!=null && prev!=null && prev!==0) yoYMap.set(curMk, (cur/prev-1)*100);
-      }
+    for(const mk of keys){
+      const d=new Date(mk+'-15'); d.setFullYear(d.getFullYear()-1); const prevMk = d.toISOString().slice(0,7);
+      const cur = cmap.get(mk); const prev = cmap.get(prevMk);
+      if(cur!=null && prev!=null && prev!==0) yoYMap.set(mk, (cur/prev-1)*100);
     }
     const yoYSmaMap = new Map<string, number>();
     for(let i=0;i<keys.length;i++){
@@ -254,16 +266,127 @@ export function RegimesPanel() {
     };
   }
 
+  // Snapshot vivo para Documentación de Regímenes: estado del último día + diferenciales
+  // por fase (F0/G1/G2… con valores y gaps). Lo consume <RegimesDocsTable live={...} />.
+  const regimeLive: RegimeLive = useMemo(()=>{
+    if(!allCapeDates.length) return null;
+    const d = allCapeDates[allCapeDates.length-1];
+    const capeRow: any = (cape as any[]).find((r:any)=> String(r.date).slice(0,10)===d);
+    const det = getRegimeDetails(d, capeRow?.cape ?? null, capeRow?.mean3y ?? capeRow?.mean ?? null);
+    const seriesOf = (k:string): Array<[string,number]> => {
+      const m = marketHistory[k]; if(!m) return [];
+      return Array.from(m.entries()).map(([dt,v]):[string,number]=>[String(dt).slice(0,10), Number(v)]).filter(([,v])=>isFinite(v)).sort((a,b)=>a[0].localeCompare(b[0]));
+    };
+    const atOrBefore = (s:Array<[string,number]>, iso:string): [string,number]|null => { let b:[string,number]|null=null; for(const e of s){ if(e[0]<=iso) b=e; else break; } return b; };
+    const shiftDays = (iso:string, n:number) => { const t=new Date(iso); t.setDate(t.getDate()-n); return t.toISOString().slice(0,10); };
+    const mean = (a:number[]): number|null => a.length? a.reduce((x,y)=>x+y,0)/a.length : null;
+    const std = (a:number[], m:number): number|null => { if(a.length<2) return null; return Math.sqrt(a.reduce((x,y)=>x+(y-m)*(y-m),0)/(a.length-1)); };
+    // FED (Δ) / DGS10 (SMA200) / SPX (SMA50/30/100)
+    const fedS = seriesOf('DFEDTARU');
+    const dFed = fedS.length>=2 ? fedS[fedS.length-1][1]-fedS[fedS.length-2][1] : null;
+    const d10S = seriesOf('DGS10');
+    const d10Last = d10S.length? d10S[d10S.length-1][1]:null;
+    const sma200 = d10S.length>=200? mean(d10S.slice(-200).map(e=>e[1])) : null;
+    const spxS = seriesOf('^GSPC');
+    const spxLast = spxS.length? spxS[spxS.length-1][1]:null;
+    const spxSma = (n:number) => spxS.length>=n? mean(spxS.slice(-n).map(e=>e[1])):null;
+    // Margin/GDP mensual: ROC3M + σ24M del ROC
+    let roc3m:number|null=null, sigma24:number|null=null;
+    if(monthlyKeys.length>=4){
+      const mgv = (i:number)=> monthlyMgMap.get(monthlyKeys[i]) ?? null;
+      const last = mgv(monthlyKeys.length-1), prev = mgv(monthlyKeys.length-4);
+      if(last!=null && prev!=null) roc3m = last-prev;
+      const rocs:number[]=[];
+      for(let i=Math.max(3,monthlyKeys.length-27); i<monthlyKeys.length; i++){ const a=mgv(i), b=mgv(i-3); if(a!=null&&b!=null) rocs.push(a-b); }
+      if(rocs.length>=2){ const m=mean(rocs)!; sigma24=std(rocs,m); }
+    }
+    // HY OAS diario: Δ3M/Δ1M, σ24M, SMAs, P20_36M
+    const hyS = seriesOf('BAMLH0A0HYM2');
+    let hy:number|null=null,d3m:number|null=null,sig:number|null=null,d1m:number|null=null,sma36:number|null=null,sma12m:number|null=null,sma3m:number|null=null,p20_36:number|null=null;
+    if(hyS.length){
+      hy = hyS[hyS.length-1][1];
+      const lastD = hyS[hyS.length-1][0];
+      const v3 = atOrBefore(hyS, shiftDays(lastD,91)), v1 = atOrBefore(hyS, shiftDays(lastD,30));
+      if(v3) d3m = hy-v3[1];
+      if(v1) d1m = hy-v1[1];
+      const closes = hyS.map(e=>e[1]);
+      sma36 = mean(closes.slice(-1095)); sma12m = mean(closes.slice(-365)); sma3m = mean(closes.slice(-91));
+      const srt=[...closes.slice(-1095)].sort((a,b)=>a-b);
+      p20_36 = srt.length? srt[Math.min(srt.length-1, Math.floor(0.20*srt.length))] : null;
+      const d3s:number[]=[];
+      for(const [dd] of hyS.slice(-730)){ const b=atOrBefore(hyS, shiftDays(dd,91)); const c=atOrBefore(hyS, dd); if(b&&c) d3s.push(c[1]-b[1]); }
+      if(d3s.length>=2){ const m=mean(d3s)!; sig=std(d3s,m); }
+    }
+    return { date: d,
+      r1: { active: !!det.r1.active, cape: det.r1.cape, thr: det.r1.thr, ratio: det.r1.ratio, cpi: det.r1.cpi, cpiSma: det.r1.cpiSma12, dFed, dgs10: d10Last, sma200x110: sma200!=null? sma200*1.10:null, spy: spxLast, sma50: spxSma(50) },
+      r2: { active: !!det.r2.active, armed: !!det.r2.armed, z: det.r2.z, mg: det.r2.mg, mean: det.r2.mean, std: det.r2.std, roc3m, sigma24, spy: spxLast, sma50: spxSma(50) },
+      r3: { active: !!det.r3.active, armed: !!det.r3.active, hy, p20: p20_36, d3m, sig, d1m, sma36, sma3m, sma12m, spy: spxLast, sma50: spxSma(50), sma30: spxSma(30), sma100: spxSma(100) } };
+  }, [allCapeDates, cape, capeView, marketHistory, monthlyMgMap, monthlyKeys]);
+
+  // Cargar lista de runs por estrategia para selector de dos niveles (Estrategia + Fecha Inicio)
+  useEffect(()=>{
+    const fetchRuns = async (code:string, setRuns:(v:any[])=>void, setDate:(v:string)=>void, curDate:string) => {
+      if(!code) return;
+      try{
+        const base=getApiBase();
+        const r=await fetch(`${base}/api/backtesting/runs?strategyCode=${encodeURIComponent(code)}`,{cache:'no-store'});
+        if(!r.ok) return;
+        const list=await r.json();
+        const arr=Array.isArray(list)?list:[];
+        // ordenar por startDate asc para mostrar cronológico
+        arr.sort((a:any,b:any)=> String(a.startDate).localeCompare(String(b.startDate)));
+        setRuns(arr);
+        if(!curDate && arr.length){
+          // default: run más largo (earliest start) para comparativa más completa; si es BH_QQQ evita 2026-04-01 corto
+          const preferred = arr.find((x:any)=> String(x.startDate).slice(0,10)==='2010-02-11') || arr.find((x:any)=> String(x.startDate).slice(0,10)==='1993-01-29') || arr[0];
+          setDate(String(preferred.startDate).slice(0,10));
+        }
+      }catch{}
+    };
+    fetchRuns(selectedA, setRunsA, setSelectedAStart, selectedAStart);
+  },[selectedA]);
+  useEffect(()=>{
+    const fetchRunsB = async () => {
+      if(!selectedB) return;
+      try{
+        const base=getApiBase();
+        const r=await fetch(`${base}/api/backtesting/runs?strategyCode=${encodeURIComponent(selectedB)}`,{cache:'no-store'});
+        if(!r.ok) return;
+        const list=await r.json();
+        const arr=Array.isArray(list)?list:[];
+        arr.sort((a:any,b:any)=> String(a.startDate).localeCompare(String(b.startDate)));
+        setRunsB(arr);
+        if(!selectedBStart && arr.length){
+          const preferred = arr.find((x:any)=> String(x.startDate).slice(0,10)==='2010-02-11') || arr.find((x:any)=> String(x.startDate).slice(0,10)==='1993-01-29') || arr[0];
+          setSelectedBStart(String(preferred.startDate).slice(0,10));
+        }
+      }catch{}
+    };
+    fetchRunsB();
+  },[selectedB]);
+
   useEffect(()=>{
     const load=async()=>{
       try{
         const base=getApiBase();
+        const urlA = selectedAStart ? `${base}/api/backtesting/runs?strategyCode=${encodeURIComponent(selectedA)}&startDate=${selectedAStart}` : `${base}/api/backtesting/runs?strategyCode=${encodeURIComponent(selectedA)}`;
+        const urlB = selectedBStart ? `${base}/api/backtesting/runs?strategyCode=${encodeURIComponent(selectedB)}&startDate=${selectedBStart}` : `${base}/api/backtesting/runs?strategyCode=${encodeURIComponent(selectedB)}`;
         const [runRes, capeRes, stratRes, bhResInit] = await Promise.all([
-          fetch(`${base}/api/backtesting/runs?strategyCode=${encodeURIComponent(selectedA)}`,{cache:'no-store'}),
+          fetch(urlA,{cache:'no-store'}),
           fetch(`${base}/api/backtesting/shiller-daily?from=1990-01-01`,{cache:'no-store'}),
           fetch(`${base}/api/backtesting/strategies`,{cache:'no-store'}),
-          fetch(`${base}/api/backtesting/runs?strategyCode=${encodeURIComponent(selectedB)}`,{cache:'no-store'}),
+          fetch(urlB,{cache:'no-store'}),
         ]);
+        // Cargar descriptores de fecha para pintar Evento en selector
+        try{
+          const sdRes=await fetch(`${base}/api/backtesting/start-dates`,{cache:'no-store'});
+          if(sdRes.ok){
+            const sds=await sdRes.json();
+            const m=new Map<string,string>();
+            for(const r of sds) m.set(String(r.start_date||r.startDate||'').slice(0,10), String(r.descriptor||r.label||''));
+            setStartDatesMap(m);
+          }
+        }catch{}
         if(stratRes.ok){
           const s=await stratRes.json();
           const list = Array.isArray(s)? s : [];
@@ -311,7 +434,7 @@ export function RegimesPanel() {
         }
         if(capeRes.ok) setCape(await capeRes.json());
         // marketHistory para mismos indicadores que tabla backtesting
-        const tickers=['TQQQ','QQQ','^GSPC','^IXIC','CPIAUCSL','CPILFESL','DFEDTARU','DGS2','DGS10','DGS30','BAMLH0A0HYM2','BAMLH0A0HYM2EY','GDP','FINRA_DEBIT'];
+        const tickers=['TQQQ','QQQ','SPY','VOO','^GSPC','^IXIC','CPIAUCSL','CPILFESL','DFEDTARU','DGS2','DGS10','DGS30','BAMLH0A0HYM2','BAMLH0A0HYM2EY','GDP','FINRA_DEBIT','MSACSR','VIXCLS','FEAR_GREED'];
         const to=new Date().toISOString().slice(0,10);
         const hist: Record<string,Map<string,number>>={};
         await Promise.all(tickers.map(async tck=>{
@@ -329,21 +452,27 @@ export function RegimesPanel() {
       }catch{}
       setLoading(false);
     };
+    if(selectedA && !selectedAStart) return;
+    if(selectedB && !selectedBStart) return;
     load();
-  },[selectedA, selectedB]);
+  },[selectedA, selectedAStart, selectedB, selectedBStart]);
 
-  // Reload runs A/B sin refetch cape/marketHistory
+  // Reload runs A/B sin refetch cape/marketHistory — con doble nivel Estrategia+Fecha
   useEffect(()=>{
     if(!selectedA && !selectedB) return;
+    if(selectedA && !selectedAStart && runsA.length) return;
+    if(selectedB && !selectedBStart && runsB.length) return;
     const reloadRun = async()=>{
       try{
         const base=getApiBase();
         setLoading(true);
         if(equityChartApiRef.current){ try{ equityChartApiRef.current.remove(); }catch{}; equityChartApiRef.current=null; }
         setEquity([]); setBhEquity([]); setTradesA([]); setTradesB([]);
+        const urlA = selectedAStart ? `${base}/api/backtesting/runs?strategyCode=${encodeURIComponent(selectedA)}&startDate=${selectedAStart}` : `${base}/api/backtesting/runs?strategyCode=${encodeURIComponent(selectedA)}`;
+        const urlB = selectedBStart ? `${base}/api/backtesting/runs?strategyCode=${encodeURIComponent(selectedB)}&startDate=${selectedBStart}` : `${base}/api/backtesting/runs?strategyCode=${encodeURIComponent(selectedB)}`;
         const [r, bhR] = await Promise.all([
-          fetch(`${base}/api/backtesting/runs?strategyCode=${encodeURIComponent(selectedA)}`,{cache:'no-store'}),
-          fetch(`${base}/api/backtesting/runs?strategyCode=${encodeURIComponent(selectedB)}`,{cache:'no-store'}),
+          fetch(urlA,{cache:'no-store'}),
+          fetch(urlB,{cache:'no-store'}),
         ]);
         if(r.ok){
           const runs=await r.json();
@@ -382,7 +511,7 @@ export function RegimesPanel() {
       }catch{} finally{ setLoading(false); }
     };
     if(strategies.length) reloadRun();
-  },[selectedA, selectedB]);
+  },[selectedA, selectedAStart, selectedB, selectedBStart]);
 
     // Equity chart dual: Estrategia (teal) vs BH Baseline (gris punteado)
   useEffect(() => {
@@ -467,6 +596,8 @@ export function RegimesPanel() {
             else if(typeof createSeriesMarkers==='function') createSeriesMarkers(bhSeries as any, markersB as any);
           }
         }catch(e){ console.warn('markers error', e); }
+        // Picos/suelos de grandes crisis sobre BH SPY (anclados a puntos diarios reales)
+        applyCrisisMarkers(((bhSeries ?? series) as any), createSeriesMarkers as any, snapToTime((bhSorted.length?bhSorted:sorted).map((p:any)=>String(p.date).slice(0,10))));
         chart.timeScale().fitContent();
         handleCrosshair = (param:any)=>{
           if(!param.time || !param.point){ setEquityTooltip(null); return; }
@@ -508,9 +639,12 @@ export function RegimesPanel() {
           const thr = det.r1.thr;
           const fedVal = getClosestPrice(marketHistory['DFEDTARU'], iso);
           const dgs10Val = getClosestPrice(marketHistory['DGS10'], iso);
-          const sma200Val = (()=>{ const k=iso; // aproximado: no tenemos serie 10Y SMA200 en frontend, usar null
-            return null; })();
-          const indSnap = { cape: capeVal, mean3y: mean3yVal, thr, ratio: rat, cpi: cpiVal, cpiSma, cpiThr, z: zVal, mg: mgVal, hy: hyVal, p20: p20Val, fed: fedVal, dgs10: dgs10Val, det };
+          const sp500Val = getClosestPrice(marketHistory['^GSPC'], iso);
+          const nasdaqVal = getClosestPrice(marketHistory['^IXIC'], iso);
+          const spyVal = getClosestPrice(marketHistory['SPY'] as any, iso); // sin fallback escalado: DB SPY solo 26 filas (Jul-2026), mostrar — en histórico
+          const qqqVal = getClosestPrice(marketHistory['QQQ'] as any, iso);
+          const tqqqVal = getClosestPrice(marketHistory['TQQQ'] as any, iso);
+          const indSnap = { cape: capeVal, mean3y: mean3yVal, thr, ratio: rat, cpi: cpiVal, cpiSma, cpiThr, z: zVal, mg: mgVal, hy: hyVal, p20: p20Val, fed: fedVal, dgs10: dgs10Val, spy: spyVal, qqq: qqqVal, tqqq: tqqqVal, sp500: sp500Val, nasdaq: nasdaqVal, det };
           // buscar gatillo del día (si lo hay) para mostrar detalle completo
           const findTrade = (trs:any[])=> trs.find((tr:any)=> String(tr.datetime||tr.date||'').slice(0,10)===iso) || trs.find((tr:any)=> Math.abs(new Date(String(tr.datetime||tr.date||'').slice(0,10)).getTime() - new Date(iso).getTime()) < 86400000*2);
           const tradeA = findTrade(tradesA);
@@ -573,8 +707,35 @@ export function RegimesPanel() {
     sharpe: metrics?.sharpe ?? 0.55,
     max_drawdown: metrics?.max_drawdown ?? metrics?.maxDrawdown ?? 0.56,
     total_return: metrics?.total_return ?? metrics?.totalReturn,
-    num_trades: metrics?.num_trades ?? 1,
+    num_trades: metrics?.num_trades ?? metrics?.numTrades ?? 1,
+    win_rate: metrics?.win_rate ?? metrics?.winRate,
+    sqn: metrics?.sqn,
+    max_dd_length: metrics?.max_dd_length ?? metrics?.maxDdLength,
   } : null;
+  const bhNorm = bhMetrics ? {
+    final_value: bhMetrics?.finalValue ?? bhMetrics?.final_value ?? null,
+    cagr: bhMetrics?.cagr ?? 0,
+    sharpe: bhMetrics?.sharpe ?? 0,
+    max_drawdown: bhMetrics?.maxDrawdown ?? bhMetrics?.max_drawdown ?? 0,
+    total_return: bhMetrics?.totalReturn ?? bhMetrics?.total_return ?? null,
+    num_trades: bhMetrics?.numTrades ?? bhMetrics?.num_trades ?? 0,
+    win_rate: bhMetrics?.winRate ?? bhMetrics?.win_rate,
+    sqn: bhMetrics?.sqn,
+    max_dd_length: bhMetrics?.maxDdLength ?? bhMetrics?.max_dd_length,
+  } : null;
+
+
+  // --- helpers para cards simétricas ---
+  const fmtMoney = (v:any) => v==null || isNaN(Number(v)) ? '—' : `$${Number(v).toLocaleString('en-US',{minimumFractionDigits:2, maximumFractionDigits:2})}`;
+  const fmtPct = (v:any, dec=2) => v==null || isNaN(Number(v)) ? '—' : `${(Number(v)*100).toFixed(dec)}%`;
+  const fmtNum = (v:any, dec=2) => v==null || isNaN(Number(v)) ? '—' : Number(v).toFixed(dec);
+  // total_return puede venir como factor (35 = 3500%) o decimal (0.35 = 35%) — si >5 tratamos como factor*100 ya en fmtPct lo hace, pero total_return 35 necesita *100, decimal 0.35 también *100, ambos correctos; no re-escalar
+  const getPerfPct = (m:any) => {
+    if(!m) return null;
+    if(m.total_return!=null) return Number(m.total_return)*100;
+    if(m.final_value!=null) return (Number(m.final_value)/100000 -1)*100;
+    return null;
+  };
 
   // Construir filas según vista — memoizado (evita ordenar 9k filas por render)
   const rowsView = useMemo(()=>{
@@ -629,57 +790,429 @@ export function RegimesPanel() {
     return()=> io.disconnect();
   },[rowsView.length, paginated.length]);
 
+  const marketSync = useMarketSyncStream(async () => { setRunsRefreshing(false); reloadBothRuns(); reloadCapeAndMarket(); });
+  const refreshing = marketSync.refreshing;
+  const [runsRefreshOpen, setRunsRefreshOpen] = useState(false);
+  const [runsRefreshLogs, setRunsRefreshLogs] = useState<any[]>([]);
+  const [runsRefreshing, setRunsRefreshing] = useState(false);
+  const [runsRefreshError, setRunsRefreshError] = useState<string | null>(null);
+
+  const runsRefreshAbortRef = useRef<AbortController | null>(null);
+  const closeRunsRefreshModal = useCallback(() => {
+    try { runsRefreshAbortRef.current?.abort(); } catch {}
+    runsRefreshAbortRef.current = null;
+    setRunsRefreshing(false);
+    setRunsRefreshOpen(false);
+  }, []);
+
+  const reloadBothRuns = useCallback(async () => {
+    try {
+      const base = getApiBase();
+      setLoading(true);
+      if (equityChartApiRef.current) { try { equityChartApiRef.current.remove(); } catch {} equityChartApiRef.current = null; }
+      const [r, bhR] = await Promise.all([
+        fetch(`${base}/api/backtesting/runs?strategyCode=${encodeURIComponent(selectedA)}`,{cache:'no-store'}),
+        fetch(`${base}/api/backtesting/runs?strategyCode=${encodeURIComponent(selectedB)}`,{cache:'no-store'}),
+      ]);
+      if (r.ok) {
+        const runs = await r.json();
+        const first = Array.isArray(runs)?runs[0]:runs;
+        if (first?.id) {
+          setRun(first);
+          if (first.metrics) setMetrics(first.metrics);
+          const [eqRes, trRes] = await Promise.all([
+            fetch(`${base}/api/backtesting/runs/${first.id}/equity`,{cache:'no-store'}),
+            fetch(`${base}/api/backtesting/runs/${first.id}/trades`,{cache:'no-store'}),
+          ]);
+          if (eqRes.ok) { const eq=await eqRes.json(); setEquity(eq.map((e:any)=>({date:(e.date||'').slice(0,10), value:Number(e.portfolio_value ?? e.portfolioValue), drawdown: e.drawdown != null ? Number(e.drawdown) : null}))); } else setEquity([]);
+          if (trRes.ok) { const tr=await trRes.json(); setTradesA(Array.isArray(tr)?tr:[]); } else setTradesA([]);
+        } else { setRun(null); setMetrics(null); setEquity([]); setTradesA([]); }
+      }
+      if (bhR.ok) {
+        const bhRuns = await bhR.json();
+        const bhFirst = Array.isArray(bhRuns)?bhRuns[0]:bhRuns;
+        if (bhFirst?.id) {
+          setBhRun(bhFirst);
+          if (bhFirst.metrics) setBhMetrics(bhFirst.metrics);
+          const [bhEqRes, bhTrRes] = await Promise.all([
+            fetch(`${base}/api/backtesting/runs/${bhFirst.id}/equity`,{cache:'no-store'}),
+            fetch(`${base}/api/backtesting/runs/${bhFirst.id}/trades`,{cache:'no-store'}),
+          ]);
+          if (bhEqRes.ok) { const bheq=await bhEqRes.json(); setBhEquity(bheq.map((e:any)=>({date:(e.date||'').slice(0,10), value:Number(e.portfolio_value ?? e.portfolioValue), drawdown: e.drawdown != null ? Number(e.drawdown) : null}))); } else setBhEquity([]);
+          if (bhTrRes.ok) { const bhtr=await bhTrRes.json(); setTradesB(Array.isArray(bhtr)?bhtr:[]); } else setTradesB([]);
+        } else { setBhEquity([]); setTradesB([]); }
+      }
+    } catch {}
+    finally { setLoading(false); }
+  }, [selectedA, selectedB]);
+
+  const reloadCapeAndMarket = useCallback(async () => {
+    try {
+      const base = getApiBase();
+      const [capeRes] = await Promise.all([
+        fetch(`${base}/api/backtesting/shiller-daily?from=1990-01-01`, { cache: 'no-store' }),
+      ]);
+      if (capeRes.ok) {
+        const capeData = await capeRes.json();
+        setCape(capeData);
+      }
+      // invalidar queries de TanStack (IndicatorsPanel, live tickers)
+      try { queryClient.invalidateQueries({ queryKey: ['live'] }); } catch {}
+      try { queryClient.invalidateQueries({ queryKey: ['indicators'] }); } catch {}
+      try { queryClient.invalidateQueries(); } catch {}
+      // refetch marketHistory para tabla (mismos tickers que load inicial)
+      const tickers=['TQQQ','QQQ','SPY','VOO','^GSPC','^IXIC','CPIAUCSL','CPILFESL','DFEDTARU','DGS2','DGS10','DGS30','BAMLH0A0HYM2','BAMLH0A0HYM2EY','GDP','FINRA_DEBIT','MSACSR','VIXCLS','FEAR_GREED'];
+      const to=new Date().toISOString().slice(0,10);
+      const hist: Record<string,Map<string,number>>={};
+      await Promise.all(tickers.map(async tck=>{
+        try{
+          const r=await fetch(`${base}/api/backtesting/market-data?ticker=${encodeURIComponent(tck)}&from=1990-01-01&to=${to}`,{cache:'no-store'});
+          if(r.ok){
+            const j=await r.json();
+            const mp=new Map<string,number>();
+            for(const row of j) mp.set((row.date||'').slice(0,10), Number(row.close));
+            hist[tck]=mp;
+          }
+        }catch{}
+      }));
+      setMarketHistory(hist);
+    } catch {}
+  }, [queryClient]);
+
+  const handleRefresh = () => marketSync.start(getApiBase());
+
+  const handleRefreshRuns = async () => {
+    const ctrl = new AbortController();
+    runsRefreshAbortRef.current = ctrl;
+    const failSafe = setTimeout(() => { try { ctrl.abort(); } catch {} }, 120_000);
+    setRunsRefreshOpen(true); setRunsRefreshLogs([]); setRunsRefreshing(true); setRunsRefreshError(null);
+    try {
+      const base = getApiBase();
+      const codes = [selectedA, selectedB].filter(Boolean);
+      const res = await fetch(`${base}/api/backtesting/runs/refresh-stream`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ strategyCodes: codes }), signal: ctrl.signal as any });
+      if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`);
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      while (true) {
+        if (ctrl.signal.aborted) break;
+        const { done, value } = await reader.read();
+        if (done) {
+          if (buffer.trim().startsWith('data:')) {
+            try {
+              const _left = buffer.trim();
+              const _obj = JSON.parse(_left.slice(5).trim());
+              if (_obj.type === 'done') { setRunsRefreshing(false); reloadBothRuns(); }
+            } catch {}
+          }
+          break;
+        }
+        buffer += decoder.decode(value, { stream: true });
+        const parts = buffer.split('\n\n');
+        buffer = parts.pop() || '';
+        for (const part of parts) {
+          const line = part.trim();
+          if (!line.startsWith('data:')) continue;
+          try {
+            const obj = JSON.parse(line.slice(5).trim());
+            if (obj.type === 'progress') {
+              setRunsRefreshLogs((prev) => {
+                const exists = prev.findIndex((p) => p.strategyCode === obj.strategyCode);
+                if (exists >= 0) { const copy = [...prev]; copy[exists] = obj; return copy; }
+                return [...prev, obj];
+              });
+            } else if (obj.type === 'done') {
+              setRunsRefreshing(false);
+              reloadBothRuns();
+            }
+          } catch {}
+        }
+      }
+      setRunsRefreshing(false);
+      reloadBothRuns();
+    } catch (e: any) {
+      if (e?.name === 'AbortError' || String(e).includes('aborted') || ctrl.signal.aborted) {
+        setRunsRefreshError(null);
+      } else {
+        setRunsRefreshError(e.message || String(e));
+      }
+      setRunsRefreshing(false);
+    } finally {
+      clearTimeout(failSafe);
+      if (runsRefreshAbortRef.current === ctrl) runsRefreshAbortRef.current = null;
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="bg-slate-900 border border-slate-800 rounded-xl p-6">
-        <h2 className="text-xl font-semibold text-slate-100">{t('title')}</h2>
-        <p className="text-sm text-slate-400 mt-1">{t('subtitle')}</p>
-        <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="bg-slate-800/60 border border-slate-700 rounded-lg p-4">
-            <div className="text-xs text-slate-500">{t('currentRegime')}</div>
-            <div className="mt-2 flex items-center gap-2">
-              <span className="px-3 py-1 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30 text-sm font-semibold">Neutral</span>
-              <span className="text-xs text-slate-500">{t('comingSoon')}</span>
-            </div>
-            <div className="mt-3 text-xs text-slate-500">
-              {t('factors')}: {t('factorValuation')} • {t('factorRates')} • {t('factorCredit')} • {t('factorLeverage')}
-            </div>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-xl font-semibold text-slate-100">{t('title')}</h2>
+            <p className="text-sm text-slate-400 mt-1">{t('subtitle')}</p>
           </div>
+          <button
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="shrink-0 inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-teal-600 hover:bg-teal-500 disabled:bg-slate-700 disabled:text-slate-400 text-white text-sm font-semibold shadow border border-teal-500/30 transition"
+          >
+            <span className={refreshing ? 'animate-spin inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full' : ''}>{refreshing ? '' : '↻'}</span>
+            {refreshing ? t('refreshing') : t('refreshButton')}
+          </button>
+        </div>
+        <div className="mt-6 grid grid-cols-1 gap-4">
           <div className="bg-slate-800/60 border border-slate-700 rounded-lg p-4">
-            <div className="flex items-center justify-between gap-2">
-              <div className="text-xs font-semibold text-slate-300">Estrategias — comparativa dual</div>
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <div className="text-[10px] text-teal-400 font-semibold mb-1 flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-teal-400 inline-block"></span> A — Estrategia</div>
-                  <select value={selectedA} onChange={e=>setSelectedA(e.target.value)} className="w-full px-2 py-1.5 rounded bg-slate-900 border border-teal-500/30 text-xs text-slate-200">
+            <div className="flex flex-col gap-3">
+              <div className="text-xs font-semibold text-slate-300">Estrategias — comparativa dual <span className="text-[10px] font-normal text-slate-500">· Estrategia-DateRun</span></div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="bg-slate-900/60 rounded-lg p-2.5 border border-teal-500/20">
+                  <div className="text-[10px] text-teal-400 font-semibold mb-1.5 flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-teal-400 inline-block"></span> A — Estrategia · DateRun</div>
+                  <select value={selectedA} onChange={e=>{setSelectedA(e.target.value); setSelectedAStart('');}} className="w-full px-2 py-1.5 rounded bg-slate-900 border border-teal-500/30 text-xs text-slate-200">
                     {strategies.map((s:any)=> <option key={'a-'+s.code} value={s.code}>{s.code} — {s.name}</option>)}
                     { !strategies.find((s:any)=>s.code===selectedA) && <option value={selectedA}>{selectedA}</option>}
                   </select>
+                  <select value={selectedAStart} onChange={e=>setSelectedAStart(e.target.value)} className="mt-1.5 w-full px-2 py-1.5 rounded bg-slate-800 border border-slate-700 text-xs font-mono text-slate-300">
+                    {runsA.length===0 && <option value="">Cargando fechas…</option>}
+                    {runsA.map((r:any)=> {
+                      const sd=String(r.startDate).slice(0,10);
+                      const ed=String(r.endDate).slice(0,10);
+                      const fv=r.metrics?.finalValue ?? r.metrics?.final_value ?? '';
+                      const desc=startDatesMap.get(sd) || '';
+                      return <option key={'a-date-'+r.id} value={sd}>{sd}{desc ? ` — ${desc}` : ''} → {ed} · {fv ? `$${Number(fv).toLocaleString('en-US',{maximumFractionDigits:0})}` : ''}</option>
+                    })}
+                    {runsA.length>0 && !runsA.find((r:any)=> String(r.startDate).slice(0,10)===selectedAStart) && selectedAStart && <option value={selectedAStart}>{selectedAStart} (no encontrado)</option>}
+                  </select>
+                  <div className="text-[10px] font-mono text-slate-500 mt-1">{runsA.length} runs · {selectedAStart || '—'}{startDatesMap.get(selectedAStart) ? ` — ${startDatesMap.get(selectedAStart)}` : ''} {run ? `→ ${String(run.endDate).slice(0,10)}` : ''}</div>
                 </div>
-                <div>
-                  <div className="text-[10px] text-slate-400 font-semibold mb-1 flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-slate-500 inline-block"></span> B — Base</div>
-                  <select value={selectedB} onChange={e=>setSelectedB(e.target.value)} className="w-full px-2 py-1.5 rounded bg-slate-900 border border-slate-700 text-xs text-slate-200">
+                <div className="bg-slate-900/60 rounded-lg p-2.5 border border-slate-600">
+                  <div className="text-[10px] text-slate-400 font-semibold mb-1.5 flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-slate-500 inline-block"></span> B — Base · DateRun</div>
+                  <select value={selectedB} onChange={e=>{setSelectedB(e.target.value); setSelectedBStart('');}} className="w-full px-2 py-1.5 rounded bg-slate-900 border border-slate-700 text-xs text-slate-200">
                     {strategies.map((s:any)=> <option key={'b-'+s.code} value={s.code}>{s.code} — {s.name}</option>)}
                     { !strategies.find((s:any)=>s.code===selectedB) && <option value={selectedB}>{selectedB}</option>}
                   </select>
+                  <select value={selectedBStart} onChange={e=>setSelectedBStart(e.target.value)} className="mt-1.5 w-full px-2 py-1.5 rounded bg-slate-800 border border-slate-700 text-xs font-mono text-slate-300">
+                    {runsB.length===0 && <option value="">Cargando fechas…</option>}
+                    {runsB.map((r:any)=> {
+                      const sd=String(r.startDate).slice(0,10);
+                      const ed=String(r.endDate).slice(0,10);
+                      const fv=r.metrics?.finalValue ?? r.metrics?.final_value ?? '';
+                      const desc=startDatesMap.get(sd) || '';
+                      return <option key={'b-date-'+r.id} value={sd}>{sd}{desc ? ` — ${desc}` : ''} → {ed} · {fv ? `$${Number(fv).toLocaleString('en-US',{maximumFractionDigits:0})}` : ''}</option>
+                    })}
+                    {runsB.length>0 && !runsB.find((r:any)=> String(r.startDate).slice(0,10)===selectedBStart) && selectedBStart && <option value={selectedBStart}>{selectedBStart} (no encontrado)</option>}
+                  </select>
+                  <div className="text-[10px] font-mono text-slate-500 mt-1">{runsB.length} runs · {selectedBStart || '—'}{startDatesMap.get(selectedBStart) ? ` — ${startDatesMap.get(selectedBStart)}` : ''} {bhRun ? `→ ${String(bhRun.endDate).slice(0,10)}` : ''}</div>
                 </div>
               </div>
             </div>
             {loading ? (
-              <div className="mt-2 h-16 bg-slate-700/30 rounded animate-pulse" />
+              <div className="mt-3 h-16 bg-slate-700/30 rounded animate-pulse" />
             ) : stratMetrics ? (
-              <div className="mt-2 grid grid-cols-2 gap-2 text-xs font-mono">
-                <div className="bg-slate-900 rounded p-2 border border-slate-800"><div className="text-slate-500">Final <span className="text-teal-300">Estrat</span></div><div className="text-teal-300 font-bold">${Number(stratMetrics.final_value).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}</div><div className="text-slate-500 text-[10px]">{run ? `${String(run.startDate).slice(0,10)} → ${String(run.endDate).slice(0,10)}` : '—'} · {(stratMetrics.num_trades ?? 0)} trades</div></div>
-                <div className="bg-slate-900 rounded p-2 border border-slate-800"><div className="text-slate-500">Final <span className="text-slate-400">BH</span></div><div className="text-slate-300 font-bold">{bhMetrics ? `$${Number(bhMetrics.finalValue ?? bhMetrics.final_value).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}` : '—'}</div><div className="text-slate-500 text-[10px]">CAGR {bhMetrics ? (Number(bhMetrics.cagr)*100).toFixed(2)+'%' : '—'} · vs BH {bhMetrics && stratMetrics ? `${((stratMetrics.final_value/Number(bhMetrics.finalValue ?? bhMetrics.final_value)-1)*100).toFixed(1)}%` : '—'}</div></div>
-                <div className="bg-slate-900 rounded p-2 border border-slate-800"><div className="text-slate-500">CAGR Estrat</div><div className="text-emerald-400 font-bold">{(stratMetrics.cagr*100).toFixed(2)}%</div><div className="text-slate-500 text-[10px]">Sharpe {Number(stratMetrics.sharpe).toFixed(2)} · DD {(Number(stratMetrics.max_drawdown)*100).toFixed(1)}% · BH {(bhMetrics ? (Number(bhMetrics.cagr)*100).toFixed(2)+'%' : '—')}</div></div>
-                <div className="bg-slate-900 rounded p-2 border border-slate-800"><div className="text-slate-500">Δ vs BH</div><div className={bhMetrics && stratMetrics.final_value >= Number(bhMetrics.finalValue ?? bhMetrics.final_value) ? 'text-emerald-400 font-bold' : 'text-red-400 font-bold'}>{bhMetrics ? `${stratMetrics.final_value >= Number(bhMetrics.finalValue ?? bhMetrics.final_value) ? '+' : ''}$${(stratMetrics.final_value - Number(bhMetrics.finalValue ?? bhMetrics.final_value)).toLocaleString('en-US', {minimumFractionDigits:0, maximumFractionDigits:0})}` : '—'}</div><div className="text-slate-500 text-[10px]">{bhMetrics ? `${((stratMetrics.total_return - Number(bhMetrics.totalReturn ?? bhMetrics.total_return))*100).toFixed(1)}pp outperf` : '—'}</div></div>
+              <>
+              {/* Cards simétricas A y B */}
+              <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
+                {/* Card A — Estrategia */}
+                <div className="bg-slate-900 rounded-xl p-3 border border-teal-500/30 flex flex-col">
+                  <div className="flex items-center gap-2 mb-2.5">
+                    <span className="w-2.5 h-2.5 rounded-full bg-teal-400 inline-block shadow shadow-teal-500/30"></span>
+                    <span className="text-xs font-bold text-teal-300 tracking-wide">A — Estrategia</span>
+                    <span className="text-[10px] font-mono text-teal-200/70 truncate">{selectedA} · {selectedAStart || (run?String(run.startDate).slice(0,10):'')} {startDatesMap.get(selectedAStart || (run?String(run.startDate).slice(0,10):'')) ? `— ${startDatesMap.get(selectedAStart || (run?String(run.startDate).slice(0,10):''))}` : ''}</span>
+                  </div>
+                  <div className="text-[11px] font-mono text-slate-500 mb-1">{run ? `${String(run.startDate).slice(0,10)} → ${String(run.endDate).slice(0,10)}` : '—'}</div>
+                  <div className="space-y-1.5 font-mono text-xs">
+                    <div className="flex justify-between items-center bg-slate-800/60 rounded px-2 py-1.5 border border-slate-700/50">
+                      <span className="text-slate-400">Final</span><span className="text-teal-300 font-bold">{fmtMoney(stratMetrics.final_value)}</span>
+                    </div>
+                    <div className="flex justify-between items-center bg-slate-800/60 rounded px-2 py-1.5 border border-slate-700/50">
+                      <span className="text-slate-400">Performance</span><span className={(getPerfPct(stratMetrics)??0) >=0 ? 'text-emerald-400 font-semibold' : 'text-red-400 font-semibold'}>{getPerfPct(stratMetrics)!=null ? `${getPerfPct(stratMetrics)!.toFixed(1)}%` : '—'}</span>
+                    </div>
+                    <div className="flex justify-between items-center bg-slate-800/60 rounded px-2 py-1.5 border border-slate-700/50">
+                      <span className="text-slate-400">CAGR</span><span className="text-sky-300 font-semibold">{fmtPct(stratMetrics.cagr,2)}</span>
+                    </div>
+                    <div className="flex justify-between items-center bg-slate-800/60 rounded px-2 py-1.5 border border-slate-700/50">
+                      <span className="text-slate-400">Max Drawdown</span><span className="text-orange-300">{fmtPct(stratMetrics.max_drawdown,1)}{stratMetrics.max_dd_length ? ` · ${stratMetrics.max_dd_length}d` : ''}</span>
+                    </div>
+                    <div className="flex justify-between items-center bg-slate-800/60 rounded px-2 py-1.5 border border-slate-700/50">
+                      <span className="text-slate-400">Sharpe</span><span className="text-violet-300">{fmtNum(stratMetrics.sharpe,2)}</span>
+                    </div>
+                    <div className="flex justify-between items-center bg-slate-800/60 rounded px-2 py-1.5 border border-slate-700/50">
+                      <span className="text-slate-400">Trades · WinRate</span><span className="text-slate-200">{stratMetrics.num_trades} trades{stratMetrics.win_rate!=null ? ` · ${(Number(stratMetrics.win_rate)*100).toFixed(1)}%` : ''}</span>
+                    </div>
+                  </div>
+                </div>
+                {/* Card B — Base */}
+                <div className="bg-slate-900 rounded-xl p-3 border border-slate-600 flex flex-col">
+                  <div className="flex items-center gap-2 mb-2.5">
+                    <span className="w-2.5 h-2.5 rounded-full bg-slate-400 inline-block"></span>
+                    <span className="text-xs font-bold text-slate-300 tracking-wide">B — Base</span>
+                    <span className="text-[10px] font-mono text-slate-400 truncate">{selectedB} · {selectedBStart || (bhRun?String(bhRun.startDate).slice(0,10):'')} {startDatesMap.get(selectedBStart || (bhRun?String(bhRun.startDate).slice(0,10):'')) ? `— ${startDatesMap.get(selectedBStart || (bhRun?String(bhRun.startDate).slice(0,10):''))}` : ''}</span>
+                  </div>
+                  <div className="text-[11px] font-mono text-slate-500 mb-1">{bhRun ? `${String(bhRun.startDate).slice(0,10)} → ${String(bhRun.endDate).slice(0,10)}` : '—'}</div>
+                  {bhNorm ? (
+                  <div className="space-y-1.5 font-mono text-xs">
+                    <div className="flex justify-between items-center bg-slate-800/60 rounded px-2 py-1.5 border border-slate-700/50">
+                      <span className="text-slate-400">Final</span><span className="text-slate-200 font-bold">{fmtMoney(bhNorm.final_value)}</span>
+                    </div>
+                    <div className="flex justify-between items-center bg-slate-800/60 rounded px-2 py-1.5 border border-slate-700/50">
+                      <span className="text-slate-400">Performance</span><span className={(getPerfPct(bhNorm)??0) >=0 ? 'text-slate-200 font-semibold' : 'text-red-300 font-semibold'}>{getPerfPct(bhNorm)!=null ? `${getPerfPct(bhNorm)!.toFixed(1)}%` : '—'}</span>
+                    </div>
+                    <div className="flex justify-between items-center bg-slate-800/60 rounded px-2 py-1.5 border border-slate-700/50">
+                      <span className="text-slate-400">CAGR</span><span className="text-slate-200 font-semibold">{fmtPct(bhNorm.cagr,2)}</span>
+                    </div>
+                    <div className="flex justify-between items-center bg-slate-800/60 rounded px-2 py-1.5 border border-slate-700/50">
+                      <span className="text-slate-400">Max Drawdown</span><span className="text-orange-300/80">{fmtPct(bhNorm.max_drawdown,1)}{bhNorm.max_dd_length ? ` · ${bhNorm.max_dd_length}d` : ''}</span>
+                    </div>
+                    <div className="flex justify-between items-center bg-slate-800/60 rounded px-2 py-1.5 border border-slate-700/50">
+                      <span className="text-slate-400">Sharpe</span><span className="text-slate-300">{fmtNum(bhNorm.sharpe,2)}</span>
+                    </div>
+                    <div className="flex justify-between items-center bg-slate-800/60 rounded px-2 py-1.5 border border-slate-700/50">
+                      <span className="text-slate-400">Trades · WinRate</span><span className="text-slate-200">{bhNorm.num_trades} trades{bhNorm.win_rate!=null ? ` · ${(Number(bhNorm.win_rate)*100).toFixed(1)}%` : ''}</span>
+                    </div>
+                  </div>
+                  ) : (
+                    <div className="text-xs text-slate-500 font-mono py-6 text-center">Sin datos B</div>
+                  )}
+                </div>
               </div>
+              {/* Card Delta — cómo A cambia respecto a B */}
+              {bhNorm && stratMetrics ? (
+              <div className="mt-3 bg-slate-900 rounded-xl p-3 border border-amber-500/25">
+                <div className="flex items-center justify-between mb-2.5">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-amber-400 inline-block"></span>
+                    <span className="text-xs font-bold text-amber-300 tracking-wide">Δ  A vs B — cómo A cambia respecto a B</span>
+                  </div>
+                  <span className={`text-[11px] font-mono px-2 py-0.5 rounded-full border ${Number(stratMetrics.final_value) >= Number(bhNorm.final_value) ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30' : 'bg-red-500/15 text-red-300 border-red-500/30'}`}>
+                    {Number(stratMetrics.final_value) >= Number(bhNorm.final_value) ? '▲ A supera a B' : '▼ A por debajo de B'}
+                  </span>
+                </div>
+                {(() => {
+                  const dFinal = Number(stratMetrics.final_value) - Number(bhNorm.final_value);
+                  const dFinalPct = Number(bhNorm.final_value) ? (dFinal/Number(bhNorm.final_value))*100 : null;
+                  const perfA = getPerfPct(stratMetrics); const perfB = getPerfPct(bhNorm);
+                  const dPerf = perfA!=null && perfB!=null ? perfA - perfB : null;
+                  const dCagr = (Number(stratMetrics.cagr)-Number(bhNorm.cagr))*100;
+                  const dDd = (Number(stratMetrics.max_drawdown)-Number(bhNorm.max_drawdown))*100;
+                  const dSharpe = Number(stratMetrics.sharpe)-Number(bhNorm.sharpe);
+                  const dTrades = Number(stratMetrics.num_trades)-Number(bhNorm.num_trades);
+                  const isPos = (v:number|null) => v!=null && v>0;
+                  const isNeg = (v:number|null) => v!=null && v<0;
+                  return (
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 font-mono text-xs">
+                      <div className="bg-slate-800/70 rounded px-2.5 py-2 border border-slate-700/50">
+                        <div className="text-[10px] text-slate-500 uppercase tracking-wide">Δ Final $</div>
+                        <div className={`font-bold text-sm ${dFinal>=0 ? 'text-emerald-400' : 'text-red-400'}`}>{dFinal>=0?'+':''}${Math.abs(dFinal).toLocaleString('en-US',{minimumFractionDigits:0, maximumFractionDigits:0})}</div>
+                        <div className={`text-[11px] ${dFinalPct!=null && dFinalPct>=0 ? 'text-emerald-400/80' : 'text-red-400/80'}`}>{dFinalPct!=null ? `${dFinalPct>=0?'+':''}${dFinalPct.toFixed(1)}%` : '—'}</div>
+                      </div>
+                      <div className="bg-slate-800/70 rounded px-2.5 py-2 border border-slate-700/50">
+                        <div className="text-[10px] text-slate-500 uppercase tracking-wide">Δ Performance</div>
+                        <div className={`font-bold text-sm ${dPerf!=null && dPerf>=0 ? 'text-emerald-400' : 'text-red-400'}`}>{dPerf!=null ? `${dPerf>=0?'+':''}${dPerf.toFixed(1)}pp` : '—'}</div>
+                        <div className="text-[10px] text-slate-500">A {perfA!=null? perfA.toFixed(1)+'%':'—'} vs B {perfB!=null? perfB.toFixed(1)+'%':'—'}</div>
+                      </div>
+                      <div className="bg-slate-800/70 rounded px-2.5 py-2 border border-slate-700/50">
+                        <div className="text-[10px] text-slate-500 uppercase tracking-wide">Δ CAGR</div>
+                        <div className={`font-bold text-sm ${dCagr>=0 ? 'text-emerald-400' : 'text-red-400'}`}>{`${dCagr>=0?'+':''}${dCagr.toFixed(2)}pp`}</div>
+                        <div className="text-[10px] text-slate-500">A {fmtPct(stratMetrics.cagr,2)} vs B {fmtPct(bhNorm.cagr,2)}</div>
+                      </div>
+                      <div className="bg-slate-800/70 rounded px-2.5 py-2 border border-slate-700/50">
+                        <div className="text-[10px] text-slate-500 uppercase tracking-wide">Δ Max DD</div>
+                        <div className={`font-bold text-sm ${dDd<=0 ? 'text-emerald-400' : 'text-red-400'}`}>{`${dDd>0?'+':''}${dDd.toFixed(1)}pp`}</div>
+                        <div className="text-[10px] text-slate-500">{dDd<=0 ? 'A sufre menos' : 'A sufre más'} · A {fmtPct(stratMetrics.max_drawdown,1)} vs B {fmtPct(bhNorm.max_drawdown,1)}</div>
+                      </div>
+                      <div className="bg-slate-800/70 rounded px-2.5 py-2 border border-slate-700/50">
+                        <div className="text-[10px] text-slate-500 uppercase tracking-wide">Δ Sharpe</div>
+                        <div className={`font-bold text-sm ${dSharpe>=0 ? 'text-emerald-400' : 'text-red-400'}`}>{`${dSharpe>=0?'+':''}${dSharpe.toFixed(2)}`}</div>
+                        <div className="text-[10px] text-slate-500">A {fmtNum(stratMetrics.sharpe,2)} vs B {fmtNum(bhNorm.sharpe,2)}</div>
+                      </div>
+                      <div className="bg-slate-800/70 rounded px-2.5 py-2 border border-slate-700/50">
+                        <div className="text-[10px] text-slate-500 uppercase tracking-wide">Δ Trades</div>
+                        <div className={`font-bold text-sm ${dTrades===0 ? 'text-slate-300' : dTrades>0 ? 'text-amber-300' : 'text-slate-400'}`}>{dTrades>0?'+':''}{dTrades}</div>
+                        <div className="text-[10px] text-slate-500">A {stratMetrics.num_trades} vs B {bhNorm.num_trades}</div>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+              ) : null}
+              </>
             ) : (
               <div className="text-xs text-slate-500 mt-2">No se encontró run {selectedA} / {selectedB}</div>
             )}
           </div>
+          <div className="mt-4 flex justify-end">
+            <button
+              onClick={handleRefreshRuns}
+              disabled={runsRefreshing}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-sky-600 hover:bg-sky-500 disabled:bg-slate-700 disabled:text-slate-400 text-white text-sm font-semibold shadow border border-sky-500/30 transition"
+            >
+              <span className={runsRefreshing ? 'animate-spin inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full' : ''}>{runsRefreshing ? '' : '↻'}</span>
+              {runsRefreshing ? t('refreshing') : t('refreshRunsButton')}
+            </button>
+          </div>
         </div>
       </div>
+
+      {runsRefreshOpen && (
+        <div className="fixed inset-0 z-[90] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-slate-950/70 backdrop-blur-sm" onClick={closeRunsRefreshModal} />
+          <div className="relative w-full max-w-5xl max-h-[85vh] flex flex-col bg-slate-900 border border-slate-700 rounded-xl shadow-2xl overflow-hidden">
+            <div className="px-5 py-4 border-b border-slate-800 flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-lg font-semibold text-slate-100">{t('refreshRunsTitle')}</h3>
+                <p className="text-xs text-slate-400 mt-1">{t('refreshRunsSubtitle')} — {selectedA} vs {selectedB}</p>
+              </div>
+              <button onClick={closeRunsRefreshModal} className="shrink-0 px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-700 text-xs text-slate-300 hover:bg-slate-700">✕ {t('close')}</button>
+            </div>
+            <div className="flex-1 overflow-auto">
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead className="sticky top-0 bg-slate-800/95 backdrop-blur border-b border-slate-700">
+                    <tr className="text-slate-300">
+                      <th className="p-2 text-left whitespace-nowrap">{t('colStrategy')}</th>
+                      <th className="p-2 text-right">{t('colTotalDays')}</th>
+                      <th className="p-2 text-right">{t('colNewDays')}</th>
+                      <th className="p-2 text-right">{t('colBeforeDate')}</th>
+                      <th className="p-2 text-right">{t('colBeforeValue')}</th>
+                      <th className="p-2 text-right">{t('colAfterDate')}</th>
+                      <th className="p-2 text-right">{t('colAfterValue')}</th>
+                      <th className="p-2 text-right">{t('colDiffNominal')}</th>
+                      <th className="p-2 text-right">{t('colDiffPct')}</th>
+                      <th className="p-2 text-center">{t('colStatus')}</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800">
+                    {runsRefreshLogs.map((r) => (
+                      <tr key={r.strategyCode} className="hover:bg-slate-800/40">
+                        <td className="p-2 font-mono font-semibold text-sky-300 whitespace-nowrap">{r.strategyCode}</td>
+                        <td className="p-2 text-right font-mono text-slate-300">{r.totalDays?.toLocaleString('en-US') ?? '—'}</td>
+                        <td className="p-2 text-right font-mono text-amber-300">{r.newDays ?? 0}</td>
+                        <td className="p-2 text-right font-mono text-slate-500 text-[11px]">{r.beforeDate ?? '—'}</td>
+                        <td className="p-2 text-right font-mono text-slate-400">{r.beforeValue != null ? `$${Number(r.beforeValue).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—'}</td>
+                        <td className="p-2 text-right font-mono text-slate-500 text-[11px]">{r.afterDate ?? '—'}</td>
+                        <td className="p-2 text-right font-mono text-emerald-300">{r.afterValue != null ? `$${Number(r.afterValue).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—'}</td>
+                        <td className={`p-2 text-right font-mono ${r.nominal == null ? 'text-slate-500' : r.nominal >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{r.nominal != null ? `${r.nominal >= 0 ? '+' : ''}$${Math.abs(r.nominal).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—'}</td>
+                        <td className={`p-2 text-right font-mono ${r.pct == null ? 'text-slate-500' : r.pct >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{r.pct != null ? `${r.pct >= 0 ? '+' : ''}${r.pct.toFixed(2)}%` : '—'}</td>
+                        <td className="p-2 text-center">
+                          {r.status === 'updating' && <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[11px]"><span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" /> {t('statusUpdating')}</span>}
+                          {r.status === 'success' && <span className="inline-flex px-2 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[11px]">✓ {t('statusSuccess')}</span>}
+                          {r.status === 'error' && <span className="inline-flex px-2 py-1 rounded-full bg-red-500/20 text-red-300 border border-red-500/30 text-[11px]" title={r.error}>✕ {t('statusError')}</span>}
+                        </td>
+                      </tr>
+                    ))}
+                    {runsRefreshLogs.length === 0 && (
+                      <tr><td colSpan={10} className="p-8 text-center text-slate-500 text-sm">{t('loading')}</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <div className="px-5 py-3 border-t border-slate-800 bg-slate-800/50 flex items-center justify-between gap-3">
+              <span className="text-xs text-slate-400">{runsRefreshing ? t('refreshing') : runsRefreshError ? `⚠️ ${runsRefreshError}` : runsRefreshLogs.length ? t('refreshDone') + ` · ${runsRefreshLogs.filter(r=>r.status==='success').length}/${runsRefreshLogs.length}` : ''}</span>
+              <button onClick={closeRunsRefreshModal} className="px-4 py-1.5 rounded-lg bg-slate-800 border border-slate-700 text-xs text-slate-300 hover:bg-slate-700">{t('close')}</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {!loading && equity.length > 0 && (
         <div className="w-full bg-slate-900 border border-slate-800 rounded-xl p-4">
@@ -694,7 +1227,7 @@ export function RegimesPanel() {
             <div ref={equityChartRef} id="regimes-equity-chart" className="w-full h-full relative z-0" />
             {equityTooltip && (
               <div className="absolute z-50 pointer-events-none bg-slate-800 border border-slate-600 rounded-lg px-3 py-2.5 text-xs shadow-2xl ring-1 ring-white/10 min-w-[300px] max-w-[360px]" style={{ left: equityTooltip.x, top: equityTooltip.y }}>
-                <div className="font-semibold text-slate-100 border-b border-slate-700 pb-1.5 mb-1.5">{new Date(equityTooltip.date).toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' })} <span className="font-normal text-slate-400">· {equityTooltip.date}</span> <span className={`ml-2 px-2 py-0.5 rounded-full border text-[10px] ${equityTooltip.regime==='Stress'?'bg-red-500/20 text-red-400 border-red-500/30':equityTooltip.regime==='Bull'?'bg-emerald-500/20 text-emerald-400 border-emerald-500/30':'bg-amber-500/20 text-amber-400 border-amber-500/30'}`}>{equityTooltip.regime}</span></div>
+                <div className="font-semibold text-slate-100 border-b border-slate-700 pb-1.5 mb-1.5 flex items-center flex-wrap gap-1">{new Date(equityTooltip.date).toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' })} <span className="font-normal text-slate-400">· {equityTooltip.date}</span> {(()=>{ const parts=[]; if(equityTooltip.r1) parts.push('📈 Múltiplos'); if(equityTooltip.r2) parts.push('🏦 Deuda'); if(equityTooltip.r3) parts.push('😴 Complacencia'); const label = parts.length? parts.join(' + ') : 'Sin régimen'; const cls = parts.length===3? 'bg-red-500/20 text-red-300 border-red-500/30' : parts.length===2? 'bg-orange-500/20 text-orange-300 border-orange-500/30' : parts.length===1? (equityTooltip.r1?'bg-amber-500/20 text-amber-300 border-amber-500/30': equityTooltip.r2?'bg-sky-500/20 text-sky-300 border-sky-500/30':'bg-violet-500/20 text-violet-300 border-violet-500/30') : 'bg-slate-700 text-slate-400 border-slate-600'; return <span className={`ml-2 px-2 py-0.5 rounded-full border text-[10px] ${cls}`}>{label}</span>; })()}</div>
                 <div className="flex items-center gap-1.5 mb-2">
                   <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full border text-xs ${equityTooltip.r1 ? 'bg-amber-500/20 text-amber-300 border-amber-500/30' : 'bg-slate-700 text-slate-500 border-slate-600 opacity-40'}`} title="Múltiplos Altos">📈</span>
                   <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full border text-xs ${equityTooltip.r2 ? 'bg-red-500/20 text-red-300 border-red-500/30' : 'bg-slate-700 text-slate-500 border-slate-600 opacity-40'}`} title="Alta Deuda">🏦</span>
@@ -721,6 +1254,12 @@ export function RegimesPanel() {
                           <div className={`flex justify-between items-center border rounded px-2 py-1 text-[11px] ${zColor}`}><span className="text-slate-400">Z Mg/GDP</span><span className="font-mono font-bold">{ind.z!=null? fmt(ind.z,2):'—'} (Mg {ind.mg!=null? fmt(ind.mg)+'%':'—'}) {ind.z!=null ? (ind.z>=2.0 ? '🔴 armado' : ind.z<0 ? '🟢 desarmado' : '🟡') : ''}</span></div>
                           <div className={`flex justify-between items-center border rounded px-2 py-1 text-[11px] ${hyColor}`}><span className="text-slate-400">HY OAS</span><span className="font-mono font-bold">{ind.hy!=null? fmt(ind.hy)+'%':'—'} vs P20 {ind.p20!=null? fmt(ind.p20)+'%':'—'} {hyOk ? '🟣 complacencia' : '🟢'}</span></div>
                           <div className="flex justify-between items-center text-[10px] font-mono text-slate-500"><span>FED {ind.fed!=null? fmt(ind.fed)+'%':'—'} · 10Y {ind.dgs10!=null? fmt(ind.dgs10)+'%':'—'}</span><span className={det.r1.active||det.r2.active||det.r3.active ? 'text-amber-300' : 'text-slate-500'}>{det.r1.active||det.r2.active||det.r3.active ? '⚠️ régimen activo' : '✓ sin régimen'}</span></div>
+                          <div className="grid grid-cols-3 gap-1.5 pt-1 border-t border-slate-700/50">
+                            <div className="bg-slate-900/60 border border-slate-700/50 rounded px-1.5 py-1 text-center"><div className="text-[9px] text-slate-500 uppercase">SPY</div><div className="font-mono text-[11px] font-bold text-sky-300">{ind.spy!=null? '$'+Number(ind.spy).toFixed(2):'—'}</div></div>
+                            <div className="bg-slate-900/60 border border-slate-700/50 rounded px-1.5 py-1 text-center"><div className="text-[9px] text-slate-500 uppercase">QQQ</div><div className="font-mono text-[11px] font-bold text-violet-300">{ind.qqq!=null? '$'+Number(ind.qqq).toFixed(2):'—'}</div></div>
+                            <div className="bg-slate-900/60 border border-slate-700/50 rounded px-1.5 py-1 text-center"><div className="text-[9px] text-slate-500 uppercase">TQQQ</div><div className="font-mono text-[11px] font-bold text-pink-300">{ind.tqqq!=null? '$'+Number(ind.tqqq).toFixed(2):'—'}</div></div>
+                          </div>
+                          <div className="flex justify-between text-[10px] font-mono text-slate-500"><span>S&P {ind.sp500!=null? '$'+Number(ind.sp500).toFixed(0):'—'}</span><span>Nasdaq {ind.nasdaq!=null? '$'+Number(ind.nasdaq).toFixed(0):'—'}</span></div>
                         </>
                       ); })()}
                     </div>
@@ -773,6 +1312,8 @@ export function RegimesPanel() {
         </div>
       )}
 
+      <CrisisEventsTable />
+
       {/* Tabla Daily / Monthly / Yearly con mismos indicadores que Backtesting */}
       <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
         <div className="flex items-center justify-between gap-2 mb-3">
@@ -806,26 +1347,38 @@ export function RegimesPanel() {
                 <th className="p-2 text-right">CAGR</th>
                 <th className="p-2 text-right">DD</th>
                 <th className="p-2 text-right">SP500</th>
+                <th className="p-2 text-right">NASDAQ</th>
+                <th className="p-2 text-right">TQQQ</th>
                 <th className="p-2 text-right">CAPE</th>
                 <th className="p-2 text-right">mean3Y</th>
                 <th className="p-2 text-right">Ratio</th>
                 <th className="p-2 text-right">HY OAS</th>
+                <th className="p-2 text-right" title="BAMLH0A0HYM2EY Effective Yield">HY EY</th>
                 <th className="p-2 text-right">Margin/GDP</th>
                 <th className="p-2 text-right">Z (Mg/GDP)</th>
+                <th className="p-2 text-right">GDP</th>
+                <th className="p-2 text-right">FINRA</th>
                 <th className="p-2 text-right">Core CPI YoY</th>
                 <th className="p-2 text-right">SMA12 YoY</th>
                 <th className="p-2 text-right">Umbral SMA×1.20</th>
                 <th className="p-2 text-right">CPI YoY</th>
                 <th className="p-2 text-right">FED</th>
+                <th className="p-2 text-right">2Y</th>
                 <th className="p-2 text-right">10Y</th>
+                <th className="p-2 text-right" title="Treasury 30Y — curva larga (FRED DGS30)">30Y</th>
+                <th className="p-2 text-right" title="MSACSR — meses inventario casas nuevas">MSACSR</th>
+                <th className="p-2 text-right" title="VIX — volatilidad implícita S&P 500">VIX</th>
+                <th className="p-2 text-right" title="CNN Fear & Greed 0-100">F&G</th>
               </tr>
             </thead>
             <tbody>
-              {paddingTop>0 && (<tr><td colSpan={24} style={{ height: paddingTop }} /></tr>)}
+              {paddingTop>0 && (<tr><td colSpan={34} style={{ height: paddingTop }} /></tr>)}
               {virtualItems.map((virtualRow:any)=>{
                 const r:any = sorted[virtualRow.index];
                 const idx = virtualRow.index;
                 const d=String(r.date||'').slice(0,10);
+                const maxDate = sorted.length ? sorted.reduce((m:string, row:any)=> String(row.date||'').slice(0,10) > m ? String(row.date||'').slice(0,10) : m, String(sorted[0].date||'').slice(0,10)) : null;
+                const isCurrent = d === maxDate;
                 const isLast= false;
                 const capeVal=r.cape;
                 const mean3yVal=r.mean3y ?? r.mean;
@@ -838,7 +1391,17 @@ export function RegimesPanel() {
                 const cpi=getCpiYoY(marketHistory['CPIAUCSL'],d);
                 const fed=getClosestPrice(marketHistory['DFEDTARU'],d);
                 const y10=getClosestPrice(marketHistory['DGS10'],d);
+                const y30=getClosestPrice(marketHistory['DGS30'],d);
+                const tqqqR=getClosestPrice(marketHistory['TQQQ'],d);
+                const y2=getClosestPrice(marketHistory['DGS2'],d);
+                const hyEy=getClosestPrice(marketHistory['BAMLH0A0HYM2EY'],d);
+                const gdpR=getRecentPrice(marketHistory['GDP'],d,120);
+                const finraR=getRecentPrice(marketHistory['FINRA_DEBIT'],d,45);
+                const msacsrR=getRecentPrice(marketHistory['MSACSR'],d,35);
+                const vixR=getClosestPrice(marketHistory['VIXCLS'],d);
+                const fgR=getClosestPrice(marketHistory['FEAR_GREED'],d);
                 const spx=getClosestPrice(marketHistory['^GSPC'],d);
+                const nasdaqVal=getClosestPrice(marketHistory['^IXIC'],d);
                 const regime=getRegime(d, capeVal, ratio);
                 const regimeColor= regime==='Stress'?'bg-red-500/20 text-red-400 border-red-500/30': regime==='Bull'?'bg-emerald-500/20 text-emerald-400 border-emerald-500/30':'bg-amber-500/20 text-amber-400 border-amber-500/30';
                 const ratioColor = ratio==null ? 'text-slate-500' : ratio < 0.9 ? 'text-emerald-400 bg-emerald-500/10' : ratio < 1.05 ? 'text-green-400 bg-green-500/10' : ratio < 1.18 ? 'text-yellow-400 bg-yellow-500/10' : ratio < 1.35 ? 'text-orange-400 bg-orange-500/10' : 'text-red-400 bg-red-500/10';
@@ -853,8 +1416,8 @@ export function RegimesPanel() {
                 const diffVal = (portVal!=null && bhVal!=null) ? portVal - bhVal : null;
                 const diffPct = (portVal!=null && bhVal!=null && bhVal!==0) ? (portVal/bhVal-1)*100 : null;
                 return (
-                  <tr key={r.date} ref={isLast? observerRef : null} className="hover:bg-slate-800/40 border-t border-slate-800">
-                    <td className="p-2 font-mono sticky left-0 bg-slate-900 text-slate-200">{capeView==='yearly'? d.slice(0,4): capeView==='monthly'? d.slice(0,7): d}</td>
+                  <tr key={r.date} ref={isLast? observerRef : null} className={`${isCurrent ? 'bg-teal-500/[0.08] border-l-2 border-l-teal-500 ring-1 ring-teal-500/15' : 'hover:bg-slate-800/40'} border-t border-slate-800 transition-colors`}>
+                    <td className={`p-2 font-mono sticky left-0 text-slate-200 ${isCurrent ? 'bg-slate-900' : 'bg-slate-900'} w-[110px] min-w-[110px]`}><div className="flex flex-col leading-none gap-0.5"><span className={`${isCurrent ? 'text-teal-300 font-bold' : 'text-slate-200'} text-xs`}>{capeView==='yearly'? d.slice(0,4): capeView==='monthly'? d.slice(0,7): d}</span>{isCurrent && <span className="text-[9px] px-1 py-0.5 rounded bg-teal-500 text-white font-bold leading-none w-fit">Actual</span>}</div></td>
                     {(() => {
                       const det=detRow;
                       const {r1: d1, r2: d2, r3: d3}=det;
@@ -895,29 +1458,41 @@ export function RegimesPanel() {
                     <td className={`p-2 text-right font-mono ${cagrVal==null?'text-slate-500':cagrVal>=0?'text-emerald-300':'text-red-300'}`}>{cagrVal!=null ? `${cagrVal.toFixed(2)}%` : '—'}</td>
                     <td className={`p-2 text-right font-mono ${ddVal==null?'text-slate-500':'text-orange-300'}`}>{ddVal!=null ? `${(ddVal*100).toFixed(2)}%` : (perf!=null && perf<0 ? `${perf.toFixed(2)}%` : '—')}</td>
                     <td className="p-2 text-right font-mono text-sky-300">{spx? `$${Number(spx).toLocaleString('en-US', {minimumFractionDigits:0, maximumFractionDigits:0})}`:'—'}</td>
+                    <td className="p-2 text-right font-mono text-violet-300">{nasdaqVal? `$${Number(nasdaqVal).toLocaleString('en-US', {minimumFractionDigits:0, maximumFractionDigits:0})}`:'—'}</td>
+                    <td className="p-2 text-right font-mono text-sky-300">{tqqqR!=null? `$${Number(tqqqR).toFixed(2)}`:'—'}</td>
                     <td className="p-2 text-right font-mono text-amber-300">{capeVal?.toFixed(2) ?? '—'}</td>
                     <td className="p-2 text-right font-mono text-slate-300">{mean3yVal?.toFixed(2) ?? '—'}</td>
                     <td className={`p-2 text-right font-mono font-semibold rounded ${ratioColor}`}>{ratio!=null? `${ratio.toFixed(3)}X`:'—'}</td>
                     <td className="p-2 text-right font-mono text-orange-300">{hy!=null? `${hy.toFixed(2)}%`:'—'}</td>
+                    <td className="p-2 text-right font-mono text-orange-300" title="BAMLH0A0HYM2EY Effective Yield">{hyEy!=null? `${hyEy.toFixed(2)}%`:'—'}</td>
                     <td className={`p-2 text-right font-mono font-semibold border rounded ${mgColor}`}>{mg!=null? `${mg.toFixed(2)}%`:'—'}</td>
                     <td className={`p-2 text-right font-mono font-semibold border rounded ${mgZColor} cursor-help`} onMouseEnter={(e)=>{ const n= mgZ!=null ? (detRow.r2.active ? (<div className="space-y-1.5 text-left uppercase tracking-wide leading-tight text-slate-200"><div className="font-semibold text-sky-400">ARMADO Fase 1 — Z ACTUAL <span className="text-sky-400">{mgZ.toFixed(2)}</span></div><div className="font-mono text-[11px]">Z=(<span className="text-slate-200 font-bold">{mg?.toFixed(2)}</span><span className="text-slate-400">−</span><span className="text-slate-300">{detRow.r2.mean?.toFixed(2) ?? '—'}</span><span className="text-slate-400">)/</span><span className="text-slate-300">{detRow.r2.std?.toFixed(2) ?? '—'}</span><span className="text-slate-400">=</span><span className="text-sky-300 font-black">{mgZ.toFixed(2)}</span> <span className="text-sky-400">— ARMADO POR Z&gt;2.0 EL {(detRow.r2 as any).armedDate ?? (detRow.r2 as any).armedMonth ?? 'ÚLTIMOS 6M'} — PERSISTE HASTA Z&lt;0</span></div></div>) : (<div className="space-y-1.5 text-left uppercase tracking-wide leading-tight text-slate-200"><div className="font-semibold text-emerald-400">{(detRow.r2 as any).disarmedDate ? `DESARMADO EL ${(detRow.r2 as any).disarmedDate}` : 'NO ARMADO'} — Z ACTUAL <span className="text-emerald-400">{mgZ.toFixed(2)}</span></div><div className="font-mono text-[11px]">Z=(<span className="text-slate-200 font-bold">{mg?.toFixed(2)}</span><span className="text-slate-400">−</span><span className="text-slate-300">{detRow.r2.mean?.toFixed(2) ?? '—'}</span><span className="text-slate-400">)/</span><span className="text-slate-300">{detRow.r2.std?.toFixed(2) ?? '—'}</span><span className="text-slate-400">=</span><span className="text-emerald-300 font-black">{mgZ.toFixed(2)}</span> <span className="text-slate-500">{(detRow.r2 as any).disarmedDate ? `· DESARMADO EL ${(detRow.r2 as any).disarmedDate} — Z<0` : '· NINGÚN Z>2.0 EN 6M'}</span></div><div className="text-[11px]"><span className="text-emerald-400">ESTADO:</span> <span className="text-emerald-300">DESARMADO — SIN PELIGRO SISTÉMICO</span></div></div>)) : (<div className="text-slate-400">Z SIN VENTANA</div>); const r=(e.currentTarget as HTMLElement).getBoundingClientRect(); setTableTip({x:r.left+r.width/2, y:r.top, node:n}); }} onMouseLeave={()=>setTableTip(null)} onMouseMove={(e)=>{ const r=(e.currentTarget as HTMLElement).getBoundingClientRect(); setTableTip(prev=> prev? {...prev, x:r.left+r.width/2, y:r.top}:prev); }}>{mgZ!=null? mgZ.toFixed(2):'—'}</td>
+                    <td className="p-2 text-right font-mono text-indigo-300">{gdpR!=null? `$${(Number(gdpR)/1000).toFixed(1)}T`:'—'}</td>
+                    <td className="p-2 text-right font-mono text-rose-300">{finraR!=null? `$${(Number(finraR)/1000).toFixed(0)}B`:'—'}</td>
                     <td className={`p-2 text-right font-mono font-semibold ${detRow.r1.cpi!=null && detRow.r1.cpiSma12!=null && detRow.r1.cpi! >=4.0 && detRow.r1.cpi! > detRow.r1.cpiSma12!*1.20 ? 'text-red-300 bg-red-500/10' : detRow.r1.cpi!=null ? 'text-emerald-300 bg-emerald-500/10' : 'text-slate-500'} cursor-help`} title={`Core CPI YoY ${detRow.r1.cpi?.toFixed(2) ?? '—'}% vs SMA12 YoY ${detRow.r1.cpiSma12?.toFixed(2) ?? '—'}%×1.20=${detRow.r1.cpiSma12!=null?(detRow.r1.cpiSma12*1.20).toFixed(2):'—'}% — ${detRow.r1.cpi!=null && detRow.r1.cpiSma12!=null ? ((detRow.r1.cpi! >=4.0 && detRow.r1.cpi! > detRow.r1.cpiSma12!*1.20) ? 'SÍ supera umbral (+20% y ≥4.0%)' : `NO supera — faltó ${(detRow.r1.cpiSma12!*1.20 - detRow.r1.cpi!).toFixed(2)}pp`) : 'sin datos'}`}>{detRow.r1.cpi!=null? `${detRow.r1.cpi.toFixed(2)}%`:'—'}</td>
                     <td className="p-2 text-right font-mono text-sky-300" title="SMA12 Core CPI YoY — media 12M YoY">{detRow.r1.cpiSma12!=null? `${detRow.r1.cpiSma12.toFixed(2)}%`:'—'}</td>
                     <td className="p-2 text-right font-mono text-slate-300" title="Umbral = SMA12 YoY ×1.05">{detRow.r1.cpiSma12!=null? `${(detRow.r1.cpiSma12*1.05).toFixed(2)}%`:'—'}</td>
                     <td className="p-2 text-right font-mono text-emerald-300">{cpi!=null? `${cpi.toFixed(2)}%`:'—'}</td>
                     <td className="p-2 text-right font-mono text-violet-300">{fed!=null? `${fed.toFixed(2)}%`:'—'}</td>
+                    <td className="p-2 text-right font-mono text-cyan-300">{y2!=null? `${y2.toFixed(2)}%`:'—'}</td>
                     <td className="p-2 text-right font-mono text-cyan-300">{y10!=null? `${y10.toFixed(2)}%`:'—'}</td>
+                    <td className="p-2 text-right font-mono text-teal-300">{y30!=null? `${y30.toFixed(2)}%`:'—'}</td>
+                    {(()=>{ if(msacsrR==null) return <td className="p-2 text-right font-mono text-slate-500">—</td>; const cls=msacsrR>6?'text-red-400 bg-red-500/10':msacsrR>=4?'text-yellow-400 bg-yellow-500/10':'text-emerald-400 bg-emerald-500/10'; return <td className={`p-2 text-right font-mono font-semibold rounded ${cls}`} title={`MSACSR ${d}`}>{Number(msacsrR).toFixed(1)} m</td>; })()}
+                    {(()=>{ if(vixR==null) return <td className="p-2 text-right font-mono text-slate-500">—</td>; const cls=vixR>30?'text-red-400 bg-red-500/10':vixR>20?'text-yellow-400 bg-yellow-500/10':vixR>=12?'text-slate-200':'text-emerald-400 bg-emerald-500/10'; return <td className={`p-2 text-right font-mono font-semibold rounded ${cls}`} title={`VIX ${d}`}>{Number(vixR).toFixed(2)}</td>; })()}
+                    {(()=>{ if(fgR==null) return <td className="p-2 text-right font-mono text-slate-500">—</td>; const cls=fgR>=55?'text-emerald-400 bg-emerald-500/10':fgR>=45?'text-slate-200':fgR>=25?'text-yellow-400 bg-yellow-500/10':'text-red-400 bg-red-500/10'; return <td className={`p-2 text-right font-mono font-semibold rounded ${cls}`} title={`Fear & Greed ${d}`}>{Number(fgR).toFixed(0)}</td>; })()}
                   </tr>
                 );
               })}
-              {paddingBottom>0 && (<tr><td colSpan={21} style={{ height: paddingBottom }} /></tr>)}
+              {paddingBottom>0 && (<tr><td colSpan={34} style={{ height: paddingBottom }} /></tr>)}
             </tbody>
           </table>
         </div>
         <div className="text-[11px] text-slate-500 mt-2">Virtualizado · {sorted.length.toLocaleString('en-US')} filas visibles de {rowsView.length.toLocaleString('en-US')} totales · {virtualItems.length} renderizadas · 📈 CAPE&gt;1.18 &amp; CPI YoY≥4.0 &amp; &gt;1.20 · 🏦 Z&gt;2.0 (6M) · 😴 HY&lt;P20 — filtro Año para saltar rápido.</div>
       </div>
 
-      <RegimesDocsTable />
+      <MarketSyncModal open={marketSync.open} logs={marketSync.logs} refreshing={marketSync.refreshing} error={marketSync.error} onClose={marketSync.close} />
+
+      <RegimesDocsTable live={regimeLive} />
       {tableTip && (
         <div className="fixed z-[100] pointer-events-none bg-slate-900 border border-slate-600 rounded-xl shadow-2xl p-3.5 text-xs max-w-[520px] min-w-[340px] ring-1 ring-white/10 text-slate-200" style={{ left: (()=>{ const half=260; const w=typeof window!=='undefined'?window.innerWidth:1200; return Math.min(Math.max(half+8, tableTip.x), w-half-8); })(), top: Math.max(8, tableTip.y - 8), transform: 'translate(-50%, -100%)' }}>
           {tableTip.node}

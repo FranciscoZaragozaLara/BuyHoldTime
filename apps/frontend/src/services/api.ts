@@ -108,11 +108,12 @@ export async function getTickers(): Promise<Ticker[]> {
   return res.json();
 }
 
-export async function getTickerDetails(symbol: string, limit = 500): Promise<TickerDetails> {
-  const res = await fetch(`${getApiBaseUrl()}/tickers/${symbol}?limit=${limit}`, {
+export async function getTickerDetails(symbol: string, limit = 500, noStore = false): Promise<TickerDetails> {
+  const res = await fetch(`${getApiBaseUrl()}/tickers/${symbol}?limit=${limit}`, noStore
+    // Serie completa (>2MB): no cachear, siempre fresca (el data cache de Next rechaza items >2MB)
+    ? { cache: 'no-store' }
     // Revalidate symbol detail pages every 2 minutes
-    next: { revalidate: 120 },
-  });
+    : { next: { revalidate: 120 } });
   if (!res.ok) throw new Error(`Failed to fetch ticker details for ${symbol}`);
   return res.json();
 }
