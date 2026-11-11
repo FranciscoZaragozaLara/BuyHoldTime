@@ -1,15 +1,18 @@
-import { Controller, Post, Res, Header } from '@nestjs/common';
+import { Controller, Post, Res, Header, UseGuards } from '@nestjs/common';
+import { AdminOrApiKeyGuard } from '../auth/guards/admin-or-api-key.guard';
 import { MarketSyncService } from './market-sync.service';
 
 @Controller('api/market-sync')
 export class MarketSyncController {
   constructor(private readonly svc: MarketSyncService) {}
   @Post('daily')
+  @UseGuards(AdminOrApiKeyGuard)
   runNow() {
     return this.svc.runNow();
   }
 
   @Post('daily/stream')
+  @UseGuards(AdminOrApiKeyGuard)
   async streamRefresh(@Res() res: any) {
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache, no-transform');

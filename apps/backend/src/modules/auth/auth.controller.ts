@@ -1,3 +1,4 @@
+import { isValidApiKey } from './api-key.util';
 import { Controller, Get, Post, Body, UseGuards, Request, Headers, UnauthorizedException, BadRequestException, HttpCode, HttpStatus } from '@nestjs/common';
 import { FirebaseAuthGuard, AuthenticatedUser } from './guards/firebase-auth.guard';
 import { RolesGuard } from './guards/roles.guard';
@@ -109,8 +110,7 @@ export class AuthController {
     @Body('role') role: UserRole,
     @Headers('x-api-key') apiKey?: string,
   ) {
-    const expectedApiKey = process.env.SYNC_API_KEY || 'test-sync-key';
-    if (!apiKey || apiKey !== expectedApiKey) {
+    if (!isValidApiKey(apiKey)) {
       throw new UnauthorizedException('Invalid or missing x-api-key header for role management');
     }
 

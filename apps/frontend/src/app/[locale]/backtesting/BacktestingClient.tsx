@@ -1,4 +1,5 @@
 'use client';
+import { getAuthHeaders, describeHttpError } from '@/lib/authHeaders';
 import { getApiBase, BACKEND_PREFIX } from '@/lib/apiBase';
 import { useState, useEffect, useMemo } from 'react';
 import { useTranslations } from 'next-intl';
@@ -416,8 +417,8 @@ export function BacktestingClient({ initialStrategies, initialRuns }: { initialS
   const handleRunAndSeed=async(code:string)=>{
     try{
       const base=getApiBase();
-      const res=await fetch(`${base}/api/backtesting/runs/run-and-seed`,{method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({strategyCode:code, startDate:selectedStartDate})});
-      if(!res.ok){ const t=await res.text(); alert(`Run failed: ${t.slice(0,300)}`); return; }
+      const res=await fetch(`${base}/api/backtesting/runs/run-and-seed`,{method:'POST', headers:{'Content-Type':'application/json', ...(await getAuthHeaders())}, body:JSON.stringify({strategyCode:code, startDate:selectedStartDate})});
+      if(!res.ok){ if(res.status===401||res.status===403){ alert(describeHttpError(res.status)); return; } const t=await res.text(); alert(`Run failed: ${t.slice(0,300)}`); return; }
       // reload grouped after seed
       const g=await fetch(`${base}/api/backtesting/runs/grouped?startDate=${selectedStartDate}`,{cache:'no-store'});
       if(g.ok) setGrouped(await g.json());

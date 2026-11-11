@@ -1,3 +1,4 @@
+import { getAuthHeaders, describeHttpError } from '@/lib/authHeaders';
 import { useCallback, useRef, useState } from 'react';
 
 export type MarketSyncLog = {
@@ -45,8 +46,8 @@ export function useMarketSyncStream(onDone?: () => void | Promise<void>) {
     doneRef.current = false;
     setOpen(true); setLogs([]); setRefreshing(true); setError(null);
     try {
-      const res = await fetch(`${base}/api/market-sync/daily/stream`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: ctrl.signal as any });
-      if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`);
+      const res = await fetch(`${base}/api/market-sync/daily/stream`, { method: 'POST', headers: { 'Content-Type': 'application/json', ...(await getAuthHeaders()) }, signal: ctrl.signal as any });
+      if (!res.ok || !res.body) throw new Error(describeHttpError(res.status));
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let buffer = '';

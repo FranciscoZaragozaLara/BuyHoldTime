@@ -1,3 +1,4 @@
+import { isValidApiKey } from '../../../auth/api-key.util';
 import { Controller, Get, Post, Param, Query, Headers, HttpCode, HttpStatus, UnauthorizedException, Body } from '@nestjs/common';
 import { GetTickersUseCase } from '../../application/use-cases/get-tickers.use-case';
 import { GetTickerDetailsUseCase } from '../../application/use-cases/get-ticker-details.use-case';
@@ -44,8 +45,7 @@ export class TickerController {
     @Headers('x-api-key') apiKey?: string,
     @Body('symbols') symbols?: string[],
   ) {
-    const expectedApiKey = process.env.SYNC_API_KEY || 'test-sync-key';
-    if (!apiKey || apiKey !== expectedApiKey) {
+    if (!isValidApiKey(apiKey)) {
       throw new UnauthorizedException('Invalid or missing x-api-key header');
     }
     return this.fastSyncTickersUseCase.executeAll(symbols);
@@ -54,8 +54,7 @@ export class TickerController {
   @Post('sync')
   @HttpCode(HttpStatus.OK)
   async syncTickers(@Headers('x-api-key') apiKey?: string) {
-    const expectedApiKey = process.env.SYNC_API_KEY || 'test-sync-key';
-    if (!apiKey || apiKey !== expectedApiKey) {
+    if (!isValidApiKey(apiKey)) {
       throw new UnauthorizedException('Invalid or missing x-api-key header');
     }
     return this.syncTickersUseCase.execute();

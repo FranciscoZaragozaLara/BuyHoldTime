@@ -1,4 +1,5 @@
-import { Controller, Get, Post, Body, Query, Param, Res } from '@nestjs/common';
+import { Controller, Get, Post, Body, Query, Param, Res, UseGuards } from '@nestjs/common';
+import { AdminOrApiKeyGuard } from '../auth/guards/admin-or-api-key.guard';
 import { BacktestingService } from './backtesting.service';
 
 @Controller('api/backtesting')
@@ -14,9 +15,11 @@ export class BacktestingController {
   }
 
   @Post('market-data/bulk')
+  @UseGuards(AdminOrApiKeyGuard)
   upsertMarketData(@Body() body: { rows: any[] }) { return this.svc.upsertMarketData(body.rows); }
 
   @Post('strategies')
+  @UseGuards(AdminOrApiKeyGuard)
   createStrategy(@Body() body: { code: string; name: string; description?: string; paramsSchema?: any }) {
     return this.svc.getOrCreateStrategy(body.code, body.name, body.description, body.paramsSchema);
   }
@@ -31,9 +34,11 @@ export class BacktestingController {
   getGrouped(@Query('startDate') startDate?: string) { return this.svc.getRunsGroupedByStrategy(startDate); }
 
   @Post('runs/run-and-seed')
+  @UseGuards(AdminOrApiKeyGuard)
   runAndSeed(@Body() body: { strategyCode: string; startDate: string }) { return this.svc.runAndSeed(body.strategyCode, body.startDate); }
 
   @Post('runs/refresh-stream')
+  @UseGuards(AdminOrApiKeyGuard)
   async refreshRunsStream(@Body() body: { strategyCodes: string[] }, @Res() res: any) {
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache, no-transform');
@@ -77,5 +82,6 @@ export class BacktestingController {
   }
 
   @Post('runs')
+  @UseGuards(AdminOrApiKeyGuard)
   saveRun(@Body() body: any) { return this.svc.saveBacktestRun(body); }
 }

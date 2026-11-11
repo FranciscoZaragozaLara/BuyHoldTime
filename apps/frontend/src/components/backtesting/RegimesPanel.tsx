@@ -1,4 +1,5 @@
 'use client';
+import { getAuthHeaders, describeHttpError } from '@/lib/authHeaders';
 import { getApiBase } from '@/lib/apiBase';
 import { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
@@ -885,8 +886,8 @@ export function RegimesPanel() {
     try {
       const base = getApiBase();
       const codes = [selectedA, selectedB].filter(Boolean);
-      const res = await fetch(`${base}/api/backtesting/runs/refresh-stream`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ strategyCodes: codes }), signal: ctrl.signal as any });
-      if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`);
+      const res = await fetch(`${base}/api/backtesting/runs/refresh-stream`, { method: 'POST', headers: { 'Content-Type': 'application/json', ...(await getAuthHeaders()) }, body: JSON.stringify({ strategyCodes: codes }), signal: ctrl.signal as any });
+      if (!res.ok || !res.body) throw new Error(describeHttpError(res.status));
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
