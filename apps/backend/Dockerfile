@@ -29,14 +29,17 @@ WORKDIR /repo/apps/backend
 # generate no abre la base; la URL es solo para que prisma.config.ts cargue
 RUN DATABASE_URL="postgresql://build:build@localhost:5432/build" pnpm exec prisma generate \
  && pnpm run build \
- && chown -R node:node /repo
+ && mkdir -p /data \
+ && chown -R node:node /repo /data
 
 ENV NODE_ENV=production \
     PORT=4000 \
-    BACKTEST_DIR=/opt/backtesting
+    BACKTEST_DIR=/opt/backtesting \
+    SHILLER_XLS=/data/shiller-ie-data.xls
 USER node
 EXPOSE 4000
 
-# Aplica migraciones pendientes y arranca la API (una sola réplica).
+# Aplica migraciones (si fallan, el contenedor no arranca), genera en segundo plano los CSV
+# de Shiller que faltan y arranca la API (una sola réplica).
 ENTRYPOINT ["/usr/bin/tini", "--"]
-CMD ["sh", "-c", "pnpm exec prisma migrate deploy && exec node dist/src/main"]
+CMD ["sh", "-c", "pnpm exec prisma migrate deploy || exit 1; (sh docker/bootstrap-shiller.sh &); exec node dist/src/main"]

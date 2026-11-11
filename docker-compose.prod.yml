@@ -64,6 +64,8 @@ services:
     volumes:
       # Scripts Python + result_*.json (clona BackTesting junto a este repo)
       - ${BACKTESTING_PATH:-../BackTesting}:/opt/backtesting
+      # Excel de Yale descargado (persiste entre reinicios)
+      - bht_data:/data
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4000/tickers').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
       interval: 30s
@@ -108,3 +110,4 @@ networks:
 volumes:
   postgres_data:
   letsencrypt:
+  bht_data:

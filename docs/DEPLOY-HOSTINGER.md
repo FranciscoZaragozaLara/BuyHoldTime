@@ -78,6 +78,16 @@ docker compose --env-file .env.production -f docker-compose.prod.yml up -d
 Traefik debe ser v3.6.1 o superior; las versiones anteriores no ven los contenedores y todo responde
 "404 page not found". El compose ya usa `traefik:v3.6`.
 
+## Refresco semanal del CAPE de Shiller (sustituye al launchd del Mac)
+`refresh-shiller-weekly.sh` descarga el Excel de Yale, regenera los CSV y recalcula termómetro y BHT.
+En el VPS se programa con cron del host (lunes 08:00 hora del servidor):
+```bash
+crontab -e
+0 8 * * 1  cd ~/apps/BestTimeToInvest && docker compose --env-file .env.production -f docker-compose.prod.yml exec -T -e BE=/repo/apps/backend backend sh /opt/backtesting/refresh-shiller-weekly.sh
+```
+El log queda dentro del contenedor en `/tmp/shiller-weekly.log`. Al arrancar, el backend genera por sí solo
+los CSV de `/tmp` si faltan (`apps/backend/docker/bootstrap-shiller.sh`) y el Excel descargado persiste en el volumen `bht_data`.
+
 ## Notas
 - Los scripts de BackTesting que corren en tu Mac contra la API ya no la ven en `localhost:4000` del VPS.
   Si quieres seguir lanzándolos desde fuera, expón la API con una regla de Traefik propia
