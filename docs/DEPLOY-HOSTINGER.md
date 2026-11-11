@@ -59,6 +59,25 @@ docker compose --env-file .env.production -f docker-compose.prod.yml exec -T dat
   pg_dump -U postgres -Fc buyholdtime > backup-$(date +%F).dump
 ```
 
+## Si el backend queda "unhealthy" tras restaurar el dump (error P3009)
+Pasa cuando la base de origen tiene cambios de esquema aplicados sin registrar en
+`_prisma_migrations` (por ejemplo con `prisma db push`). Prisma intenta aplicar esas migraciones
+otra vez, la tabla ya existe y se bloquea. Si la estructura ya está en la base, márcalas como aplicadas
+(sustituye los nombres por los que falten en `prisma/migrations`):
+```bash
+docker compose --env-file .env.production -f docker-compose.prod.yml run --rm --no-deps backend sh -c '
+for m in 20261028120000_add_thermo_history 20261028130000_add_bht_forward 20261028140000_add_bht_parts 20261028150000_add_hy_bonus 20261109000000_add_oil_bonus; do
+  pnpm exec prisma migrate resolve --applied "$m"
+done
+pnpm exec prisma migrate status'
+docker compose --env-file .env.production -f docker-compose.prod.yml up -d
+```
+`P3008` en alguna línea solo indica que esa migración ya estaba registrada.
+
+## Docker Engine 29
+Traefik debe ser v3.6.1 o superior; las versiones anteriores no ven los contenedores y todo responde
+"404 page not found". El compose ya usa `traefik:v3.6`.
+
 ## Notas
 - Los scripts de BackTesting que corren en tu Mac contra la API ya no la ven en `localhost:4000` del VPS.
   Si quieres seguir lanzándolos desde fuera, expón la API con una regla de Traefik propia
