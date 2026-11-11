@@ -187,8 +187,8 @@ export class BacktestingService {
       // fallback genérico: si ticker existe, usar run_schd_bh como plantilla bh genérico
       const ticker = (inferredTicker || strat?.paramsSchema?.ticker?.toLowerCase()) as string | undefined;
       if (ticker && fsSync.existsSync(`${basePath}/run_${ticker}_bh.py`)) return `run_${ticker}_bh.py`;
-      // último fallback: bh genérico con TICKER env
-      return 'run_generic_bh.py';
+      // Sin script conocido ni ticker: fallar en vez de correr un buy&hold bajo otro nombre
+      throw new Error(`No hay script de backtest para la estrategia ${code}`);
     };
     const script = resolveScript(strategyCode, strategy);
     await new Promise<void>((resolve, reject) => {
@@ -202,38 +202,33 @@ export class BacktestingService {
     });
     // Re-read result json - dinámico por convención
     const fs = await import('fs');
+    // Solo archivos de ESTA estrategia (o de su ticker si es buy&hold): nunca resultados de otra.
+    const isBHStrategy = strategyCode.startsWith('BH_') || strategyCode.includes('_BH');
     const resolveResultFile = (code: string, start: string, ticker?: string): string => {
       const lower = code.toLowerCase();
       const candidates = [
         `result_${lower}_${start}.json`,
         `result_${lower}.json`,
-        ticker ? `result_${ticker.toLowerCase()}_bh_${start}.json` : null,
-        ticker ? `result_${ticker.toLowerCase()}_bh.json` : null,
-        `result_schd_bh_${start}.json`,
-        `result_schiller_3a_risk_d_v8.json`,
+        isBHStrategy && ticker ? `result_${ticker.toLowerCase()}_bh_${start}.json` : null,
+        isBHStrategy && ticker ? `result_${ticker.toLowerCase()}_bh.json` : null,
       ].filter(Boolean) as string[];
       for (const c of candidates) if (fs.existsSync(`${base}/${c}`)) return c;
-      return `result_${lower}.json`;
+      throw new Error(`Backtest ${code}: el script terminó pero no generó archivo de resultados (se buscó: ${candidates.join(', ')})`);
     };
     const tickerForResult = inferTicker(strategyCode, strategy) || (strategy as any)?.paramsSchema?.ticker as string | undefined;
     const resultFile = resolveResultFile(strategyCode, startDate, tickerForResult);
-    let met: any;
-    try {
-      met = JSON.parse(fs.readFileSync(`${base}/${resultFile}`, 'utf8'));
-    } catch {
-      const perDate = `${base}/result_${strategyCode.toLowerCase()}_${startDate}.json`;
-      if (fs.existsSync(perDate)) met = JSON.parse(fs.readFileSync(perDate, 'utf8'));
-      else met = JSON.parse(fs.readFileSync(`${base}/result_schd_bh_${startDate}.json`, 'utf8'));
-    }
+    const met: any = JSON.parse(fs.readFileSync(`${base}/${resultFile}`, 'utf8'));
     // Si el run fue con START_DATE real, el archivo ya trae métricas para ese startDate; si no, parcheamos
-    const endDateStr = (met as any).endDate || (met as any).end_date || '2026-08-17';
+    const endDateStr = (met as any).endDate || (met as any).end_date || new Date().toISOString().slice(0, 10);
     // Intentar leer equity/allocs/trades específicos por startDate
-    const perDateEquity = `${base}/result_${strategyCode.toLowerCase()}_${startDate}_equity.json`;
-    const perDateEquityAlt = `${base}/result_schd_bh_${startDate}_equity.json`;
-    const perDateAllocs = `${base}/result_${strategyCode.toLowerCase()}_${startDate}_allocations.json`;
-    const perDateAllocsAlt = `${base}/result_schd_bh_${startDate}_allocations.json`;
-    const perDateTrades = `${base}/result_${strategyCode.toLowerCase()}_${startDate}_trades.json`;
-    const perDateTradesAlt = `${base}/result_schd_bh_${startDate}_trades.json`;
+    const lowerCode = strategyCode.toLowerCase();
+    const bhTicker = isBHStrategy && tickerForResult ? tickerForResult.toLowerCase() : null;
+    const ownFiles = (kind: string, undated: string) => [
+      `${base}/result_${lowerCode}_${startDate}_${kind}.json`,
+      ...(bhTicker ? [`${base}/result_${bhTicker}_bh_${startDate}_${kind}.json`] : []),
+      `${base}/result_${lowerCode}_${undated}.json`,
+      ...(bhTicker ? [`${base}/result_${bhTicker}_bh_${undated}.json`] : []),
+    ];
 
     const run = await this.prisma.btBacktestRun.create({
       data: { strategyId: strategy.id, startDate: new Date(startDate), endDate: new Date(endDateStr), initialCash: 100000, commission: 0.0005, paramsUsed: { ...met, requestedStartDate: startDate } },
@@ -244,7 +239,7 @@ export class BacktestingService {
     const seedFromFiles = async () => {
       // EQUITY
       let eq: any[] | null = null;
-      for (const p of [perDateEquity, perDateEquityAlt, `${base}/result_schiller_3a_risk_d_v8_equity_full.json`, `${base}/result_schd_bh_equity_full.json`]) {
+      for (const p of ownFiles('equity', 'equity_full')) {
         if (fs.existsSync(p)) { try { eq = JSON.parse(fs.readFileSync(p, 'utf8')); break; } catch {} }
       }
       if (eq) {
@@ -256,7 +251,7 @@ export class BacktestingService {
       }
       // ALLOCATIONS
       let allocs: any[] | null = null;
-      for (const p of [perDateAllocs, perDateAllocsAlt, `${base}/result_schiller_3a_risk_d_v8_allocations.json`, `${base}/result_schd_bh_allocations.json`]) {
+      for (const p of ownFiles('allocations', 'allocations')) {
         if (fs.existsSync(p)) { try { allocs = JSON.parse(fs.readFileSync(p, 'utf8')); break; } catch {} }
       }
       if (allocs) {
@@ -281,7 +276,7 @@ export class BacktestingService {
       }
       // TRADES
       let trades: any[] | null = null;
-      for (const p of [perDateTrades, perDateTradesAlt, `${base}/result_schiller_3a_risk_d_v8_trades.json`, `${base}/result_schd_bh_trades.json`]) {
+      for (const p of ownFiles('trades', 'trades')) {
         if (fs.existsSync(p)) { try { trades = JSON.parse(fs.readFileSync(p, 'utf8')); break; } catch {} }
       }
       if (trades) {
@@ -443,7 +438,7 @@ export class BacktestingService {
       if (code.startsWith('BH_') || code.includes('_BH')) return 'run_generic_bh.py';
       const ticker = (inferredTicker || strat?.paramsSchema?.ticker?.toLowerCase()) as string | undefined;
       if (ticker && fsSync.existsSync(`${base}/run_${ticker}_bh.py`)) return `run_${ticker}_bh.py`;
-      return 'run_generic_bh.py';
+      throw new Error(`No hay script de backtest para la estrategia ${code}`);
     };
     for (const code of strategyCodes) {
       const startTs = Date.now();
