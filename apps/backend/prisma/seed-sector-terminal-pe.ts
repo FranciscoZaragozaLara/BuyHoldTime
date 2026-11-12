@@ -7,6 +7,7 @@ import { PrismaService } from '../src/prisma/prisma.service';
 const SECTOR_BENCHMARKS: Record<string, { name: string; terminalPe: number }> = {
   Technology: { name: 'Tecnología', terminalPe: 26.5 },
   'Financial Services': { name: 'Servicios Financieros', terminalPe: 14.5 },
+  Financial: { name: 'Servicios Financieros', terminalPe: 14.5 }, // nombre que usa la BD (GuruFocus)
   Healthcare: { name: 'Salud & Biotecnología', terminalPe: 19.5 },
   'Consumer Cyclical': { name: 'Consumo Cíclico', terminalPe: 21.0 },
   'Consumer Defensive': { name: 'Consumo Defensivo', terminalPe: 20.5 },
@@ -97,7 +98,11 @@ const SPECIFIC_TICKER_SECTORS: Record<string, { sector: string; terminalPe: numb
 };
 
 async function main() {
-  console.log('=== Seeding Sector & SectorTerminalPE for all Tickers ===');
+  // Solo escribe sectorTerminalPe. NO cambia `sector`: el código detecta fondos con
+  // sector === 'Index' (QuarterlyDataTable, StockHistoryTable, sync-tickers), y renombrar
+  // QQQ/TQQQ a 'Index (Tech)' haría que el sync reemplace su serie mensual de P/E.
+  // El campo `sector` de SPECIFIC_TICKER_SECTORS es solo descriptivo.
+  console.log('=== Seeding SectorTerminalPE for all Tickers (sector sin cambios) ===');
   const app = await NestFactory.createApplicationContext(AppModule);
   const prisma = app.get(PrismaService);
 
@@ -108,31 +113,28 @@ async function main() {
     let updatedCount = 0;
     for (const t of tickers) {
       const sym = t.symbol.toUpperCase();
-      let targetSector = t.sector || 'Technology';
       let targetTerminalPe = 22.0;
+      let origin = 'default';
 
-      // 1. Check specific overrides first
+      // 1. Override por ticker; 2. benchmark del sector; 3. default 22x
       if (SPECIFIC_TICKER_SECTORS[sym]) {
-        targetSector = SPECIFIC_TICKER_SECTORS[sym].sector;
         targetTerminalPe = SPECIFIC_TICKER_SECTORS[sym].terminalPe;
-      } else if (SECTOR_BENCHMARKS[t.sector]) {
-        targetSector = t.sector;
+        origin = `override (${SPECIFIC_TICKER_SECTORS[sym].sector})`;
+      } else if (t.sector && SECTOR_BENCHMARKS[t.sector]) {
         targetTerminalPe = SECTOR_BENCHMARKS[t.sector].terminalPe;
+        origin = `sector ${t.sector}`;
       }
 
       await prisma.ticker.update({
         where: { id: t.id },
-        data: {
-          sector: targetSector,
-          sectorTerminalPe: targetTerminalPe,
-        },
+        data: { sectorTerminalPe: targetTerminalPe },
       });
 
-      console.log(`Updated ${sym.padEnd(6)} -> Sector: "${targetSector}", Terminal PE: ${targetTerminalPe}x`);
+      console.log(`Updated ${sym.padEnd(6)} -> Terminal PE: ${targetTerminalPe}x  [${origin}; sector "${t.sector}" sin cambios]`);
       updatedCount++;
     }
 
-    console.log(`\nSuccessfully updated ${updatedCount} tickers with Sector and SectorTerminalPE!`);
+    console.log(`\nSuccessfully updated ${updatedCount} tickers with SectorTerminalPE!`);
   } catch (err: any) {
     console.error('Error seeding SectorTerminalPE:', err);
   } finally {
