@@ -135,6 +135,13 @@ describe('edgar-duration', () => {
       expect(merged.find((x) => x.end === '2026-09-30')!.val).toBe(100);
       expect(merged.find((x) => x.end === '2026-06-30')!.val).toBe(90);
     });
+    it('JPM: usa RevenuesNetOfInterestExpense cuando Revenues quedó en 2014', () => {
+      const merged = revenueFacts({
+        Revenues: { units: { USD: [q('2014-07-01', '2014-09-30', 24246)] } },
+        RevenuesNetOfInterestExpense: { units: { USD: [q('2026-07-01', '2026-09-30', 50172)] } },
+      });
+      expect(merged.map((x) => x.end).sort()).toEqual(['2014-09-30', '2026-09-30']);
+    });
     it('tolera bloques sin ingresos', () => {
       expect(revenueFacts(undefined)).toEqual([]);
     });

@@ -124,6 +124,7 @@ export const REVENUE_CONCEPTS = [
   'Revenues',
   'RevenueFromContractWithCustomerIncludingAssessedTax',
   'SalesRevenueNet',
+  'RevenuesNetOfInterestExpense', // bancos (JPM): ingresos netos de gasto por intereses
 ];
 
 /** Hechos de ingresos (USD): un concepto completa los periodos que le faltan al anterior. */
