@@ -3,6 +3,7 @@ import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
 import YahooFinance from 'yahoo-finance2';
+import { isQuarterFact } from './edgar-duration';
 
 const yahooFinance = new YahooFinance({ suppressNotices: ['ripHistorical', 'yahooSurvey'] });
 
@@ -326,12 +327,12 @@ async function main() {
         }
 
         // Populate Net Income & Shares
-        const quarterlyNet = netUnits.filter((u: any) => u.start && u.end && ((new Date(u.end).getTime() - new Date(u.start).getTime()) / 86400000) >= 75);
+        const quarterlyNet = netUnits.filter(isQuarterFact);
         for (const n of quarterlyNet) {
           if (quartersMap.has(n.end) && n.val) quartersMap.get(n.end).netIncome = n.val;
         }
 
-        const quarterlyShares = sharesUnits.filter((u: any) => u.start && u.end && ((new Date(u.end).getTime() - new Date(u.start).getTime()) / 86400000) >= 75);
+        const quarterlyShares = sharesUnits.filter(isQuarterFact);
         for (const s of quarterlyShares) {
           if (quartersMap.has(s.end) && s.val) {
             const splitFactor = getCumulativeSplitFactor(s.filed || s.end);
