@@ -3,6 +3,7 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { BarChart3, TrendingUp, Sparkles, CheckCircle2, Calendar, HelpCircle, Layers, ArrowUpRight, ArrowDownRight, Info, ChevronLeft, ChevronRight, DollarSign, Calculator, Activity, Sun } from 'lucide-react';
 import { useLocale } from 'next-intl';
+import { solarYearEps } from '@/lib/solarYearEps';
 
 interface QuarterData {
   date: string;
@@ -179,8 +180,8 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
     sortedCalYears.forEach((calYear) => {
       const qList = calMap.get(calYear)!;
       if (qList.length >= 3 || calYear < currentYearNum) {
-        const sumEps = qList.reduce((acc, q) => acc + (q.epsDiluted ?? q.eps ?? 0), 0);
-        const roundedEps = parseFloat(sumEps.toFixed(2));
+        // Año en curso incompleto: EPS TTM (últimos 4 trimestres), no la suma parcial
+        const { eps: roundedEps, isTtm } = solarYearEps(qList, validQuarters, calYear, currentYearNum);
         
         // Precio al cierre del AÑO CALENDARIO SOLAR (31 de Diciembre del año calYear)
         const priceForCalYear = getHistoricalPriceForCalendarYear(calYear);
@@ -189,7 +190,9 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
         historicalAnnualItems.push({
           key: `cal-${calYear}`,
           label: `${calYear}`,
-          subLabel: locale === 'es' ? 'Año Calendario Solar' : 'Solar Calendar Year',
+          subLabel: isTtm
+            ? (locale === 'es' ? 'EPS TTM (últimos 4 trimestres)' : 'TTM EPS (last 4 quarters)')
+            : (locale === 'es' ? 'Año Calendario Solar' : 'Solar Calendar Year'),
           calendarYear: calYear,
           periodName: `${calYear}`,
           eps: roundedEps,
