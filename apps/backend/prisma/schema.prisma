@@ -92,7 +92,7 @@ model Subscription {
 
 model Stock {
   id          Int        @id @default(autoincrement())
-  ticker      String
+  ticker      String     @unique
   companyName String?    @map("companyName")
   exchange    String?
   isActive    Boolean    @map("isActive")
@@ -131,6 +131,8 @@ model Snapshot {
   shillerPe        Decimal? @db.Decimal
   stock            Stock    @relation(fields: [stockId], references: [id], onDelete: Cascade)
 
+  @@unique([stockId, scrapeDate])
+  @@index([stockId, scrapeDate])
   @@map("snapshots")
 }
 
