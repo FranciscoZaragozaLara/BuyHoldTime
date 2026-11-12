@@ -5,6 +5,7 @@ import { spawn } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import { PrismaService } from '../../prisma/prisma.service';
+import { restoreShillerCsvFromDb, SHILLER_CSV_PATH, syncShillerCsvToDb } from '../backtesting/shiller-daily';
 
 /**
  * Construye la línea planchada del día `date` para shiller_daily.csv SIN asumir
@@ -89,12 +90,36 @@ export class MarketSyncService {
     }
     this.fullSyncRunning = true;
     this.logger.log('Full sync background start (daily_update.py + BH patch)');
-    this.runPython('daily_update.py', [])
+    this.restoreShillerCsv()
+      .then(() => this.runPython('daily_update.py', []))
       .then(() => this.patchBHPerformance())
+      .then(() => this.syncShillerDb())
       .then(() => this.refreshThermoTail())
       .then(() => this.logger.log('Full sync background done'))
       .catch((e: any) => this.logger.error(`Full sync background failed: ${e.message?.slice(0, 200)}`))
       .finally(() => { this.fullSyncRunning = false; });
+  }
+
+  // CAPE diario: el CSV (/tmp) es solo intercambio con BackTesting; la fuente es
+  // bt_shiller_daily. Si /tmp se borró (reinicio), se reconstruye desde la BD.
+  private async restoreShillerCsv(): Promise<void> {
+    try {
+      const n = await restoreShillerCsvFromDb(this.prisma);
+      if (n) this.logger.warn(`${SHILLER_CSV_PATH} no existía: reconstruido desde bt_shiller_daily (${n} filas)`);
+    } catch (e: any) {
+      this.logger.error(`No se pudo reconstruir ${SHILLER_CSV_PATH}: ${e.message?.slice(0, 200)}`);
+    }
+  }
+
+  // Vuelca el CSV (regenerado por daily_update.py / planchado) a bt_shiller_daily. Nunca revienta el sync.
+  private async syncShillerDb(): Promise<void> {
+    try {
+      const n = await syncShillerCsvToDb(this.prisma);
+      if (n) this.logger.log(`bt_shiller_daily sincronizada (${n} filas del CSV)`);
+      else this.logger.warn(`${SHILLER_CSV_PATH} no existe: bt_shiller_daily sin cambios`);
+    } catch (e: any) {
+      this.logger.error(`Sync bt_shiller_daily falló: ${e.message?.slice(0, 200)}`);
+    }
   }
 
   // Cola del termómetro + BHT tras el sync: recalcula los últimos 7 días para que
@@ -128,8 +153,10 @@ export class MarketSyncService {
   async handleDailySync() {
     this.logger.log('Daily market sync start');
     try {
+      await this.restoreShillerCsv();
       await this.runPython('daily_update.py', []);
       await this.patchBHPerformance();
+      await this.syncShillerDb();
       await this.refreshThermoTail();
       this.logger.log('Daily market sync done');
     } catch (e: any) {
@@ -203,8 +230,10 @@ export class MarketSyncService {
 
   // Endpoint manual para probar sin esperar al cron: POST /api/market-sync/daily
   async runNow(): Promise<{ ok: boolean; log: string }> {
+    await this.restoreShillerCsv();
     await this.runPython('daily_update.py', []);
     await this.patchBHPerformance();
+    await this.syncShillerDb();
     await this.refreshThermoTail();
     return { ok: true, log: 'sync ok' };
   }
@@ -586,7 +615,8 @@ export class MarketSyncService {
     // 1) extender shiller_daily.csv a Today (loop, planchado)
     try {
       const fs = await import('fs');
-      const csvPath = '/tmp/shiller_daily.csv';
+      const csvPath = SHILLER_CSV_PATH;
+      await this.restoreShillerCsv();
       if (fs.existsSync(csvPath)) {
         let raw = fs.readFileSync(csvPath, 'utf8').trim().split('\n');
         let lastLine = raw[raw.length-1];
@@ -645,7 +675,10 @@ export class MarketSyncService {
                 }
               }
             }
-            if (fileChanged) fs.writeFileSync(csvPath, raw.join('\n') + '\n');
+            if (fileChanged) {
+              fs.writeFileSync(csvPath, raw.join('\n') + '\n');
+              await this.syncShillerDb();
+            }
           }
         }
       }

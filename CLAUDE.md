@@ -28,6 +28,7 @@ Plan y estado actual: **`docs/plan/HANDOFF.md`** (léelo antes de empezar una ta
 - Otros crons (market-sync): L-V 22:05 ET `daily_update.py`, 22:35 ET breadth.
 - `snapshots` y `stocks` los llena la app **GuruFocus Scrapper** (repo hermano, misma BD).
 - `sector_terminal_pe` se llena con `prisma/seed-sector-terminal-pe.ts`.
+- CAPE Shiller diario: tabla `bt_shiller_daily` (la sirve `/api/backtesting/shiller-daily`). El CSV `/tmp/shiller_daily.csv` de BackTesting es solo intercambio: carga con `prisma/sync-shiller-daily.ts`; el market-sync diario la mantiene y, si `/tmp` se borró, reconstruye el CSV desde la BD.
 - Columnas en snake_case en SQL (`historical_eps_quarterly`), camelCase solo en Prisma.
 
 ## Tests

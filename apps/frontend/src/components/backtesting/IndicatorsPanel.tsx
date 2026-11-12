@@ -10,6 +10,7 @@ import { BhtStats } from './BhtStats';
 import { CrisisEventsTable } from './CrisisEventsTable';
 import { BHT_BANDS, BHT_CUTS, bhtBand, bhtBandColor } from './bhtBands';
 import { Download } from 'lucide-react';
+import { buildCapeTableRows } from '@/lib/capeTableRows';
 import { exportToExcel } from '@/lib/exportExcel';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getLiveStaleTime, isMarketOpen } from '@/lib/queryClient';
@@ -531,6 +532,8 @@ export function IndicatorsPanel() {
   const [thermoView, setThermoView] = useState<'overview' | 'timeline' | 'stats'>('overview');
   const [markets, setMarkets] = useState<Record<string, number | null>>({});
   const [marketHistory, setMarketHistory] = useState<Record<string, Map<string, number>>>({});
+  // Filas de la tabla CAPE: serie CAPE o, si falta, días hábiles del SP500 (ver lib/capeTableRows).
+  const capeRows: any[] = useMemo(() => buildCapeTableRows(cape, marketHistory['^GSPC']?.keys()), [cape, marketHistory]);
   const [volHistory, setVolHistory] = useState<Record<string, Map<string, number>>>({});
   const [thermoHist, setThermoHist] = useState<Record<string, { value: number; numerator: number; denominator: number; coverage: number; bonus?: number; bonusLabel?: string; liqBonus?: number; liqBonusLabel?: string; oilBonus?: number; oilBonusLabel?: string }>>({});
   const capeBhtDet = useBhtDetail();
@@ -1131,7 +1134,7 @@ export function IndicatorsPanel() {
     el.addEventListener('scroll', onScroll);
     (el as any)._hasScrollListener = true;
     return ()=> { el.removeEventListener('scroll', onScroll); (el as any)._hasScrollListener = false; };
-  }, [capeView, cape.length, visibleCount]);
+  }, [capeView, capeRows.length, visibleCount]);
   useEffect(()=>{
     if (visibleCount >= 10000) return;
     const observer = new IntersectionObserver((entries)=>{
@@ -1139,7 +1142,7 @@ export function IndicatorsPanel() {
     }, { threshold: 0.1 });
     if (observerRef.current) observer.observe(observerRef.current);
     return ()=> observer.disconnect();
-  }, [visibleCount, capeView, cape.length, sortCol, sortDir]);
+  }, [visibleCount, capeView, capeRows.length, sortCol, sortDir]);
 
   if (loading) return <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 text-sm text-slate-500">Cargando indicadores...</div>;
 
@@ -1648,14 +1651,14 @@ export function IndicatorsPanel() {
           <button onClick={()=>{
             const buildSheet = (view: 'daily'|'monthly'|'yearly')=>{
               const headers = ['Fecha','SP500', view==='monthly' ? 'Change Monthly' : view==='yearly' ? 'Change Yearly' : 'Change Daily','BHT Index','Perf 1Y','Perf Total','CAGR','Nasdaq','TQQQ','SPX EPS','PE TTM','Fwd PE','CAPE','mean3y','RatioCape','FED Target','2Y','10Y','30Y','HY OAS','HY EY','HY 10Y+OAS','HY Bonus','LIQ Bonus','Oil Bonus','WTI','WTI xSMA36','M2','M2 YoY','M0','M0 Δ3M','CPI','Core CPI','GDP','FINRA Debit','Margin/GDP','MSACSR','VIX','F&G','Vol SPY','OBV','Fuerza','Tend-OBV','NetAdv','Up/Down','CAPE SMA 3Y','CAPE SMA 5Y','CAPE SMA 10Y','CAPE EMA 3Y','CAPE EMA 5Y','CAPE EMA 10Y'];
-              let rowsView: any[] = cape;
+              let rowsView: any[] = capeRows;
               if(view==='monthly'){
                 const byMonth = new Map<string, any>();
-                for(const r of cape) byMonth.set((r.date||'').slice(0,7), r);
+                for(const r of capeRows) byMonth.set((r.date||'').slice(0,7), r);
                 rowsView = Array.from(byMonth.values());
               } else if(view==='yearly'){
                 const byYear = new Map<string, any>();
-                for(const r of cape) byYear.set((r.date||'').slice(0,4), r);
+                for(const r of capeRows) byYear.set((r.date||'').slice(0,4), r);
                 rowsView = Array.from(byYear.values());
               }
               const sortedView: any[] = [...rowsView].sort((a:any,b:any)=> sortDir==='desc' ? b.date.localeCompare(a.date) : a.date.localeCompare(b.date));
@@ -1840,14 +1843,14 @@ export function IndicatorsPanel() {
             </thead>
             <tbody className="divide-y divide-slate-900/60 bg-slate-950/20 font-mono">
               {(()=>{
-                let rows = cape;
+                let rows = capeRows;
                 if (capeView==='monthly') {
                   const byMonth = new Map<string, any>();
-                  for (const r of cape) byMonth.set((r.date||'').slice(0,7), r);
+                  for (const r of capeRows) byMonth.set((r.date||'').slice(0,7), r);
                   rows = Array.from(byMonth.values());
                 } else if (capeView==='yearly') {
                   const byYear = new Map<string, any>();
-                  for (const r of cape) byYear.set((r.date||'').slice(0,4), r);
+                  for (const r of capeRows) byYear.set((r.date||'').slice(0,4), r);
                   rows = Array.from(byYear.values());
                 }
                 // determinar fecha más reciente en vista para resaltar como "Actual"
@@ -2063,7 +2066,7 @@ export function IndicatorsPanel() {
             </tbody>
           </table>
         </div>
-        <p className="text-[11px] text-slate-500 mt-2">Scroll para cargar más · {cape.length} días (1990→hoy, sin fines de semana) · SP500/Nasdaq/TQQQ cierre diario · SMA/EMA 3/5/10 sobre CAPE diario · Ratio semaforizado</p>
+        <p className="text-[11px] text-slate-500 mt-2">Scroll para cargar más · {capeRows.length} días (1990→hoy, sin fines de semana){!cape.length && capeRows.length > 0 && <span className="text-amber-400"> · sin serie CAPE: columnas CAPE vacías</span>} · SP500/Nasdaq/TQQQ cierre diario · SMA/EMA 3/5/10 sobre CAPE diario · Ratio semaforizado</p>
       </div>
       <BhtForwardTable live={liveBhtRef} />
       {capeBhtDet.hover && <BhtDetailPopover hover={capeBhtDet.hover} detail={capeBhtDet.cache[capeBhtDet.hover.d]} forward={capeFwdCache[capeBhtDet.hover.d]} onLeave={() => capeBhtDet.scheduleClear()} onHold={() => capeBhtDet.cancelClear()} liveValue={(capeBhtDet.hover.d === liveBhtRef.current.d && liveBhtRef.current.v != null) ? liveBhtRef.current.v : null} />}

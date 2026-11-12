@@ -333,6 +333,33 @@ model BtThermoHistory {
   @@map("bt_thermo_history")
 }
 
+// CAPE Shiller diario reconstruido (fuente del endpoint shiller-daily).
+// Lo llena prisma/sync-shiller-daily.ts desde el CSV de BackTesting y el
+// market-sync diario agrega/reescribe las filas recientes.
+model BtShillerDaily {
+  date       DateTime @db.Date @id
+  pe         Float?
+  cape       Float?
+  capeSma3   Float?   @map("cape_sma3")
+  capeSma5   Float?   @map("cape_sma5")
+  capeSma10  Float?   @map("cape_sma10")
+  capeEma3   Float?   @map("cape_ema3")
+  capeEma5   Float?   @map("cape_ema5")
+  capeEma10  Float?   @map("cape_ema10")
+  mean3y     Float?
+  mean5y     Float?
+  mean10y    Float?
+  mean3yEma  Float?   @map("mean3y_ema")
+  mean5yEma  Float?   @map("mean5y_ema")
+  mean10yEma Float?   @map("mean10y_ema")
+  std3y      Float?
+  std5y      Float?
+  std10y     Float?
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@map("bt_shiller_daily")
+}
+
 // BHT Index + precios y retornos forward maduros (1/2/3/5Y) por índice.
 // Solo se guardan horizontes con fecha objetivo <= último dato disponible.
 model BtBhtForward {

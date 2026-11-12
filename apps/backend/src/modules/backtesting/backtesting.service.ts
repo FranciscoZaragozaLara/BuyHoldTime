@@ -1,7 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { BACKTEST_DIR } from '../../config/backtest-dir';
 import { PrismaService } from '../../prisma/prisma.service';
 import NodeCache from 'node-cache';
+import { toShillerApiRow } from './shiller-daily';
 import { getHyBonus, getHySigma24, getLiqBonus, getOilBonus, PriceMap } from './thermo-history';
 
 // Día con mercado (lun–vie). Sáb/dom no operan y el BHT no se calcula.
@@ -13,6 +14,8 @@ export function isTradingDayIso(isoDate: string): boolean {
 @Injectable()
 export class BacktestingService {
   private readonly liveCache = new NodeCache({ stdTTL: 0, checkperiod: 60 });
+  private readonly logger = new Logger(BacktestingService.name);
+
   constructor(private prisma: PrismaService) {}
 
   async upsertMarketData(rows: { ticker: string; date: string; open: number; high: number; low: number; close: number; adjClose: number; volume: bigint | number; isValidated?: boolean }[]) {
@@ -710,76 +713,18 @@ export class BacktestingService {
   }
 
   async getShillerDaily(from?: string, to?: string) {
-    const fs = await import('fs');
-    const csvPath = '/tmp/shiller_daily.csv';
-    if (!fs.existsSync(csvPath)) return [];
-    const raw = fs.readFileSync(csvPath, 'utf8').trim().split('\n');
-    const header = raw[0].split(',');
-    const dateIdx = header.indexOf('date');
-    const capeIdx = header.indexOf('cape');
-    const sma3Idx = header.indexOf('cape_sma3');
-    const sma5Idx = header.indexOf('cape_sma5');
-    const sma10Idx = header.indexOf('cape_sma10');
-    const ema3Idx = header.indexOf('cape_ema3');
-    const ema5Idx = header.indexOf('cape_ema5');
-    const ema10Idx = header.indexOf('cape_ema10');
-    const m3Idx = header.indexOf('mean3y');
-    const m5Idx = header.indexOf('mean5y');
-    const m10Idx = header.indexOf('mean10y');
-    const m3EIdx = header.indexOf('mean3y_ema');
-    const m5EIdx = header.indexOf('mean5y_ema');
-    const m10EIdx = header.indexOf('mean10y_ema');
-    const ratioIdx = header.indexOf('cape_ratio');
-    const rows: any[] = [];
-    for (let i = 1; i < raw.length; i++) {
-      const cols = raw[i].split(',');
-      const date = cols[dateIdx]?.slice(0,10);
-      if (!date) continue;
-      if (from && date < from) continue;
-      if (to && date > to) continue;
-      // Sin fines de semana: el mercado no opera y el BHT no se calcula esos días.
-      if (!isTradingDayIso(date)) continue;
-      const cape = parseFloat(cols[capeIdx]);
-      const capeSma3 = sma3Idx>=0 ? parseFloat(cols[sma3Idx]) : null;
-      const capeSma5 = sma5Idx>=0 ? parseFloat(cols[sma5Idx]) : null;
-      const capeSma10 = sma10Idx>=0 ? parseFloat(cols[sma10Idx]) : null;
-      const capeEma3 = ema3Idx>=0 ? parseFloat(cols[ema3Idx]) : null;
-      const capeEma5 = ema5Idx>=0 ? parseFloat(cols[ema5Idx]) : null;
-      const capeEma10 = ema10Idx>=0 ? parseFloat(cols[ema10Idx]) : null;
-      const mean3y = m3Idx>=0 ? parseFloat(cols[m3Idx]) : null;
-      const mean5y = m5Idx>=0 ? parseFloat(cols[m5Idx]) : null;
-      const mean10y = m10Idx>=0 ? parseFloat(cols[m10Idx]) : null;
-      const mean3yEma = m3EIdx>=0 ? parseFloat(cols[m3EIdx]) : null;
-      const mean5yEma = m5EIdx>=0 ? parseFloat(cols[m5EIdx]) : null;
-      const mean10yEma = m10EIdx>=0 ? parseFloat(cols[m10EIdx]) : null;
-      // compat: mean = mean3y (V8 usa SMA 3y)
-      const mean = mean3y;
-      let ratio: number | null = null;
-      if (ratioIdx >= 0) {
-        const r = parseFloat(cols[ratioIdx]);
-        ratio = isNaN(r) ? null : r;
-      }
-      if (ratio == null && mean && cape) ratio = cape / mean;
-      rows.push({
-        date,
-        cape: isNaN(cape)? null : cape,
-        capeSma3: isNaN(capeSma3 as number) ? null : capeSma3,
-        capeSma5: isNaN(capeSma5 as number) ? null : capeSma5,
-        capeSma10: isNaN(capeSma10 as number) ? null : capeSma10,
-        capeEma3: isNaN(capeEma3 as number) ? null : capeEma3,
-        capeEma5: isNaN(capeEma5 as number) ? null : capeEma5,
-        capeEma10: isNaN(capeEma10 as number) ? null : capeEma10,
-        mean: isNaN(mean as number) ? null : mean,
-        mean3y: isNaN(mean3y as number) ? null : mean3y,
-        mean5y: isNaN(mean5y as number) ? null : mean5y,
-        mean10y: isNaN(mean10y as number) ? null : mean10y,
-        mean3yEma: isNaN(mean3yEma as number) ? null : mean3yEma,
-        mean5yEma: isNaN(mean5yEma as number) ? null : mean5yEma,
-        mean10yEma: isNaN(mean10yEma as number) ? null : mean10yEma,
-        capeRatio: ratio,
-      });
-      if (rows.length >= 20000) break;
+    const date: { gte?: Date; lte?: Date } = {};
+    if (from) date.gte = new Date(from);
+    if (to) date.lte = new Date(to);
+    const rows = await this.prisma.btShillerDaily.findMany({
+      where: from || to ? { date } : undefined,
+      orderBy: { date: 'asc' },
+    });
+    if (!rows.length) {
+      this.logger.warn('bt_shiller_daily vacía: corre `npx ts-node prisma/sync-shiller-daily.ts` (CSV de BackTesting)');
+      return [];
     }
-    return rows;
+    // Sin fines de semana: el mercado no opera y el BHT no se calcula esos días.
+    return rows.map(toShillerApiRow).filter((r) => isTradingDayIso(r.date)).slice(0, 20000);
   }
 }
