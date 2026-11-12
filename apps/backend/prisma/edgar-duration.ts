@@ -117,3 +117,18 @@ export function epsFacts(usGaap: any): any[] {
     get('IncomeLossFromContinuingOperationsPerBasicShare'),
   );
 }
+
+/** Conceptos us-gaap de ingresos, en orden de prioridad (cada empresa usa uno distinto). */
+export const REVENUE_CONCEPTS = [
+  'RevenueFromContractWithCustomerExcludingAssessedTax',
+  'Revenues',
+  'RevenueFromContractWithCustomerIncludingAssessedTax',
+  'SalesRevenueNet',
+];
+
+/** Hechos de ingresos (USD): un concepto completa los periodos que le faltan al anterior. */
+export function revenueFacts(usGaap: any): any[] {
+  return mergeFactsByPriority(
+    REVENUE_CONCEPTS.map((tag) => (usGaap?.[tag]?.units?.USD as any[]) || []),
+  );
+}

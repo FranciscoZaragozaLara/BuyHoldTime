@@ -8,6 +8,7 @@ import {
   mergeFactsByPriority,
   mergeIfNewer,
   netIncomeFacts,
+  revenueFacts,
 } from '../../prisma/edgar-duration';
 
 describe('edgar-duration', () => {
@@ -121,6 +122,21 @@ describe('edgar-duration', () => {
         IncomeLossFromContinuingOperationsPerDilutedShare: usd([q('2026-07-01', '2026-09-30', 0.6)]),
       });
       expect(facts.map((x) => x.end).sort()).toEqual(['2011-06-30', '2026-09-30']);
+    });
+  });
+
+  describe('ingresos', () => {
+    const q = (start: string, end: string, val: number) => ({ start, end, val });
+    it('prioriza RevenueFromContract... y completa con Revenues los periodos faltantes', () => {
+      const merged = revenueFacts({
+        RevenueFromContractWithCustomerExcludingAssessedTax: { units: { USD: [q('2026-07-01', '2026-09-30', 100)] } },
+        Revenues: { units: { USD: [q('2026-07-01', '2026-09-30', 999), q('2026-04-01', '2026-06-30', 90)] } },
+      });
+      expect(merged.find((x) => x.end === '2026-09-30')!.val).toBe(100);
+      expect(merged.find((x) => x.end === '2026-06-30')!.val).toBe(90);
+    });
+    it('tolera bloques sin ingresos', () => {
+      expect(revenueFacts(undefined)).toEqual([]);
     });
   });
 });
