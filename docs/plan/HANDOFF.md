@@ -76,8 +76,16 @@ Marcar `[x]` con rama y commit al terminar.
 - [ ] Monitor de frescura por fuente (EDGAR, GuruFocus, FRED, precios) con aviso al admin.
 - [ ] Dividir `IndicatorsPanel.tsx` (2,073 líneas), `RegimesPanel.tsx` (1,510) y `EpsHistoryChart.tsx` (984).
 
+### P6 — PugInvestor (marca casual, después de validar)
+- [ ] Registrar puginvestor.com y buyholdtime.com (disponibles al 12 nov 2026; tarea del usuario).
+- [ ] Al rediseñar el frontend (Fase 2), soportar **temas por dominio**: el middleware de Next lee el host y aplica tema, textos y funciones permitidas. Una sola app y un solo deploy; no clonar el código.
+- [ ] Modo Pug: termómetro como estado de ánimo del Pug, 10–20 acciones/ETFs populares con barata/justa/cara, calculadora de ahorro mensual, lecciones. Sin TQQQ, apalancamiento ni tablas.
+- [ ] Cuentas compartidas entre dominios para pasar de Pug a BuyHoldTime Pro sin crear otra cuenta.
+- [ ] Validar primero con una landing y lista de espera; abrirlo solo si trae registros a menor costo que BuyHoldTime.
+
 ## 3. Decisiones abiertas
 - Arquitectura GuruFocus (A/B).
 - Precio de Pro: probar 39 vs 69 USD/año en beta.
 - Revisión legal de señales en México y EE.UU.
-- Nombre comercial único: BuyHoldTime o BestTimeToInvest.
+- Nombre comercial: BuyHoldTime (buyholdtime.com) como marca principal; besttimetoinvest.com ya está registrado (¿es del usuario?).
+- PugInvestor: ¿se lanza como puerta de entrada casual? Ver sección en el documento del plan.
