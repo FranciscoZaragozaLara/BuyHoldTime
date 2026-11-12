@@ -55,7 +55,7 @@ Marcar `[x]` con rama y commit al terminar.
 - [ ] Las cards de indicadores siguen calculando su propio puntaje 0–100 en el frontend (`capeRiskScore`, `cpiMScore`, …): copias de las bandas del backend; unificar con el rediseño.
 - [x] CAPE sin lookahead: **registrado** (S&P 500 ÷ E10 del último mes publicado: historia día 3 de M; en vivo, fecha observada al descargar `ie_data.xls`, con copia fechada en `data/vintages/`) y **ajustado** informativo (E10 del propio mes). `bt_shiller_daily.cape` = registrado, congelado para días cerrados desde 2026-11-12; nueva columna "CAPE Ajust." en la tabla y el Excel. Termómetro y BHT forward recalculados desde 1993 leyendo la tabla (promedio 51.07 → 51.24; 12 nov 74 → 72.2) — ramas `feat/cape-point-in-time` (BackTesting) y `feat/cape-registered-adjusted`. `get_shiller_daily(start)` ya no trunca el CSV compartido.
 - [ ] Backtests Schiller: al volver a correrlos usarán el CAPE registrado (resultados distintos a los guardados).
-- [ ] Página de ETF: ocultar tablas de ingresos/EPS o mostrar "No aplica para ETFs".
+- [x] Página de ETF: sin columnas "EPS/P/E (Fiscal 10-K)" en el historial anual y la gráfica "Histórico de EPS, Precio y P/E" muestra "No aplica para ETFs e índices". La tabla trimestral ya tenía versión de fondos (dividendos). Una sola detección de fondo `src/lib/isFund.ts` (había 3 variantes) — rama `feat/etf-page-no-eps`. El "1 issue" de Next en esa página viene de la extensión React DevTools, no de la app.
 - [ ] Vitest en frontend para funciones de `src/lib` (empezar por `solarYearEps`).
 - [ ] Decidir FMP: si no hay clave, el cron EDGAR funciona solo con SEC.
 

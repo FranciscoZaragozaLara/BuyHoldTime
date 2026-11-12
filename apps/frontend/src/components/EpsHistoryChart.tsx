@@ -4,6 +4,7 @@ import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { BarChart3, TrendingUp, Sparkles, CheckCircle2, Calendar, HelpCircle, Layers, ArrowUpRight, ArrowDownRight, Info, ChevronLeft, ChevronRight, DollarSign, Calculator, Activity, Sun } from 'lucide-react';
 import { useLocale } from 'next-intl';
 import { solarYearEps } from '@/lib/solarYearEps';
+import { isFundTicker } from '@/lib/isFund';
 
 interface QuarterData {
   date: string;
@@ -503,6 +504,27 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
   }, [priceLinePoints]);
 
   if (activeSeries.length === 0) return null;
+
+  // Un fondo no reporta utilidades propias: la línea de EPS quedaba en 0 y saltaba al final.
+  if (isFundTicker(ticker)) {
+    return (
+      <div className="p-6 rounded-2xl border border-slate-900 bg-slate-950/60 backdrop-blur-xl shadow-2xl flex items-start gap-3 w-full">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-700 bg-slate-800/40 text-slate-400">
+          <Sun size={20} />
+        </div>
+        <div>
+          <h3 className="text-base font-extrabold text-white">
+            {locale === 'es' ? 'Histórico de EPS, Precio y P/E (Calendario Solar)' : 'EPS, Stock Price & P/E Lines (Solar Calendar Year)'}
+          </h3>
+          <p className="text-xs text-slate-400 mt-1">
+            {locale === 'es'
+              ? 'No aplica para ETFs e índices: un fondo no reporta utilidades propias. Su P/E agregado (de sus posiciones) aparece en la tabla de valuación de arriba.'
+              : 'Not applicable to ETFs and indices: a fund does not report its own earnings. Its aggregate P/E (from its holdings) is shown in the valuation table above.'}
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 rounded-2xl border border-slate-900 bg-slate-950/60 backdrop-blur-xl shadow-2xl flex flex-col gap-6 w-full">

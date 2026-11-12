@@ -4,6 +4,7 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Calendar, Layers, Clock, ArrowLeftRight, Database, TrendingUp } from 'lucide-react';
 import { HistoricalPrice, Ticker } from '@/services/api';
 import { useLocale } from 'next-intl';
+import { isFundTicker } from '@/lib/isFund';
 
 interface StockHistoryTableProps {
   prices: HistoricalPrice[];
@@ -22,10 +23,7 @@ export const StockHistoryTable: React.FC<StockHistoryTableProps> = ({ prices, ti
 
   const baseIndex = ticker.buyHoldIndex;
 
-  const isFund = useMemo(() => {
-    const s = String(ticker.sector || '').toLowerCase();
-    return s === 'index' || s === 'etf' || s.includes('etf');
-  }, [ticker.sector]);
+  const isFund = useMemo(() => isFundTicker(ticker), [ticker]);
 
   // Helper to parse market cap string (e.g. 3.2T -> 3.2e12)
   const parsedCurrentCap = useMemo(() => {
@@ -323,8 +321,9 @@ export const StockHistoryTable: React.FC<StockHistoryTableProps> = ({ prices, ti
                 </div>
               </th>
               <th className="p-4">P/E (TTM Cal.)</th>
-              {activeTab === 'annual' && <th className="p-4 text-purple-400">EPS (Fiscal 10-K)</th>}
-              {activeTab === 'annual' && <th className="p-4 text-purple-400">P/E (Fiscal 10-K)</th>}
+              {/* Un fondo no presenta 10-K: sin columnas fiscales */}
+              {activeTab === 'annual' && !isFund && <th className="p-4 text-purple-400">EPS (Fiscal 10-K)</th>}
+              {activeTab === 'annual' && !isFund && <th className="p-4 text-purple-400">P/E (Fiscal 10-K)</th>}
 
               <th className="p-4">Div. Rate</th>
               <th className="p-4">Div. Yield</th>
@@ -378,11 +377,6 @@ export const StockHistoryTable: React.FC<StockHistoryTableProps> = ({ prices, ti
               let quartersUsed: any[] = [];
               let resolvedPe: number | null = null;
 
-              const isFund = ticker.sector === 'Index' || 
-                             ticker.sector === 'ETF' || 
-                             ticker.sector?.toLowerCase().includes('etf') || 
-                             ticker.sector?.toLowerCase().includes('fund') || 
-                             ticker.symbol === 'QQQ' || ticker.symbol === 'VOO' || ticker.symbol === 'SCHD';
 
               if (ticker.historicalEpsQuarterly && Array.isArray(ticker.historicalEpsQuarterly) && ticker.historicalEpsQuarterly.length > 0) {
                 // Get quarters/months ending on or before rowDate
@@ -791,8 +785,8 @@ export const StockHistoryTable: React.FC<StockHistoryTableProps> = ({ prices, ti
                   </td>
                   <td className="p-4 text-slate-300 font-bold">{peRatio ? `${peRatio.toFixed(2)}x` : 'N/A'}</td>
                   
-                  {/* EPS & P/E (Fiscal 10-K) - Únicamente en pestaña Anual */}
-                  {activeTab === 'annual' && (
+                  {/* EPS & P/E (Fiscal 10-K) - Únicamente en pestaña Anual y solo para acciones */}
+                  {activeTab === 'annual' && !isFund && (
                     <>
                       <td className="p-4 font-mono relative group/eps-fiscal hover:z-30 cursor-help">
                         {fiscalEps !== null ? (

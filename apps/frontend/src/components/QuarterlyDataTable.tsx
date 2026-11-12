@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Database, Layers, BarChart3, DollarSign, Activity, ExternalLink } from 'lucide-react';
 import { useLocale } from 'next-intl';
+import { isFundTicker } from '@/lib/isFund';
 
 interface QuarterData {
   date: string;
@@ -64,10 +65,7 @@ export const QuarterlyDataTable: React.FC<QuarterlyDataTableProps> = ({ ticker, 
 
 
   const isFund = 
-    ticker?.sector === 'Index' || 
-    ticker?.sector === 'ETF' || 
-    ticker?.sector?.toLowerCase().includes('etf') || 
-    ticker?.sector?.toLowerCase().includes('fund') || 
+    isFundTicker(ticker) ||
     !quarters || 
     quarters.length === 0;
 
