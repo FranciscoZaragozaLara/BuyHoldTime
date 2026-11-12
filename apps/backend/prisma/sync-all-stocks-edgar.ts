@@ -3,7 +3,7 @@ import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
 import YahooFinance from 'yahoo-finance2';
-import { isQuarterFact } from './edgar-duration';
+import { deriveQ4Amount, isFiscalYearFact, isQuarterFact } from './edgar-duration';
 
 const yahooFinance = new YahooFinance({ suppressNotices: ['ripHistorical', 'yahooSurvey'] });
 
@@ -213,6 +213,16 @@ async function main() {
           }
         }
 
+        // Año fiscal completo (10-K): necesario para derivar el Q4 = anual - (Q1+Q2+Q3)
+        const annualNetMap = new Map<string, number>();
+        for (const u of netUnits) {
+          if (u.val !== undefined && u.val !== null && isFiscalYearFact(u)) annualNetMap.set(u.end, u.val);
+        }
+        const annualRevMap = new Map<string, number>();
+        for (const u of revUnits) {
+          if (u.val && isFiscalYearFact(u)) annualRevMap.set(u.end, u.val);
+        }
+
         // Map 3M Shares
         const sharesMap = new Map<string, number>();
         for (const s of sharesUnits) {
@@ -299,14 +309,12 @@ async function main() {
 
             (fyObj as any).Q4 = q4Derived;
 
-            // Calcular NetIncome Q4 = FY_anual - suma(Q1+Q2+Q3)
-            const annualNet = netMap.get(fyEndDate) || 0;
-            const q1q2q3Net = [fyEndDate]
-              .flatMap(() => Array.from(quartersMap.values())
-                .filter(q => q.fiscalYear === String(fyNum) && ['Q1','Q2','Q3'].includes(q.period))
-                .map(q => q.netIncome || 0)
-              ).reduce((a: number, b: number) => a + b, 0);
-            const q4NetIncome = annualNet > 0 ? annualNet - q1q2q3Net : 0;
+            // Q4 = FY_anual - suma(Q1+Q2+Q3), para utilidad neta e ingresos
+            const q123 = Array.from(quartersMap.values()).filter(
+              (q) => q.fiscalYear === String(fyNum) && ['Q1', 'Q2', 'Q3'].includes(q.period),
+            );
+            const q4NetIncome = deriveQ4Amount(annualNetMap.get(fyEndDate), q123.map((q) => q.netIncome));
+            const q4Revenue = deriveQ4Amount(annualRevMap.get(fyEndDate), q123.map((q) => q.revenue));
 
             quartersMap.set(fyEndDate, {
               date: fyEndDate,
@@ -316,7 +324,7 @@ async function main() {
               cik: primaryCik || targetCiks[0] || '',
               period: 'Q4',
               fiscalYear: String(fyNum),
-              revenue: revMap.get(fyEndDate) || 0,
+              revenue: q4Revenue,
               netIncome: q4NetIncome,
               eps: q4Derived,
               epsDiluted: q4Derived,
