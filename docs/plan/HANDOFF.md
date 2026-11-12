@@ -61,11 +61,13 @@ Marcar `[x]` con rama y commit al terminar.
 - [ ] **Usuario:** revocar en FMP la clave expuesta, crear una nueva y ponerla en `apps/backend/.env` y `.env.production` (`FMP_API_KEY=`). La clave sigue en el historial de git: revocarla es lo que la invalida.
 
 ### P3 — GuruFocus Scrapper
-- [ ] Decidir arquitectura: A) Mac como worker con túnel y rol Postgres limitado, o B) todo en VPS con browserless (riesgo de bloqueo por IP).
-- [ ] Endpoint `sync-from-tickers` debe llamar a `SchedulerService.runSync()`; retirar `scripts/sync-tickers.mjs`, `scrape-empty.mjs`, `scrape-missing.mjs`.
+- [x] Arquitectura decidida (12 nov): **A) Mac como worker** — el scraper corre en la Mac y escribe en la BD de la VPS por un túnel con un rol de Postgres limitado (solo `stocks`/`snapshots`).
+- [ ] Implementar A: rol Postgres limitado en la VPS + túnel (SSH/WireGuard) desde la Mac.
+- [x] Sync manual = job unificado: `POST /api/sync` (lanza `runSync` en segundo plano) y `GET /api/sync/status`; quitado el `sync-from-tickers` duplicado (GuruFocus `75098d5`, rama `feat/sync-endpoint-runsync`). Cambios del usuario revisados y commiteados en GuruFocus `main` (`56b1d45`, `f45b91c`, `5bd3c4e`; Swagger y catch de arranque restaurados).
+- [ ] `scripts/sync-tickers.mjs`, `scrape-empty.mjs`, `scrape-missing.mjs` (sin seguimiento en git) ya no se usan: borrarlos cuando el usuario confirme. Tampoco commiteados: `backend/debug-local.mjs`, `backend/fix-constraints.js`, `backend/test/scraper.service.spec.ts` (prueba un método inexistente).
 - [ ] Seguridad: puertos a 127.0.0.1, contraseña de BD fuera del compose, fijar versión de browserless, auth en endpoints.
 - [ ] Que el schema de GuruFocus deje de declarar tablas de BuyHoldTime; limpiar `.dockerignore`.
-- [ ] El usuario tiene cambios propios sin commitear en GuruFocus: no tocarlos sin preguntar.
+- [x] Cambios sin commitear del usuario en GuruFocus: revisados y commiteados con su visto bueno (12 nov).
 
 ### P4 — Antes del deploy a la VPS
 - [ ] Rotar la contraseña local de Postgres y revisar la contraseña por defecto en `prisma/seed-*.ts`.
