@@ -65,7 +65,7 @@ Marcar `[x]` con rama y commit al terminar.
 - [ ] Implementar A: rol Postgres limitado en la VPS + túnel (SSH/WireGuard) desde la Mac.
 - [x] Sync manual = job unificado: `POST /api/sync` (lanza `runSync` en segundo plano) y `GET /api/sync/status`; quitado el `sync-from-tickers` duplicado (GuruFocus `75098d5`, rama `feat/sync-endpoint-runsync`). Cambios del usuario revisados y commiteados en GuruFocus `main` (`56b1d45`, `f45b91c`, `5bd3c4e`; Swagger y catch de arranque restaurados).
 - [ ] `scripts/sync-tickers.mjs`, `scrape-empty.mjs`, `scrape-missing.mjs` (sin seguimiento en git) ya no se usan: borrarlos cuando el usuario confirme. Tampoco commiteados: `backend/debug-local.mjs`, `backend/fix-constraints.js`, `backend/test/scraper.service.spec.ts` (prueba un método inexistente).
-- [ ] Seguridad: puertos a 127.0.0.1, contraseña de BD fuera del compose, fijar versión de browserless, auth en endpoints.
+- [x] Seguridad GuruFocus (`dce69fb`, rama `fix/gf-security`): puertos en 127.0.0.1; `DATABASE_URL` fuera del compose (`.env` raíz, gitignored); browserless fijado por digest; `ApiKeyGuard` exige `x-api-key` (= `API_KEY`) en todo lo que no es GET (clave generada en `backend/.env` y `frontend/.env.local`). La contraseña de Postgres de desarrollo estuvo en el compose subido a GitHub → rotarla (ver P4). Para aplicar puertos nuevos: `docker compose up -d` al volver a usar el stack.
 - [ ] Que el schema de GuruFocus deje de declarar tablas de BuyHoldTime; limpiar `.dockerignore`.
 - [x] Cambios sin commitear del usuario en GuruFocus: revisados y commiteados con su visto bueno (12 nov).
 
