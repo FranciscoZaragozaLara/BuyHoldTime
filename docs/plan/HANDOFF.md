@@ -71,8 +71,11 @@ Marcar `[x]` con rama y commit al terminar.
 - [x] Cambios sin commitear del usuario en GuruFocus: revisados y commiteados con su visto bueno (12 nov).
 
 ### P4 — Antes del deploy a la VPS
-- [ ] Rotar la contraseña local de Postgres y revisar la contraseña por defecto en `prisma/seed-*.ts`.
-- [ ] Quitar ruta fija en `remind-yardeni-weekly.sh`; migrar middleware → proxy de Next; eliminar lockfile duplicado.
+- [x] Contraseña por defecto en scripts: 31 scripts de `apps/backend/prisma` traían la URL con la contraseña **actual** de Postgres como fallback; ahora usan `prisma/db-url.ts` (carga `.env`, error claro si falta) — rama `fix/no-db-password-in-scripts` (`773d02b`).
+- [ ] **Usuario:** rotar la contraseña de `postgres` de desarrollo (estuvo en esos scripts y en el compose de GuruFocus, en GitHub) y actualizar `apps/backend/.env`, `.env` raíz y `.env.production`. GuruFocus ya usa su rol propio y no se afecta.
+- [x] `remind-yardeni-weekly.sh` con rutas relativas y venv (BackTesting `08478b9`, rama `fix/yardeni-relative-paths`; sin correr completo porque envía correo/notificación).
+- [x] `src/middleware.ts` → `src/proxy.ts` (Next 16; sin aviso de deprecación, build OK) — rama `chore/next-middleware-to-proxy`.
+- [x] Eliminados `apps/frontend/pnpm-lock.yaml` y `apps/frontend/pnpm-workspace.yaml` duplicados — rama `chore/remove-duplicate-frontend-lockfile`.
 - [ ] En la VPS: certificados Let's Encrypt reales y permisos de escritura de BackTesting.
 - [ ] Re-correr las 6 estrategias de BackTesting afectadas por el lag de CPI.
 
