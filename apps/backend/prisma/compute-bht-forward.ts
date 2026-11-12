@@ -56,9 +56,10 @@ async function main() {
   const batch: any[][] = [];
   const flush = async () => {
     if (!batch.length) return;
-    const vals = batch.map((_, i) => `(${cols.map((__, j) => `$${i * cols.length + j + 1}`).join(',')})`).join(',');
+    // updated_at explícito: @updatedAt no tiene DEFAULT en BD (migración 20261112000000_sync_schema_drift).
+    const vals = batch.map((_, i) => `(${cols.map((__, j) => `$${i * cols.length + j + 1}`).join(',')}, CURRENT_TIMESTAMP)`).join(',');
     const set = cols.slice(1).map((c) => `"${c}"=EXCLUDED."${c}"`).join(',');
-    await pool.query(`INSERT INTO bt_bht_forward (${cols.map((c) => `"${c}"`).join(',')}) VALUES ${vals}
+    await pool.query(`INSERT INTO bt_bht_forward (${cols.map((c) => `"${c}"`).join(',')}, "updated_at") VALUES ${vals}
       ON CONFLICT (date) DO UPDATE SET ${set}, updated_at=CURRENT_TIMESTAMP`, batch.flat());
     n += batch.length; batch.length = 0;
   };

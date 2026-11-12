@@ -46,8 +46,9 @@ async function main() {
   const batch: any[] = [];
   const flush = async () => {
     if (!batch.length) return;
-    const vals = batch.map((_, i) => `($${i * 11 + 1}, $${i * 11 + 2}, $${i * 11 + 3}, $${i * 11 + 4}, $${i * 11 + 5}, $${i * 11 + 6}, $${i * 11 + 7}, $${i * 11 + 8}, $${i * 11 + 9}, $${i * 11 + 10}, $${i * 11 + 11})`).join(',');
-    await pool.query(`INSERT INTO bt_thermo_history (date, value, numerator, denominator, coverage, bonus, bonus_label, liq_bonus, liq_bonus_label, oil_bonus, oil_bonus_label) VALUES ${vals}
+    // updated_at explícito: @updatedAt no tiene DEFAULT en BD (migración 20261112000000_sync_schema_drift).
+    const vals = batch.map((_, i) => `($${i * 11 + 1}, $${i * 11 + 2}, $${i * 11 + 3}, $${i * 11 + 4}, $${i * 11 + 5}, $${i * 11 + 6}, $${i * 11 + 7}, $${i * 11 + 8}, $${i * 11 + 9}, $${i * 11 + 10}, $${i * 11 + 11}, CURRENT_TIMESTAMP)`).join(',');
+    await pool.query(`INSERT INTO bt_thermo_history (date, value, numerator, denominator, coverage, bonus, bonus_label, liq_bonus, liq_bonus_label, oil_bonus, oil_bonus_label, updated_at) VALUES ${vals}
       ON CONFLICT (date) DO UPDATE SET value=EXCLUDED.value, numerator=EXCLUDED.numerator,
       denominator=EXCLUDED.denominator, coverage=EXCLUDED.coverage, bonus=EXCLUDED.bonus,
       bonus_label=EXCLUDED.bonus_label, liq_bonus=EXCLUDED.liq_bonus,
