@@ -166,5 +166,137 @@
     "consumer": "Consumer Cyclical",
     "defensive": "Consumer Defensive",
     "communication": "Communication Services"
+  },
+  "Legal": {
+    "short": "Educational and informational content. Not investment advice or a recommendation to buy, sell, or hold any security. Investing involves risk, including loss of principal. You are responsible for your own decisions.",
+    "signal": "The BHT Index, the risk thermometer, and Buy/Hold scores are outputs of statistical models for educational purposes: they do not consider your personal situation, may be wrong, and are not investment recommendations. Past performance does not guarantee future results.",
+    "backtest": "Backtest results are hypothetical: they are computed on historical data with rules defined in hindsight, do not reflect actual trading, and ignore or simplify commissions, taxes, slippage, and liquidity. No simulation guarantees future results. Leveraged ETFs (such as TQQQ) can lose much of their value quickly.",
+    "readTerms": "Read the Terms of Use and Legal Disclaimer",
+    "footer": "For educational and informational purposes only. Not financial, investment, tax, or legal advice.",
+    "termsLink": "Terms & Disclaimer",
+    "terms": {
+      "metaTitle": "Terms of Use and Legal Disclaimer | BuyHoldTime",
+      "metaDescription": "BuyHoldTime terms of use, liability disclaimer and no-advice notice: educational content, not investment advice.",
+      "title": "Terms of Use and Legal Disclaimer",
+      "updated": "Last updated: {date}",
+      "intro": "Please read these terms carefully. By accessing or using BuyHoldTime (the “Site”), including its tools, indicators, scores, simulations, and content, you agree to these Terms of Use and Legal Disclaimer. If you do not agree, do not use the Site.",
+      "summaryTitle": "Summary (does not replace the full text)",
+      "summary": [
+        "All content is educational and informational; it is not investment, financial, tax, or legal advice.",
+        "We are not registered investment advisers and have no fiduciary relationship with you.",
+        "Signals and scores are models that can fail; backtests are hypothetical.",
+        "You can lose money investing. Your decisions and their results are yours alone.",
+        "To the maximum extent permitted by law, we are not liable for losses arising from your use of the Site."
+      ],
+      "sections": [
+        {
+          "title": "1. Educational and informational nature",
+          "paragraphs": [
+            "The Site provides information, data, analytical tools, and content for educational and informational purposes only. Nothing published constitutes, or should be construed as, investment, financial, securities, tax, accounting, or legal advice, or as an offer, solicitation, or recommendation to buy, sell, or hold any security, fund, financial instrument, or strategy.",
+            "Terms such as “buy”, “hold”, “strong buy”, “buy zone”, “risk”, or similar wording on the Site describe the output of a statistical model; they are not instructions or personalized recommendations."
+          ]
+        },
+        {
+          "title": "2. No professional advice or fiduciary relationship",
+          "paragraphs": [
+            "BuyHoldTime and the people behind it are not investment advisers, broker-dealers, financial planners, or entities registered with or authorized by any financial authority (for example, the CNBV in Mexico or the SEC/FINRA in the United States). Using the Site does not create an advisory, agency, or fiduciary relationship between you and BuyHoldTime.",
+            "The information is general and does not take into account your objectives, financial situation, time horizon, risk tolerance, or needs. Before making any investment decision, consult a properly licensed financial, tax, or legal professional."
+          ]
+        },
+        {
+          "title": "3. Signals, indicators, and scores",
+          "paragraphs": [
+            "The BHT Index, the risk thermometer, Buy/Hold scores, bonuses (HY, liquidity, oil), valuations (P/E, CAPE, intrinsic value), and any other indicators are outputs of proprietary methodologies based on historical data and assumptions. They may contain errors, change without notice, be recalculated when sources are updated, or stop working under market conditions different from the past.",
+            "No indicator predicts market behavior with certainty. You should not base your decisions solely on the Site."
+          ]
+        },
+        {
+          "title": "4. Hypothetical performance and backtesting",
+          "paragraphs": [
+            "Simulation and backtest results are hypothetical. They are obtained by applying rules to historical data with the benefit of hindsight, do not represent actual trading, and may not account for—or may simplify—commissions, taxes, spreads, slippage, liquidity, dividends, corporate actions, or the emotional impact of trading real money.",
+            "Past performance, actual or simulated, does not guarantee or predict future results. Actual results may differ materially, including total loss of capital."
+          ]
+        },
+        {
+          "title": "5. Investment risks",
+          "paragraphs": [
+            "Investing in securities and funds involves risks, including partial or total loss of principal, volatility, and liquidity, currency, interest-rate, and credit risk. Leveraged or inverse ETFs (for example, TQQQ or SQQQ) amplify losses, rebalance daily, and can lose much of their value in a short time; they are not suitable for all investors.",
+            "Only invest money you can afford to lose and understand each instrument before trading it."
+          ]
+        },
+        {
+          "title": "6. Third-party data and accuracy",
+          "paragraphs": [
+            "The Site uses public-domain information such as company filings from the U.S. Securities and Exchange Commission (SEC EDGAR) and economic data from the Federal Reserve, the Bureau of Labor Statistics (BLS), the Bureau of Economic Analysis (BEA), and the U.S. Department of the Treasury, among other sources. We do not control these sources and do not guarantee that the information is accurate, complete, timely, or free of errors or omissions. Data may be delayed, revised retroactively, or unavailable.",
+            "Third-party names and trademarks belong to their respective owners; mentioning them does not imply affiliation or endorsement."
+          ]
+        },
+        {
+          "title": "7. User responsibility",
+          "paragraphs": [
+            "You are solely responsible for your investment decisions and their outcomes, and for independently verifying any information before relying on it. By using the Site, you acknowledge that you do so at your own risk."
+          ]
+        },
+        {
+          "title": "8. Disclaimer of warranties",
+          "paragraphs": [
+            "The Site and its content are provided “as is” and “as available”, without warranties of any kind, express or implied, including warranties of merchantability, fitness for a particular purpose, accuracy, uninterrupted availability, or freedom from errors, viruses, or interruptions."
+          ]
+        },
+        {
+          "title": "9. Limitation of liability",
+          "paragraphs": [
+            "To the maximum extent permitted by applicable law, BuyHoldTime, its owners, contributors, and providers shall not be liable for any losses or damages of any kind—direct, indirect, incidental, special, consequential, or punitive—including investment losses, loss of principal, profits, opportunities, or data, arising from the access to, use of, or inability to use the Site, reliance on its content, or errors, delays, or omissions in the information, even if advised of the possibility of such damages.",
+            "Where applicable law does not allow the exclusion of certain liability, such liability shall be limited to the amount you paid, if any, to use the Site during the twelve months preceding the event giving rise to it."
+          ]
+        },
+        {
+          "title": "10. Indemnification",
+          "paragraphs": [
+            "You agree to indemnify and hold harmless BuyHoldTime and its owners and contributors from any claims, damages, losses, and expenses (including reasonable attorneys’ fees) arising from your use of the Site, decisions you make based on it, or your breach of these terms."
+          ]
+        },
+        {
+          "title": "11. Permitted use and intellectual property",
+          "paragraphs": [
+            "The Site and its methodologies, texts, charts, and software are protected by intellectual property rights. You may use it for personal, non-commercial purposes. Copying, reselling, mass redistribution, automated data extraction, reverse engineering, or using the Site in a way that impairs its operation is not permitted without prior written authorization."
+          ]
+        },
+        {
+          "title": "12. Accounts and paid services",
+          "paragraphs": [
+            "If you create an account, you are responsible for keeping your credentials confidential. Paid features or plans, where offered, do not turn the content into personalized advice and are also governed by any specific terms published for them."
+          ]
+        },
+        {
+          "title": "13. Changes",
+          "paragraphs": [
+            "We may modify the Site, its methodologies, and these terms at any time. The current version is the one published on this page with its update date. Continued use of the Site after a change constitutes acceptance."
+          ]
+        },
+        {
+          "title": "14. Governing law and jurisdiction",
+          "paragraphs": [
+            "These terms are governed by {jurisdiction}. Any dispute shall be submitted to the competent courts of that jurisdiction, unless consumer protection law provides otherwise."
+          ]
+        },
+        {
+          "title": "15. Severability",
+          "paragraphs": [
+            "If any provision is held invalid or unenforceable, the remaining provisions shall remain in full force and effect."
+          ]
+        },
+        {
+          "title": "16. Contact",
+          "paragraphs": [
+            "For questions about these terms, contact us at {contact}."
+          ]
+        }
+      ],
+      "defaultJurisdiction": "the laws applicable at the domicile of the Site owner",
+      "defaultContact": "the contact channels published on the Site",
+      "back": "Back to home"
+    },
+    "dataSources": "Public data from the SEC (EDGAR) and U.S. federal agencies, among other sources."
   }
 }

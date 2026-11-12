@@ -13,6 +13,7 @@ import { FundamentalTablesTab } from '@/components/FundamentalTablesTab';
 import { StockValuationCalculator } from '@/components/StockValuationCalculator';
 import { StockSeoSummary } from '@/components/StockSeoSummary';
 import { JsonLd } from '@/components/JsonLd';
+import { RiskDisclaimer } from '@/components/RiskDisclaimer';
 import { 
   ArrowLeft, Star, TrendingUp, DollarSign, Calendar, BarChart3, 
   Activity, ShieldAlert, BadgeInfo, Scale 
@@ -510,14 +511,15 @@ export default async function TickerDetailsPage({
               <div className="p-3 bg-slate-900/30 border border-slate-900/60 rounded-xl text-xs text-slate-400 leading-relaxed">
                 {locale === 'es' ? (
                   <span>
-                    Una puntuación de <strong className="text-teal-400">{score}</strong> indica que la acción se encuentra en zona de <strong>{ticker.recommendation}</strong>. La estrategia sugiere {isBuy ? 'mantener posiciones de compra activas' : 'tomar precauciones y limitar compras'}.
+                    Una puntuación de <strong className="text-teal-400">{score}</strong> ubica a la acción en la zona <strong>{ticker.recommendation}</strong> del modelo. En la metodología, esa zona se asocia con {isBuy ? 'condiciones históricamente favorables' : 'condiciones de mayor cautela'}; es una lectura estadística, no una recomendación.
                   </span>
                 ) : (
                   <span>
-                    A score of <strong className="text-teal-400">{score}</strong> indicates this stock is in a <strong>{ticker.recommendation}</strong> zone. The strategy suggests {isBuy ? 'maintaining active buy positions' : 'taking precautions and limiting buys'}.
+                    A score of <strong className="text-teal-400">{score}</strong> places this stock in the model&apos;s <strong>{ticker.recommendation}</strong> zone. In the methodology, that zone is associated with {isBuy ? 'historically favorable conditions' : 'conditions calling for more caution'}; it is a statistical reading, not a recommendation.
                   </span>
                 )}
               </div>
+              <RiskDisclaimer variant="signal" />
             </div>
 
           </div>

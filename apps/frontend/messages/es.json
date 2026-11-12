@@ -166,5 +166,137 @@
     "consumer": "Consumo Cíclico",
     "defensive": "Consumo Defensivo",
     "communication": "Servicios de Comunicación"
+  },
+  "Legal": {
+    "short": "Contenido educativo e informativo. No es asesoría de inversión ni una recomendación de comprar, vender o mantener valores. Invertir implica riesgo, incluida la pérdida del capital. Tú eres responsable de tus decisiones.",
+    "signal": "El BHT Index, el termómetro de riesgo y las puntuaciones Buy/Hold son resultados de modelos estadísticos con fines educativos: no consideran tu situación personal, pueden equivocarse y no son una recomendación de inversión. Rendimientos pasados no garantizan resultados futuros.",
+    "backtest": "Los resultados de backtesting son hipotéticos: se calcularon con datos históricos y reglas definidas a posteriori, no reflejan operaciones reales e ignoran o simplifican comisiones, impuestos, deslizamiento y liquidez. Ninguna simulación garantiza resultados futuros. Los ETFs apalancados (como TQQQ) pueden perder gran parte de su valor rápidamente.",
+    "readTerms": "Lee los Términos de Uso y Aviso Legal",
+    "footer": "Solo con fines educativos e informativos. No es asesoría financiera, de inversión, fiscal ni legal.",
+    "termsLink": "Términos y Aviso Legal",
+    "terms": {
+      "metaTitle": "Términos de Uso y Aviso Legal | BuyHoldTime",
+      "metaDescription": "Términos de uso, aviso de no responsabilidad y descargo de asesoría de BuyHoldTime: contenido educativo, no asesoría de inversión.",
+      "title": "Términos de Uso y Aviso Legal",
+      "updated": "Última actualización: {date}",
+      "intro": "Lee estos términos con atención. Al acceder o usar BuyHoldTime (el «Sitio»), incluidas sus herramientas, indicadores, puntuaciones, simulaciones y contenidos, aceptas estos Términos de Uso y Aviso Legal. Si no estás de acuerdo, no uses el Sitio.",
+      "summaryTitle": "Resumen (no sustituye el texto completo)",
+      "summary": [
+        "Todo el contenido es educativo e informativo; no es asesoría de inversión, financiera, fiscal ni legal.",
+        "No somos asesores de inversión registrados ni tenemos una relación fiduciaria contigo.",
+        "Las señales y puntuaciones son modelos que pueden fallar; los backtests son hipotéticos.",
+        "Puedes perder dinero invirtiendo. Las decisiones y sus resultados son solo tuyos.",
+        "En la máxima medida permitida por la ley, no somos responsables por pérdidas derivadas del uso del Sitio."
+      ],
+      "sections": [
+        {
+          "title": "1. Naturaleza educativa e informativa",
+          "paragraphs": [
+            "El Sitio ofrece información, datos, herramientas de análisis y contenidos con fines exclusivamente educativos e informativos. Nada de lo publicado constituye ni debe interpretarse como asesoría de inversión, financiera, bursátil, fiscal, contable o legal, ni como una oferta, solicitud o recomendación para comprar, vender o mantener cualquier valor, fondo, instrumento financiero o estrategia.",
+            "Las expresiones «comprar», «mantener», «compra fuerte», «zona de compra», «riesgo» u otras similares que aparecen en el Sitio describen la salida de un modelo estadístico; no son instrucciones ni recomendaciones personalizadas."
+          ]
+        },
+        {
+          "title": "2. Sin asesoría profesional ni relación fiduciaria",
+          "paragraphs": [
+            "BuyHoldTime y sus responsables no son asesores de inversión, intermediarios bursátiles, planificadores financieros ni entidades registradas o autorizadas ante autoridades financieras (por ejemplo, la CNBV en México o la SEC/FINRA en Estados Unidos). El uso del Sitio no crea una relación de asesoría, mandato, agencia ni fiduciaria entre tú y BuyHoldTime.",
+            "La información es general y no toma en cuenta tus objetivos, situación financiera, horizonte, tolerancia al riesgo ni necesidades. Antes de tomar cualquier decisión de inversión, consulta a un asesor financiero, fiscal o legal debidamente autorizado."
+          ]
+        },
+        {
+          "title": "3. Señales, indicadores y puntuaciones",
+          "paragraphs": [
+            "El BHT Index, el termómetro de riesgo, las puntuaciones Buy/Hold, los bonus (HY, liquidez, petróleo), las valuaciones (P/E, CAPE, valor intrínseco) y cualquier otro indicador son resultados de metodologías propias basadas en datos históricos y supuestos. Pueden contener errores, cambiar sin aviso, recalcularse cuando se actualizan las fuentes o dejar de funcionar en condiciones de mercado distintas a las del pasado.",
+            "Ningún indicador predice con certeza el comportamiento del mercado. No debes basar tus decisiones exclusivamente en el Sitio."
+          ]
+        },
+        {
+          "title": "4. Rendimiento hipotético y backtesting",
+          "paragraphs": [
+            "Los resultados de simulaciones y backtests son hipotéticos. Se obtienen aplicando reglas a datos históricos con conocimiento posterior de lo ocurrido, no representan operaciones reales y pueden no considerar —o considerar de forma simplificada— comisiones, impuestos, diferenciales, deslizamiento, liquidez, dividendos, eventos corporativos ni el impacto emocional de operar con dinero real.",
+            "El rendimiento pasado, real o simulado, no garantiza ni predice resultados futuros. Los resultados reales pueden diferir de forma significativa, incluida la pérdida total del capital."
+          ]
+        },
+        {
+          "title": "5. Riesgos de invertir",
+          "paragraphs": [
+            "Invertir en valores y fondos conlleva riesgos, entre ellos la pérdida parcial o total del capital, la volatilidad, el riesgo de liquidez, cambiario, de tasas de interés y de crédito. Los ETFs apalancados o inversos (por ejemplo, TQQQ o SQQQ) amplifican las pérdidas, se rebalancean diariamente y pueden perder gran parte de su valor en poco tiempo; no son adecuados para todos los inversionistas.",
+            "Solo invierte dinero que puedas permitirte perder y entiende cada instrumento antes de operarlo."
+          ]
+        },
+        {
+          "title": "6. Datos de terceros y exactitud",
+          "paragraphs": [
+            "El Sitio utiliza información de dominio público, como los reportes de empresas de la Comisión de Bolsa y Valores de EE.UU. (SEC EDGAR) y datos económicos de la Reserva Federal, la Oficina de Estadísticas Laborales (BLS), la Oficina de Análisis Económico (BEA) y el Departamento del Tesoro de EE.UU., entre otras fuentes. No controlamos esas fuentes ni garantizamos que la información sea exacta, completa, oportuna o esté libre de errores u omisiones. Los datos pueden retrasarse, revisarse retroactivamente o no estar disponibles.",
+            "Las marcas y nombres de terceros pertenecen a sus respectivos titulares; su mención no implica afiliación ni respaldo."
+          ]
+        },
+        {
+          "title": "7. Responsabilidad del usuario",
+          "paragraphs": [
+            "Eres el único responsable de tus decisiones de inversión y de sus resultados, así como de verificar de forma independiente cualquier información antes de usarla. Al usar el Sitio reconoces que lo haces bajo tu propio riesgo."
+          ]
+        },
+        {
+          "title": "8. Exclusión de garantías",
+          "paragraphs": [
+            "El Sitio y sus contenidos se proporcionan «tal cual» y «según disponibilidad», sin garantías de ningún tipo, expresas o implícitas, incluidas las de comerciabilidad, idoneidad para un propósito particular, exactitud, disponibilidad continua o ausencia de errores, virus o interrupciones."
+          ]
+        },
+        {
+          "title": "9. Limitación de responsabilidad",
+          "paragraphs": [
+            "En la máxima medida permitida por la ley aplicable, BuyHoldTime, sus titulares, colaboradores y proveedores no serán responsables por pérdidas o daños de ningún tipo —directos, indirectos, incidentales, especiales, consecuentes o punitivos—, incluidas pérdidas de inversión, de capital, de ganancias, oportunidades o datos, derivados del acceso, uso o imposibilidad de uso del Sitio, de la confianza depositada en sus contenidos, o de errores, retrasos u omisiones en la información, aun cuando se haya advertido de su posibilidad.",
+            "Si la ley aplicable no permite excluir cierta responsabilidad, esta se limitará al monto que hayas pagado, en su caso, por usar el Sitio durante los doce meses anteriores al hecho que la origine."
+          ]
+        },
+        {
+          "title": "10. Indemnización",
+          "paragraphs": [
+            "Aceptas mantener indemne a BuyHoldTime y a sus titulares y colaboradores frente a reclamaciones, daños, pérdidas y gastos (incluidos honorarios razonables de abogados) que resulten de tu uso del Sitio, de las decisiones que tomes con base en él o del incumplimiento de estos términos."
+          ]
+        },
+        {
+          "title": "11. Uso permitido y propiedad intelectual",
+          "paragraphs": [
+            "El Sitio y sus metodologías, textos, gráficos y software están protegidos por derechos de propiedad intelectual. Puedes usarlo para fines personales y no comerciales. No está permitido copiar, revender, redistribuir de forma masiva, extraer datos de manera automatizada, realizar ingeniería inversa ni usar el Sitio de forma que afecte su funcionamiento, sin autorización previa por escrito."
+          ]
+        },
+        {
+          "title": "12. Cuentas y servicios de pago",
+          "paragraphs": [
+            "Si creas una cuenta, eres responsable de mantener la confidencialidad de tus credenciales. Las funciones o planes de pago, cuando existan, no convierten el contenido en asesoría personalizada y se rigen además por las condiciones específicas que se publiquen."
+          ]
+        },
+        {
+          "title": "13. Cambios",
+          "paragraphs": [
+            "Podemos modificar el Sitio, sus metodologías y estos términos en cualquier momento. La versión vigente es la publicada en esta página con su fecha de actualización. El uso continuo del Sitio tras un cambio implica su aceptación."
+          ]
+        },
+        {
+          "title": "14. Ley aplicable y jurisdicción",
+          "paragraphs": [
+            "Estos términos se rigen por {jurisdiction}. Cualquier controversia se someterá a los tribunales competentes de esa jurisdicción, salvo que la ley aplicable a los consumidores disponga otra cosa."
+          ]
+        },
+        {
+          "title": "15. Divisibilidad",
+          "paragraphs": [
+            "Si alguna disposición se considera inválida o inaplicable, las demás conservarán plena vigencia."
+          ]
+        },
+        {
+          "title": "16. Contacto",
+          "paragraphs": [
+            "Para dudas sobre estos términos, escríbenos a {contact}."
+          ]
+        }
+      ],
+      "defaultJurisdiction": "las leyes aplicables en el domicilio del titular del Sitio",
+      "defaultContact": "los canales de contacto publicados en el Sitio",
+      "back": "Volver al inicio"
+    },
+    "dataSources": "Datos públicos de la SEC (EDGAR) y de agencias federales de EE.UU., entre otras fuentes."
   }
 }

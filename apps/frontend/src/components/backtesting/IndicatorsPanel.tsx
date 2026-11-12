@@ -14,6 +14,7 @@ import { buildCapeTableRows } from '@/lib/capeTableRows';
 import { exportToExcel } from '@/lib/exportExcel';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getLiveStaleTime, isMarketOpen } from '@/lib/queryClient';
+import { RiskDisclaimer } from '@/components/RiskDisclaimer';
 
 
 // Termómetro de hoy (BHT en vivo + bonus HY/LIQ/Oil) calculado en el backend con la misma
@@ -1184,6 +1185,7 @@ export function IndicatorsPanel() {
           </div>
           )}
           <p className="text-[11px] text-slate-500 mt-2">Riesgo del mercado general · 0 = riesgo mínimo · 100 = riesgo máximo. Ponderado base 100: {parts.length ? parts.map(p => `${partName(p.key)} ${p.score.toFixed(0)}×${p.weight}`).join(' + ') + ` ÷ ${wTotal}` : 'sin indicadores'}{hyB.bonus > 0 ? ` + bonus HY ${hyB.label} (+${hyB.bonus})` : ''}{liqB.bonus !== 0 ? ` + bonus liquidez ${liqB.label} (${liqB.bonus > 0 ? '+' : ''}${liqB.bonus})` : ''}{oilB.bonus !== 0 ? ` + bonus petróleo ${oilB.label} (${oilB.bonus > 0 ? '+' : ''}${oilB.bonus})` : ''} · {parts.length} indicadores + bonus crédito, liquidez y petróleo.</p>
+          <RiskDisclaimer variant="signal" className="mt-2" />
           <button type="button" onClick={() => setRiskDetailOpen(o => !o)} className="mt-2 text-xs px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800 text-slate-200 hover:text-teal-300 hover:border-slate-600 transition">
             {riskDetailOpen ? '▾ Ocultar detalle' : '▸ Ver detalle del cálculo'}
           </button>

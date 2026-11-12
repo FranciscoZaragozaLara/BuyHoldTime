@@ -80,7 +80,8 @@ Marcar `[x]` con rama y commit al terminar.
 - [ ] Re-correr las 6 estrategias de BackTesting afectadas por el lag de CPI.
 
 ### P5 — Fase 1 del plan SaaS (ver documento)
-- [ ] Aviso legal visible junto a señales (termómetro, medidor Buy/Hold) + página de términos.
+- [x] Aviso legal (es/en, next-intl `Legal`): página `/[locale]/terms` (16 secciones: educativo/no asesoría, sin relación fiduciaria ni registro CNBV/SEC/FINRA, señales, rendimiento hipotético, riesgos/apalancados, datos de terceros, exclusión de garantías, limitación de responsabilidad, indemnización, uso permitido, ley aplicable, contacto); `RiskDisclaimer` junto al termómetro, Buy/Hold de la ficha, ranking del home y backtesting (rendimiento hipotético); footer bilingüe con enlace; sitemap. Textos "recomendación" suavizados a lectura del modelo — rama `feat/legal-disclaimer-terms`.
+- [ ] **Usuario:** definir jurisdicción y correo de contacto (`NEXT_PUBLIC_LEGAL_JURISDICTION`, `NEXT_PUBLIC_LEGAL_CONTACT_EMAIL`) y hacer revisar los términos por un abogado (México/EE.UU.) antes del lanzamiento.
 - [ ] Mover controles de admin (Run & Seed, sync de mercado, códigos internos de estrategia) a `/admin` con rol.
 - [ ] Textos a next-intl (hoy mezcla español/inglés: "Buy/Hold Index Score", "out of 100", "Key Metrics").
 - [ ] Tokens de diseño: verde favorable, ámbar precaución, rojo riesgo; un solo acento.

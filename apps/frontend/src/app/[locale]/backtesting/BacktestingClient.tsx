@@ -6,6 +6,7 @@ import { useTranslations } from 'next-intl';
 import dynamic from 'next/dynamic';
 import { Suspense } from 'react';
 import { StrategySelector } from '@/components/backtesting/StrategySelector';
+import { RiskDisclaimer } from '@/components/RiskDisclaimer';
 const EquityChart = dynamic(() => import('@/components/backtesting/EquityChart').then(m => ({ default: m.EquityChart })), { loading: () => <div className="h-[300px] bg-slate-900 border border-slate-800 rounded-xl animate-pulse" />, ssr: false });
 const MetricsTable = dynamic(() => import('@/components/backtesting/MetricsTable').then(m => ({ default: m.MetricsTable })), { loading: () => <div className="h-[120px] bg-slate-900 border border-slate-800 rounded-xl animate-pulse" />, ssr: false });
 const PerformanceTable = dynamic(() => import('@/components/backtesting/PerformanceTable').then(m => ({ default: m.PerformanceTable })), { loading: () => <div className="h-[200px] bg-slate-900 border border-slate-800 rounded-xl animate-pulse" />, ssr: false });
@@ -587,6 +588,7 @@ export function BacktestingClient({ initialStrategies, initialRuns }: { initialS
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-slate-100">Backtesting — TQQQ / QQQ</h1>
         <p className="text-sm text-slate-400">Comparativa filtrada por fecha inicio y estrategias seleccionadas. Datos en Postgres <code className="text-teal-400">buyholdtime</code>.</p>
+        <RiskDisclaimer variant="backtest" className="mt-1" />
       </div>
       <div className="flex gap-1 p-1 bg-slate-900 border border-slate-800 rounded-xl w-fit">
         <button onClick={()=>setActiveTab('estrategias')} className={`px-5 py-2 rounded-lg text-sm font-medium transition ${activeTab==='estrategias' ? 'bg-slate-800 text-teal-400 border border-slate-700' : 'text-slate-400 hover:text-slate-200'}`}>{t('tabs.estrategias')}</button>

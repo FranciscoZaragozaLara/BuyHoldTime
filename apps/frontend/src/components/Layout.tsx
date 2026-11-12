@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
+import { termsPath } from '@/lib/legal';
 import { TrendingUp, BarChart3, Compass, Briefcase, LayoutGrid, Menu, X, Mail, Globe, LogIn } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { UserMenu } from '@/components/UserMenu';
@@ -15,6 +16,7 @@ interface LayoutProps {
 
 export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const t = useTranslations('Navigation');
+  const tLegal = useTranslations('Legal');
   const locale = useLocale();
   const pathname = usePathname();
   const router = useRouter();
@@ -266,7 +268,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                 ))}
                 <li className="mt-2 pt-2 border-t border-slate-900">
                   <p className="text-[10px] text-slate-600 leading-relaxed">
-                    Data sourced from SEC EDGAR, Yahoo Finance, and Shiller Online Data.
+                    {tLegal('dataSources')}
                   </p>
                 </li>
               </ul>
@@ -275,8 +277,13 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
 
           {/* Footer Bottom */}
           <div className="border-t border-slate-900 pt-6 flex flex-col sm:flex-row justify-between items-center gap-3 text-[11px]">
-            <p>© {new Date().getFullYear()} BuyHoldTime.com. All rights reserved. For informational purposes only — not financial advice.</p>
-            <p className="text-slate-700">Built with Next.js · NestJS · SEC EDGAR · Yahoo Finance</p>
+            <p>
+              © {new Date().getFullYear()} BuyHoldTime.com. {tLegal('footer')}{' '}
+              <Link href={termsPath(locale)} className="underline decoration-slate-700 underline-offset-2 hover:text-teal-400">
+                {tLegal('termsLink')}
+              </Link>
+            </p>
+            <p className="text-slate-700">Built with Next.js · NestJS</p>
           </div>
 
         </div>

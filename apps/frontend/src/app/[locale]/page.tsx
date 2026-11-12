@@ -7,6 +7,7 @@ import { SubscribeForm } from '@/components/SubscribeForm';
 import { IndexSparklineCard } from '@/components/IndexSparklineCard';
 import { JsonLd } from '@/components/JsonLd';
 import { getTickers, getIndicators, Ticker, Indicator } from '@/services/api';
+import { RiskDisclaimer } from '@/components/RiskDisclaimer';
 
 // ISR: revalidate home page every 60 seconds
 export const revalidate = 60;
@@ -183,10 +184,10 @@ export default async function HomePage({
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div>
               <h2 className="text-xl font-bold tracking-tight text-white">
-                Featured Recommended Tickers
+                Top Buy/Hold Index Scores
               </h2>
               <p className="text-sm text-slate-500 mt-1">
-                Highest scoring stocks based on our custom algorithmic Buy/Hold Index.
+                Highest model scores on our algorithmic Buy/Hold Index (educational, not recommendations).
               </p>
             </div>
             <Link 
@@ -254,6 +255,7 @@ export default async function HomePage({
               );
             })}
           </div>
+          <RiskDisclaimer variant="signal" />
         </section>
 
         {/* Newsletter Subscription */}
