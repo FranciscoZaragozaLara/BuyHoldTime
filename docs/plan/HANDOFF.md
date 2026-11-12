@@ -42,6 +42,8 @@ Marcar `[x]` con rama y commit al terminar.
 - [ ] Rerun EDGAR completo en desarrollo y revisar tickers con ingresos 0 (solo deberían ser ETFs).
 
 ### P2 — Datos y producto inmediato
+- [x] `next dev` con Turbopack en Next 16.2.7 creaba ~40 workers PostCSS por segundo (1,290 procesos node, Mac congelada; JetsamEvent 12 nov 09:51). Next → 16.4.6 (y `eslint-config-next`): máximo 3 procesos en 150 s y con HMR de CSS; `tsc` y `next build` OK — rama `chore/next-16-4`. Respaldo si reaparece: `next dev --webpack` (rama `fix/next-dev-process-storm`, sin integrar). Docker Desktop bajado a 3 GB; solo corre `buyholdtime-db`.
+- [ ] ESLint del frontend: 685 errores previos (606 `no-explicit-any`, resto reglas `react-hooks`); `next build` no corre lint.
 - [ ] Página de ETF: ocultar tablas de ingresos/EPS o mostrar "No aplica para ETFs".
 - [ ] Vitest en frontend para funciones de `src/lib` (empezar por `solarYearEps`).
 - [ ] Decidir FMP: si no hay clave, el cron EDGAR funciona solo con SEC.
