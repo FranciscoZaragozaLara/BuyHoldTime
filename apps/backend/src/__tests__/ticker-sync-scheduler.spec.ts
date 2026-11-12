@@ -40,4 +40,37 @@ describe('TickerSyncScheduler', () => {
     await scheduler.handleDailyTickerSync();
     expect(execute).not.toHaveBeenCalled();
   });
+  describe('EDGAR semanal', () => {
+    let runTs: jest.SpyInstance;
+    beforeEach(() => {
+      runTs = jest.spyOn(scheduler as any, 'runTsScript').mockResolvedValue(undefined);
+      delete process.env.EDGAR_SYNC_CRON;
+    });
+
+    it('lanza el script de EDGAR', async () => {
+      await scheduler.handleWeeklyEdgarSync();
+      expect(runTs).toHaveBeenCalledTimes(1);
+      expect(runTs.mock.calls[0][0]).toBe('prisma/sync-all-stocks-edgar.ts');
+    });
+
+    it('no se solapa y libera el candado aunque falle', async () => {
+      let release!: () => void;
+      runTs.mockReturnValueOnce(new Promise<void>((r) => (release = r)));
+      const first = scheduler.handleWeeklyEdgarSync();
+      await scheduler.handleWeeklyEdgarSync();
+      expect(runTs).toHaveBeenCalledTimes(1);
+      release();
+      await first;
+      runTs.mockRejectedValueOnce(new Error('sec caído'));
+      await expect(scheduler.handleWeeklyEdgarSync()).resolves.toBeUndefined();
+      await scheduler.handleWeeklyEdgarSync();
+      expect(runTs).toHaveBeenCalledTimes(3);
+    });
+
+    it('se omite con EDGAR_SYNC_CRON=off', async () => {
+      process.env.EDGAR_SYNC_CRON = 'off';
+      await scheduler.handleWeeklyEdgarSync();
+      expect(runTs).not.toHaveBeenCalled();
+    });
+  });
 });

@@ -61,6 +61,7 @@ services:
       FIREBASE_CLIENT_EMAIL: ${FIREBASE_CLIENT_EMAIL:?define FIREBASE_CLIENT_EMAIL}
       FIREBASE_PRIVATE_KEY: ${FIREBASE_PRIVATE_KEY:?define FIREBASE_PRIVATE_KEY}
       FRED_API_KEY: ${FRED_API_KEY:-}
+      FMP_API_KEY: ${FMP_API_KEY:-}
     volumes:
       # Scripts Python + result_*.json (clona BackTesting junto a este repo)
       - ${BACKTESTING_PATH:-../BackTesting}:/opt/backtesting

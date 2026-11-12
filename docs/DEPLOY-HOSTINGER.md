@@ -94,6 +94,12 @@ El backend sincroniza solo los precios históricos y las métricas de los ticker
 Para ejecutarlo a mano: `docker compose --env-file .env.production -f docker-compose.prod.yml exec -T backend node -e "fetch('http://localhost:4000/tickers/sync',{method:'POST',headers:{'x-api-key':process.env.SYNC_API_KEY}}).then(r=>r.text()).then(console.log)"`.
 Para desactivarlo, define `TICKER_SYNC_CRON=off` en el servicio `backend`.
 
+## Informes SEC EDGAR
+
+El backend actualiza solo el EPS trimestral, utilidad neta, ingresos y acciones (`prisma/sync-all-stocks-edgar.ts`) los domingos a las 03:00 hora de Nueva York. Si defines `FMP_API_KEY` también incorpora los trimestres más recientes de FMP; sin ella usa la clave `demo`, muy limitada.
+Ejecución manual de un ticker: `docker compose --env-file .env.production -f docker-compose.prod.yml exec -T -w /repo/apps/backend -e SYMBOLS=AAPL backend npx ts-node prisma/sync-all-stocks-edgar.ts` (sin `SYMBOLS` recorre todos).
+Para desactivar el cron define `EDGAR_SYNC_CRON=off` en el servicio `backend`.
+
 ## Notas
 - Los scripts de BackTesting que corren en tu Mac contra la API ya no la ven en `localhost:4000` del VPS.
   Si quieres seguir lanzándolos desde fuera, expón la API con una regla de Traefik propia
