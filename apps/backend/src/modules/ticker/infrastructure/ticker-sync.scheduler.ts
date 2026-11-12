@@ -54,7 +54,7 @@ export class TickerSyncScheduler {
    * Informes SEC EDGAR (EPS, utilidad neta, ingresos y acciones por trimestre).
    * Los 10-Q/10-K salen cuatro veces al año, por eso basta una pasada semanal:
    * domingo 03:00 America/New_York, sin cruzarse con los crons de lunes a viernes.
-   * Desactivar con EDGAR_SYNC_CRON=off. Usa FMP_API_KEY si está definida.
+   * Desactivar con EDGAR_SYNC_CRON=off. Solo SEC (FMP no se mezcla en acciones con EDGAR).
    */
   @Cron('0 3 * * 0', { timeZone: 'America/New_York' })
   async handleWeeklyEdgarSync(): Promise<void> {

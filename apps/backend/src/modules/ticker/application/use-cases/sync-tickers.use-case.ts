@@ -62,6 +62,7 @@ export class SyncTickersUseCase {
     if (this.sectorPeCache[sectorName]) {
       return this.sectorPeCache[sectorName];
     }
+    if (!apiKey) return [];
     const todayStr = new Date().toISOString().split('T')[0];
     const url = `https://financialmodelingprep.com/stable/historical-sector-pe?sector=${encodeURIComponent(sectorName)}&from=1997-01-01&to=${todayStr}&apikey=${apiKey}`;
     try {
@@ -304,7 +305,9 @@ export class SyncTickersUseCase {
           this.logger.log(`${ticker.symbol}: conservando ${existingQuarters.length} quarters EDGAR — no se sobreescriben`);
         }
 
-        const fmpApiKey = 'aHWvhgdKuBbca6TnHQyXFDwe4w5I6ja5';
+        // FMP solo para huecos que la SEC no cubre (fondos: P/E sectorial; ADRs sin 10-Q).
+        // Clave en .env (FMP_API_KEY); sin clave se conservan los datos existentes.
+        const fmpApiKey = process.env.FMP_API_KEY ?? '';
         const sym = ticker.symbol.toUpperCase();
         const isTickerFund = 
           ticker.sector === 'Index' || 
@@ -433,6 +436,13 @@ export class SyncTickersUseCase {
             (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
           );
           realQuartersCount = historicalEpsQuarterly.length;
+          // Sin P/E sectorial (sin FMP_API_KEY o FMP caído) los trimestres saldrían con P/E vacío:
+          // conservar los existentes en lugar de sobrescribirlos.
+          if (sectorLists.length === 0 && existingQuarters.length > 0) {
+            this.logger.warn(`${ticker.symbol}: sin P/E sectorial de FMP — se conservan ${existingQuarters.length} trimestres existentes`);
+            historicalEpsQuarterly = existingQuarters;
+            realQuartersCount = existingQuarters.length;
+          }
           }
 
         } else {
@@ -440,7 +450,7 @@ export class SyncTickersUseCase {
           const quarterMap: Map<string, QuarterEntry> = new Map();
           const fmpUrl = `https://financialmodelingprep.com/stable/income-statement?symbol=${symbol}&period=quarter&apikey=${fmpApiKey}`;
           
-          try {
+          if (fmpApiKey) try {
             this.logger.log(`Fetching quarterly income statement from FMP for ${ticker.symbol}`);
             const response = await fetch(fmpUrl);
             const fmpData = await response.json() as any;
@@ -540,6 +550,12 @@ export class SyncTickersUseCase {
           historicalEpsQuarterly = Array.from(quarterMap.values()).sort(
             (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
           );
+          // Sin datos de FMP (sin clave o error) no reemplazar lo que ya había.
+          if (realQuarters.length === 0 && existingQuarters.length > 0) {
+            this.logger.warn(`${ticker.symbol}: sin trimestres de FMP — se conservan ${existingQuarters.length} existentes`);
+            historicalEpsQuarterly = existingQuarters;
+            realQuartersCount = existingQuarters.length;
+          }
         }
 
         this.logger.log(`${ticker.symbol}: total quarters stored: ${historicalEpsQuarterly.length}`);

@@ -1,7 +1,8 @@
 import 'dotenv/config';
 
 async function main() {
-  const fmpApiKey = 'aHWvhgdKuBbca6TnHQyXFDwe4w5I6ja5';
+  const fmpApiKey = process.env.FMP_API_KEY;
+  if (!fmpApiKey) throw new Error('Define FMP_API_KEY en apps/backend/.env');
   const sector = 'Technology';
   
   // Test 1: Wide range

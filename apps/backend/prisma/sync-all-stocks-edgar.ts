@@ -49,7 +49,9 @@ async function main() {
 
   await prisma.$connect();
 
-  const fmpApiKey = process.env.FMP_API_KEY || 'demo';
+  // Acciones con EDGAR: solo SEC. FMP ya no se mezcla (con la clave 'demo' solo respondía AAPL
+  // y lo dejaba con trimestres mixtos). FMP queda para huecos en sync-tickers (fondos y ADRs).
+  const fmpApiKey = '';
   const todayStr = new Date().toISOString().split('T')[0];
 
   console.log('=====================================================');
@@ -353,8 +355,8 @@ async function main() {
       }
     }
 
-    // 3. Merge FMP recent quarters for latest real-time updates
-    try {
+    // 3. (Desactivado) Merge FMP: las acciones con EDGAR usan solo la SEC.
+    if (fmpApiKey) try {
       const fmpUrl = `https://financialmodelingprep.com/stable/income-statement?symbol=${symbol}&period=quarter&apikey=${fmpApiKey}`;
       const fmpRes = await fetch(fmpUrl);
       const fmpData = await fmpRes.json() as any[];

@@ -57,7 +57,8 @@ Marcar `[x]` con rama y commit al terminar.
 - [ ] Backtests Schiller: al volver a correrlos usarán el CAPE registrado (resultados distintos a los guardados).
 - [x] Página de ETF: sin columnas "EPS/P/E (Fiscal 10-K)" en el historial anual y la gráfica "Histórico de EPS, Precio y P/E" muestra "No aplica para ETFs e índices". La tabla trimestral ya tenía versión de fondos (dividendos). Una sola detección de fondo `src/lib/isFund.ts` (había 3 variantes) — rama `feat/etf-page-no-eps`. El "1 issue" de Next en esa página viene de la extensión React DevTools, no de la app.
 - [x] Vitest en el frontend (`pnpm test:frontend`): 24 tests de `solarYearEps`, `capeTableRows`, `isFund`, `slimPrices` y `snapToTime` (117 ms). Scripts raíz `test:frontend` / `test:backend` — rama `chore/frontend-vitest`.
-- [ ] Decidir FMP: si no hay clave, el cron EDGAR funciona solo con SEC.
+- [x] FMP: acciones con EDGAR usan **solo la SEC** (sin mezclar FMP). FMP queda solo para huecos (P/E sectorial de SCHD/SMH/SOXX/SOXL/IBB/NLR y utilidades de ADRs sin 10-Q: ARM/ASML/PDD/BRK.B/TSM) con `FMP_API_KEY` en `.env`; sin clave se conservan los datos existentes (probado: sync completo, 0 tickers cambiados). Clave que estaba escrita en `sync-tickers.use-case.ts` y `test-sector-pe.ts` desde jun (subida a GitHub) **retirada del código** — rama `fix/fmp-key-env-gaps-only`.
+- [ ] **Usuario:** revocar en FMP la clave expuesta, crear una nueva y ponerla en `apps/backend/.env` y `.env.production` (`FMP_API_KEY=`). La clave sigue en el historial de git: revocarla es lo que la invalida.
 
 ### P3 — GuruFocus Scrapper
 - [ ] Decidir arquitectura: A) Mac como worker con túnel y rol Postgres limitado, o B) todo en VPS con browserless (riesgo de bloqueo por IP).
