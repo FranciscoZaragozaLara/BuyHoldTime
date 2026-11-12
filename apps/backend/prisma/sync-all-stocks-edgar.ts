@@ -405,6 +405,7 @@ async function main() {
 
         // 2. Fetch NetIncomeLoss facts from SEC EDGAR across target CIKs
         const netUnits: any[] = [];
+        const revUnits: any[] = [];
         for (const cik of targetCiks) {
           try {
             const edgarUrl = `https://data.sec.gov/api/xbrl/companyfacts/CIK${cik}.json`;
@@ -413,8 +414,21 @@ async function main() {
               const edgarJson = await edgarRes.json() as any;
               const usGaap = edgarJson?.facts?.["us-gaap"];
               netUnits.push(...netIncomeFacts(usGaap));
+              revUnits.push(...revenueFacts(usGaap));
             }
           } catch {}
+        }
+
+        const fbRevMap = new Map<string, number>();
+        const fbAnnualRevMap = new Map<string, number>();
+        const fbAnnualNetMap = new Map<string, number>();
+        for (const u of revUnits) {
+          if (!u.val) continue;
+          if (isQuarterFact(u)) fbRevMap.set(u.end, u.val);
+          else if (isFiscalYearFact(u)) fbAnnualRevMap.set(u.end, u.val);
+        }
+        for (const u of netUnits) {
+          if (u.val && isFiscalYearFact(u)) fbAnnualNetMap.set(u.end, u.val);
         }
 
         const pure3MNet = netUnits.filter((u: any) => {
@@ -460,7 +474,7 @@ async function main() {
             date: end,
             period: period,
             fiscalYear: String(fyNum),
-            revenue: 0,
+            revenue: fbRevMap.get(end) || 0,
             netIncome: netFact.val,
             eps: epsVal,
             epsDiluted: epsVal,
@@ -503,12 +517,19 @@ async function main() {
 
             fyObj.Q4 = q4Derived;
 
+            // Q4 = anual - (Q1+Q2+Q3) para utilidad neta e ingresos
+            const fbQ123 = Array.from(fallbackQuartersMap.values()).filter(
+              (q) => q.fiscalYear === String(fyNum) && ["Q1", "Q2", "Q3"].includes(q.period),
+            );
+            const fbQ4Net = deriveQ4Amount(fbAnnualNetMap.get(fyEndDate), fbQ123.map((q) => q.netIncome));
+            const fbQ4Rev = deriveQ4Amount(fbAnnualRevMap.get(fyEndDate), fbQ123.map((q) => q.revenue));
+
             fallbackQuartersMap.set(fyEndDate, {
               date: fyEndDate,
               period: "Q4",
               fiscalYear: String(fyNum),
-              revenue: 0,
-              netIncome: 0,
+              revenue: fbQ4Rev,
+              netIncome: fbQ4Net,
               eps: q4Derived,
               epsDiluted: q4Derived,
               sharesOutstanding: 0,
