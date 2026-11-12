@@ -2,6 +2,7 @@ import React from 'react';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getTickerDetails, getTickers, TickerDetails, HistoricalPrice } from '@/services/api';
+import { slimPrices } from '@/lib/slimPrices';
 import { Layout } from '@/components/Layout';
 import { StockChart } from '@/components/StockChart';
 import { StockHistoryTable } from '@/components/StockHistoryTable';
@@ -260,7 +261,8 @@ export default async function TickerDetailsPage({
   const { ticker, historicalPrices } = details;
 
   // Dynamically append intraday price candle for today if not already present in the database series
-  const updatedPrices = [...historicalPrices];
+  // Filas compactas: la serie completa viaja en el HTML a los componentes cliente (ver lib/slimPrices).
+  const updatedPrices = slimPrices(historicalPrices);
   if (updatedPrices.length > 0) {
     const latestPrice = updatedPrices[updatedPrices.length - 1];
     const latestDateStr = new Date(latestPrice.date).toISOString().split('T')[0];

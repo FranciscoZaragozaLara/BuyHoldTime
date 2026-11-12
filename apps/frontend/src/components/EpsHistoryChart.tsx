@@ -18,8 +18,8 @@ interface QuarterData {
 }
 
 interface HistoricalPrice {
-  id: string;
-  tickerId: string;
+  id?: string;
+  tickerId?: string;
   date: string;
   open: number;
   high: number;

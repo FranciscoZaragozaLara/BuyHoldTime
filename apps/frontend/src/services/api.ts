@@ -43,8 +43,9 @@ export interface Ticker {
 }
 
 export interface HistoricalPrice {
-  id: string;
-  tickerId: string;
+  // Opcionales: la página de detalle los quita para aligerar el HTML (ver lib/slimPrices).
+  id?: string;
+  tickerId?: string;
   date: string;
   open: number;
   high: number;
