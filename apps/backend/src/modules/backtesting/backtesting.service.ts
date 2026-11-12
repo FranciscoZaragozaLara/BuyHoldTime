@@ -3,7 +3,7 @@ import { BACKTEST_DIR } from '../../config/backtest-dir';
 import { PrismaService } from '../../prisma/prisma.service';
 import NodeCache from 'node-cache';
 import { toShillerApiRow } from './shiller-daily';
-import { getHyBonus, getHyBonusWithLive, getHySigma24, getLiqBonus, getOilBonus, PriceMap } from './thermo-history';
+import { computeThermoLive, LivePoints, THERMO_LIVE_TICKERS, THERMO_TICKERS, getHyBonus, getHySigma24, getLiqBonus, getOilBonus, PriceMap } from './thermo-history';
 
 // Día con mercado (lun–vie). Sáb/dom no operan y el BHT no se calcula.
 export function isTradingDayIso(isoDate: string): boolean {
@@ -664,17 +664,47 @@ export class BacktestingService {
     }));
   }
 
-  // Bonus HY (fuente única de la regla) para una fecha, con punto HY en vivo opcional.
-  async getHyBonusFor(date: string, liveHy?: number, liveDate?: string) {
-    const iso = date && /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : new Date().toISOString().slice(0, 10);
+  // Termómetro de hoy (BHT en vivo + bonus HY/LIQ/Oil): misma computeThermoDay que el
+  // histórico, con los datos en vivo que este backend ya consulta (getLivePrice, en caché).
+  async getThermoLive() {
+    const cached = this.liveCache.get('thermo-live') as any;
+    if (cached) return cached;
+    const iso = new Date().toISOString().slice(0, 10);
+    const from = new Date(); from.setFullYear(from.getFullYear() - 8);
     const rows = await this.prisma.btMarketData.findMany({
-      where: { ticker: { in: ['BAMLH0A0HYM2', 'DFEDTARU'] }, date: { lte: new Date(iso) } },
-      orderBy: { date: 'desc' }, take: 4000, select: { ticker: true, date: true, close: true },
+      where: { ticker: { in: THERMO_TICKERS }, date: { gte: from, lte: new Date(iso) } },
+      select: { ticker: true, date: true, close: true },
     });
-    const hyMap: PriceMap = new Map(), fedMap: PriceMap = new Map();
-    for (const x of rows) (x.ticker === 'DFEDTARU' ? fedMap : hyMap).set(x.date.toISOString().slice(0, 10), Number(x.close));
-    const live = liveHy != null && Number.isFinite(liveHy) && liveDate && liveDate.slice(0, 10) <= iso ? { date: liveDate, value: liveHy } : null;
-    return { date: iso, ...getHyBonusWithLive(hyMap, iso, fedMap, live) };
+    const s: Record<string, PriceMap> = {};
+    for (const t of THERMO_TICKERS) s[t] = new Map();
+    for (const r of rows) s[r.ticker]?.set(r.date.toISOString().slice(0, 10), Number(r.close));
+    const live: LivePoints = {};
+    const liveMeta: Record<string, { date: string; source: string }> = {};
+    await Promise.all(THERMO_LIVE_TICKERS.map(async (t) => {
+      try {
+        const q: any = await this.getLivePrice(t);
+        if (q?.close == null || q.source === 'db-fallback' || !Number.isFinite(Number(q.close))) return;
+        live[t] = { date: String(q.date).slice(0, 10), value: Number(q.close) };
+        liveMeta[t] = { date: String(q.date).slice(0, 10), source: String(q.source) };
+      } catch { /* sin dato en vivo: se usa la BD */ }
+    }));
+    const capeRow = await this.prisma.btShillerDaily.findFirst({ where: { date: { lte: new Date(iso) } }, orderBy: { date: 'desc' } });
+    const cape = { cape: capeRow?.cape ?? null, ratio: capeRow?.cape != null && capeRow.mean3y ? capeRow.cape / capeRow.mean3y : null };
+    const { day, hy, liq, oil } = computeThermoLive(iso, s, cape, live);
+    const out = {
+      date: iso,
+      value: day?.value ?? null,
+      numerator: day?.numerator ?? null,
+      denominator: day?.denominator ?? null,
+      parts: day?.parts ?? [],
+      hy: { bonus: hy.bonus, label: hy.label, hy: hy.hy, z: hy.z, d1: hy.d1 },
+      liq: { bonus: liq.bonus, label: liq.label, yoy: liq.yoy, m0d3: liq.m0d3, drop: liq.drop },
+      oil: { bonus: oil.bonus, label: oil.label, ratio: oil.ratio, price: oil.price },
+      cape: { date: capeRow?.date.toISOString().slice(0, 10) ?? null, ...cape },
+      live: liveMeta,
+    };
+    this.liveCache.set('thermo-live', out, 60);
+    return out;
   }
 
   async getBhtForwardDetail(date: string) {

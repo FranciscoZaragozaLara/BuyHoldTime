@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import * as fs from 'fs';
 import { Pool } from 'pg';
-import { computeThermoDay, PriceMap } from '../src/modules/backtesting/thermo-history';
+import { computeThermoDay, PriceMap, THERMO_TICKERS } from '../src/modules/backtesting/thermo-history';
 import { SHILLER_CSV_PATH } from '../src/modules/backtesting/shiller-daily';
 
 // Historifica el Termómetro BuyHoldTime al cierre en bt_thermo_history.
@@ -9,7 +9,7 @@ import { SHILLER_CSV_PATH } from '../src/modules/backtesting/shiller-daily';
 // Uso: npx ts-node prisma/compute-thermo-history.ts [FROM=1993-01-01]
 const FROM = process.env.FROM || '1993-01-01';
 const CSV = SHILLER_CSV_PATH;
-const TICKERS = ['^GSPC', 'SPX_EPS', 'SPX_FWD_EPS', 'CPIAUCSL', 'CPILFESL', 'DFEDTARU', 'DGS2', 'DGS30', 'BAMLH0A0HYM2', 'FINRA_DEBIT', 'GDP', 'GDPC1', 'MSACSR', 'VIXCLS', 'FEAR_GREED', 'M2SL', 'BOGMBASE', 'DCOILWTICO'];
+const TICKERS = THERMO_TICKERS;
 
 async function main() {
   const pool = new Pool({ connectionString: process.env.DATABASE_URL });

@@ -16,26 +16,28 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getLiveStaleTime, isMarketOpen } from '@/lib/queryClient';
 
 
-// Bonus HY del termómetro: la regla vive solo en el backend (thermo-history.getHyBonus).
-// Se pide para hoy con el HY OAS en vivo anexado, en lugar de reimplementarla aquí.
-type HyBonusLive = { bonus: number; label: string; hy: number | null; z: number | null; d1: number | null };
-function useHyBonusLive(live: { close: number | null; date: string; source: string } | undefined){
-  const today = new Date().toISOString().slice(0, 10);
-  const useLivePt = live?.close != null && live.source !== 'db-fallback' && /^\d{4}-\d{2}-\d{2}/.test(live.date);
-  const hy = useLivePt ? Number(live!.close) : null;
-  const hyDate = useLivePt ? live!.date.slice(0, 10) : null;
+// Termómetro de hoy (BHT en vivo + bonus HY/LIQ/Oil) calculado en el backend con la misma
+// computeThermoDay que guarda el histórico y con los datos en vivo que él consulta.
+// La clave empieza con 'live' para que el botón Sync la invalide junto con los tickers.
+type ThermoLive = {
+  date: string; value: number | null;
+  parts: { key: string; score: number; weight: number; value: number }[];
+  hy: { bonus: number; label: string; hy: number | null; z: number | null; d1: number | null };
+  liq: { bonus: number; label: string; yoy: number | null; m0d3: number | null; drop: number | null };
+  oil: { bonus: number; label: string; ratio: number | null; price: number | null };
+};
+function useThermoLive(){
   return useQuery({
-    queryKey: ['hy-bonus', today, hy, hyDate],
-    queryFn: async (): Promise<HyBonusLive> => {
-      const qs = new URLSearchParams({ date: today });
-      if (hy != null && hyDate) { qs.set('hy', String(hy)); qs.set('hyDate', hyDate); }
-      const r = await fetch(`${getApiBase()}/api/backtesting/hy-bonus?${qs}`, { cache: 'no-store' });
+    queryKey: ['live', 'thermo'],
+    queryFn: async (): Promise<ThermoLive> => {
+      const r = await fetch(`${getApiBase()}/api/backtesting/thermo-live`, { cache: 'no-store' });
       if (!r.ok) throw new Error(String(r.status));
       const j: any = await r.json();
-      if (typeof j?.bonus !== 'number') throw new Error('hy-bonus payload inválido');
-      return { bonus: j.bonus, label: String(j.label ?? ''), hy: j.hy ?? null, z: j.z ?? null, d1: j.d1 ?? null };
+      if (!j || !Array.isArray(j.parts) || typeof j.hy?.bonus !== 'number') throw new Error('thermo-live payload inválido');
+      return j as ThermoLive;
     },
-    staleTime: 10 * 60 * 1000,
+    staleTime: 60 * 1000,
+    refetchInterval: 5 * 60 * 1000,
     refetchOnWindowFocus: false,
   });
 }
@@ -124,9 +126,6 @@ const Y2M_TRD_SEGS: [number, number, number, number][] = [
   [-Infinity, -1.0, 0, 10], [-1.0, -0.4, 10, 30], [-0.4, 0.0, 30, 50],
   [0.0, 0.4, 50, 70], [0.4, 1.0, 70, 90], [1.0, Infinity, 90, 100],
 ];
-function y2mRiskScore(y: number, ma: number): number {
-  return 0.4 * bandScore(Y2M_LVL_SEGS, y) + 0.6 * bandScore(Y2M_TRD_SEGS, y - ma);
-}
 // Y30M (30Y Momentum): mismo esquema que Y2M — nivel (40%) + delta vs MA6M (60%).
 // Si los bonos se aceleran al alza, frenan economía y liquidez.
 const Y30M_LVL_SEGS: [number, number, number, number][] = [
@@ -154,9 +153,6 @@ const MG_TRD_SEGS: [number, number, number, number][] = [
   [-Infinity, -0.9, 0, 10], [-0.9, -0.5, 10, 30], [-0.5, -0.15, 30, 50],
   [-0.15, 0.15, 50, 50], [0.15, 0.5, 50, 70], [0.5, 0.9, 70, 90], [0.9, Infinity, 90, 100],
 ];
-function mgMScore(ratio: number, ma: number): number {
-  return 0.4 * bandScore(MG_SEGS, ratio) + 0.6 * bandScore(MG_TRD_SEGS, ratio - ma);
-}
 
 // VIX invertido y sensible: complacencia <20 puntúa alto, pánico ≥30 cae a 0 rápido
 const VIX_SEGS: [number, number, number, number][] = [
@@ -617,7 +613,7 @@ export function IndicatorsPanel() {
   const liveNqDec = useLiveTicker('NSDQ_DEC_VOL');
   const liveSxAdv = useLiveTicker('SPX_ADV_VOL');
   const liveSxDec = useLiveTicker('SPX_DEC_VOL');
-  const hyBonusQ = useHyBonusLive(liveHyOas.data);
+  const thermoLiveQ = useThermoLive();
   const liveMap: Record<string, any> = { '^GSPC': liveGspc, '^IXIC': liveIxic, 'TQQQ': liveTqqq, 'CPIAUCSL': liveCpi, 'CPILFESL': liveCore, 'M2SL': liveM2, 'BOGMBASE': liveM0, 'DCOILWTICO': liveOil, 'DFEDTARU': liveFed, 'DGS2': live2y, 'DGS10': live10y, 'DGS30': live30y, 'BAMLH0A0HYM2': liveHyOas, 'BAMLH0A0HYM2EY': liveHyEy, 'GDP': liveGdp, 'GDPC1': liveGdpc1, 'FINRA_DEBIT': liveFinra, 'MSACSR': liveMsacsr, 'VIXCLS': liveVix, 'FEAR_GREED': liveFg, 'NYSE_ADV_VOL': liveNyAdv, 'NYSE_DEC_VOL': liveNyDec, 'NSDQ_ADV_VOL': liveNqAdv, 'NSDQ_DEC_VOL': liveNqDec, 'SPX_ADV_VOL': liveSxAdv, 'SPX_DEC_VOL': liveSxDec };
   // Historial para gráfica: merge BD + live más reciente para siempre estar al día
   const chartHistory = (() => {
@@ -784,35 +780,6 @@ export function IndicatorsPanel() {
     if (prev == null || prev === 0) return null;
     return (cur / prev - 1) * 100;
   }
-  // Bonus simétrico de liquidez M2/M0. Espejo del backend (con veto M0 y clamp anti-overflow):
-  // viento a favor resta (oportunidad), viento en contra suma (riesgo). Prioridad: bazuca > headwind > tailwind.
-  function liqLiveBonus(m2m: Map<string, number> | undefined, m0m: Map<string, number> | undefined, isoDate: string, cpiMap?: Map<string, number>): { bonus: number; label: string; yoy: number | null; m0d3: number | null; drop: number | null } {
-    const none = { bonus: 0, label: 'sin dato', yoy: null, m0d3: null, drop: null };
-    if (!isValidIsoDate(isoDate)) return none;
-    const yoy = monthlyPctLive(m2m, isoDate, 12);
-    if (yoy == null) return none;
-    const m0d3 = monthlyPctLive(m0m, isoDate, 3);
-    const d3 = new Date(isoDate);
-    const tM = (((d3.getMonth() - 3) % 12) + 12) % 12;
-    d3.setMonth(d3.getMonth() - 3);
-    if (d3.getMonth() !== tM) d3.setDate(0);
-    const yoy3 = monthlyPctLive(m2m, d3.toISOString().slice(0, 10), 12);
-    let peak = -Infinity;
-    for (let m = 0; m < 12; m++) { const q = new Date(isoDate); q.setDate(1); q.setMonth(q.getMonth() - m); const v = monthlyPctLive(m2m, q.toISOString().slice(0, 10), 12); if (v != null && v > peak) peak = v; }
-    const drop = peak > 0 ? Math.max(0, (peak - yoy) / peak * 100) : 0;
-    if (m0d3 != null && m0d3 > 30 && yoy > 8) return { bonus: -25, yoy, m0d3, drop, label: `megabazuca M0 Δ3M +${m0d3.toFixed(1)}% M2 +${yoy.toFixed(1)}%` };
-    if (m0d3 != null && m0d3 > 5 && yoy > 8) return { bonus: -20, yoy, m0d3, drop, label: `bazuca M0 Δ3M +${m0d3.toFixed(1)}% M2 +${yoy.toFixed(1)}%` };
-    if (drop >= 50) {
-      const cpi = getCpiYoY(cpiMap, isoDate);
-      let cpiMax: number | null = null;
-      if (cpi != null) { for (let m = 1; m <= 6; m++) { const q = new Date(isoDate); q.setDate(1); q.setMonth(q.getMonth() - m); const v = getCpiYoY(cpiMap, q.toISOString().slice(0, 10)); if (v != null && (cpiMax == null || v > cpiMax)) cpiMax = v; } }
-      if (cpi == null || cpiMax == null || cpi >= cpiMax) return { bonus: 10, yoy, m0d3, drop, label: `viento en contra M2 −${drop.toFixed(0)}% del pico` };
-      return { bonus: 0, yoy, m0d3, drop, label: '—' };
-    }
-    // Veto M0: sin expansión de base monetaria no hay tailwind.
-    if (yoy > 4 && yoy3 != null && yoy > yoy3 && m0d3 != null && m0d3 > 0) return { bonus: -10, yoy, m0d3, drop, label: `viento a favor M2 +${yoy.toFixed(1)}%` };
-    return { bonus: 0, yoy, m0d3, drop, label: '—' };
-  }
   // Ratio WTI / SMA36M con anclas mensuales. Espejo del backend (bandas 0.70/0.90/1.20/1.45).
   function oilRatioLive(wtim: Map<string, number> | undefined, isoDate: string): { ratio: number | null; price: number | null } {
     if (!wtim || wtim.size === 0 || !isValidIsoDate(isoDate)) return { ratio: null, price: null };
@@ -826,24 +793,6 @@ export function IndicatorsPanel() {
     for (let m = 0; m < 36; m++) { const q = new Date(anchor + 'T12:00:00Z'); q.setDate(1); q.setMonth(q.getMonth() - m); const v = getRecentPrice(wtim, q.toISOString().slice(0, 10), 10); if (v != null) vals.push(v); }
     if (vals.length < 30) return { ratio: null, price };
     return { ratio: price / (vals.reduce((a, b) => a + b, 0) / vals.length), price };
-  }
-  // Bonus simétrico de petróleo WTI. Espejo del backend (con guarda anti-spike).
-  function oilLiveBonus(wtim: Map<string, number> | undefined, isoDate: string): { bonus: number; label: string; ratio: number | null; price: number | null } {
-    const none = { bonus: 0, label: 'sin dato', ratio: null, price: null };
-    if (!isValidIsoDate(isoDate)) return none;
-    const { ratio, price } = oilRatioLive(wtim, isoDate);
-    if (ratio == null) return { bonus: 0, label: 'sin dato', ratio, price };
-    const f = (r: number) => `×${r.toFixed(2)}`;
-    if (ratio >= 1.45) {
-      const q = new Date(isoDate + 'T12:00:00Z'); q.setDate(1); q.setMonth(q.getMonth() - 1);
-      const prev = oilRatioLive(wtim, q.toISOString().slice(0, 10)).ratio;
-      if (prev != null && prev < 1.20) return { bonus: 5, label: `caro WTI ${f(ratio)} (sin persistencia)`, ratio, price };
-      return { bonus: 10, label: `shock WTI ${f(ratio)}`, ratio, price };
-    }
-    if (ratio >= 1.20) return { bonus: 5, label: `caro WTI ${f(ratio)}`, ratio, price };
-    if (ratio >= 0.90) return { bonus: 0, label: '—', ratio, price };
-    if (ratio >= 0.70) return { bonus: -5, label: `barato WTI ${f(ratio)}`, ratio, price };
-    return { bonus: -10, label: `alivio WTI ${f(ratio)}`, ratio, price };
   }
   function getChange(isoDate: string, view?: 'daily'|'monthly'|'yearly'): number | null {
     // cambio vs periodo anterior según tab: día / mes / año (view override para export Excel)
@@ -1106,34 +1055,18 @@ export function IndicatorsPanel() {
   const thermoCore = getCpiYoY(marketHistory['CPILFESL'], liveMap['CPILFESL']?.data?.date || thermoToday);
   const thermoCpiMa = getCpiMa6(marketHistory['CPIAUCSL'], liveMap['CPIAUCSL']?.data?.date || thermoToday);
   const thermoCoreMa = getCpiMa6(marketHistory['CPILFESL'], liveMap['CPILFESL']?.data?.date || thermoToday);
-  // Y2M reemplaza a FED en el termómetro (DFEDTARU sigue visible en tablas/cards).
-  const thermoY2 = (liveMap['DGS2']?.data?.close != null && liveMap['DGS2'].data.source !== 'db-fallback') ? Number(liveMap['DGS2'].data.close) : getClosestPrice(marketHistory['DGS2'], thermoToday);
-  const thermoY2ma = getMa126(marketHistory['DGS2'], liveMap['DGS2']?.data?.date || thermoToday);
-  const thermoMargin = getMarginGdpRatio(thermoToday);
-  const thermoMarginMa = getMarginGdpMa24(thermoToday);
-  const thermoMs = (liveMap['MSACSR']?.data?.close != null && liveMap['MSACSR'].data.source !== 'db-fallback') ? Number(liveMap['MSACSR'].data.close) : getRecentPrice(marketHistory['MSACSR'], thermoToday, 60);
-  const thermoGdpc1 = (() => {
-    const g = liveMap['GDPC1'];
-    const refDate = isValidIsoDate(g?.data?.date) ? String(g.data.date).slice(0, 10) : thermoToday;
-    const curReal = (g?.data?.close != null && g.data.source !== 'db-fallback') ? Number(g.data.close) : getClosestPrice(marketHistory['GDPC1'], refDate, 120);
-    if (curReal == null) return null;
-    const d = new Date(refDate); d.setFullYear(d.getFullYear() - 1);
-    let prev = getClosestPrice(marketHistory['GDPC1'], d.toISOString().slice(0, 10), 120);
-    if (prev == null) { const qd = new Date(refDate); qd.setMonth(qd.getMonth() - 12); prev = getClosestPrice(marketHistory['GDPC1'], qd.toISOString().slice(0, 10), 120); }
-    if (prev == null || prev === 0) return null;
-    return (curReal / prev - 1) * 100;
-  })();
-  const thermoVix = (liveMap['VIXCLS']?.data?.close != null && liveMap['VIXCLS'].data.source !== 'db-fallback') ? Number(liveMap['VIXCLS'].data.close) : getClosestPrice(marketHistory['VIXCLS'], thermoToday);
-  const thermoFg = (liveMap['FEAR_GREED']?.data?.close != null && liveMap['FEAR_GREED'].data.source !== 'db-fallback') ? Number(liveMap['FEAR_GREED'].data.close) : getClosestPrice(marketHistory['FEAR_GREED'], thermoToday);
   const thermoY30 = (liveMap['DGS30']?.data?.close != null && liveMap['DGS30'].data.source !== 'db-fallback') ? Number(liveMap['DGS30'].data.close) : getClosestPrice(marketHistory['DGS30'], thermoToday);
   const thermoY30ma = getMa126(marketHistory['DGS30'], liveMap['DGS30']?.data?.date || thermoToday);
-  // Bonus HY de hoy desde el backend (fuente única). Mientras carga o si falla, se usa el
-  // último bonus guardado en bt_thermo_history para no pintar el termómetro sin bonus.
-  const hyBonusNow: HyBonusLive = hyBonusQ.data ?? (() => {
+  // Termómetro y bonus de hoy desde el backend (fuente única). Mientras carga o si falla,
+  // se usa la última fila guardada en bt_thermo_history para no pintar el termómetro vacío.
+  const thermoLastStored = (() => {
     const keys = Object.keys(thermoHist).filter((k) => k <= thermoToday).sort();
-    const th = keys.length ? thermoHist[keys[keys.length - 1]] : undefined;
-    return { bonus: th?.bonus ?? 0, label: th?.bonusLabel ?? 'sin dato', hy: null, z: null, d1: null };
+    return keys.length ? thermoHist[keys[keys.length - 1]] : undefined;
   })();
+  const thermoLive = thermoLiveQ.data;
+  const hyBonusNow: ThermoLive['hy'] = thermoLive?.hy ?? { bonus: thermoLastStored?.bonus ?? 0, label: thermoLastStored?.bonusLabel ?? 'sin dato', hy: null, z: null, d1: null };
+  const liqBonusNow: ThermoLive['liq'] = thermoLive?.liq ?? { bonus: thermoLastStored?.liqBonus ?? 0, label: thermoLastStored?.liqBonusLabel ?? 'sin dato', yoy: null, m0d3: null, drop: null };
+  const oilBonusNow: ThermoLive['oil'] = thermoLive?.oil ?? { bonus: thermoLastStored?.oilBonus ?? 0, label: thermoLastStored?.oilBonusLabel ?? 'sin dato', ratio: null, price: null };
   // Series M2/M0 con punto live anexado para el bonus simétrico de liquidez.
   const liqMergeLive = (key: string): Map<string, number> => {
     const base = marketHistory[key];
@@ -1144,7 +1077,6 @@ export function IndicatorsPanel() {
   };
   const liqM2Map = liqMergeLive('M2SL');
   const liqM0Map = liqMergeLive('BOGMBASE');
-  const oilMapM = liqMergeLive('DCOILWTICO');
   const liveFreshMin = (iso?: string) => {
     if(!iso) return null;
     const mins = Math.round((Date.now() - new Date(iso).getTime())/60000);
@@ -1173,25 +1105,13 @@ export function IndicatorsPanel() {
       {(()=>{
         // Termómetro compuesto: promedio ponderado base 100 (no suma). Cada indicador aporta
         // puntaje 0-100 × peso; al agregar más, se normaliza entre el peso total acumulado.
-        const capeScore = capeLast?.cape != null ? capeRiskScore(capeLast.cape) : null;
-        const fwdScore = thermoFwd != null ? fwdRiskScore(thermoFwd) : null;
-        const ratioScore = capeLast?.capeRatio != null ? ratioRiskScore(capeLast.capeRatio) : null;
-        const cpiScore = thermoCpi != null && thermoCpiMa != null ? cpiMScore(thermoCpi, thermoCpiMa) : null;
-        const coreScore = thermoCore != null && thermoCoreMa != null ? cpiMScore(thermoCore, thermoCoreMa) : null;
-        const y2mScore = thermoY2 != null && thermoY2ma != null ? y2mRiskScore(thermoY2, thermoY2ma) : null;
-        const y30Score = thermoY30 != null && thermoY30ma != null ? y30mRiskScore(thermoY30, thermoY30ma) : null;
-        const hyB = hyBonusNow;
-        const liqB = liqLiveBonus(liqM2Map, liqM0Map, thermoToday, marketHistory['CPIAUCSL']);
-        const oilB = oilLiveBonus(oilMapM, thermoToday);
-        const mgScore = thermoMargin != null && thermoMarginMa != null ? mgMScore(thermoMargin, thermoMarginMa) : null;
-        const vixScore = thermoVix != null ? vixRiskScore(thermoVix) : null;
-        const fgScore = thermoFg != null ? fgRiskScore(thermoFg) : null;
-        const msScore = thermoMs != null ? msRiskScore(thermoMs) : null;
-        const gdpScore = thermoGdpc1 != null ? gdpRiskScore(thermoGdpc1) : null;
-        const parts = [...(capeScore != null && capeLast?.cape != null ? [{ key: 'CAPE', score: capeScore, weight: 20, value: capeLast.cape, dec: 2 }] : []), ...(fwdScore != null && thermoFwd != null ? [{ key: 'FWD', score: fwdScore, weight: 10, value: thermoFwd, dec: 2 }] : []), ...(ratioScore != null && capeLast?.capeRatio != null ? [{ key: 'RATIO', score: ratioScore, weight: 15, value: capeLast.capeRatio, dec: 3 }] : []), ...(cpiScore != null && thermoCpi != null ? [{ key: 'CPI', score: cpiScore, weight: 10, value: thermoCpi, dec: 2 }] : []), ...(coreScore != null && thermoCore != null ? [{ key: 'CORE', score: coreScore, weight: 10, value: thermoCore, dec: 2 }] : []), ...(y2mScore != null && thermoY2 != null ? [{ key: 'Y2M', score: y2mScore, weight: 10, value: thermoY2, dec: 2 }] : []), ...(y30Score != null && thermoY30 != null ? [{ key: '30Y', score: y30Score, weight: 10, value: thermoY30, dec: 2 }] : []), ...(mgScore != null && thermoMargin != null ? [{ key: 'MG', score: mgScore, weight: 10, value: thermoMargin, dec: 2 }] : []), ...(vixScore != null && thermoVix != null ? [{ key: 'VIX', score: vixScore, weight: 10, value: thermoVix, dec: 2 }] : []), ...(fgScore != null && thermoFg != null ? [{ key: 'FG', score: fgScore, weight: 10, value: thermoFg, dec: 0 }] : []), ...(msScore != null && thermoMs != null ? [{ key: 'MS', score: msScore, weight: 5, value: thermoMs, dec: 1 }] : []), ...(gdpScore != null && thermoGdpc1 != null ? [{ key: 'PIB', score: gdpScore, weight: 5, value: thermoGdpc1, dec: 2 }] : [])];
+        const PART_DEC: Record<string, number> = { RATIO: 3, FG: 0, MS: 1 };
+        const parts = (thermoLive?.parts ?? []).map((p) => ({ ...p, dec: PART_DEC[p.key] ?? 2 }));
         const wTotal = parts.reduce((m, p) => m + p.weight, 0);
-        const baseScore = wTotal > 0 ? parts.reduce((m, p) => m + p.score * p.weight, 0) / wTotal : 0;
-        const riskScore = Math.round(Math.min(100, Math.max(0, baseScore + hyB.bonus + liqB.bonus + oilB.bonus)) * 10) / 10;
+        const hyB = hyBonusNow;
+        const liqB = liqBonusNow;
+        const oilB = oilBonusNow;
+        const riskScore = thermoLive?.value ?? thermoLastStored?.value ?? 0;
         liveBhtRef.current = { v: riskScore, d: new Date().toISOString().slice(0, 10) };
         const band = bhtBand(riskScore);
         const riskLabel = band.label;
@@ -1495,9 +1415,9 @@ export function IndicatorsPanel() {
           // HY OAS: card informativa sin orbe de peso — bonus asimétrico Régimen 3 fuera del promedio.
           const hyCardB = isHyOas ? hyBonusNow : null;
           // M2/M0: cards informativas con el bonus simétrico de liquidez (fuera del promedio, como HY).
-          const liqCardB = (isM2||isM0) ? liqLiveBonus(liqM2Map, liqM0Map, isValidIsoDate(q?.data?.date) ? String(q.data.date).slice(0, 10) : new Date().toISOString().slice(0, 10), marketHistory['CPIAUCSL']) : null;
+          const liqCardB = (isM2||isM0) ? liqBonusNow : null;
           // WTI: card informativa con el bonus simétrico de petróleo (fuera del promedio, como HY/LIQ).
-          const oilCardB = isOil ? oilLiveBonus(oilMapM, isValidIsoDate(q?.data?.date) ? String(q.data.date).slice(0, 10) : new Date().toISOString().slice(0, 10)) : null;
+          const oilCardB = isOil ? oilBonusNow : null;
           const gdpYoY = (()=>{ if(t!=='GDP') return null; const cur = showLive ? Number(live) : (v!=null? Number(v): null); if(cur==null) return null; const refRaw = q?.data?.date; const refDate = isValidIsoDate(refRaw) ? String(refRaw).slice(0,10) : new Date().toISOString().slice(0,10); const d=new Date(refDate); d.setFullYear(d.getFullYear()-1); const iso=d.toISOString().slice(0,10); const prev=getClosestPrice(marketHistory['GDP'], iso, 95) ?? getClosestPrice(marketHistory['GDP'], refDate, 95);
             let p = prev; if(p==null){ const qd = new Date(refDate); qd.setMonth(qd.getMonth()-12); p = getClosestPrice(marketHistory['GDP'], qd.toISOString().slice(0,10), 95); } if(p==null || p===0) return null; return (cur/p -1)*100; })();
           const gdpc1YoY = (()=>{ if(t!=='GDP') return null; const fwdRaw = liveGdpc1?.data?.date; const fwdDate = isValidIsoDate(fwdRaw) ? String(fwdRaw).slice(0,10) : new Date().toISOString().slice(0,10); const curReal = liveGdpc1?.data?.close ?? getClosestPrice(marketHistory['GDPC1'], fwdDate, 95); if(curReal==null) return null; const refRaw = isValidIsoDate(liveGdpc1?.data?.date) ? liveGdpc1?.data?.date : q?.data?.date; const refDate = isValidIsoDate(refRaw) ? String(refRaw).slice(0,10) : new Date().toISOString().slice(0,10); const d=new Date(refDate); d.setFullYear(d.getFullYear()-1); const iso=d.toISOString().slice(0,10); const prev=getClosestPrice(marketHistory['GDPC1'], iso, 95); let p=prev; if(p==null){ const qd=new Date(refDate); qd.setMonth(qd.getMonth()-12); p=getClosestPrice(marketHistory['GDPC1'], qd.toISOString().slice(0,10),95);} if(p==null||p===0) return null; return (curReal/p -1)*100; })();
@@ -1899,8 +1819,8 @@ export function IndicatorsPanel() {
                 const m0d = monthlyPctLive(liqM0Map, d, 3);
                 const isLiveRow = sortCol==='date' && sortDir==='desc' && r.date===maxDate;
                 const hyBO = isLiveRow ? hyBonusNow : null;
-                const liqBO = isLiveRow ? liqLiveBonus(liqM2Map, liqM0Map, d, marketHistory['CPIAUCSL']) : null;
-                const oilBO = isLiveRow ? oilLiveBonus(oilMapM, d) : null;
+                const liqBO = isLiveRow ? liqBonusNow : null;
+                const oilBO = isLiveRow ? oilBonusNow : null;
                 const hyBv = isLiveRow ? (hyBO?.bonus ?? null) : (thR?.bonus ?? null);
                 const hyBLbl = isLiveRow ? (hyBO?.label ?? '') : (thR?.bonusLabel ?? '');
                 const liqBv = isLiveRow ? (liqBO?.bonus ?? null) : (thR?.liqBonus ?? null);

@@ -1,4 +1,4 @@
-import { bandScore, HY_SEGS, CPI_SEGS, CAPE_SEGS, PE_SEGS, FWD_SEGS, RATIO_SEGS, Y2M_LVL_SEGS, Y2M_TRD_SEGS, Y30M_LVL_SEGS, CPI_LVL_SEGS, CPI_TRD_SEGS, MG_SEGS, MG_TRD_SEGS, VIX_SEGS, getMa126, getCpiMa6, getMarginGdpMa24, getHyBonus, getHyBonusWithLive, y2mScore, y30mScore, cpiScore, mgScore, pibScore, fgScore, computeThermoDay, PriceMap } from './thermo-history';
+import { bandScore, HY_SEGS, CPI_SEGS, CAPE_SEGS, PE_SEGS, FWD_SEGS, RATIO_SEGS, Y2M_LVL_SEGS, Y2M_TRD_SEGS, Y30M_LVL_SEGS, CPI_LVL_SEGS, CPI_TRD_SEGS, MG_SEGS, MG_TRD_SEGS, VIX_SEGS, getMa126, getCpiMa6, getMarginGdpMa24, getHyBonus, computeThermoLive, y2mScore, y30mScore, cpiScore, mgScore, pibScore, fgScore, computeThermoDay, PriceMap } from './thermo-history';
 
 const map = (rows: [string, number][]): PriceMap => new Map(rows);
 
@@ -319,27 +319,41 @@ describe('thermo-history', () => {
   });
 });
 
-describe('getHyBonusWithLive', () => {
-  const flat = () => {
+describe('computeThermoLive', () => {
+  const daily = (start: string, n: number, f: (k: number) => number) => {
     const m = new Map<string, number>();
-    const b = new Date(2020, 0, 1);
-    for (let k = 0; k < 900; k++) { const d = new Date(b); d.setDate(d.getDate() + k); m.set(d.toISOString().slice(0, 10), 4.0); }
+    const b = new Date(start + 'T12:00:00Z');
+    for (let k = 0; k < n; k++) { const d = new Date(b); d.setUTCDate(d.getUTCDate() + k); m.set(d.toISOString().slice(0, 10), f(k)); }
     return m;
   };
-  test('sin punto en vivo = getHyBonus', () => {
-    const m = flat();
-    const iso = '2022-06-10';
-    const r = getHyBonusWithLive(m, iso);
-    expect(r.bonus).toBe(getHyBonus(m, iso).bonus);
-    expect(r.hy).toBe(4.0);
+  const series = () => ({
+    '^GSPC': daily('2024-01-01', 700, () => 5000),
+    SPX_FWD_EPS: daily('2024-01-01', 700, () => 250),
+    VIXCLS: daily('2024-01-01', 700, () => 15),
+    FEAR_GREED: daily('2024-01-01', 700, () => 50),
   });
-  test('el punto en vivo se usa como HY del día sin mutar la serie', () => {
-    const m = flat();
-    const iso = '2022-05-20';
-    const r = getHyBonusWithLive(m, iso, undefined, { date: iso, value: 5.2 });
-    expect(r.hy).toBe(5.2);
-    expect(r.d1).toBeCloseTo(1.2, 8);
-    expect(r.bonus).toBe(20); // Δ1M ≥ +1.0 → G2
-    expect(m.get(iso)).toBe(4.0);
+  const iso = '2025-11-20';
+  test('sin datos en vivo = computeThermoDay', () => {
+    const s = series();
+    const live = computeThermoLive(iso, s, { cape: 30, ratio: 1.1 });
+    expect(live.day).toEqual(computeThermoDay(iso, s, { cape: 30, ratio: 1.1 }));
+    expect(live.hy.label).toBe('sin dato');
+  });
+  test('el dato en vivo del día cambia el resultado sin mutar las series', () => {
+    const s = series();
+    const base = computeThermoLive(iso, s, { cape: 30, ratio: 1.1 });
+    const withLive = computeThermoLive(iso, s, { cape: 30, ratio: 1.1 }, { VIXCLS: { date: iso, value: 40 } });
+    const vix = (r: typeof base) => r.day!.parts.find((p) => p.key === 'VIX')!;
+    expect(vix(withLive).value).toBe(40);
+    // VIX es contrario: miedo alto (40) = menor riesgo en el termómetro.
+    expect(vix(withLive).score).toBeLessThan(vix(base).score);
+    expect(withLive.day!.value).toBeLessThan(base.day!.value);
+    expect(s.VIXCLS.get(iso)).toBe(15);
+  });
+  test('ignora datos en vivo con fecha posterior al día o inválidos', () => {
+    const s = series();
+    const base = computeThermoLive(iso, s, { cape: 30, ratio: 1.1 });
+    const r = computeThermoLive(iso, s, { cape: 30, ratio: 1.1 }, { VIXCLS: { date: '2025-11-21', value: 80 }, FEAR_GREED: { date: 'x', value: 99 } });
+    expect(r.day).toEqual(base.day);
   });
 });

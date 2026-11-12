@@ -261,23 +261,6 @@ export function getHyBonus(map: PriceMap | undefined, isoDate: string, fedMap?: 
   }
 }
 
-/**
- * Bonus HY de una fecha con un punto en vivo opcional (p. ej. el HY OAS del día que
- * aún no está en BD). Fuente única: el frontend lo pide a /api/backtesting/hy-bonus
- * en lugar de reimplementar la regla.
- */
-export function getHyBonusWithLive(
-  map: PriceMap | undefined, isoDate: string, fedMap?: PriceMap,
-  live?: { date: string; value: number } | null,
-): HyBonus & { sigma: number | null } {
-  let m = map;
-  if (live && isValidIsoDate(live.date) && Number.isFinite(live.value)) {
-    m = new Map(map ?? []);
-    m.set(live.date.slice(0, 10), live.value);
-  }
-  return { ...getHyBonus(m, isoDate, fedMap), sigma: getHySigma24(m, isoDate) };
-}
-
 export function getMonthlyPct(map: PriceMap | undefined, isoDate: string, monthsBack: number): number | null {
   // % vs la fila de hace N meses (series mensuales como M2SL/BOGMBASE/CPI).
   // Base mediodía UTC: evita que getDate/getMonth locales corran el día/mes en UTC−X.
@@ -458,6 +441,11 @@ export function getGdpc1YoY(s: Series, isoDate: string): number | null {
   return (curReal / prev - 1) * 100;
 }
 
+/** Series que usa el termómetro (BD bt_market_data). */
+export const THERMO_TICKERS = ['^GSPC', 'SPX_EPS', 'SPX_FWD_EPS', 'CPIAUCSL', 'CPILFESL', 'DFEDTARU', 'DGS2', 'DGS30', 'BAMLH0A0HYM2', 'FINRA_DEBIT', 'GDP', 'GDPC1', 'MSACSR', 'VIXCLS', 'FEAR_GREED', 'M2SL', 'BOGMBASE', 'DCOILWTICO'];
+/** Series a las que se les anexa el dato en vivo para el termómetro de hoy. */
+export const THERMO_LIVE_TICKERS = ['^GSPC', 'CPIAUCSL', 'CPILFESL', 'DGS2', 'DGS30', 'MSACSR', 'GDPC1', 'VIXCLS', 'FEAR_GREED', 'BAMLH0A0HYM2', 'M2SL', 'BOGMBASE', 'DCOILWTICO'];
+
 export interface ThermoPart { key: string; score: number; weight: number; value: number }
 export interface ThermoDay { value: number; numerator: number; denominator: number; coverage: number; parts: ThermoPart[]; bonus: number; bonusLabel: string; liqBonus: number; liqBonusLabel: string; oilBonus: number; oilBonusLabel: string }
 
@@ -510,4 +498,28 @@ export function computeThermoDay(
   const denominator = parts.reduce((m, p) => m + p.weight, 0);
   const value = Math.round(Math.min(100, Math.max(0, numerator / denominator + hyB.bonus + liqB.bonus + oilB.bonus)) * 10) / 10;
   return { value, numerator, denominator, coverage: parts.length, parts, bonus: hyB.bonus, bonusLabel: hyB.label, liqBonus: liqB.bonus, liqBonusLabel: liqB.label, oilBonus: oilB.bonus, oilBonusLabel: oilB.label };
+}
+
+export type LivePoints = Record<string, { date: string; value: number }>;
+
+/**
+ * Termómetro de hoy con datos en vivo: la misma computeThermoDay que guarda el
+ * histórico, con el punto en vivo anexado a cada serie (sin mutar las originales).
+ * Fuente única del BHT en vivo y de los bonus HY/LIQ/Oil que muestra el frontend.
+ */
+export function computeThermoLive(
+  isoDate: string, s: Series, cape: { cape: number | null; ratio: number | null }, live: LivePoints = {},
+) {
+  const series: Series = { ...s };
+  for (const [t, p] of Object.entries(live)) {
+    if (!p || !isValidIsoDate(p.date) || !Number.isFinite(p.value) || p.date.slice(0, 10) > isoDate) continue;
+    const m = new Map(s[t] ?? []);
+    m.set(p.date.slice(0, 10), p.value);
+    series[t] = m;
+  }
+  const day = computeThermoDay(isoDate, series, cape);
+  const hy = getHyBonus(series['BAMLH0A0HYM2'], isoDate, series['DFEDTARU']);
+  const liq = getLiqBonus(series['M2SL'], series['BOGMBASE'], isoDate, series['CPIAUCSL']);
+  const oil = getOilBonus(series['DCOILWTICO'], isoDate);
+  return { day, hy, liq, oil };
 }
