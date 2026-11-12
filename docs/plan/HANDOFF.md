@@ -62,11 +62,12 @@ Marcar `[x]` con rama y commit al terminar.
 
 ### P3 — GuruFocus Scrapper
 - [x] Arquitectura decidida (12 nov): **A) Mac como worker** — el scraper corre en la Mac y escribe en la BD de la VPS por un túnel con un rol de Postgres limitado (solo `stocks`/`snapshots`).
-- [ ] Implementar A: rol Postgres limitado en la VPS + túnel (SSH/WireGuard) desde la Mac.
+- [x] Rol limitado `gurufocus_scraper` creado en **desarrollo** (12 nov): SELECT en `tickers`, CRUD en `stocks`/`snapshots`, sin ser dueño de nada (probado: DROP/ALTER/TRUNCATE/CREATE y lectura de otras tablas bloqueados; scraper, health y API OK). GuruFocus ya conecta con ese rol (`backend/.env` y `.env` raíz). SQL reproducible: `apps/backend/prisma/sql/gurufocus-scraper-role.sql` — rama `feat/gurufocus-db-role`.
+- [ ] VPS: correr ese SQL y abrir el túnel (SSH/WireGuard) desde la Mac; Postgres de la VPS sin puerto público.
 - [x] Sync manual = job unificado: `POST /api/sync` (lanza `runSync` en segundo plano) y `GET /api/sync/status`; quitado el `sync-from-tickers` duplicado (GuruFocus `75098d5`, rama `feat/sync-endpoint-runsync`). Cambios del usuario revisados y commiteados en GuruFocus `main` (`56b1d45`, `f45b91c`, `5bd3c4e`; Swagger y catch de arranque restaurados).
 - [ ] `scripts/sync-tickers.mjs`, `scrape-empty.mjs`, `scrape-missing.mjs` (sin seguimiento en git) ya no se usan: borrarlos cuando el usuario confirme. Tampoco commiteados: `backend/debug-local.mjs`, `backend/fix-constraints.js`, `backend/test/scraper.service.spec.ts` (prueba un método inexistente).
 - [x] Seguridad GuruFocus (`dce69fb`, rama `fix/gf-security`): puertos en 127.0.0.1; `DATABASE_URL` fuera del compose (`.env` raíz, gitignored); browserless fijado por digest; `ApiKeyGuard` exige `x-api-key` (= `API_KEY`) en todo lo que no es GET (clave generada en `backend/.env` y `frontend/.env.local`). La contraseña de Postgres de desarrollo estuvo en el compose subido a GitHub → rotarla (ver P4). Para aplicar puertos nuevos: `docker compose up -d` al volver a usar el stack.
-- [ ] Que el schema de GuruFocus deje de declarar tablas de BuyHoldTime; limpiar `.dockerignore`.
+- [x] Schema de GuruFocus solo con `stocks`/`snapshots` (tickers por SQL) y `.dockerignore` limpio (GuruFocus `7e124d5`). Ojo: con cualquier schema parcial, `prisma db push`/`migrate dev` desde GuruFocus borraría las tablas de BuyHoldTime; el rol limitado lo impide.
 - [x] Cambios sin commitear del usuario en GuruFocus: revisados y commiteados con su visto bueno (12 nov).
 
 ### P4 — Antes del deploy a la VPS
