@@ -1,13 +1,14 @@
 import 'dotenv/config';
 import * as fs from 'fs';
 import { Pool } from 'pg';
-import { buildShillerUpsertBatches, parseShillerCsv } from '../src/modules/backtesting/shiller-daily';
+import { buildShillerUpsertBatches, parseShillerCsv, SHILLER_CSV_PATH } from '../src/modules/backtesting/shiller-daily';
 
 // Carga el CAPE Shiller diario del CSV de BackTesting a bt_shiller_daily.
 // Idempotente (upsert por fecha). Correr tras regenerar el CSV
 // (refresh-shiller-weekly.sh / build_shiller_daily()).
-// Uso: npx ts-node prisma/sync-shiller-daily.ts   [SHILLER_CSV=/ruta/shiller_daily.csv]
-const CSV = process.env.SHILLER_CSV || '/tmp/shiller_daily.csv';
+// Uso: npx ts-node prisma/sync-shiller-daily.ts   [SHILLER_CSV=… | SHILLER_DATA_DIR=…]
+// Por defecto <BackTesting>/data/shiller_daily.csv (ver SHILLER_CSV_PATH).
+const CSV = SHILLER_CSV_PATH;
 
 async function main() {
   if (!fs.existsSync(CSV)) {

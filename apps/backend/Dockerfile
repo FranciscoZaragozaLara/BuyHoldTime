@@ -40,7 +40,8 @@ RUN DATABASE_URL="postgresql://build:build@localhost:5432/build" pnpm exec prism
 ENV NODE_ENV=production \
     PORT=4000 \
     BACKTEST_DIR=/opt/backtesting \
-    SHILLER_XLS=/data/shiller-ie-data.xls
+    SHILLER_XLS=/data/shiller-ie-data.xls \
+    SHILLER_DATA_DIR=/data
 USER node
 EXPOSE 4000
 

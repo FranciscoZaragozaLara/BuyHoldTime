@@ -2,12 +2,13 @@ import 'dotenv/config';
 import * as fs from 'fs';
 import { Pool } from 'pg';
 import { computeThermoDay, PriceMap } from '../src/modules/backtesting/thermo-history';
+import { SHILLER_CSV_PATH } from '../src/modules/backtesting/shiller-daily';
 
 // Historifica el Termómetro BuyHoldTime al cierre en bt_thermo_history.
 // Idempotente (upsert por fecha): reejecutable a diario tras el sync.
 // Uso: npx ts-node prisma/compute-thermo-history.ts [FROM=1993-01-01]
 const FROM = process.env.FROM || '1993-01-01';
-const CSV = process.env.SHILLER_CSV || '/tmp/shiller_daily.csv';
+const CSV = SHILLER_CSV_PATH;
 const TICKERS = ['^GSPC', 'SPX_EPS', 'SPX_FWD_EPS', 'CPIAUCSL', 'CPILFESL', 'DFEDTARU', 'DGS2', 'DGS30', 'BAMLH0A0HYM2', 'FINRA_DEBIT', 'GDP', 'GDPC1', 'MSACSR', 'VIXCLS', 'FEAR_GREED', 'M2SL', 'BOGMBASE', 'DCOILWTICO'];
 
 async function main() {

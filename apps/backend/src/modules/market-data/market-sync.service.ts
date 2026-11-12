@@ -397,7 +397,7 @@ export class MarketSyncService {
       { ticker: 'M2SL', name: 'M2SL', purpose: 'M2 oferta monetaria — liquidez semáforo', source: 'FRED', api: 'https://fred.stlouisfed.org/graph/fredgraph.csv?id=M2SL', kind: 'fred' },
       { ticker: 'BOGMBASE', name: 'BOGMBASE', purpose: 'Base monetaria M0 — inyección Fed semáforo', source: 'FRED', api: 'https://fred.stlouisfed.org/graph/fredgraph.csv?id=BOGMBASE', kind: 'fred' },
       { ticker: 'DCOILWTICO', name: 'DCOILWTICO', purpose: 'WTI petróleo — shock inflación semáforo', source: 'FRED', api: 'https://fred.stlouisfed.org/graph/fredgraph.csv?id=DCOILWTICO', kind: 'fred' },
-      { ticker: 'CAPE', name: 'CAPE', purpose: 'Shiller CAPE — valuación R1', source: 'Shiller', api: '/tmp/shiller_daily.csv (build_shiller_daily)', kind: 'cape' },
+      { ticker: 'CAPE', name: 'CAPE', purpose: 'Shiller CAPE — valuación R1', source: 'Shiller', api: 'BackTesting/data/shiller_daily.csv → bt_shiller_daily', kind: 'cape' },
     ];
 
     const send = (obj: any) => {

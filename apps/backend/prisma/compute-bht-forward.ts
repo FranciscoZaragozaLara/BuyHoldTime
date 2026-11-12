@@ -3,6 +3,7 @@ import * as fs from 'fs';
 import { Pool } from 'pg';
 import { computeFwdDay } from '../src/modules/backtesting/bht-forward';
 import { computeThermoDay, PriceMap } from '../src/modules/backtesting/thermo-history';
+import { SHILLER_CSV_PATH } from '../src/modules/backtesting/shiller-daily';
 
 // Guarda BHT Index + precios y forwards maduros en bt_bht_forward.
 // Idempotente (upsert): reejecutable a diario; los horizontes maduran solos.
@@ -10,7 +11,7 @@ import { computeThermoDay, PriceMap } from '../src/modules/backtesting/thermo-hi
 const FROM = process.env.FROM || '1993-01-01';
 const TICKERS = ['^GSPC', '^IXIC', 'TQQQ'];
 const ALL_TICKERS = ['^GSPC', 'SPX_EPS', 'SPX_FWD_EPS', 'CPIAUCSL', 'CPILFESL', 'DFEDTARU', 'DGS2', 'DGS30', 'BAMLH0A0HYM2', 'FINRA_DEBIT', 'GDP', 'GDPC1', 'MSACSR', 'VIXCLS', 'FEAR_GREED'];
-const CSV = process.env.SHILLER_CSV || '/tmp/shiller_daily.csv';
+const CSV = SHILLER_CSV_PATH;
 
 async function main() {
   const pool = new Pool({ connectionString: process.env.DATABASE_URL });

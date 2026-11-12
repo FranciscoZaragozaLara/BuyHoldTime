@@ -2,6 +2,8 @@
 // El CSV que genera BackTesting (data_pipeline_schiller) es solo el formato de
 // intercambio para sincronizar; la tabla es la fuente que sirve el endpoint.
 // Helpers puros (sin BD) para poder testearlos.
+import * as path from 'path';
+import { BACKTEST_DIR } from '../../config/backtest-dir';
 
 /** Columnas numéricas del CSV, en el mismo nombre que en la tabla (snake_case). */
 export const SHILLER_NUMERIC_COLUMNS = [
@@ -96,8 +98,14 @@ export function toShillerApiRow(r: {
   };
 }
 
-/** Ruta del CSV de intercambio (lo genera BackTesting; el backend lo extiende a diario). */
-export const SHILLER_CSV_PATH = process.env.SHILLER_CSV || '/tmp/shiller_daily.csv';
+/**
+ * Ruta del CSV de intercambio (lo genera BackTesting; el backend lo extiende a diario).
+ * Misma regla que BackTesting/shiller_paths.py: SHILLER_CSV, o SHILLER_DATA_DIR/shiller_daily.csv,
+ * o <BackTesting>/data/shiller_daily.csv. Ya no /tmp (macOS lo borra al reiniciar).
+ */
+export const SHILLER_CSV_PATH =
+  process.env.SHILLER_CSV ||
+  path.join(process.env.SHILLER_DATA_DIR || path.join(BACKTEST_DIR, 'data'), 'shiller_daily.csv');
 
 /** Registros → texto CSV con el mismo header que genera build_shiller_daily(). */
 export function shillerRecordsToCsv(records: ShillerDailyRecord[]): string {
