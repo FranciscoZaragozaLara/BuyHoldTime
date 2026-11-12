@@ -6,6 +6,7 @@ import { SyncTickersUseCase } from '../application/use-cases/sync-tickers.use-ca
 import { FastSyncTickersUseCase } from '../application/use-cases/fast-sync-tickers.use-case';
 import { ITickerRepositorySymbol } from '../application/ports/ticker-repository.interface';
 import { TickerRepositoryImpl } from './database/ticker.repository.impl';
+import { TickerSyncScheduler } from './ticker-sync.scheduler';
 
 @Module({
   controllers: [TickerController],
@@ -14,6 +15,7 @@ import { TickerRepositoryImpl } from './database/ticker.repository.impl';
     GetTickerDetailsUseCase,
     SyncTickersUseCase,
     FastSyncTickersUseCase,
+    TickerSyncScheduler,
     {
       provide: ITickerRepositorySymbol,
       useClass: TickerRepositoryImpl,

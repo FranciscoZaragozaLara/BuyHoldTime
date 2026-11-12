@@ -88,6 +88,12 @@ crontab -e
 El log queda dentro del contenedor en `/tmp/shiller-weekly.log`. Al arrancar, el backend genera por sí solo
 los CSV de `/tmp` si faltan (`apps/backend/docker/bootstrap-shiller.sh`) y el Excel descargado persiste en el volumen `bht_data`.
 
+## Precios diarios de los tickers
+
+El backend sincroniza solo los precios históricos y las métricas de los tickers (Yahoo) de lunes a viernes a las 23:00 hora de Nueva York (cron en el propio backend, `TickerSyncScheduler`). No hay que programar nada en el VPS.
+Para ejecutarlo a mano: `docker compose --env-file .env.production -f docker-compose.prod.yml exec -T backend node -e "fetch('http://localhost:4000/tickers/sync',{method:'POST',headers:{'x-api-key':process.env.SYNC_API_KEY}}).then(r=>r.text()).then(console.log)"`.
+Para desactivarlo, define `TICKER_SYNC_CRON=off` en el servicio `backend`.
+
 ## Notas
 - Los scripts de BackTesting que corren en tu Mac contra la API ya no la ven en `localhost:4000` del VPS.
   Si quieres seguir lanzándolos desde fuera, expón la API con una regla de Traefik propia
