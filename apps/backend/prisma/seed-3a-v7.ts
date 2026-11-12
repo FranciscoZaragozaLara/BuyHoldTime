@@ -1,7 +1,8 @@
 import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import fs from 'fs';
-const a=new PrismaPg({connectionString:process.env.DATABASE_URL||"postgresql://postgres:postgres_secure_password@localhost:5432/buyholdtime"});
+import { databaseUrl } from './db-url';
+const a=new PrismaPg({connectionString:databaseUrl()});
 const p=new PrismaClient({adapter:a});
 async function m(){
   const code="SCHILLER_TQQQ_3A_RISK_D_V7";

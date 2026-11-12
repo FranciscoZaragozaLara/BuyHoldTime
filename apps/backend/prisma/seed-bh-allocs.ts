@@ -1,6 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
-const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL || 'postgresql://postgres:postgres_secure_password@localhost:5432/buyholdtime' });
+import { databaseUrl } from './db-url';
+const adapter = new PrismaPg({ connectionString: databaseUrl() });
 const prisma = new PrismaClient({ adapter });
 async function main(){
   const runs = await prisma.btBacktestRun.findMany({ include:{ strategy:true, equityCurve:{ orderBy:{date:'asc'}}}});

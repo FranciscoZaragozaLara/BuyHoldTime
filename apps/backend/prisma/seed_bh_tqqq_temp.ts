@@ -2,7 +2,8 @@ import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import * as fs from 'fs';
 import { spawn } from 'child_process';
-const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL || 'postgresql://postgres:postgres_secure_password@localhost:5432/buyholdtime' });
+import { databaseUrl } from './db-url';
+const adapter = new PrismaPg({ connectionString: databaseUrl() });
 const prisma = new PrismaClient({ adapter });
 const BASE = '/Users/zilphfanel/Documents/AgyApps/BackTesting';
 function inferTicker(code:string, strat:any){ return 'TQQQ'; }

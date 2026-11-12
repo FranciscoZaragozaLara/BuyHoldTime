@@ -1,7 +1,8 @@
 import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import fs from 'fs';
-const a=new PrismaPg({connectionString:process.env.DATABASE_URL||"postgresql://postgres:postgres_secure_password@localhost:5432/buyholdtime"});
+import { databaseUrl } from './db-url';
+const a=new PrismaPg({connectionString:databaseUrl()});
 const p=new PrismaClient({adapter:a});
 async function seed(code:string, name:string, file:string, start:string){
   const strat=await p.btStrategy.upsert({where:{code}, update:{name, description:name}, create:{code, name, description:name, paramsSchema:{}}});
