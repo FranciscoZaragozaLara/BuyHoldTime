@@ -10,7 +10,8 @@ export class GetTickersUseCase {
     private readonly tickerRepository: ITickerRepository,
   ) {}
 
+  // Listado público (home, precios, sitemap): resumen sin series históricas.
   async execute(): Promise<Ticker[]> {
-    return this.tickerRepository.findAll();
+    return this.tickerRepository.findAllSummary();
   }
 }

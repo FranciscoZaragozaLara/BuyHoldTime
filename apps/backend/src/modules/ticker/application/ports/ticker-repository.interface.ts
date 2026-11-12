@@ -3,6 +3,8 @@ import { HistoricalPrice } from '../../domain/historical-price.entity';
 
 export interface ITickerRepository {
   findAll(): Promise<Ticker[]>;
+  /** Listado sin series históricas (historicalEps, historicalDividends, historicalEpsQuarterly). */
+  findAllSummary(): Promise<Ticker[]>;
   findBySymbol(symbol: string): Promise<Ticker | null>;
   findHistoricalPrices(tickerId: string, limit?: number): Promise<HistoricalPrice[]>;
   updateValuationMetrics(tickerId: string, data: Partial<Ticker>): Promise<void>;

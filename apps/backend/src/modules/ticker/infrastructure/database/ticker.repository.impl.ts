@@ -46,6 +46,26 @@ export class TickerRepositoryImpl implements ITickerRepository {
     );
   }
 
+  // Listado para GET /tickers: sin las series históricas (≈92 % del peso: 1.9 MB con 67
+  // tickers, sobre el límite de 2 MB del data cache de Next). El detalle las sirve en /tickers/:symbol.
+  async findAllSummary(): Promise<Ticker[]> {
+    const tickers = await this.prisma.ticker.findMany({
+      orderBy: { symbol: 'asc' },
+      omit: { historicalEps: true, historicalDividends: true, historicalEpsQuarterly: true },
+    });
+    return tickers.map(
+      (t) =>
+        new Ticker(
+          t.id, t.symbol, t.name, t.price, t.changePercent, t.sector, t.buyHoldIndex,
+          t.recommendation, t.pe, t.dy, t.cap, t.createdAt, t.updatedAt, t.eps, t.forwardPe,
+          t.trailingPe, t.pegRatio, t.enterpriseValue, t.avgVolume, t.fiftyTwoWeekHigh,
+          t.fiftyTwoWeekLow, t.dividendRate, t.bookValue,
+          undefined, undefined, undefined,
+          t.sectorTerminalPe,
+        ),
+    );
+  }
+
   async findBySymbol(symbol: string): Promise<Ticker | null> {
     const t = await this.prisma.ticker.findUnique({
       where: { symbol },
