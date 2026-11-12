@@ -1,4 +1,11 @@
-import { deriveQ4Amount, factDays, isFiscalYearFact, isQuarterFact } from '../../prisma/edgar-duration';
+import {
+  deriveQ4Amount,
+  factDays,
+  isFiscalYearFact,
+  isQuarterFact,
+  mergeFactsByPriority,
+  netIncomeFacts,
+} from '../../prisma/edgar-duration';
 
 describe('edgar-duration', () => {
   it('acepta trimestres de 12-13 semanas y el Q4 de 16 semanas de COST', () => {
@@ -38,6 +45,35 @@ describe('edgar-duration', () => {
     });
     it('trata importes ausentes como 0', () => {
       expect(deriveQ4Amount(100, [40, undefined as any, 30])).toBe(30);
+    });
+  });
+  describe('utilidad neta: mezcla de conceptos', () => {
+    const f = (start: string, end: string, val: number) => ({ start, end, val });
+
+    it('conserva el concepto prioritario y completa solo los periodos que le faltan', () => {
+      const merged = mergeFactsByPriority([
+        [f('2025-01-01', '2025-12-31', 100)],
+        [f('2025-01-01', '2025-12-31', 999), f('2026-07-01', '2026-09-30', 30)],
+      ]);
+      expect(merged).toHaveLength(2);
+      expect(merged.find((x) => x.end === '2025-12-31')!.val).toBe(100);
+      expect(merged.find((x) => x.end === '2026-09-30')!.val).toBe(30);
+    });
+
+    it('BKNG: NetIncomeLoss solo anual + trimestre reciente bajo AvailableToCommon', () => {
+      const facts = netIncomeFacts({
+        NetIncomeLoss: { units: { USD: [f('2025-01-01', '2025-12-31', 5000)] } },
+        NetIncomeLossAvailableToCommonStockholdersBasic: {
+          units: { USD: [f('2026-07-01', '2026-09-30', 1700)] },
+        },
+      });
+      expect(facts.filter(isQuarterFact).map((x) => x.val)).toEqual([1700]);
+      expect(facts.filter(isFiscalYearFact).map((x) => x.val)).toEqual([5000]);
+    });
+
+    it('tolera bloques sin ningún concepto', () => {
+      expect(netIncomeFacts(undefined)).toEqual([]);
+      expect(netIncomeFacts({})).toEqual([]);
     });
   });
 });

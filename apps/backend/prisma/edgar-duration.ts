@@ -40,3 +40,41 @@ export function deriveQ4Amount(annual: number | undefined, q1q2q3: number[]): nu
   const sum = q1q2q3.reduce((a, b) => a + (b || 0), 0);
   return Math.round(annual - sum);
 }
+
+/**
+ * Conceptos us-gaap de utilidad neta, por prioridad. Cada empresa publica sus
+ * trimestres bajo uno distinto (AVGO y MA: ProfitLoss; BKNG: ...AvailableToCommonStockholdersBasic)
+ * y NetIncomeLoss a veces solo trae el año completo.
+ */
+export const NET_INCOME_CONCEPTS = [
+  'NetIncomeLoss',
+  'ProfitLoss',
+  'NetIncomeLossAvailableToCommonStockholdersBasic',
+] as const;
+
+/**
+ * Une listas de hechos por prioridad: se conservan todos los de la primera lista y,
+ * de las siguientes, solo los periodos (start|end) que aún no están cubiertos.
+ */
+export function mergeFactsByPriority<T extends EdgarFact>(lists: T[][]): T[] {
+  const seen = new Set<string>();
+  const out: T[] = [];
+  for (const list of lists) {
+    const added: string[] = [];
+    for (const u of list) {
+      const key = `${u.start ?? ''}|${u.end ?? ''}`;
+      if (seen.has(key)) continue;
+      out.push(u);
+      added.push(key);
+    }
+    added.forEach((k) => seen.add(k));
+  }
+  return out;
+}
+
+/** Hechos de utilidad neta (USD) de un bloque us-gaap, uniendo los conceptos por prioridad. */
+export function netIncomeFacts(usGaap: any): any[] {
+  return mergeFactsByPriority(
+    NET_INCOME_CONCEPTS.map((tag) => (usGaap?.[tag]?.units?.USD as any[]) || []),
+  );
+}
