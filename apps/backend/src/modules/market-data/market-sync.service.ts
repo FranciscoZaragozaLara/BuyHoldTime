@@ -59,6 +59,14 @@ export function buildShillerPlanchadoLine(headerLine: string, lastLine: string, 
   const out = [...last];
   out[0] = date;
   out[capeI] = isNaN(newCape) ? last[capeI] : newCape.toFixed(5);
+  // CAPE ajustado (informativo): mismo E10 del mes → escala igual; en un mes nuevo aún no
+  // existe (Shiller no lo publica) y queda vacío hasta que daily_update reconstruya el CSV.
+  const adjI = header.indexOf('cape_adjusted');
+  if (adjI >= 0) {
+    const lastAdj = num(last[adjI]);
+    const sameMonth = (last[0] ?? '').slice(0, 7) === date.slice(0, 7);
+    out[adjI] = sameMonth && lastAdj != null ? (lastAdj * ratio).toFixed(5) : '';
+  }
   if (peI >= 0 && newPe != null) out[peI] = newPe.toFixed(5);
   if (vals.length) {
     out[sma3I] = (vals.slice(-3).reduce((a, b) => a + b, 0) / Math.min(3, vals.length)).toFixed(5);

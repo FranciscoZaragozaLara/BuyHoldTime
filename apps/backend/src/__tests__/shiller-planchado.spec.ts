@@ -70,3 +70,19 @@ describe("Shiller planchado lunes-tras-finde Suite", () => {
     expect(parseFloat(cols[2])).toBeCloseTo(39.49296 * (7479.97 / 7376.86), 3);
   });
 });
+
+describe('planchado con CAPE registrado/ajustado', () => {
+  const H = 'date,pe,cape,cape_adjusted,e10,e10_month,cape_sma3,cape_sma5,cape_sma10,cape_ema3,cape_ema5,cape_ema10,mean3y';
+  const L = '2026-11-11,26.3,40.0,39.0,190.0,2026-10-01,40,40,40,40,40,40,36.7';
+  test('mismo mes: escala registrado y ajustado; conserva E10 y su mes', () => {
+    const c = buildShillerPlanchadoLine(H, L, '2026-11-12', 1.01, [40, 40]).split(',');
+    expect(Number(c[2])).toBeCloseTo(40.4, 5);
+    expect(Number(c[3])).toBeCloseTo(39.39, 5);
+    expect(c[4]).toBe('190.0');
+    expect(c[5]).toBe('2026-10-01');
+  });
+  test('mes nuevo: el ajustado queda vacío (Shiller aún no publica ese mes)', () => {
+    const c = buildShillerPlanchadoLine(H, L.replace('2026-11-11', '2026-11-30'), '2026-12-01', 1.0, [40]).split(',');
+    expect(c[3]).toBe('');
+  });
+});

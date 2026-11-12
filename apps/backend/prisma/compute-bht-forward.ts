@@ -1,9 +1,7 @@
 import 'dotenv/config';
-import * as fs from 'fs';
 import { Pool } from 'pg';
 import { computeFwdDay } from '../src/modules/backtesting/bht-forward';
 import { computeThermoDay, PriceMap } from '../src/modules/backtesting/thermo-history';
-import { SHILLER_CSV_PATH } from '../src/modules/backtesting/shiller-daily';
 
 // Guarda BHT Index + precios y forwards maduros en bt_bht_forward.
 // Idempotente (upsert): reejecutable a diario; los horizontes maduran solos.
@@ -11,7 +9,6 @@ import { SHILLER_CSV_PATH } from '../src/modules/backtesting/shiller-daily';
 const FROM = process.env.FROM || '1993-01-01';
 const TICKERS = ['^GSPC', '^IXIC', 'TQQQ'];
 const ALL_TICKERS = ['^GSPC', 'SPX_EPS', 'SPX_FWD_EPS', 'CPIAUCSL', 'CPILFESL', 'DFEDTARU', 'DGS2', 'DGS30', 'BAMLH0A0HYM2', 'FINRA_DEBIT', 'GDP', 'GDPC1', 'MSACSR', 'VIXCLS', 'FEAR_GREED'];
-const CSV = SHILLER_CSV_PATH;
 
 async function main() {
   const pool = new Pool({ connectionString: process.env.DATABASE_URL });
@@ -34,15 +31,12 @@ async function main() {
     if (maps[r.ticker]) maps[r.ticker].set(k, Number(r.close));
     full[r.ticker]?.set(k, Number(r.close));
   }
-  // CAPE diaria para el detalle por indicador
-  const raw = fs.readFileSync(CSV, 'utf8').trim().split('\n');
-  const h = raw[0].split(',');
-  const di = h.indexOf('date'), ci = h.indexOf('cape'), mi = h.indexOf('mean3y');
+  // CAPE registrado diario (bt_shiller_daily) para el detalle por indicador
+  const capeQ = await pool.query(`SELECT to_char(date, 'YYYY-MM-DD') AS d, cape, mean3y FROM "bt_shiller_daily"`);
   const capeMap = new Map<string, { cape: number | null; ratio: number | null }>();
-  for (let i = 1; i < raw.length; i++) {
-    const c = raw[i].split(',');
-    const cape = parseFloat(c[ci]), mean = parseFloat(c[mi]);
-    capeMap.set(c[di].slice(0, 10), { cape: isNaN(cape) ? null : cape, ratio: cape && mean ? cape / mean : null });
+  for (const r of capeQ.rows as any[]) {
+    const cape = r.cape == null ? null : Number(r.cape), mean = r.mean3y == null ? null : Number(r.mean3y);
+    capeMap.set(r.d, { cape, ratio: cape && mean ? cape / mean : null });
   }
   const maxOf = (m: PriceMap) => { let b = ''; for (const k of m.keys()) if (k > b) b = k; return b; };
   const maxDates = { spx: maxOf(maps['^GSPC']), ndx: maxOf(maps['^IXIC']), tqqq: maxOf(maps['TQQQ']) };

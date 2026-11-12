@@ -339,7 +339,10 @@ model BtThermoHistory {
 model BtShillerDaily {
   date       DateTime @db.Date @id
   pe         Float?
-  cape       Float?
+  cape       Float?   // CAPE registrado: SPX / E10 del último mes publicado ese día
+  capeAdjusted Float? @map("cape_adjusted") // informativo: SPX / E10 del propio mes (revisable)
+  e10        Float?   // denominador usado por el registrado (P/CAPE del mes e10Month)
+  e10Month   DateTime? @db.Date @map("e10_month")
   capeSma3   Float?   @map("cape_sma3")
   capeSma5   Float?   @map("cape_sma5")
   capeSma10  Float?   @map("cape_sma10")

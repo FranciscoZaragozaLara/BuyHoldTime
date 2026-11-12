@@ -1,6 +1,7 @@
 import {
   buildShillerUpsertBatches,
   parseShillerCsv,
+  SHILLER_LIVE_SINCE,
   SHILLER_NUMERIC_COLUMNS,
   shillerRecordsToCsv,
   toShillerApiRow,
@@ -37,17 +38,20 @@ describe('parseShillerCsv', () => {
 
 describe('buildShillerUpsertBatches', () => {
   const rec = (date: string, cape: number) =>
-    ({ date, ...Object.fromEntries(SHILLER_NUMERIC_COLUMNS.map((c) => [c, null])), cape }) as any;
+    ({ date, e10_month: null, ...Object.fromEntries(SHILLER_NUMERIC_COLUMNS.map((c) => [c, null])), cape }) as any;
 
   test('parte en lotes y numera los parámetros de forma continua', () => {
     const batches = buildShillerUpsertBatches([rec('2026-01-01', 1), rec('2026-01-02', 2), rec('2026-01-05', 3)], 2);
     expect(batches).toHaveLength(2);
-    const width = 1 + SHILLER_NUMERIC_COLUMNS.length;
+    const width = 2 + SHILLER_NUMERIC_COLUMNS.length; // date + numéricas + e10_month
     expect(batches[0].values).toHaveLength(2 * width);
     expect(batches[1].values).toHaveLength(width);
     expect(batches[0].text).toContain(`$${width + 1}::date`);
     expect(batches[0].text).toContain('ON CONFLICT ("date") DO UPDATE');
-    expect(batches[0].text).toContain('"cape" = EXCLUDED."cape"');
+    // registrado congelado en días cerrados desde SHILLER_LIVE_SINCE; ajustado siempre se actualiza
+    expect(batches[0].text).toContain(`"cape" = CASE WHEN "bt_shiller_daily"."date" >= DATE '${SHILLER_LIVE_SINCE}' AND "bt_shiller_daily"."date" < CURRENT_DATE - 1 THEN "bt_shiller_daily"."cape" ELSE EXCLUDED."cape" END`);
+    expect(batches[0].text).toContain('"cape_adjusted" = EXCLUDED."cape_adjusted"');
+    expect(batches[0].text).toContain('"e10_month" = CASE WHEN');
     expect(batches[1].values[0]).toBe('2026-01-05');
   });
 
@@ -58,10 +62,13 @@ describe('buildShillerUpsertBatches', () => {
 
 describe('shillerRecordsToCsv', () => {
   test('ida y vuelta con parseShillerCsv conserva los valores', () => {
-    const csv = `${HEADER}\n2026-11-12,30.1,40.99,,40.49,40.31,40.79,40.61,40.45,36.68,34.36,32.73,37.07,35.5,32.93,1.39,2.29,3.26\n`;
+    const H2 = 'date,pe,cape,cape_adjusted,e10,cape_sma3,cape_sma5,cape_sma10,cape_ema3,cape_ema5,cape_ema10,mean3y,mean5y,mean10y,mean3y_ema,mean5y_ema,mean10y_ema,std3y,std5y,std10y,e10_month';
+    const csv = `${H2}\n2026-11-12,30.1,40.19,,189.7,,40.49,40.31,40.79,40.61,40.45,36.68,34.36,32.73,37.07,35.5,32.93,1.39,2.29,3.26,2026-10-01\n`;
     const rows = parseShillerCsv(csv);
+    expect(rows[0].e10_month).toBe('2026-10-01');
+    expect(rows[0].cape_adjusted).toBeNull();
     const out = shillerRecordsToCsv(rows);
-    expect(out.split('\n')[0]).toBe(HEADER);
+    expect(out.split('\n')[0]).toBe(H2);
     expect(parseShillerCsv(out)).toEqual(rows);
   });
 });
@@ -79,7 +86,7 @@ describe('toShillerApiRow', () => {
     expect(r.mean).toBe(32);
     expect(r.capeRatio).toBeCloseTo(1.25);
     expect(Object.keys(r)).toEqual([
-      'date', 'cape', 'capeSma3', 'capeSma5', 'capeSma10', 'capeEma3', 'capeEma5', 'capeEma10',
+      'date', 'cape', 'capeAdjusted', 'e10', 'e10Month', 'capeSma3', 'capeSma5', 'capeSma10', 'capeEma3', 'capeEma5', 'capeEma10',
       'mean', 'mean3y', 'mean5y', 'mean10y', 'mean3yEma', 'mean5yEma', 'mean10yEma', 'capeRatio',
     ]);
   });

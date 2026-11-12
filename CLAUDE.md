@@ -28,7 +28,7 @@ Plan y estado actual: **`docs/plan/HANDOFF.md`** (léelo antes de empezar una ta
 - Otros crons (market-sync): L-V 22:05 ET `daily_update.py`, 22:35 ET breadth.
 - `snapshots` y `stocks` los llena la app **GuruFocus Scrapper** (repo hermano, misma BD).
 - `sector_terminal_pe` se llena con `prisma/seed-sector-terminal-pe.ts`.
-- CAPE Shiller diario: tabla `bt_shiller_daily` (la sirve `/api/backtesting/shiller-daily`). El CSV `shiller_daily.csv` de BackTesting (`SHILLER_DATA_DIR`, por defecto `BackTesting/data/`; Docker `/data`) es solo intercambio: carga con `prisma/sync-shiller-daily.ts`; el market-sync diario la mantiene y, si `/tmp` se borró, reconstruye el CSV desde la BD.
+- CAPE Shiller diario: tabla `bt_shiller_daily` (la sirve `/api/backtesting/shiller-daily`). `cape` = **CAPE registrado** (S&P 500 ÷ E10 del último mes publicado por Shiller ese día; historia: M−1 publicado el día 3 de M; en vivo: fecha observada al descargar, `BackTesting/data/shiller_publications.csv`), congelado en la BD para días cerrados desde `SHILLER_LIVE_SINCE`. `cape_adjusted` = ajustado, solo informativo. El termómetro lee `cape`/`mean3y` de la tabla. El CSV de BackTesting (`SHILLER_DATA_DIR`, por defecto `BackTesting/data/`; Docker `/data`) es solo intercambio: carga con `prisma/sync-shiller-daily.ts`.
 - Columnas en snake_case en SQL (`historical_eps_quarterly`), camelCase solo en Prisma.
 
 ## Tests

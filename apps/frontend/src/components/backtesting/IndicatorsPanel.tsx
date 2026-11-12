@@ -1517,7 +1517,7 @@ export function IndicatorsPanel() {
           <div className="flex items-center gap-2">
           <button onClick={()=>{
             const buildSheet = (view: 'daily'|'monthly'|'yearly')=>{
-              const headers = ['Fecha','SP500', view==='monthly' ? 'Change Monthly' : view==='yearly' ? 'Change Yearly' : 'Change Daily','BHT Index','Perf 1Y','Perf Total','CAGR','Nasdaq','TQQQ','SPX EPS','PE TTM','Fwd PE','CAPE','mean3y','RatioCape','FED Target','2Y','10Y','30Y','HY OAS','HY EY','HY 10Y+OAS','HY Bonus','LIQ Bonus','Oil Bonus','WTI','WTI xSMA36','M2','M2 YoY','M0','M0 Δ3M','CPI','Core CPI','GDP','FINRA Debit','Margin/GDP','MSACSR','VIX','F&G','Vol SPY','OBV','Fuerza','Tend-OBV','NetAdv','Up/Down','CAPE SMA 3Y','CAPE SMA 5Y','CAPE SMA 10Y','CAPE EMA 3Y','CAPE EMA 5Y','CAPE EMA 10Y'];
+              const headers = ['Fecha','SP500', view==='monthly' ? 'Change Monthly' : view==='yearly' ? 'Change Yearly' : 'Change Daily','BHT Index','Perf 1Y','Perf Total','CAGR','Nasdaq','TQQQ','SPX EPS','PE TTM','Fwd PE','CAPE Registrado','CAPE Ajustado','mean3y','RatioCape','FED Target','2Y','10Y','30Y','HY OAS','HY EY','HY 10Y+OAS','HY Bonus','LIQ Bonus','Oil Bonus','WTI','WTI xSMA36','M2','M2 YoY','M0','M0 Δ3M','CPI','Core CPI','GDP','FINRA Debit','Margin/GDP','MSACSR','VIX','F&G','Vol SPY','OBV','Fuerza','Tend-OBV','NetAdv','Up/Down','CAPE SMA 3Y','CAPE SMA 5Y','CAPE SMA 10Y','CAPE EMA 3Y','CAPE EMA 5Y','CAPE EMA 10Y'];
               let rowsView: any[] = capeRows;
               if(view==='monthly'){
                 const byMonth = new Map<string, any>();
@@ -1623,7 +1623,7 @@ export function IndicatorsPanel() {
                 const peTtmXls = (spxXls!=null && spxEpsXls!=null && spxEpsXls!==0) ? spxXls/spxEpsXls : null;
                 const fwdPeXls = (spxXls!=null && spxFwdEpsXls!=null && spxFwdEpsXls!==0) ? spxXls/spxFwdEpsXls : null;
                 const brXls = breadthVals(d);
-                return [label, getClosestPrice(marketHistory['^GSPC'], d) ?? '', varDia != null ? Number(varDia.toFixed(2)) : '', thermoHist[d]?.value ?? '', perf1y != null ? Number(perf1y.toFixed(2)) : '', perfTot != null ? Number(perfTot.toFixed(2)) : '', cagr != null ? Number(cagr.toFixed(2)) : '', getClosestPrice(marketHistory['^IXIC'], d) ?? '', getClosestPrice(marketHistory['TQQQ'], d) ?? '', spxEpsXls != null ? Number(spxEpsXls.toFixed(2)) : '', peTtmXls != null ? Number(peTtmXls.toFixed(2)) : '', fwdPeXls != null ? Number(fwdPeXls.toFixed(2)) : '', r.cape ?? '', (r.mean3y ?? r.mean) ?? '', r.capeRatio ?? '', getClosestPrice(marketHistory['DFEDTARU'], d) ?? '', getClosestPrice(marketHistory['DGS2'], d) ?? '', getClosestPrice(marketHistory['DGS10'], d) ?? '', getClosestPrice(marketHistory['DGS30'], d) ?? '', hyOas ?? '', hyEy ?? '', hy10y, thRow?.bonus ?? '', thRow?.liqBonus ?? '', thRow?.oilBonus ?? '', wtiX ?? '', wtiRtX != null ? Number(wtiRtX.toFixed(3)) : '', m2vX ?? '', m2yX != null ? Number(m2yX.toFixed(2)) : '', m0vX ?? '', m0dX != null ? Number(m0dX.toFixed(2)) : '', cpi ?? '', core ?? '', gdp ?? '', finra ?? '', marginGdp != null ? Number(marginGdp.toFixed(2)) : '', msacsrXls ?? '', vixXls ?? '', fgXls ?? '', volXls ?? '', obvXls ?? '', fuerzaXls != null ? Number(fuerzaXls.toFixed(3)) : '', obvtXls != null ? Number(obvtXls.toFixed(3)) : '', brXls.net ?? '', brXls.ratio ?? '', (r.mean3y ?? -1e9) !== -1e9 ? (r.mean3y ?? r.mean) : '', r.mean5y ?? '', r.mean10y ?? '', (r.mean3y_ema ?? (r as any).mean3yEma) ?? '', (r.mean5y_ema ?? (r as any).mean5yEma) ?? '', (r.mean10y_ema ?? (r as any).mean10yEma) ?? ''];
+                return [label, getClosestPrice(marketHistory['^GSPC'], d) ?? '', varDia != null ? Number(varDia.toFixed(2)) : '', thermoHist[d]?.value ?? '', perf1y != null ? Number(perf1y.toFixed(2)) : '', perfTot != null ? Number(perfTot.toFixed(2)) : '', cagr != null ? Number(cagr.toFixed(2)) : '', getClosestPrice(marketHistory['^IXIC'], d) ?? '', getClosestPrice(marketHistory['TQQQ'], d) ?? '', spxEpsXls != null ? Number(spxEpsXls.toFixed(2)) : '', peTtmXls != null ? Number(peTtmXls.toFixed(2)) : '', fwdPeXls != null ? Number(fwdPeXls.toFixed(2)) : '', r.cape ?? '', r.capeAdjusted ?? '', (r.mean3y ?? r.mean) ?? '', r.capeRatio ?? '', getClosestPrice(marketHistory['DFEDTARU'], d) ?? '', getClosestPrice(marketHistory['DGS2'], d) ?? '', getClosestPrice(marketHistory['DGS10'], d) ?? '', getClosestPrice(marketHistory['DGS30'], d) ?? '', hyOas ?? '', hyEy ?? '', hy10y, thRow?.bonus ?? '', thRow?.liqBonus ?? '', thRow?.oilBonus ?? '', wtiX ?? '', wtiRtX != null ? Number(wtiRtX.toFixed(3)) : '', m2vX ?? '', m2yX != null ? Number(m2yX.toFixed(2)) : '', m0vX ?? '', m0dX != null ? Number(m0dX.toFixed(2)) : '', cpi ?? '', core ?? '', gdp ?? '', finra ?? '', marginGdp != null ? Number(marginGdp.toFixed(2)) : '', msacsrXls ?? '', vixXls ?? '', fgXls ?? '', volXls ?? '', obvXls ?? '', fuerzaXls != null ? Number(fuerzaXls.toFixed(3)) : '', obvtXls != null ? Number(obvtXls.toFixed(3)) : '', brXls.net ?? '', brXls.ratio ?? '', (r.mean3y ?? -1e9) !== -1e9 ? (r.mean3y ?? r.mean) : '', r.mean5y ?? '', r.mean10y ?? '', (r.mean3y_ema ?? (r as any).mean3yEma) ?? '', (r.mean5y_ema ?? (r as any).mean5yEma) ?? '', (r.mean10y_ema ?? (r as any).mean10yEma) ?? ''];
               });
               return { name: `CAPE ${view}`, headers, rows: rowsData };
             };
@@ -1662,7 +1662,8 @@ export function IndicatorsPanel() {
                   {k:'spxeps', label:'SPX EPS', cls:'text-right text-teal-300'},
                   {k:'spxpe', label:'PE TTM', cls:'text-right text-teal-300'},
                   {k:'spxfwdpe', label:'Fwd PE', cls:'text-right text-teal-300'},
-                  {k:'cape', label:'CAPE', cls:'text-right'},
+                  {k:'cape', label:'CAPE Reg.', cls:'text-right', title:'CAPE registrado: S&P 500 ÷ denominador (E10) del último mes que Shiller había publicado ese día. Es el que usan el termómetro y el RatioCape.'},
+                  {k:'capeAdj', label:'CAPE Ajust.', cls:'text-right text-slate-400', title:'CAPE ajustado (informativo): S&P 500 ÷ E10 del propio mes, con el dato final de Shiller. No se conocía ese día; vacío hasta que Shiller publica el mes.'},
                   {k:'mean3y', label:'mean3y', cls:'text-right text-amber-300'},
                   {k:'ratio', label:'RatioCape', cls:'text-right'},
                   {k:'fed', label:'FED Target', cls:'text-right text-violet-300'},
@@ -1701,8 +1702,8 @@ export function IndicatorsPanel() {
                   {k:'ema3y', label:'CAPE EMA 3Y', cls:'text-right'},
                   {k:'ema5y', label:'CAPE EMA 5Y', cls:'text-right'},
                   {k:'ema10y', label:'CAPE EMA 10Y', cls:'text-right'},
-                ].map(col=>(
-                  <th key={col.k} onClick={()=>toggleSort(col.k)} className={`p-2 ${col.cls} cursor-pointer select-none hover:text-teal-300 ${sortCol===col.k?'text-teal-300':''}`}>
+                ].map((col: { k: string; label: string; cls: string; title?: string })=>(
+                  <th key={col.k} title={col.title} onClick={()=>toggleSort(col.k)} className={`p-2 ${col.cls} cursor-pointer select-none hover:text-teal-300 ${sortCol===col.k?'text-teal-300':''}`}>
                     {col.label} <span className="text-[10px]">{sortCol===col.k ? (sortDir==='asc'?'▲':'▼') : '↕'}</span>
                   </th>
                 ))}
@@ -1769,6 +1770,7 @@ export function IndicatorsPanel() {
                     if(sortCol==='spxpe') { const p=getClosestPrice(marketHistory['^GSPC'], d); const e=getRecentPrice(marketHistory['SPX_EPS'], d, 120); return (p!=null&&e!=null&&e!==0)? p/e : -Infinity; }
                     if(sortCol==='spxfwdpe') { const p=getClosestPrice(marketHistory['^GSPC'], d); const e=getRecentPrice(marketHistory['SPX_FWD_EPS'], d, 130); return (p!=null&&e!=null&&e!==0)? p/e : -Infinity; }
                     if(sortCol==='cape') return r.cape ?? -Infinity;
+                    if(sortCol==='capeAdj') return r.capeAdjusted ?? -Infinity;
                     if(sortCol==='mean3y') return (r.mean3y ?? r.mean ?? -Infinity);
                     if(sortCol==='ratio') return r.capeRatio ?? -Infinity;
                     if(sortCol==='termo') return thermoHist[d]?.value ?? -Infinity;
@@ -1889,7 +1891,8 @@ export function IndicatorsPanel() {
                   <td className="p-2 text-right font-mono text-teal-300 whitespace-nowrap" title={`S&P 500 EPS TTM ${d} — multpl mensual`}>{spxEps!=null?`$${spxEps.toFixed(2)}`:'—'}</td>
                   {(()=>{ const pe=(spxDisp!=null&&spxEps!=null&&spxEps!==0)? spxDisp/spxEps : null; if(pe==null) return <td className="p-2 text-right font-mono text-teal-300 whitespace-nowrap">—</td>; return <td className="p-2 text-right font-mono text-teal-300 whitespace-nowrap" title={`PE TTM ${d} — precio SPX / EPS TTM`}>{pe.toFixed(2)}</td>; })()}
                   {(()=>{ const pe=(spxDisp!=null&&spxFwdEps!=null&&spxFwdEps!==0)? spxDisp/spxFwdEps : null; if(pe==null) return <td className="p-2 text-right font-mono text-teal-300 whitespace-nowrap">—</td>; return <td className="p-2 text-right font-mono text-teal-300 whitespace-nowrap" title={`Forward PE ${d} — precio SPX / EPS estimado 12m (operating)`}>{pe.toFixed(2)}</td>; })()}
-                  <td className="p-2 text-right font-mono text-emerald-400 whitespace-nowrap">{r.cape?.toFixed(2) ?? '—'}</td>
+                  <td className="p-2 text-right font-mono text-emerald-400 whitespace-nowrap" title={r.e10Month ? `CAPE registrado ${d}: S&P 500 ÷ E10 de ${String(r.e10Month).slice(0, 7)} (${r.e10 != null ? Number(r.e10).toFixed(2) : '—'})` : undefined}>{r.cape?.toFixed(2) ?? '—'}</td>
+                  <td className="p-2 text-right font-mono text-slate-400 whitespace-nowrap" title={r.capeAdjusted == null ? 'Shiller aún no publica este mes' : 'Informativo: con el E10 final del propio mes'}>{r.capeAdjusted != null ? Number(r.capeAdjusted).toFixed(2) : '—'}</td>
                   <td className="p-2 text-right font-mono text-amber-300 whitespace-nowrap">{(r.mean3y ?? r.mean)?.toFixed(2) ?? '—'}</td>
                   <td className={`p-2 text-right font-mono font-semibold whitespace-nowrap ${ratioColor} ${ratioBg} rounded`}>{ratio!=null ? `${ratio.toFixed(3)}X` : '—'}</td>
                   <td className="p-2 text-right font-mono text-violet-300 whitespace-nowrap">{fedDisp!=null?`${Number(fedDisp).toFixed(2)}%`:'—'}</td>

@@ -1,14 +1,11 @@
 import 'dotenv/config';
-import * as fs from 'fs';
 import { Pool } from 'pg';
 import { computeThermoDay, PriceMap, THERMO_TICKERS } from '../src/modules/backtesting/thermo-history';
-import { SHILLER_CSV_PATH } from '../src/modules/backtesting/shiller-daily';
 
 // Historifica el Termómetro BuyHoldTime al cierre en bt_thermo_history.
 // Idempotente (upsert por fecha): reejecutable a diario tras el sync.
 // Uso: npx ts-node prisma/compute-thermo-history.ts [FROM=1993-01-01]
 const FROM = process.env.FROM || '1993-01-01';
-const CSV = SHILLER_CSV_PATH;
 const TICKERS = THERMO_TICKERS;
 
 async function main() {
@@ -26,15 +23,13 @@ async function main() {
   await pool.query(`ALTER TABLE "bt_thermo_history" ADD COLUMN IF NOT EXISTS "oil_bonus" DOUBLE PRECISION NOT NULL DEFAULT 0`);
   await pool.query(`ALTER TABLE "bt_thermo_history" ADD COLUMN IF NOT EXISTS "oil_bonus_label" TEXT`);
 
-  // Serie CAPE diaria
-  const raw = fs.readFileSync(CSV, 'utf8').trim().split('\n');
-  const h = raw[0].split(',');
-  const di = h.indexOf('date'), ci = h.indexOf('cape'), mi = h.indexOf('mean3y');
-  const capeRows = raw.slice(1).map((ln) => {
-    const c = ln.split(',');
-    const cape = parseFloat(c[ci]), mean = parseFloat(c[mi]);
-    return { date: c[di].slice(0, 10), cape: isNaN(cape) ? null : cape, ratio: cape && mean ? cape / mean : null };
-  }).filter((r) => r.date >= FROM);
+  // Serie CAPE diaria: CAPE registrado de bt_shiller_daily (punto en el tiempo, congelado en vivo).
+  const capeQ = await pool.query(`SELECT to_char(date, 'YYYY-MM-DD') AS d, cape, mean3y FROM "bt_shiller_daily" WHERE date >= $1 ORDER BY date`, [FROM]);
+  const capeRows = capeQ.rows.map((r: any) => {
+    const cape = r.cape == null ? null : Number(r.cape), mean = r.mean3y == null ? null : Number(r.mean3y);
+    return { date: r.d as string, cape, ratio: cape && mean ? cape / mean : null };
+  });
+  if (!capeRows.length) throw new Error('bt_shiller_daily vacía: corre prisma/sync-shiller-daily.ts');
 
   // BtMarketData a mapas por ticker
   const series: Record<string, PriceMap> = {};
