@@ -36,8 +36,8 @@ Marcar `[x]` con rama y commit al terminar.
 - [ ] Actualizar la serie mensual de P/E de QQQ/TQQQ (multpl Nasdaq-100) y volver a correr `etf-monthly-pe.spec.ts`.
 
 ### P1 — Entorno de desarrollo híbrido
-- [ ] `DATABASE_URL` del backend y de GuruFocus apuntando a `buyholdtime-db`; aplicar migraciones ahí (`npx prisma migrate dev`).
-- [ ] Recrear `buyholdtime-db` publicando en `127.0.0.1:5432` (hoy `0.0.0.0`).
+- [x] `DATABASE_URL` del backend y de GuruFocus apuntando a `buyholdtime-db` (ya lo estaban, `localhost:5432`). Migraciones: las 6 pendientes ya estaban aplicadas a mano → `migrate resolve --applied`; nueva migración idempotente `20261112000000_sync_schema_drift` (liq_bonus, bt_start_dates, índices de bt_backtest_runs que no tenían migración; sin ella una BD nueva en la VPS no llegaba al schema) — rama `fix/prisma-liq-bonus-migration` (`6354042`). Verificado en BD vacía (sin drift) y en copia de desarrollo. **No usar `migrate dev`**: la BD tiene tablas de respaldo manuales (`bt_*_bak20261102`, `bt_*_pre2027`) y propondría reset/drop.
+- [ ] Recrear `buyholdtime-db` publicando en `127.0.0.1:5432` (hoy `0.0.0.0`). `docker-compose.yml` ya dice `127.0.0.1`; falta `.env` en la raíz con `POSTGRES_PASSWORD` (la actual) y `PGADMIN_PASSWORD`, luego `docker compose up -d database`.
 - [ ] Correr `prisma/seed-sector-terminal-pe.ts` en la BD de desarrollo.
 - [ ] Rerun EDGAR completo en desarrollo y revisar tickers con ingresos 0 (solo deberían ser ETFs).
 
