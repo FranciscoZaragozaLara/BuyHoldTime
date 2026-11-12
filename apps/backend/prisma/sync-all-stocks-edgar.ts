@@ -3,7 +3,7 @@ import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
 import YahooFinance from 'yahoo-finance2';
-import { deriveQ4Amount, isFiscalYearFact, isQuarterFact, netIncomeFacts } from './edgar-duration';
+import { deriveQ4Amount, epsFacts, isFiscalYearFact, isQuarterFact, netIncomeFacts } from './edgar-duration';
 
 const yahooFinance = new YahooFinance({ suppressNotices: ['ripHistorical', 'yahooSurvey'] });
 
@@ -164,7 +164,7 @@ async function main() {
           const edgarJson = await edgarRes.json() as any;
           const usGaap = edgarJson?.facts?.['us-gaap'];
 
-          edgarUnits.push(...(usGaap?.['EarningsPerShareDiluted']?.units?.['USD/shares'] || usGaap?.['EarningsPerShareBasic']?.units?.['USD/shares'] || []));
+          edgarUnits.push(...epsFacts(usGaap));
           netUnits.push(...netIncomeFacts(usGaap));
           sharesUnits.push(...(usGaap?.['WeightedAverageNumberOfDilutedSharesOutstanding']?.units?.['shares'] || usGaap?.['WeightedAverageNumberOfSharesOutstandingBasic']?.units?.['shares'] || []));
         }

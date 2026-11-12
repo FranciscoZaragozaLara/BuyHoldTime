@@ -1,9 +1,12 @@
 import {
   deriveQ4Amount,
+  epsFacts,
   factDays,
   isFiscalYearFact,
   isQuarterFact,
+  lastQuarterEnd,
   mergeFactsByPriority,
+  mergeIfNewer,
   netIncomeFacts,
 } from '../../prisma/edgar-duration';
 
@@ -74,6 +77,50 @@ describe('edgar-duration', () => {
     it('tolera bloques sin ningún concepto', () => {
       expect(netIncomeFacts(undefined)).toEqual([]);
       expect(netIncomeFacts({})).toEqual([]);
+    });
+  });
+  describe('EPS: concepto desactualizado', () => {
+    const q = (start: string, end: string, val: number) => ({ start, end, val });
+    const usd = (facts: any[]) => ({ units: { 'USD/shares': facts } });
+
+    it('lastQuarterEnd ignora hechos anuales', () => {
+      expect(lastQuarterEnd([q('2025-01-01', '2025-12-31', 9), q('2026-07-01', '2026-09-30', 2)])).toBe('2026-09-30');
+      expect(lastQuarterEnd([q('2025-01-01', '2025-12-31', 9)])).toBeNull();
+    });
+
+    it('mergeIfNewer deja intacto el principal si está al día', () => {
+      const primary = [q('2026-07-01', '2026-09-30', 2.11)];
+      const secondary = [q('2026-07-01', '2026-09-30', 9.99)];
+      expect(mergeIfNewer(primary, secondary)).toBe(primary);
+    });
+
+    it('MNST: completa con operaciones continuas cuando el principal se quedó en 2011', () => {
+      const old = [q('2011-04-01', '2011-06-30', 0.0375)];
+      const recent = [q('2011-04-01', '2011-06-30', 0.04), q('2026-07-01', '2026-09-30', 0.6)];
+      const merged = mergeIfNewer(old, recent);
+      expect(merged.map((x) => x.end).sort()).toEqual(['2011-06-30', '2026-09-30']);
+      expect(merged.find((x) => x.end === '2011-06-30')!.val).toBe(0.0375); // prioridad al principal
+    });
+
+    it('epsFacts: diluido al día se respeta; sin diluido cae a básico', () => {
+      const diluted = [q('2026-07-01', '2026-09-30', 2.11)];
+      expect(
+        epsFacts({
+          EarningsPerShareDiluted: usd(diluted),
+          IncomeLossFromContinuingOperationsPerDilutedShare: usd([q('2026-07-01', '2026-09-30', 1.0)]),
+        }),
+      ).toEqual(diluted);
+      const basic = [q('2026-07-01', '2026-09-30', 1.5)];
+      expect(epsFacts({ EarningsPerShareBasic: usd(basic) })).toEqual(basic);
+      expect(epsFacts(undefined)).toEqual([]);
+    });
+
+    it('epsFacts MNST: diluido viejo + IncomeLoss...PerDilutedShare reciente', () => {
+      const facts = epsFacts({
+        EarningsPerShareDiluted: usd([q('2011-04-01', '2011-06-30', 0.0375)]),
+        IncomeLossFromContinuingOperationsPerDilutedShare: usd([q('2026-07-01', '2026-09-30', 0.6)]),
+      });
+      expect(facts.map((x) => x.end).sort()).toEqual(['2011-06-30', '2026-09-30']);
     });
   });
 });

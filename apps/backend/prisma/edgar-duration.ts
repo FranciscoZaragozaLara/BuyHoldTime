@@ -78,3 +78,42 @@ export function netIncomeFacts(usGaap: any): any[] {
     NET_INCOME_CONCEPTS.map((tag) => (usGaap?.[tag]?.units?.USD as any[]) || []),
   );
 }
+
+/** Fin del trimestre más reciente (70-125 días) entre los hechos, o null. */
+export function lastQuarterEnd(facts: EdgarFact[]): string | null {
+  let last: string | null = null;
+  for (const u of facts) {
+    if (isQuarterFact(u) && u.end && (last === null || u.end > last)) last = u.end;
+  }
+  return last;
+}
+
+/**
+ * Completa `primary` con `secondary` solo si `secondary` llega a un trimestre más
+ * reciente (el concepto principal quedó desactualizado). Si `primary` está al día
+ * se devuelve tal cual, para no alterar a las empresas que ya funcionan.
+ */
+export function mergeIfNewer<T extends EdgarFact>(primary: T[], secondary: T[]): T[] {
+  const p = lastQuarterEnd(primary);
+  const s = lastQuarterEnd(secondary);
+  if (s !== null && (p === null || s > p)) return mergeFactsByPriority([primary, secondary]);
+  return primary;
+}
+
+/**
+ * Hechos de EPS (USD/shares): diluido si existe, si no básico. Cada uno se completa con
+ * "IncomeLossFromContinuingOperationsPer…Share" cuando el concepto EarningsPerShare… quedó
+ * en el pasado (MNST: se detiene en 2011).
+ */
+export function epsFacts(usGaap: any): any[] {
+  const get = (tag: string): any[] => usGaap?.[tag]?.units?.['USD/shares'] || [];
+  const diluted = mergeIfNewer(
+    get('EarningsPerShareDiluted'),
+    get('IncomeLossFromContinuingOperationsPerDilutedShare'),
+  );
+  if (diluted.length > 0) return diluted;
+  return mergeIfNewer(
+    get('EarningsPerShareBasic'),
+    get('IncomeLossFromContinuingOperationsPerBasicShare'),
+  );
+}
