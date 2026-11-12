@@ -44,6 +44,7 @@ Marcar `[x]` con rama y commit al terminar.
 ### P2 — Datos y producto inmediato
 - [x] `next dev` con Turbopack en Next 16.2.7 creaba ~40 workers PostCSS por segundo (1,290 procesos node, Mac congelada; JetsamEvent 12 nov 09:51). Next → 16.4.6 (y `eslint-config-next`): máximo 3 procesos en 150 s y con HMR de CSS; `tsc` y `next build` OK — rama `chore/next-16-4`. Respaldo si reaparece: `next dev --webpack` (rama `fix/next-dev-process-storm`, sin integrar). Docker Desktop bajado a 3 GB; solo corre `buyholdtime-db`.
 - [ ] ESLint del frontend: 685 errores previos (606 `no-explicit-any`, resto reglas `react-hooks`); `next build` no corre lint.
+- [ ] `GET /tickers` pesa 2.4 MB (67 tickers): 92 % es `historicalEpsQuarterly`. Supera el límite de 2 MB de la caché de Next ("items over 2MB can not be cached") y se vuelve a pedir en cada render. La consume `apps/frontend/src/services/api.ts:99`. Opción: que el listado devuelva solo campos de resumen (sin históricos) y dejar los históricos en `/tickers/:symbol`.
 - [ ] Página de ETF: ocultar tablas de ingresos/EPS o mostrar "No aplica para ETFs".
 - [ ] Vitest en frontend para funciones de `src/lib` (empezar por `solarYearEps`).
 - [ ] Decidir FMP: si no hay clave, el cron EDGAR funciona solo con SEC.
