@@ -28,7 +28,7 @@ GuruFocus Scrapper (repo hermano): rama `feat/unified-sync-job` (`ccc8d21`) con 
 Marcar `[x]` con rama y commit al terminar.
 
 ### P0 — Limpiar e integrar (primero)
-- [~] Limpiar restos de git en los 3 repos (BestTimeToInvest ✔, BackTesting ✔ ya limpio, **GuruFocus pendiente**: tiene `HEAD.lock`, `maintenance.lock` y 8 `tmp_obj_*`; limpiar a mano): `find .git -maxdepth 2 -name '*.lock' -delete; find .git/objects -name 'tmp_obj_*' -delete; rm -f .git/stale-*` (con ningún git corriendo).
+- [x] Restos de git limpios en los 3 repos (GuruFocus Scrapper: `HEAD.lock`, `maintenance.lock` y 8 `tmp_obj_*` del 11 nov borrados el 12 nov; `git fsck` sin errores; cambios sin commit del usuario intactos en `feat/unified-sync-job`).
 - [x] Borrar la rama duplicada `feat/weekly-edgar-sync-v2` (era idéntica, `22539e1`).
 - [x] `cd apps/backend && npx prisma validate` — válido.
 - [x] Correr tests del backend en la punta de la cadena: 94/96. Fallan 2 de `etf-monthly-pe.spec.ts` (QQQ, TQQQ): la serie mensual de P/E en la BD tiene ~136 días (límite 95). Es frescura de datos, no código; también falla en el `main` anterior.
