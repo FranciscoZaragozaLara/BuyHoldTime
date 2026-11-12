@@ -168,6 +168,9 @@ export function y30mScore(y: number, ma: number): number {
 
 export interface HyBonus { bonus: number; hy: number | null; z: number | null; d1: number | null; armed: boolean; label: string; fed: number | null }
 
+// Complacencia (HY < P20 36M en los últimos 6M): riesgo latente, no estrés → bonus menor.
+export const HY_ARMED_BONUS = 2;
+
 export function fedRescue(fed: PriceMap | undefined, isoDate: string): number | null {
   // Rescate Fed (ZIRP tras recortes): efectiva <0.75 habiendo estado >0.75 en los 12M previos.
   // Umbral 0.75 (no 0.50) porque la efectiva imprime 0.52 en nov-08 ya en rescate.
@@ -245,7 +248,7 @@ export function getHyBonus(map: PriceMap | undefined, isoDate: string, fedMap?: 
   // spread elevado en las 3 puntas (actual, 1M y 3M atrás) aunque no acelere.
   const m3 = d1v != null && d3v != null ? (v + d1v + d3v) / 3 : null;
   if (m3 != null && m3 >= 5.75) return { bonus: 5, hy: v, z, d1, armed, label: `sostenido ${m3.toFixed(2)}`, fed: fedRescue(fedMap, isoDate) };
-  if (armed) return { bonus: 5, hy: v, z, d1, armed, label: 'armado', fed: fedRescue(fedMap, isoDate) };
+  if (armed) return { bonus: HY_ARMED_BONUS, hy: v, z, d1, armed, label: 'armado', fed: fedRescue(fedMap, isoDate) };
   return { bonus: 0, hy: v, z, d1, armed, label: '—', fed: fedRescue(fedMap, isoDate) };
   function cap(out: HyBonus): HyBonus {
     // Tope rescate Fed: con la Fed rescatando (ZIRP tras recortes) el bonus no pasa de +5,
@@ -256,6 +259,23 @@ export function getHyBonus(map: PriceMap | undefined, isoDate: string, fedMap?: 
     }
     return { ...out, fed: fedRescue(fedMap, isoDate) };
   }
+}
+
+/**
+ * Bonus HY de una fecha con un punto en vivo opcional (p. ej. el HY OAS del día que
+ * aún no está en BD). Fuente única: el frontend lo pide a /api/backtesting/hy-bonus
+ * en lugar de reimplementar la regla.
+ */
+export function getHyBonusWithLive(
+  map: PriceMap | undefined, isoDate: string, fedMap?: PriceMap,
+  live?: { date: string; value: number } | null,
+): HyBonus & { sigma: number | null } {
+  let m = map;
+  if (live && isValidIsoDate(live.date) && Number.isFinite(live.value)) {
+    m = new Map(map ?? []);
+    m.set(live.date.slice(0, 10), live.value);
+  }
+  return { ...getHyBonus(m, isoDate, fedMap), sigma: getHySigma24(m, isoDate) };
 }
 
 export function getMonthlyPct(map: PriceMap | undefined, isoDate: string, monthsBack: number): number | null {

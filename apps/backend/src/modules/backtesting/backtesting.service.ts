@@ -3,7 +3,7 @@ import { BACKTEST_DIR } from '../../config/backtest-dir';
 import { PrismaService } from '../../prisma/prisma.service';
 import NodeCache from 'node-cache';
 import { toShillerApiRow } from './shiller-daily';
-import { getHyBonus, getHySigma24, getLiqBonus, getOilBonus, PriceMap } from './thermo-history';
+import { getHyBonus, getHyBonusWithLive, getHySigma24, getLiqBonus, getOilBonus, PriceMap } from './thermo-history';
 
 // Día con mercado (lun–vie). Sáb/dom no operan y el BHT no se calcula.
 export function isTradingDayIso(isoDate: string): boolean {
@@ -662,6 +662,19 @@ export class BacktestingService {
       tqqq1y: r.tqqq1y, tqqq2y: r.tqqq2y, tqqq3y: r.tqqq3y, tqqq5y: r.tqqq5y,
       spxTt: tt(r.spx, L.spx), ndxTt: tt(r.ndx, L.ndx), tqqqTt: tt(r.tqqq, L.tqqq),
     }));
+  }
+
+  // Bonus HY (fuente única de la regla) para una fecha, con punto HY en vivo opcional.
+  async getHyBonusFor(date: string, liveHy?: number, liveDate?: string) {
+    const iso = date && /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : new Date().toISOString().slice(0, 10);
+    const rows = await this.prisma.btMarketData.findMany({
+      where: { ticker: { in: ['BAMLH0A0HYM2', 'DFEDTARU'] }, date: { lte: new Date(iso) } },
+      orderBy: { date: 'desc' }, take: 4000, select: { ticker: true, date: true, close: true },
+    });
+    const hyMap: PriceMap = new Map(), fedMap: PriceMap = new Map();
+    for (const x of rows) (x.ticker === 'DFEDTARU' ? fedMap : hyMap).set(x.date.toISOString().slice(0, 10), Number(x.close));
+    const live = liveHy != null && Number.isFinite(liveHy) && liveDate && liveDate.slice(0, 10) <= iso ? { date: liveDate, value: liveHy } : null;
+    return { date: iso, ...getHyBonusWithLive(hyMap, iso, fedMap, live) };
   }
 
   async getBhtForwardDetail(date: string) {

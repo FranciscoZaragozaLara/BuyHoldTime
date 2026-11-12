@@ -16,6 +16,30 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getLiveStaleTime, isMarketOpen } from '@/lib/queryClient';
 
 
+// Bonus HY del termómetro: la regla vive solo en el backend (thermo-history.getHyBonus).
+// Se pide para hoy con el HY OAS en vivo anexado, en lugar de reimplementarla aquí.
+type HyBonusLive = { bonus: number; label: string; hy: number | null; z: number | null; d1: number | null };
+function useHyBonusLive(live: { close: number | null; date: string; source: string } | undefined){
+  const today = new Date().toISOString().slice(0, 10);
+  const useLivePt = live?.close != null && live.source !== 'db-fallback' && /^\d{4}-\d{2}-\d{2}/.test(live.date);
+  const hy = useLivePt ? Number(live!.close) : null;
+  const hyDate = useLivePt ? live!.date.slice(0, 10) : null;
+  return useQuery({
+    queryKey: ['hy-bonus', today, hy, hyDate],
+    queryFn: async (): Promise<HyBonusLive> => {
+      const qs = new URLSearchParams({ date: today });
+      if (hy != null && hyDate) { qs.set('hy', String(hy)); qs.set('hyDate', hyDate); }
+      const r = await fetch(`${getApiBase()}/api/backtesting/hy-bonus?${qs}`, { cache: 'no-store' });
+      if (!r.ok) throw new Error(String(r.status));
+      const j: any = await r.json();
+      if (typeof j?.bonus !== 'number') throw new Error('hy-bonus payload inválido');
+      return { bonus: j.bonus, label: String(j.label ?? ''), hy: j.hy ?? null, z: j.z ?? null, d1: j.d1 ?? null };
+    },
+    staleTime: 10 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
+}
+
 function useLiveTicker(ticker: string){
   return useQuery({
     queryKey: ['live', ticker],
@@ -593,6 +617,7 @@ export function IndicatorsPanel() {
   const liveNqDec = useLiveTicker('NSDQ_DEC_VOL');
   const liveSxAdv = useLiveTicker('SPX_ADV_VOL');
   const liveSxDec = useLiveTicker('SPX_DEC_VOL');
+  const hyBonusQ = useHyBonusLive(liveHyOas.data);
   const liveMap: Record<string, any> = { '^GSPC': liveGspc, '^IXIC': liveIxic, 'TQQQ': liveTqqq, 'CPIAUCSL': liveCpi, 'CPILFESL': liveCore, 'M2SL': liveM2, 'BOGMBASE': liveM0, 'DCOILWTICO': liveOil, 'DFEDTARU': liveFed, 'DGS2': live2y, 'DGS10': live10y, 'DGS30': live30y, 'BAMLH0A0HYM2': liveHyOas, 'BAMLH0A0HYM2EY': liveHyEy, 'GDP': liveGdp, 'GDPC1': liveGdpc1, 'FINRA_DEBIT': liveFinra, 'MSACSR': liveMsacsr, 'VIXCLS': liveVix, 'FEAR_GREED': liveFg, 'NYSE_ADV_VOL': liveNyAdv, 'NYSE_DEC_VOL': liveNyDec, 'NSDQ_ADV_VOL': liveNqAdv, 'NSDQ_DEC_VOL': liveNqDec, 'SPX_ADV_VOL': liveSxAdv, 'SPX_DEC_VOL': liveSxDec };
   // Historial para gráfica: merge BD + live más reciente para siempre estar al día
   const chartHistory = (() => {
@@ -745,82 +770,6 @@ export function IndicatorsPanel() {
     for (let i=0;i<400 && vals.length<n;i++){ const d=new Date(isoDate); d.setDate(d.getDate()-i); const v=map.get(d.toISOString().slice(0,10)); if(v!=null) vals.push(v); }
     if (vals.length<minObs) return null;
     return vals.reduce((a,b)=>a+b,0)/vals.length;
-  }
-  // Bonus asimétrico HY OAS (Régimen 3: +5 armado / +10 G1 / +20 G2). Espejo del backend:
-  // solo suma fuera del promedio base, nunca resta. Requiere 36M de historia.
-  function hyBack(map: Map<string, number>, iso: string, months: number, lookback: number): number | null {
-    const d = new Date(iso.slice(0, 10)); d.setMonth(d.getMonth() - months);
-    return getClosestPrice(map, d.toISOString().slice(0, 10), lookback);
-  }
-  function hySigma24(map: Map<string, number>, isoDate: string, minRefs = 18, floor = 0.20): number | null {
-    if (!map || map.size < 500 || !isValidIsoDate(isoDate)) return null;
-    const base = new Date(isoDate.slice(0, 10));
-    const ds: number[] = [];
-    for (let k = 0; k < 24; k++) {
-      const ref = new Date(base.getFullYear(), base.getMonth() - k + 1, 0);
-      const rk = ref.toISOString().slice(0, 10);
-      if (rk > isoDate.slice(0, 10)) continue;
-      const a = getClosestPrice(map, rk, 12);
-      const b = hyBack(map, rk, 3, 45);
-      if (a == null || b == null) continue;
-      ds.push(a - b);
-    }
-    if (ds.length < minRefs) return null;
-    const m = ds.reduce((x, y) => x + y, 0) / ds.length;
-    const sd = Math.sqrt(ds.reduce((x, y) => x + (y - m) * (y - m), 0) / ds.length);
-    return Math.max(sd, floor);
-  }
-  function hyArmed(map: Map<string, number>, isoDate: string): boolean {
-    if (!map || map.size < 500 || !isValidIsoDate(isoDate)) return false;
-    const vals = [...map.entries()].filter(([k]) => k <= isoDate.slice(0, 10)).map(([, v]) => v).sort((a, b) => a - b);
-    if (vals.length < 500) return false;
-    const p20 = vals[Math.floor(vals.length * 0.2)];
-    const back = new Date(isoDate.slice(0, 10)); back.setMonth(back.getMonth() - 6);
-    const bk = back.toISOString().slice(0, 10);
-    for (const [k, v] of map) if (k > bk && k <= isoDate.slice(0, 10) && v < p20) return true;
-    return false;
-  }
-  function fedRescueLive(fed: Map<string, number> | undefined, isoDate: string): number | null {
-    // Espejo de fedRescue backend: ZIRP tras recortes (efectiva <0.75 con >0.75 en 12M previos).
-    if (!fed || fed.size === 0 || !isValidIsoDate(isoDate)) return null;
-    const cur = getClosestPrice(fed, isoDate, 15);
-    if (cur == null || cur >= 0.75) return null;
-    const b = new Date(isoDate); b.setMonth(b.getMonth() - 12);
-    const cut = b.toISOString().slice(0, 10);
-    let mx = -Infinity;
-    for (const [k, v] of fed) if (k <= isoDate.slice(0, 10) && k >= cut && v > mx) mx = v;
-    if (!(mx > 0.75)) return null;
-    return cur;
-  }
-  function hyLiveBonus(map: Map<string, number> | undefined, isoDate: string, fedMap?: Map<string, number>): { bonus: number; label: string; hy: number | null; z: number | null; d1: number | null } {
-    const none = { bonus: 0, label: 'sin dato', hy: null, z: null, d1: null };
-    const cap = (o: { bonus: number; label: string; hy: number | null; z: number | null; d1: number | null }) => {
-      if (o.bonus > 5 && (d3 == null || d3 < 0.5)) {
-        const f = fedRescueLive(fedMap, isoDate);
-        if (f != null) return { ...o, bonus: 5, label: `${o.label} · tope Fed` };
-      }
-      return o;
-    };
-    if (!map || map.size === 0 || !isValidIsoDate(isoDate)) return none;
-    const hy = getClosestPrice(map, isoDate);
-    if (hy == null) return none;
-    const d1v = hyBack(map, isoDate, 1, 45);
-    const d1 = d1v == null ? null : hy - d1v;
-    const d3v = hyBack(map, isoDate, 3, 45);
-    const d3 = d3v == null ? null : hy - d3v;
-    const sig = hySigma24(map, isoDate);
-    const z = d3 == null || sig == null || sig === 0 ? null : d3 / sig;
-    // Tramos extremos por nivel + impulso (solo semáforo, no tocan los gatillos del Régimen 3).
-    if (hy > 10 && d3 != null && d3 > 0) return cap({ bonus: 35, label: `crítico HY>10 Δ3M +${d3.toFixed(2)}`, hy, z, d1 });
-    if (hy > 9 && d3 != null && d3 > 0) return cap({ bonus: 30, label: `severo HY>9 Δ3M +${d3.toFixed(2)}`, hy, z, d1 });
-    if (hy > 8 && d1 != null && d1 > 0) return cap({ bonus: 25, label: `alto HY>8 Δ1M +${d1.toFixed(2)}`, hy, z, d1 });
-    if (d1 != null && d1 >= 1.0) return cap({ bonus: 20, label: `G2 Δ1M +${d1.toFixed(2)}`, hy, z, d1 });
-    if (z != null && z > 1.5 && hy > 5) return cap({ bonus: 10, label: `G1 z +${z.toFixed(1)}σ`, hy, z, d1 });
-    // Estrés sostenido (solo semáforo, no toca los gatillos del Régimen 3).
-    const m3 = d1v != null && d3v != null ? (hy + d1v + d3v) / 3 : null;
-    if (m3 != null && m3 >= 5.75) return { bonus: 5, label: `sostenido ${m3.toFixed(2)}`, hy, z, d1 };
-    if (hyArmed(map, isoDate)) return { bonus: 5, label: 'armado', hy, z, d1 };
-    return { bonus: 0, label: '—', hy, z, d1 };
   }
   // % vs la fila de hace N meses (series mensuales FRED). Espejo de getMonthlyPct backend.
   function monthlyPctLive(map: Map<string, number> | undefined, isoDate: string, monthsBack: number): number | null {
@@ -1178,14 +1127,12 @@ export function IndicatorsPanel() {
   const thermoFg = (liveMap['FEAR_GREED']?.data?.close != null && liveMap['FEAR_GREED'].data.source !== 'db-fallback') ? Number(liveMap['FEAR_GREED'].data.close) : getClosestPrice(marketHistory['FEAR_GREED'], thermoToday);
   const thermoY30 = (liveMap['DGS30']?.data?.close != null && liveMap['DGS30'].data.source !== 'db-fallback') ? Number(liveMap['DGS30'].data.close) : getClosestPrice(marketHistory['DGS30'], thermoToday);
   const thermoY30ma = getMa126(marketHistory['DGS30'], liveMap['DGS30']?.data?.date || thermoToday);
-  // Serie HY con punto live anexado para el bonus Régimen 3 (asimétrico, fuera del promedio).
-  const hyLiveMap: Map<string, number> | undefined = (() => {
-    const base = marketHistory['BAMLH0A0HYM2'];
-    const lq = liveMap['BAMLH0A0HYM2'];
-    if (!base && lq?.data?.close == null) return undefined;
-    const m = new Map(base ?? []);
-    if (lq?.data?.close != null && lq.data.source !== 'db-fallback' && isValidIsoDate(lq.data.date)) m.set(String(lq.data.date).slice(0, 10), Number(lq.data.close));
-    return m;
+  // Bonus HY de hoy desde el backend (fuente única). Mientras carga o si falla, se usa el
+  // último bonus guardado en bt_thermo_history para no pintar el termómetro sin bonus.
+  const hyBonusNow: HyBonusLive = hyBonusQ.data ?? (() => {
+    const keys = Object.keys(thermoHist).filter((k) => k <= thermoToday).sort();
+    const th = keys.length ? thermoHist[keys[keys.length - 1]] : undefined;
+    return { bonus: th?.bonus ?? 0, label: th?.bonusLabel ?? 'sin dato', hy: null, z: null, d1: null };
   })();
   // Series M2/M0 con punto live anexado para el bonus simétrico de liquidez.
   const liqMergeLive = (key: string): Map<string, number> => {
@@ -1233,7 +1180,7 @@ export function IndicatorsPanel() {
         const coreScore = thermoCore != null && thermoCoreMa != null ? cpiMScore(thermoCore, thermoCoreMa) : null;
         const y2mScore = thermoY2 != null && thermoY2ma != null ? y2mRiskScore(thermoY2, thermoY2ma) : null;
         const y30Score = thermoY30 != null && thermoY30ma != null ? y30mRiskScore(thermoY30, thermoY30ma) : null;
-        const hyB = hyLiveBonus(hyLiveMap, thermoToday, marketHistory['DFEDTARU']);
+        const hyB = hyBonusNow;
         const liqB = liqLiveBonus(liqM2Map, liqM0Map, thermoToday, marketHistory['CPIAUCSL']);
         const oilB = oilLiveBonus(oilMapM, thermoToday);
         const mgScore = thermoMargin != null && thermoMarginMa != null ? mgMScore(thermoMargin, thermoMarginMa) : null;
@@ -1546,7 +1493,7 @@ export function IndicatorsPanel() {
           const y2mForCard = ((): { cur: number; ma: number; d: number; score: number; levelScore: number; trendScore: number } | null => { if(t!=='DGS2') return null; const cur = showLive ? Number(live) : (v!=null ? Number(v) : null); if(cur==null) return null; const refRaw = q?.data?.date; const refDate = isValidIsoDate(refRaw) ? String(refRaw).slice(0,10) : new Date().toISOString().slice(0,10); const ma = getMa126(marketHistory['DGS2'], refDate); if(ma==null) return null; const b = momBlend(Y2M_LVL_SEGS, Y2M_TRD_SEGS, cur, ma); return { cur, ma, d: b.delta, score: Math.round(0.4*b.levelScore+0.6*b.trendScore), levelScore: b.levelScore, trendScore: b.trendScore }; })();
           const y30mForCard = ((): { cur: number; ma: number; d: number; score: number; levelScore: number; trendScore: number } | null => { if(t!=='DGS30') return null; const cur = showLive ? Number(live) : (v!=null ? Number(v) : null); if(cur==null) return null; const refRaw = q?.data?.date; const refDate = isValidIsoDate(refRaw) ? String(refRaw).slice(0,10) : new Date().toISOString().slice(0,10); const ma = getMa126(marketHistory['DGS30'], refDate); if(ma==null) return null; const b = momBlend(Y30M_LVL_SEGS, Y2M_TRD_SEGS, cur, ma); return { cur, ma, d: b.delta, score: Math.round(0.4*b.levelScore+0.6*b.trendScore), levelScore: b.levelScore, trendScore: b.trendScore }; })();
           // HY OAS: card informativa sin orbe de peso — bonus asimétrico Régimen 3 fuera del promedio.
-          const hyCardB = isHyOas ? hyLiveBonus(hyLiveMap, isValidIsoDate(q?.data?.date) ? String(q.data.date).slice(0, 10) : new Date().toISOString().slice(0, 10), marketHistory['DFEDTARU']) : null;
+          const hyCardB = isHyOas ? hyBonusNow : null;
           // M2/M0: cards informativas con el bonus simétrico de liquidez (fuera del promedio, como HY).
           const liqCardB = (isM2||isM0) ? liqLiveBonus(liqM2Map, liqM0Map, isValidIsoDate(q?.data?.date) ? String(q.data.date).slice(0, 10) : new Date().toISOString().slice(0, 10), marketHistory['CPIAUCSL']) : null;
           // WTI: card informativa con el bonus simétrico de petróleo (fuera del promedio, como HY/LIQ).
@@ -1951,7 +1898,7 @@ export function IndicatorsPanel() {
                 const m2y = monthlyPctLive(liqM2Map, d, 12);
                 const m0d = monthlyPctLive(liqM0Map, d, 3);
                 const isLiveRow = sortCol==='date' && sortDir==='desc' && r.date===maxDate;
-                const hyBO = isLiveRow ? hyLiveBonus(hyLiveMap, d, marketHistory['DFEDTARU']) : null;
+                const hyBO = isLiveRow ? hyBonusNow : null;
                 const liqBO = isLiveRow ? liqLiveBonus(liqM2Map, liqM0Map, d, marketHistory['CPIAUCSL']) : null;
                 const oilBO = isLiveRow ? oilLiveBonus(oilMapM, d) : null;
                 const hyBv = isLiveRow ? (hyBO?.bonus ?? null) : (thR?.bonus ?? null);

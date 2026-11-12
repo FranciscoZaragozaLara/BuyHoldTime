@@ -1,4 +1,4 @@
-import { bandScore, HY_SEGS, CPI_SEGS, CAPE_SEGS, PE_SEGS, FWD_SEGS, RATIO_SEGS, Y2M_LVL_SEGS, Y2M_TRD_SEGS, Y30M_LVL_SEGS, CPI_LVL_SEGS, CPI_TRD_SEGS, MG_SEGS, MG_TRD_SEGS, VIX_SEGS, getMa126, getCpiMa6, getMarginGdpMa24, getHyBonus, y2mScore, y30mScore, cpiScore, mgScore, pibScore, fgScore, computeThermoDay, PriceMap } from './thermo-history';
+import { bandScore, HY_SEGS, CPI_SEGS, CAPE_SEGS, PE_SEGS, FWD_SEGS, RATIO_SEGS, Y2M_LVL_SEGS, Y2M_TRD_SEGS, Y30M_LVL_SEGS, CPI_LVL_SEGS, CPI_TRD_SEGS, MG_SEGS, MG_TRD_SEGS, VIX_SEGS, getMa126, getCpiMa6, getMarginGdpMa24, getHyBonus, getHyBonusWithLive, y2mScore, y30mScore, cpiScore, mgScore, pibScore, fgScore, computeThermoDay, PriceMap } from './thermo-history';
 
 const map = (rows: [string, number][]): PriceMap => new Map(rows);
 
@@ -133,7 +133,7 @@ describe('thermo-history', () => {
     expect(getMarginGdpMa24(s, '1999-07-15')).toBeCloseTo(3.75, 8);
   });
 
-  test('HY bonus asimétrico Régimen 3: G2 +20, G1 +10, armado +5', () => {
+  test('HY bonus asimétrico Régimen 3: G2 +20, G1 +10, armado +2', () => {
     // Serie cada 10 días: plana en 3.0 con salto a 6.0 dos meses atrás → G1 (z alta, HY>5, d1≈0)
     const g1 = new Map<string, number>();
     const b1 = new Date(1997, 0, 1);
@@ -155,7 +155,7 @@ describe('thermo-history', () => {
     const r2 = getHyBonus(g2, iso2.toISOString().slice(0, 10));
     expect(r2.bonus).toBe(20);
     expect(r2.label).toMatch(/^G2/);
-    // Serie en declive con historia larga: armado por complacencia reciente → +5
+    // Serie en declive con historia larga: armado por complacencia reciente → +2
     const g5 = new Map<string, number>();
     const b5 = new Date(1990, 0, 1);
     for (let k = 0; k < 1030; k++) {
@@ -164,7 +164,7 @@ describe('thermo-history', () => {
     }
     const iso5 = new Date(b5); iso5.setDate(iso5.getDate() + 1029);
     const r5 = getHyBonus(g5, iso5.toISOString().slice(0, 10));
-    expect(r5.bonus).toBe(5);
+    expect(r5.bonus).toBe(2);
     expect(r5.label).toBe('armado');
     // Sin dato → bonus 0
     const r0 = getHyBonus(new Map(), '1999-03-15');
@@ -316,5 +316,30 @@ describe('thermo-history', () => {
     expect(r!.parts.find((p) => p.key === 'PIB')!.score).toBeCloseTo(71.9, 1);
     // VIX 15 => 60 (curva sensible) con peso 10.
     expect(r!.parts.find((p) => p.key === 'VIX')!.score).toBe(60);
+  });
+});
+
+describe('getHyBonusWithLive', () => {
+  const flat = () => {
+    const m = new Map<string, number>();
+    const b = new Date(2020, 0, 1);
+    for (let k = 0; k < 900; k++) { const d = new Date(b); d.setDate(d.getDate() + k); m.set(d.toISOString().slice(0, 10), 4.0); }
+    return m;
+  };
+  test('sin punto en vivo = getHyBonus', () => {
+    const m = flat();
+    const iso = '2022-06-10';
+    const r = getHyBonusWithLive(m, iso);
+    expect(r.bonus).toBe(getHyBonus(m, iso).bonus);
+    expect(r.hy).toBe(4.0);
+  });
+  test('el punto en vivo se usa como HY del día sin mutar la serie', () => {
+    const m = flat();
+    const iso = '2022-05-20';
+    const r = getHyBonusWithLive(m, iso, undefined, { date: iso, value: 5.2 });
+    expect(r.hy).toBe(5.2);
+    expect(r.d1).toBeCloseTo(1.2, 8);
+    expect(r.bonus).toBe(20); // Δ1M ≥ +1.0 → G2
+    expect(m.get(iso)).toBe(4.0);
   });
 });

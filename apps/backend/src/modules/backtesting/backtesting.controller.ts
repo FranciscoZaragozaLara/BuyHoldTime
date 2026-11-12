@@ -71,6 +71,12 @@ export class BacktestingController {
   @Get('bht-forward')
   getBhtForward(@Query('from') from?: string, @Query('to') to?: string) { return this.svc.getBhtForward(from, to); }
 
+  // Bonus HY del termómetro (regla única en thermo-history.getHyBonus). hy/hyDate: punto en vivo opcional.
+  @Get('hy-bonus')
+  getHyBonus(@Query('date') date?: string, @Query('hy') hy?: string, @Query('hyDate') hyDate?: string) {
+    return this.svc.getHyBonusFor(date ?? '', hy != null && hy !== '' ? Number(hy) : undefined, hyDate);
+  }
+
   @Get('bht-forward/detail')
   getBhtForwardDetail(@Query('date') date: string) { return this.svc.getBhtForwardDetail(date); }
 
