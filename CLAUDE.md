@@ -32,4 +32,5 @@ Plan y estado actual: **`docs/plan/HANDOFF.md`** (léelo antes de empezar una ta
 - Columnas en snake_case en SQL (`historical_eps_quarterly`), camelCase solo en Prisma.
 
 ## Tests
-- Backend: Jest + ts-jest (`apps/backend/src/__tests__`). Frontend: aún sin corredor; las funciones de cálculo van en `src/lib` para poder testearlas (p. ej. `solarYearEps.ts`).
+- Backend: Jest + ts-jest (`apps/backend/src/__tests__` y `*.spec.ts`): `pnpm test:backend`.
+- Frontend: Vitest para funciones puras de `src/lib` (`src/lib/*.test.ts`): `pnpm test:frontend`. Las funciones de cálculo van en `src/lib` para poder testearlas. Los e2e de Playwright están en `apps/frontend/tests/`.

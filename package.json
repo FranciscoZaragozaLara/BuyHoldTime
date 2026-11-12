@@ -6,7 +6,9 @@
     "dev:backend": "pnpm --filter backend start:dev",
     "build:frontend": "pnpm --filter frontend build",
     "build:backend": "pnpm --filter backend build",
-    "build": "pnpm --recursive build"
+    "build": "pnpm --recursive build",
+    "test:frontend": "pnpm --filter frontend test",
+    "test:backend": "pnpm --filter backend test"
   },
   "dependencies": {
     "dotenv": "^17.4.2"
