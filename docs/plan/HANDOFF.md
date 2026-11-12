@@ -33,7 +33,8 @@ Marcar `[x]` con rama y commit al terminar.
 - [x] `cd apps/backend && npx prisma validate` — válido.
 - [x] Correr tests del backend en la punta de la cadena: 94/96. Fallan 2 de `etf-monthly-pe.spec.ts` (QQQ, TQQQ): la serie mensual de P/E en la BD tiene ~136 días (límite 95). Es frescura de datos, no código; también falla en el `main` anterior.
 - [x] Fast-forward de `main` a `fix/eps-chart-ttm-current-year` (`e582f80`). Sin push.
-- [ ] Actualizar la serie mensual de P/E de QQQ/TQQQ (multpl Nasdaq-100) y volver a correr `etf-monthly-pe.spec.ts`.
+- [x] Serie mensual de P/E de QQQ/TQQQ (GuruFocus Nasdaq 100 PE Ratio, no multpl): agregados jul–oct 2026 (27.39, 28.54, 29.06, 27.12; último valor diario de cada mes) a `source/nasdaq_100_pe.js`; la historia hasta jun queda como el snapshot del 16 jun (GuruFocus revisa su historia con cada trimestre). `seed-nasdaq-monthly.ts` sin ruta absoluta. Suite del backend 110/110 — rama `fix/qqq-monthly-pe`.
+- [ ] Mantenimiento mensual de esa serie: GuruFocus bloquea scripts (403); hoy se lee a mano o desde Chrome. Automatizar con el GuruFocus Scrapper (P3) y, si se quiere punto en el tiempo, congelar cada mes como el CAPE.
 
 ### P1 — Entorno de desarrollo híbrido
 - [x] `DATABASE_URL` del backend y de GuruFocus apuntando a `buyholdtime-db` (ya lo estaban, `localhost:5432`). Migraciones: las 6 pendientes ya estaban aplicadas a mano → `migrate resolve --applied`; nueva migración idempotente `20261112000000_sync_schema_drift` (liq_bonus, bt_start_dates, índices de bt_backtest_runs que no tenían migración; sin ella una BD nueva en la VPS no llegaba al schema) — rama `fix/prisma-liq-bonus-migration` (`6354042`). Verificado en BD vacía (sin drift) y en copia de desarrollo. **No usar `migrate dev`**: la BD tiene tablas de respaldo manuales (`bt_*_bak20261102`, `bt_*_pre2027`) y propondría reset/drop.

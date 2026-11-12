@@ -3,6 +3,7 @@ import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
 import * as fs from 'fs';
+import * as path from 'path';
 
 // Interface representing the parsed nasdaq 100 pe entries
 interface PeDataEntry {
@@ -21,7 +22,7 @@ async function main() {
   await prisma.$connect();
 
   // 1. Read and parse the Nasdaq 100 PE js file
-  const jsPath = '/Users/zilphfanel/Documents/AgyApps/BestTimeToInvest/source/nasdaq_100_pe.js';
+  const jsPath = path.resolve(__dirname, '..', '..', '..', 'source', 'nasdaq_100_pe.js');
   const rawContent = fs.readFileSync(jsPath, 'utf-8');
   
   // Extract all arrays of form: [Date.UTC(year, monthIndex, day), value]
