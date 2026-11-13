@@ -11,6 +11,7 @@ import { RiskDisclaimer } from '@/components/RiskDisclaimer';
 import { TOKENS } from '@/lib/designTokens';
 import { changeBadgeType, fearGreedLabel, formatChangePct } from '@/lib/formatChange';
 import { capeBadgeType, capeBandLabel } from '@/lib/capeBands';
+import { dailyMovers } from '@/lib/dailyMovers';
 import { levelLabel } from '@/lib/levelLabels';
 
 // ISR: revalidate home page every 60 seconds
@@ -35,10 +36,8 @@ export default async function HomePage({
     console.error('Home: no se pudieron cargar los tickers', err);
   }
 
-  // Filter top recommended tickers sorted by index desc
-  const recommendedTickers = [...tickers]
-    .sort((a, b) => b.buyHoldIndex - a.buyHoldIndex)
-    .slice(0, 5);
+  // Movimientos del día: 3 mayores alzas y 3 mayores caídas del listado (solo acciones).
+  const { gainers, losers } = dailyMovers(tickers, 3);
 
   const spyTicker = tickers.find((t) => t.symbol === 'SPY');
   const spyPrice = spyTicker ? `$${spyTicker.price.toFixed(2)}` : '—';
@@ -180,8 +179,8 @@ export default async function HomePage({
         </section>
         )}
 
-        {/* Featured Stocks (oculta si la API no respondió) */}
-        {recommendedTickers.length > 0 && (
+        {/* Movimientos del día (oculta si la API no respondió o no hubo movimientos) */}
+        {gainers.length + losers.length > 0 && (
         <section className="flex flex-col gap-6">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div>
@@ -200,20 +199,24 @@ export default async function HomePage({
             </Link>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {recommendedTickers.map((stock) => {
+          {([['gainers', gainers, true], ['losers', losers, false]] as const).map(([key, list, up]) => list.length > 0 && (
+            <div key={key} className="flex flex-col gap-3">
+              <h3 className={`text-sm font-semibold ${up ? 'text-favorable-400' : 'text-risk-400'}`}>{t(key === 'gainers' ? 'gainersTitle' : 'losersTitle')}</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {list.map((stock) => {
               const isBuy = stock.buyHoldIndex >= 75;
               const badgeClass = stock.buyHoldIndex >= 85 
                 ? 'bg-favorable-500/10 text-favorable-400 border-favorable-500/20' 
                 : 'bg-blue-500/10 text-blue-400 border-blue-500/20';
 
               return (
-                <div 
-                  key={stock.symbol} 
+                <Link
+                  key={stock.symbol}
+                  href={`/${locale}/prices/${stock.symbol}`}
                   className="flex flex-col gap-4 p-6 rounded-2xl border border-slate-900 bg-slate-950/40 backdrop-blur-sm shadow-xl relative overflow-hidden transition hover:border-slate-800 hover:bg-slate-900/10"
                 >
-                  {/* Color strip accent representing index score */}
-                  <div className={`absolute top-0 left-0 w-1 h-full ${isBuy ? 'bg-favorable-500' : 'bg-caution-500'}`} />
+                  {/* Franja por dirección del día */}
+                  <div className={`absolute top-0 left-0 w-1 h-full ${up ? 'bg-favorable-500' : 'bg-risk-500'}`} />
                   
                   <div className="flex justify-between items-center">
                     <div>
@@ -228,7 +231,7 @@ export default async function HomePage({
                   <div className="flex justify-between items-center">
                     <div>
                       <span className="text-[10px] text-slate-500 uppercase font-semibold">{t('price')}</span>
-                      <p className="text-lg font-extrabold text-white">${stock.price.toFixed(2)}</p>
+                      <p className="text-lg font-extrabold text-white">${Number(stock.price).toFixed(2)}</p>
                     </div>
                     <div className="text-right">
                       <span className="text-[10px] text-slate-500 uppercase font-semibold">{t('dailyChange')}</span>
@@ -249,14 +252,16 @@ export default async function HomePage({
                   </div>
 
                   <div className="flex gap-4 text-[10px] text-slate-500">
-                    <span>{t('pe')} <strong>{stock.pe}x</strong></span>
+                    <span>{t('pe')} <strong>{stock.pe != null && Number.isFinite(Number(stock.pe)) ? `${Number(stock.pe).toFixed(2)}x` : '—'}</strong></span>
                     <span>•</span>
-                    <span>{t('divYield')} <strong>{stock.dy}%</strong></span>
+                    <span>{t('divYield')} <strong>{stock.dy != null && Number.isFinite(Number(stock.dy)) ? `${Number(stock.dy).toFixed(2)}%` : '—'}</strong></span>
                   </div>
-                </div>
+                </Link>
               );
             })}
-          </div>
+              </div>
+            </div>
+          ))}
           <RiskDisclaimer variant="signal" />
         </section>
         )}

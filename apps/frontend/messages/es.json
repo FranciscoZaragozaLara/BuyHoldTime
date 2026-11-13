@@ -695,8 +695,8 @@
     "ctaTickers": "Explorar acciones",
     "ctaIndicators": "Indicadores de mercado",
     "indicatorsTitle": "Principales indicadores del mercado",
-    "topTitle": "Puntuaciones Buy/Hold más altas",
-    "topSubtitle": "Las puntuaciones más altas del modelo algorítmico Buy/Hold (educativo, no son recomendaciones).",
+    "topTitle": "Movimientos del día",
+    "topSubtitle": "Las 3 mayores alzas y las 3 mayores caídas de nuestro listado en la última sesión (solo acciones). Educativo, no son recomendaciones.",
     "viewAll": "Ver los {count} tickers →",
     "price": "Precio",
     "dailyChange": "Cambio diario",
@@ -711,7 +711,9 @@
     "fg_fear": "Miedo",
     "fg_neutral": "Neutral",
     "fg_greed": "Codicia",
-    "fg_extremeGreed": "Codicia extrema"
+    "fg_extremeGreed": "Codicia extrema",
+    "gainersTitle": "▲ Mayores alzas",
+    "losersTitle": "▼ Mayores caídas"
   },
   "Footer": {
     "description": "Plataforma educativa de análisis bursátil que combina indicadores macroeconómicos, CAPE de Shiller, razones P/E, historial de EPS y puntuaciones algorítmicas para estudiar el mercado con visión de largo plazo.",

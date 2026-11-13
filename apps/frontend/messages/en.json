@@ -695,8 +695,8 @@
     "ctaTickers": "Explore tickers",
     "ctaIndicators": "Market indicators",
     "indicatorsTitle": "Main market indicators",
-    "topTitle": "Top Buy/Hold Index Scores",
-    "topSubtitle": "Highest model scores on our algorithmic Buy/Hold Index (educational, not recommendations).",
+    "topTitle": "Today's movers",
+    "topSubtitle": "The 3 biggest gainers and 3 biggest decliners in our list in the latest session (stocks only). Educational, not recommendations.",
     "viewAll": "View all {count} tickers →",
     "price": "Price",
     "dailyChange": "Daily change",
@@ -711,7 +711,9 @@
     "fg_fear": "Fear",
     "fg_neutral": "Neutral",
     "fg_greed": "Greed",
-    "fg_extremeGreed": "Extreme greed"
+    "fg_extremeGreed": "Extreme greed",
+    "gainersTitle": "▲ Top gainers",
+    "losersTitle": "▼ Top decliners"
   },
   "Footer": {
     "description": "An educational market analysis platform combining macroeconomic indicators, Shiller PE (CAPE), P/E ratios, EPS history, and algorithmic scoring to study the market with a long-term view.",
