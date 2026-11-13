@@ -15,6 +15,12 @@ export const ORB_PART_KEY: Record<string, string> = {
   MSACSR: 'MS', 'PIB real': 'PIB',
 };
 
+/** Componente del termómetro → nombre de su orbe (el mismo que en las cards, para compartir popover e historia). */
+export const PART_ORB_NAME: Record<string, string> = {
+  CAPE: 'CAPE', FWD: 'Fwd PE', RATIO: 'CAPE Ratio', CPI: 'CPI', CORE: 'Core', Y2M: '2Y Mom', '30Y': '30Y',
+  MG: 'Margen/PIB', VIX: 'VIX', FG: 'F&G', MS: 'MSACSR', PIB: 'PIB real',
+};
+
 export function orbHistoryRows(data: MonthlyParts[] | undefined, orbName: string): OrbHistoryRow[] {
   const key = ORB_PART_KEY[orbName];
   if (!key || !Array.isArray(data)) return [];

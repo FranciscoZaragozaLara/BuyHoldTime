@@ -3,7 +3,7 @@ import { getApiBase } from '@/lib/apiBase';
 import { useCallback, useEffect, useLayoutEffect, useState, useRef, useMemo } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import { levelLabel } from '@/lib/levelLabels';
-import { monthLabel, orbHistoryRows, shortDate, ORB_PART_KEY, type MonthlyParts } from '@/lib/orbHistory';
+import { monthLabel, orbHistoryRows, shortDate, ORB_PART_KEY, PART_ORB_NAME, type MonthlyParts } from '@/lib/orbHistory';
 import { useMarketSyncStream } from './useMarketSyncStream';
 import MarketSyncModal from './MarketSyncModal';
 import { MarginGdpChart } from './MarginGdpChart';
@@ -1217,6 +1217,11 @@ export function IndicatorsPanel() {
         // Termómetro compuesto: promedio ponderado base 100 (no suma). Cada indicador aporta
         // puntaje 0-100 × peso; al agregar más, se normaliza entre el peso total acumulado.
         const PART_DEC: Record<string, number> = { RATIO: 3, FG: 0, MS: 1 };
+        // Bandas de cada componente (las mismas de los orbes de las cards) para el popover del detalle.
+        const PART_BANDS: Record<string, [number, number, string, string, string][]> = {
+          CAPE: CAPE_BANDS, FWD: FWD_BANDS, RATIO: RATIO_BANDS, CPI: CPI_BANDS, CORE: CPI_BANDS, Y2M: Y2M_BANDS,
+          '30Y': Y30_BANDS, MG: MG_BANDS, VIX: VIX_BANDS, FG: FG_BANDS, MS: MS_BANDS, PIB: GDP_BANDS,
+        };
         const parts = (thermoLive?.parts ?? []).map((p) => ({ ...p, dec: PART_DEC[p.key] ?? 2 }));
         const wTotal = parts.reduce((m, p) => m + p.weight, 0);
         const hyB = hyBonusNow;
@@ -1310,7 +1315,11 @@ export function IndicatorsPanel() {
                     <tr key={p.key} className="border-b border-slate-800/60 text-slate-300">
                       <td className="px-3 py-1.5">{partLabel(p.key, loc)}</td>
                       <td className="text-right px-3 py-1.5">{p.value.toFixed(p.dec)}</td>
-                      <td className="text-right px-3 py-1.5" style={{ color: capeScoreColor(p.score) }}>{p.score.toFixed(0)}</td>
+                      <td className="text-right px-3 py-1" style={{ color: capeScoreColor(p.score) }}>
+                        {PART_BANDS[p.key] && PART_ORB_NAME[p.key]
+                          ? <span className="inline-flex justify-end"><ScoreOrb name={PART_ORB_NAME[p.key]} value={p.value} dec={p.dec} weight={p.weight} score={Math.round(p.score)} bands={PART_BANDS[p.key]} small /></span>
+                          : p.score.toFixed(0)}
+                      </td>
                       <td className="text-right px-3 py-1.5 text-slate-400">{p.weight}</td>
                       <td className="text-right px-3 py-1.5 text-sky-300">{(p.score * p.weight / (wTotal || 1)).toFixed(1)}</td>
                     </tr>

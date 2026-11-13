@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { monthLabel, orbHistoryRows, shortDate, type MonthlyParts } from './orbHistory';
+import { monthLabel, orbHistoryRows, ORB_PART_KEY, PART_ORB_NAME, shortDate, type MonthlyParts } from './orbHistory';
 
 const data: MonthlyParts[] = [
   { month: '2026-11', date: '2026-11-13', parts: { CAPE: { value: 40.01, score: 70.1, weight: 20 }, Y2M: { value: 4.73, score: 70.7, weight: 10 } } },
@@ -33,5 +33,11 @@ describe('shortDate', () => {
     expect(shortDate('2026-10-06', 'en')).toBe('Oct 06, 26');
     expect(shortDate('2026-10-06', 'es').toLowerCase()).toContain('oct');
     expect(shortDate('x', 'es')).toBe('x');
+  });
+});
+
+describe('PART_ORB_NAME', () => {
+  it('cada componente apunta a un orbe que vuelve al mismo componente', () => {
+    for (const [part, orb] of Object.entries(PART_ORB_NAME)) expect(ORB_PART_KEY[orb]).toBe(part);
   });
 });
