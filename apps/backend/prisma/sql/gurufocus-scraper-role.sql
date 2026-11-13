@@ -19,3 +19,5 @@ GRANT SELECT ON tickers TO gurufocus_scraper;
 -- Tablas propias del scraper
 GRANT SELECT, INSERT, UPDATE, DELETE ON stocks, snapshots TO gurufocus_scraper;
 GRANT USAGE, SELECT ON SEQUENCE stocks_id_seq, snapshots_id_seq TO gurufocus_scraper;
+-- Monitor de frescura (fase 2): registra sus corridas; solo INSERT, sin leer ni modificar otras.
+GRANT INSERT ON data_source_runs TO gurufocus_scraper;

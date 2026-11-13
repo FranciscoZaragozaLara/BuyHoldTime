@@ -839,12 +839,13 @@
         "cadence": "Cadence",
         "lastDate": "Latest data",
         "age": "Age",
-        "status": "Status"
+        "status": "Status",
+        "lastRun": "Last run"
       },
       "days": "{n} d",
       "thresholds": "Late after {late} days, stale after {stale}",
-      "footer": "Reference date: {today} (New York time). Phase 1: data freshness; failed runs will be logged in phase 2.",
-      "menuStale": "{n} stale data source(s)",
+      "footer": "Reference date: {today} (New York time). Runs come from data_source_runs (price sync, daily_update.py, market stream, breadth, thermometer, EDGAR and GuruFocus); Yardeni and multpl are updated manually.",
+      "menuStale": "{n} data source(s) stale or with a failed run",
       "src": {
         "stock_prices": {
           "name": "Stock prices",
@@ -910,6 +911,16 @@
           "name": "BHT forward",
           "feeds": "Daily components, popovers and orb history"
         }
+      },
+      "noRuns": "no record",
+      "expectedBy": "next before {d}",
+      "failingRuns": "{n} with a failed run",
+      "runDetail": "Last run: {status} · {when} · {process} · rows: {rows}",
+      "lastOk": "last success {when}",
+      "run": {
+        "ok": "success",
+        "partial": "partial",
+        "error": "error"
       }
     }
   }

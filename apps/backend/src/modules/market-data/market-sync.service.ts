@@ -6,6 +6,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { PrismaService } from '../../prisma/prisma.service';
 import { restoreShillerCsvFromDb, SHILLER_CSV_PATH, syncShillerCsvToDb } from '../backtesting/shiller-daily';
+import { logSourceRun, SourceRunTracker } from '../admin/data-source-runs';
 
 /**
  * Construye la línea planchada del día `date` para shiller_daily.csv SIN asumir
@@ -135,8 +136,18 @@ export class MarketSyncService {
   private refreshThermoTail(): Promise<void> {
     const from = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
     this.logger.log(`Thermo tail refresh desde ${from}`);
-    return this.runTsScript('prisma/compute-thermo-history.ts', { FROM: from })
-      .then(() => this.runTsScript('prisma/compute-bht-forward.ts', { FROM: from }))
+    const step = async (source: string, script: string) => {
+      const startedAt = new Date();
+      try {
+        await this.runTsScript(script, { FROM: from });
+        await logSourceRun(this.prisma, { source, process: 'market-sync thermo', startedAt, status: 'ok' });
+      } catch (e: any) {
+        await logSourceRun(this.prisma, { source, process: 'market-sync thermo', startedAt, status: 'error', message: e?.message });
+        throw e;
+      }
+    };
+    return step('thermo_history', 'prisma/compute-thermo-history.ts')
+      .then(() => step('bht_forward', 'prisma/compute-bht-forward.ts'))
       .then(() => this.logger.log('Thermo tail refresh done'))
       .catch((e: any) => this.logger.error(`Thermo tail refresh failed: ${e.message?.slice(0, 200)}`));
   }
@@ -177,11 +188,14 @@ export class MarketSyncService {
   @Cron('35 22 * * 1-5', { timeZone: 'America/New_York' })
   async handleBreadthSync() {
     this.logger.log('Breadth sync start');
+    const startedAt = new Date();
     try {
-      await this.refreshSpxBreadth(10);
+      const r = await this.refreshSpxBreadth(10);
       this.logger.log('Breadth sync done');
+      await logSourceRun(this.prisma, { source: 'breadth', process: 'breadth-cron (SPX)', startedAt, status: r.tickers > 0 ? 'ok' : 'error', rows: r.days, message: r.tickers > 0 ? null : 'sin constituyentes con datos' });
     } catch (e: any) {
       this.logger.error(`Breadth sync failed: ${e.message}`);
+      await logSourceRun(this.prisma, { source: 'breadth', process: 'breadth-cron (SPX)', startedAt, status: 'error', message: e.message });
     }
   }
 
@@ -417,6 +431,8 @@ export class MarketSyncService {
     // Mismo proceso completo que POST /daily: FINRA + CAPE daily + BH patch en background
     this.kickFullSyncBackground();
 
+    // Registro de corridas por fuente (yfinance, FRED, CNN, WSJ) en data_source_runs.
+    const runs = new SourceRunTracker('market-sync stream');
     try {
     for (const ind of indicators) {
       const startTs = Date.now();
@@ -614,6 +630,7 @@ export class MarketSyncService {
         error: errorMsg,
         durationMs: Date.now() - startTs,
       });
+      if (ind.kind !== 'cape' && ind.kind !== 'finra') runs.add(ind.ticker, status === 'success', daysExtracted, errorMsg ?? undefined);
       if (clientClosed) break;
       // small delay to make incremental visible
       await new Promise((r) => setTimeout(r, 120));
@@ -736,6 +753,7 @@ export class MarketSyncService {
         }
       }
     } catch {}
+    await runs.flush(this.prisma);
     // Cola del termómetro + BHT hasta hoy antes de cerrar el stream,
     // para que la tabla pinte el registro del día sin recargar la página.
     try { await this.refreshThermoTail(); } catch {}

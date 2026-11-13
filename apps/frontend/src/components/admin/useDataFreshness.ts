@@ -9,8 +9,10 @@ export type SourceFreshness = {
   id: string; type: 'api' | 'file' | 'scraper' | 'computed'; cadence: 'daily' | 'weekly' | 'monthly' | 'quarterly';
   lateDays: number; staleDays: number; lastDate: string | null; ageDays: number | null; status: FreshnessStatus;
   series: { series: string; lastDate: string | null; status: FreshnessStatus }[]; error?: string;
+  expectedBy: string | null; lastOkAt: string | null; runFailing: boolean;
+  lastRun: { status: 'ok' | 'partial' | 'error'; process: string; finishedAt: string; rows: number | null; message: string | null } | null;
 };
-export type DataFreshness = { today: string; generatedAt: string; summary: Record<FreshnessStatus, number>; sources: SourceFreshness[] };
+export type DataFreshness = { today: string; generatedAt: string; summary: Record<FreshnessStatus, number> & { failingRuns: number }; sources: SourceFreshness[] };
 
 /** GET /admin/data-freshness (solo ADMIN). Compartido por la tarjeta del panel y el aviso del menú. */
 export function useDataFreshness(enabled: boolean) {

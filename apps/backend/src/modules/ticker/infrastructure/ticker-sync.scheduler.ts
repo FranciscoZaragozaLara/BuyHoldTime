@@ -1,8 +1,10 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { spawn } from 'child_process';
 import * as path from 'path';
 import { SyncTickersUseCase } from '../application/use-cases/sync-tickers.use-case';
+import { PrismaService } from '../../../prisma/prisma.service';
+import { logSourceRun } from '../../admin/data-source-runs';
 
 /**
  * Sincronización diaria de precios históricos y métricas de los tickers (Yahoo).
@@ -19,7 +21,7 @@ export class TickerSyncScheduler {
   private running = false;
   private edgarRunning = false;
 
-  constructor(private readonly syncTickers: SyncTickersUseCase) {}
+  constructor(private readonly syncTickers: SyncTickersUseCase, @Optional() private readonly prisma?: PrismaService) {}
 
   @Cron('0 23 * * 1-5', { timeZone: 'America/New_York' })
   async handleDailyTickerSync(): Promise<void> {
@@ -72,8 +74,10 @@ export class TickerSyncScheduler {
       this.logger.log('EDGAR sync semanal: inicio');
       await this.runTsScript('prisma/sync-all-stocks-edgar.ts', 2 * 60 * 60 * 1000);
       this.logger.log(`EDGAR sync semanal: terminado en ${((Date.now() - t0) / 60000).toFixed(1)} min`);
+      if (this.prisma) await logSourceRun(this.prisma, { source: 'sec_edgar', process: 'edgar-weekly', startedAt: new Date(t0), status: 'ok' });
     } catch (e: any) {
       this.logger.error(`EDGAR sync semanal falló: ${e.message}`);
+      if (this.prisma) await logSourceRun(this.prisma, { source: 'sec_edgar', process: 'edgar-weekly', startedAt: new Date(t0), status: 'error', message: e.message });
     } finally {
       this.edgarRunning = false;
     }

@@ -839,12 +839,13 @@
         "cadence": "Ritmo",
         "lastDate": "Último dato",
         "age": "Antigüedad",
-        "status": "Estatus"
+        "status": "Estatus",
+        "lastRun": "Última corrida"
       },
       "days": "{n} d",
       "thresholds": "Atrasada después de {late} días, vencida después de {stale}",
-      "footer": "Fecha de referencia: {today} (hora de Nueva York). Fase 1: frescura del dato; las corridas fallidas se registrarán en una fase 2.",
-      "menuStale": "{n} fuente(s) de datos vencida(s)",
+      "footer": "Fecha de referencia: {today} (hora de Nueva York). Las corridas vienen de data_source_runs (sync de precios, daily_update.py, stream de mercado, amplitud, termómetro, EDGAR y GuruFocus); Yardeni y multpl se actualizan a mano.",
+      "menuStale": "{n} fuente(s) de datos vencida(s) o con corrida fallida",
       "src": {
         "stock_prices": {
           "name": "Precios de acciones",
@@ -910,6 +911,16 @@
           "name": "BHT forward",
           "feeds": "Componentes por día, popovers e historia de orbes"
         }
+      },
+      "noRuns": "sin registro",
+      "expectedBy": "siguiente antes de {d}",
+      "failingRuns": "{n} con corrida fallida",
+      "runDetail": "Última corrida: {status} · {when} · {process} · filas: {rows}",
+      "lastOk": "última exitosa {when}",
+      "run": {
+        "ok": "exitosa",
+        "partial": "parcial",
+        "error": "error"
       }
     }
   }

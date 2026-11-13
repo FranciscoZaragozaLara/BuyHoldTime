@@ -1,7 +1,9 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Inject, Optional, Injectable, Logger } from '@nestjs/common';
 import { ITickerRepositorySymbol } from '../ports/ticker-repository.interface';
 import type { ITickerRepository } from '../ports/ticker-repository.interface';
 import YahooFinance from 'yahoo-finance2';
+import { PrismaService } from '../../../../prisma/prisma.service';
+import { logSourceRun, runStatus } from '../../../admin/data-source-runs';
 
 // CRITICAL DO NOT MODIFY — Reglas docs/eps-quarterly-calculation-rules.md:
 // los trimestres estimados del backfill DEBEN etiquetarse con la matriz fiscal
@@ -86,13 +88,30 @@ export class SyncTickersUseCase {
   constructor(
     @Inject(ITickerRepositorySymbol)
     private readonly tickerRepository: ITickerRepository,
+    @Optional() private readonly prisma?: PrismaService,
   ) {
     this.yahooFinance = new YahooFinance({
       suppressNotices: ['ripHistorical', 'yahooSurvey'],
     });
   }
 
+  /** Sincroniza y registra la corrida en data_source_runs (fuente stock_prices). */
   async execute(): Promise<{ success: boolean; updatedCount: number; errors: string[] }> {
+    const startedAt = new Date();
+    try {
+      const r = await this.runSync();
+      if (this.prisma) await logSourceRun(this.prisma, {
+        source: 'stock_prices', process: 'ticker-sync', startedAt, status: runStatus(r.updatedCount, r.errors.length),
+        rows: r.updatedCount, message: r.errors.length ? `${r.errors.length} con error: ${r.errors.slice(0, 5).join(' | ')}` : null,
+      });
+      return r;
+    } catch (e: any) {
+      if (this.prisma) await logSourceRun(this.prisma, { source: 'stock_prices', process: 'ticker-sync', startedAt, status: 'error', message: e?.message });
+      throw e;
+    }
+  }
+
+  private async runSync(): Promise<{ success: boolean; updatedCount: number; errors: string[] }> {
     const tickers = await this.tickerRepository.findAll();
     this.logger.log(`Starting sync for ${tickers.length} tickers...`);
 

@@ -5,7 +5,7 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { PrismaService } from '../../prisma/prisma.service';
 import { FirebaseAdminService } from '../auth/firebase-admin.service';
 import { Role } from '@prisma/client';
-import { DATA_SOURCES, evaluateSource, summarize } from './data-freshness';
+import { DATA_SOURCES, evaluateSource, LAST_RUNS_SQL, summarize, toRunInfo } from './data-freshness';
 
 @Controller('admin')
 @UseGuards(FirebaseAuthGuard, RolesGuard)
@@ -16,16 +16,20 @@ export class AdminController {
     private readonly firebaseAdminService: FirebaseAdminService,
   ) {}
 
-  /** Frescura de datos por fuente (último dato en la BD y estatus según su ritmo de publicación). */
+  /** Frescura de datos por fuente: último dato en la BD, estatus según su ritmo y última corrida registrada. */
   @Get('data-freshness')
   async getDataFreshness() {
     const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+    // Corridas registradas (fase 2); si la tabla aún no existe, el panel sigue funcionando sin ellas.
+    const runRows = await this.prisma.$queryRawUnsafe<{ source: string; last: any; last_ok: Date | null }[]>(LAST_RUNS_SQL).catch(() => []);
+    const runsBySource = new Map(runRows.map((r) => [r.source, r]));
     const sources = await Promise.all(DATA_SOURCES.map(async (cfg) => {
+      const run = toRunInfo(runsBySource.get(cfg.id));
       try {
         const rows = await this.prisma.$queryRawUnsafe<{ series: string; d: string | null }[]>(cfg.sql);
-        return evaluateSource(cfg, rows, today);
+        return evaluateSource(cfg, rows, today, undefined, run);
       } catch (e: any) {
-        return evaluateSource(cfg, [], today, String(e?.message ?? e).slice(0, 200));
+        return evaluateSource(cfg, [], today, String(e?.message ?? e).slice(0, 200), run);
       }
     }));
     return { today, generatedAt: new Date().toISOString(), summary: summarize(sources), sources };

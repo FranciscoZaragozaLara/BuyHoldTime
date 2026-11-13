@@ -1,4 +1,4 @@
-import { DATA_SOURCES, daysBetween, evaluateSource, freshnessStatus, summarize } from './data-freshness';
+import { addDays, DATA_SOURCES, daysBetween, evaluateSource, freshnessStatus, summarize, toRunInfo } from './data-freshness';
 
 describe('data-freshness', () => {
   test('daysBetween y estatus por umbrales', () => {
@@ -41,7 +41,17 @@ describe('data-freshness', () => {
 
   test('summarize cuenta por estatus', () => {
     const base = { type: 'api', cadence: 'daily', lateDays: 1, staleDays: 2, lastDate: null, ageDays: null, series: [] } as any;
-    expect(summarize([{ ...base, id: 'a', status: 'fresh' }, { ...base, id: 'b', status: 'stale' }, { ...base, id: 'c', status: 'fresh' }]))
-      .toEqual({ fresh: 2, late: 0, stale: 1, missing: 0 });
+    expect(summarize([{ ...base, id: 'a', status: 'fresh' }, { ...base, id: 'b', status: 'stale', runFailing: true }, { ...base, id: 'c', status: 'fresh' }]))
+      .toEqual({ fresh: 2, late: 0, stale: 1, missing: 0, failingRuns: 1 });
+  });
+  test('fecha esperada del próximo dato y corrida fallida', () => {
+    const finra = DATA_SOURCES.find((s) => s.id === 'finra_margin')!;
+    const run = toRunInfo({ last: JSON.stringify({ status: 'error', process: 'daily_update.py', finishedAt: '2026-11-13T03:10:00Z', rows: null, message: '403' }), last_ok: '2026-11-12T03:10:00Z' });
+    const r = evaluateSource(finra, [{ series: 'FINRA_DEBIT', d: '2026-09-01' }], '2026-11-13', undefined, run);
+    expect(r.expectedBy).toBe(addDays('2026-09-01', 85));
+    expect(r.expectedBy).toBe('2026-11-25');
+    expect(r).toMatchObject({ status: 'fresh', runFailing: true, lastOkAt: '2026-11-12T03:10:00.000Z' });
+    expect(r.lastRun).toMatchObject({ status: 'error', message: '403', process: 'daily_update.py' });
+    expect(toRunInfo(undefined)).toEqual({ lastRun: null, lastOkAt: null });
   });
 });

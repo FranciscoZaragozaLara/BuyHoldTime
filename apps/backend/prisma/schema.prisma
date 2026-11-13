@@ -388,3 +388,20 @@ model BtBhtForward {
 
   @@map("bt_bht_forward")
 }
+
+// Monitor de frescura (fase 2): una fila por corrida de extracción de cada fuente.
+// source = id de la fuente en src/modules/admin/data-freshness.ts.
+model DataSourceRun {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  source     String
+  process    String
+  startedAt  DateTime @map("started_at") @db.Timestamptz(6)
+  finishedAt DateTime @default(now()) @map("finished_at") @db.Timestamptz(6)
+  status     String
+  rows       Int?
+  message    String?
+
+  @@index([source, startedAt(sort: Desc)], map: "data_source_runs_source_started_idx")
+  @@map("data_source_runs")
+}
+

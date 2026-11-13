@@ -13,7 +13,8 @@ export const UserMenu: React.FC = () => {
   const tf = useTranslations('Admin.freshness');
   // Aviso para admins si alguna fuente de datos está vencida (misma consulta que el panel).
   const fresh = useDataFreshness(role === 'ADMIN');
-  const staleCount = fresh.data?.summary.stale ?? 0;
+  // Fuentes vencidas + fuentes cuya última corrida falló.
+  const staleCount = (fresh.data?.summary.stale ?? 0) + (fresh.data?.summary.failingRuns ?? 0);
 
   if (!user) return null;
 
