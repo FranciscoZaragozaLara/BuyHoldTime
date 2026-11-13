@@ -7,6 +7,9 @@ import dynamic from 'next/dynamic';
 import { Suspense } from 'react';
 import { StrategySelector } from '@/components/backtesting/StrategySelector';
 import { RiskDisclaimer } from '@/components/RiskDisclaimer';
+import { useIsAdmin } from '@/context/AuthContext';
+import { strategyLabel } from '@/lib/strategyLabel';
+import { StrategyLabelsProvider } from '@/components/backtesting/StrategyLabels';
 const EquityChart = dynamic(() => import('@/components/backtesting/EquityChart').then(m => ({ default: m.EquityChart })), { loading: () => <div className="h-[300px] bg-slate-900 border border-slate-800 rounded-xl animate-pulse" />, ssr: false });
 const MetricsTable = dynamic(() => import('@/components/backtesting/MetricsTable').then(m => ({ default: m.MetricsTable })), { loading: () => <div className="h-[120px] bg-slate-900 border border-slate-800 rounded-xl animate-pulse" />, ssr: false });
 const PerformanceTable = dynamic(() => import('@/components/backtesting/PerformanceTable').then(m => ({ default: m.PerformanceTable })), { loading: () => <div className="h-[200px] bg-slate-900 border border-slate-800 rounded-xl animate-pulse" />, ssr: false });
@@ -33,6 +36,7 @@ function StartDateSelector({ dates, selected, onChange }: { dates: any[]; select
 }
 
 function GroupedMetricsTable({ grouped, selectedStartDate, selected, onRunAndSeed }: { grouped: any[]; selectedStartDate: string; selected: string[]; onRunAndSeed: (code:string)=>void }) {
+  const isAdmin = useIsAdmin();
   const fmtPct=(v:any)=> v==null? 'NA' : `${(v*100).toFixed(2)}%`;
   const fmtMoney=(v:any)=> v==null? 'NA' : `$${Number(v).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}`;
   const [seeding,setSeeding]=useState<string|null>(null);
@@ -106,7 +110,7 @@ function GroupedMetricsTable({ grouped, selectedStartDate, selected, onRunAndSee
             const unable=!g.isAvailable;
             return (
               <tr key={g.strategy.code} className="border-b border-slate-800/50 hover:bg-slate-800/40">
-                <td className="p-2 font-medium text-slate-100">{g.strategy.code} <span className="text-xs text-slate-500">{g.strategy.name}</span><br/><span className="text-xs text-slate-600">inception {g.inception}</span></td>
+                <td className="p-2 font-medium text-slate-100">{strategyLabel(g.strategy, isAdmin)} {isAdmin && <span className="text-xs text-slate-500">{g.strategy.name}</span>}<br/><span className="text-xs text-slate-600">inception {g.inception}</span></td>
                 <td className="p-2 text-right text-slate-200">{na? 'NA' : fmtPct(m?.cagr)}</td>
                 <td className="p-2 text-right text-slate-200">{na? 'NA' : fmtPct(m?.totalReturn)}</td>
                 <td className="p-2 text-right text-slate-200">{na? 'NA' : (m?.sharpe?.toFixed(2) ?? 'NA')}</td>
@@ -116,6 +120,7 @@ function GroupedMetricsTable({ grouped, selectedStartDate, selected, onRunAndSee
                 <td className="p-2 text-right font-mono text-slate-100">{na? 'NA' : fmtMoney(m?.finalValue)}</td>
                 <td className="p-2 text-right">
                   {unable ? <span className="px-3 py-1 rounded-full bg-orange-500/20 text-orange-400 border border-orange-500/30 text-xs">Action not yet available</span>
+                   : na && !isAdmin ? <span className="text-xs text-slate-500">—</span>
                    : na ? <button onClick={()=>handle(g.strategy.code)} disabled={!!seeding} className="px-3 py-1 rounded-lg bg-teal-600 hover:bg-teal-500 text-white text-xs disabled:opacity-50">{seeding===g.strategy.code?'Seeding...':'Run & Seed'}</button>
                    : <span className="text-xs text-teal-400">✓ {fmtMoney(m?.finalValue)}</span>}
                 </td>
@@ -130,6 +135,7 @@ function GroupedMetricsTable({ grouped, selectedStartDate, selected, onRunAndSee
 }
 
 function SingleStrategyHistoryTable({ strategies, startDates, onCodeChange, externalCode }: { strategies: any[]; startDates: any[]; onCodeChange?: (code:string)=>void; externalCode?: string }) {
+  const isAdmin = useIsAdmin();
   const [selectedCode, setSelectedCode] = useState<string>(externalCode || strategies[0]?.code || 'SCHILLER_TQQQ_3A_RISK_D_V8_ZILPH');
   useEffect(()=>{ if(externalCode && externalCode!==selectedCode) setSelectedCode(externalCode); }, [externalCode]);
   useEffect(()=>{ if(onCodeChange) onCodeChange(selectedCode); }, [selectedCode]);
@@ -246,7 +252,7 @@ function SingleStrategyHistoryTable({ strategies, startDates, onCodeChange, exte
         <div className="flex items-center gap-2">
           <label className="text-xs text-slate-400">Estrategia:</label>
           <select value={selectedCode} onChange={e=>setSelectedCode(e.target.value)} className="px-2 py-1.5 rounded-lg bg-slate-800 border border-slate-700 text-slate-200 text-xs min-w-[220px]">
-            {strategies.map((s:any)=><option key={s.code} value={s.code}>{s.code} — {s.name}</option>)}
+            {strategies.map((s:any)=><option key={s.code} value={s.code}>{isAdmin ? `${s.code} — ${s.name}` : strategyLabel(s, false)}</option>)}
           </select>
         </div>
       </div>
@@ -583,6 +589,7 @@ export function BacktestingClient({ initialStrategies, initialRuns }: { initialS
   const explorerRunsFinal = (explorerRuns.length ? explorerRuns : explorerRunsFromGrouped.length ? explorerRunsFromGrouped : metrics.map((m:any)=> ({ id: `mock-${m.strategy}`, strategy:{code:m.strategy, name:m.strategy}, metrics:{ finalValue:m.final_value, cagr:m.cagr, sharpe:m.sharpe, maxDrawdown:m.max_drawdown, maxDdLength:m.max_dd_length}})));
 
   return (
+    <StrategyLabelsProvider strategies={initialStrategies}>
     <div className="min-h-screen bg-slate-950">
       <div className="container mx-auto p-6 space-y-6">
       <div>
@@ -625,5 +632,6 @@ export function BacktestingClient({ initialStrategies, initialRuns }: { initialS
       </div>
       </div>
     </div>
+    </StrategyLabelsProvider>
   );
 }

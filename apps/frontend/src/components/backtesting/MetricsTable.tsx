@@ -1,9 +1,11 @@
 'use client';
 import { useState, useMemo } from 'react';
 import { getStrategyColor } from '@/lib/strategyColors';
+import { useStrategyLabel } from './StrategyLabels';
 interface Metrics { strategy: string; cagr: number; total_return: number; sharpe: number; max_drawdown: number; max_dd_length: number; num_trades: number; win_rate: number; sqn: number; final_value: number; }
 type SortKey = keyof Pick<Metrics, 'strategy' | 'cagr' | 'total_return' | 'sharpe' | 'max_drawdown' | 'num_trades' | 'win_rate' | 'final_value'>;
 export function MetricsTable({ data }: { data: Metrics[] }) {
+  const label = useStrategyLabel();
   const [sortKey, setSortKey] = useState<SortKey>('cagr');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const best = (key: keyof Metrics, higherIsBetter: boolean) => {
@@ -52,7 +54,7 @@ export function MetricsTable({ data }: { data: Metrics[] }) {
             const col = getStrategyColor(row.strategy);
             return (
             <tr key={`${row.strategy}-${idx}`} className="border-b border-slate-800/50 hover:bg-slate-800/40">
-              <td className="p-2 font-medium text-slate-100"><span className="inline-flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full shrink-0 border border-white/10" style={{background: col}}/><span>{row.strategy}</span></span></td>
+              <td className="p-2 font-medium text-slate-100"><span className="inline-flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full shrink-0 border border-white/10" style={{background: col}}/><span>{label(row.strategy)}</span></span></td>
               <td className={`p-2 text-right text-slate-200 ${row.cagr===best('cagr',true)?'bg-teal-500/20 text-teal-400 font-semibold rounded':''}`}>{fmtPct(row.cagr)}</td>
               <td className="p-2 text-right text-slate-300">{fmtPct(row.total_return)}</td>
               <td className={`p-2 text-right text-slate-200 ${row.sharpe===best('sharpe',true)?'bg-teal-500/20 text-teal-400 font-semibold rounded':''}`}>{row.sharpe.toFixed(2)}</td>

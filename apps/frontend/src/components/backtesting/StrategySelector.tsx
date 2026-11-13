@@ -1,6 +1,9 @@
 'use client';
+import { useIsAdmin } from '@/context/AuthContext';
+import { strategyLabel } from '@/lib/strategyLabel';
 interface Strategy { code: string; name: string; version: string; }
 export function StrategySelector({ strategies, selected, onChange }: { strategies: Strategy[]; selected: string[]; onChange: (v: string[]) => void }) {
+  const isAdmin = useIsAdmin();
   const toggle = (code: string) => {
     if (selected.includes(code)) onChange(selected.filter(c => c !== code));
     else onChange([...selected, code]);
@@ -12,7 +15,7 @@ export function StrategySelector({ strategies, selected, onChange }: { strategie
         {strategies.map(s => (
           <label key={s.code} className={`px-3 py-1.5 rounded-full border cursor-pointer text-sm transition-colors ${selected.includes(s.code) ? 'bg-teal-600 text-white border-teal-600' : 'bg-slate-800 text-slate-300 border-slate-700 hover:border-slate-600'}`}>
             <input type="checkbox" className="hidden" checked={selected.includes(s.code)} onChange={() => toggle(s.code)} />
-            {s.code} <span className="opacity-70 text-xs">v{s.version}</span>
+            {strategyLabel(s, isAdmin)}{isAdmin && <span className="opacity-70 text-xs"> v{s.version}</span>}
           </label>
         ))}
       </div>

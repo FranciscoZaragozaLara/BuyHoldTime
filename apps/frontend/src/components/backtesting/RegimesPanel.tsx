@@ -11,9 +11,13 @@ import MarketSyncModal from './MarketSyncModal';
 import { createChart, ColorType, LineSeries, createSeriesMarkers } from 'lightweight-charts';
 import { applyCrisisMarkers, snapToTime } from '@/lib/crisisEvents';
 import { CrisisEventsTable } from './CrisisEventsTable';
+import { useIsAdmin } from '@/context/AuthContext';
+import { useStrategyLabel } from './StrategyLabels';
 
 
 export function RegimesPanel() {
+  const isAdmin = useIsAdmin();
+  const label = useStrategyLabel();
   const t = useTranslations('Backtesting.regimes');
   const tTabs = useTranslations('Backtesting.tabs');
   const [run, setRun] = useState<any>(null);
@@ -948,14 +952,16 @@ export function RegimesPanel() {
             <h2 className="text-xl font-semibold text-slate-100">{t('title')}</h2>
             <p className="text-sm text-slate-400 mt-1">{t('subtitle')}</p>
           </div>
-          <button
-            onClick={handleRefresh}
-            disabled={refreshing}
-            className="shrink-0 inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-teal-600 hover:bg-teal-500 disabled:bg-slate-700 disabled:text-slate-400 text-white text-sm font-semibold shadow border border-teal-500/30 transition"
-          >
-            <span className={refreshing ? 'animate-spin inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full' : ''}>{refreshing ? '' : '↻'}</span>
-            {refreshing ? t('refreshing') : t('refreshButton')}
-          </button>
+          {isAdmin && (
+            <button
+              onClick={handleRefresh}
+              disabled={refreshing}
+              className="shrink-0 inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-teal-600 hover:bg-teal-500 disabled:bg-slate-700 disabled:text-slate-400 text-white text-sm font-semibold shadow border border-teal-500/30 transition"
+            >
+              <span className={refreshing ? 'animate-spin inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full' : ''}>{refreshing ? '' : '↻'}</span>
+              {refreshing ? t('refreshing') : t('refreshButton')}
+            </button>
+          )}
         </div>
         <div className="mt-6 grid grid-cols-1 gap-4">
           <div className="bg-slate-800/60 border border-slate-700 rounded-lg p-4">
@@ -965,8 +971,8 @@ export function RegimesPanel() {
                 <div className="bg-slate-900/60 rounded-lg p-2.5 border border-teal-500/20">
                   <div className="text-[10px] text-teal-400 font-semibold mb-1.5 flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-teal-400 inline-block"></span> A — Estrategia · DateRun</div>
                   <select value={selectedA} onChange={e=>{setSelectedA(e.target.value); setSelectedAStart('');}} className="w-full px-2 py-1.5 rounded bg-slate-900 border border-teal-500/30 text-xs text-slate-200">
-                    {strategies.map((s:any)=> <option key={'a-'+s.code} value={s.code}>{s.code} — {s.name}</option>)}
-                    { !strategies.find((s:any)=>s.code===selectedA) && <option value={selectedA}>{selectedA}</option>}
+                    {strategies.map((s:any)=> <option key={'a-'+s.code} value={s.code}>{isAdmin ? `${s.code} — ${s.name}` : label(s.code)}</option>)}
+                    { !strategies.find((s:any)=>s.code===selectedA) && <option value={selectedA}>{label(selectedA)}</option>}
                   </select>
                   <select value={selectedAStart} onChange={e=>setSelectedAStart(e.target.value)} className="mt-1.5 w-full px-2 py-1.5 rounded bg-slate-800 border border-slate-700 text-xs font-mono text-slate-300">
                     {runsA.length===0 && <option value="">Cargando fechas…</option>}
@@ -984,8 +990,8 @@ export function RegimesPanel() {
                 <div className="bg-slate-900/60 rounded-lg p-2.5 border border-slate-600">
                   <div className="text-[10px] text-slate-400 font-semibold mb-1.5 flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-slate-500 inline-block"></span> B — Base · DateRun</div>
                   <select value={selectedB} onChange={e=>{setSelectedB(e.target.value); setSelectedBStart('');}} className="w-full px-2 py-1.5 rounded bg-slate-900 border border-slate-700 text-xs text-slate-200">
-                    {strategies.map((s:any)=> <option key={'b-'+s.code} value={s.code}>{s.code} — {s.name}</option>)}
-                    { !strategies.find((s:any)=>s.code===selectedB) && <option value={selectedB}>{selectedB}</option>}
+                    {strategies.map((s:any)=> <option key={'b-'+s.code} value={s.code}>{isAdmin ? `${s.code} — ${s.name}` : label(s.code)}</option>)}
+                    { !strategies.find((s:any)=>s.code===selectedB) && <option value={selectedB}>{label(selectedB)}</option>}
                   </select>
                   <select value={selectedBStart} onChange={e=>setSelectedBStart(e.target.value)} className="mt-1.5 w-full px-2 py-1.5 rounded bg-slate-800 border border-slate-700 text-xs font-mono text-slate-300">
                     {runsB.length===0 && <option value="">Cargando fechas…</option>}
@@ -1013,7 +1019,7 @@ export function RegimesPanel() {
                   <div className="flex items-center gap-2 mb-2.5">
                     <span className="w-2.5 h-2.5 rounded-full bg-teal-400 inline-block shadow shadow-teal-500/30"></span>
                     <span className="text-xs font-bold text-teal-300 tracking-wide">A — Estrategia</span>
-                    <span className="text-[10px] font-mono text-teal-200/70 truncate">{selectedA} · {selectedAStart || (run?String(run.startDate).slice(0,10):'')} {startDatesMap.get(selectedAStart || (run?String(run.startDate).slice(0,10):'')) ? `— ${startDatesMap.get(selectedAStart || (run?String(run.startDate).slice(0,10):''))}` : ''}</span>
+                    <span className="text-[10px] font-mono text-teal-200/70 truncate">{label(selectedA)} · {selectedAStart || (run?String(run.startDate).slice(0,10):'')} {startDatesMap.get(selectedAStart || (run?String(run.startDate).slice(0,10):'')) ? `— ${startDatesMap.get(selectedAStart || (run?String(run.startDate).slice(0,10):''))}` : ''}</span>
                   </div>
                   <div className="text-[11px] font-mono text-slate-500 mb-1">{run ? `${String(run.startDate).slice(0,10)} → ${String(run.endDate).slice(0,10)}` : '—'}</div>
                   <div className="space-y-1.5 font-mono text-xs">
@@ -1042,7 +1048,7 @@ export function RegimesPanel() {
                   <div className="flex items-center gap-2 mb-2.5">
                     <span className="w-2.5 h-2.5 rounded-full bg-slate-400 inline-block"></span>
                     <span className="text-xs font-bold text-slate-300 tracking-wide">B — Base</span>
-                    <span className="text-[10px] font-mono text-slate-400 truncate">{selectedB} · {selectedBStart || (bhRun?String(bhRun.startDate).slice(0,10):'')} {startDatesMap.get(selectedBStart || (bhRun?String(bhRun.startDate).slice(0,10):'')) ? `— ${startDatesMap.get(selectedBStart || (bhRun?String(bhRun.startDate).slice(0,10):''))}` : ''}</span>
+                    <span className="text-[10px] font-mono text-slate-400 truncate">{label(selectedB)} · {selectedBStart || (bhRun?String(bhRun.startDate).slice(0,10):'')} {startDatesMap.get(selectedBStart || (bhRun?String(bhRun.startDate).slice(0,10):'')) ? `— ${startDatesMap.get(selectedBStart || (bhRun?String(bhRun.startDate).slice(0,10):''))}` : ''}</span>
                   </div>
                   <div className="text-[11px] font-mono text-slate-500 mb-1">{bhRun ? `${String(bhRun.startDate).slice(0,10)} → ${String(bhRun.endDate).slice(0,10)}` : '—'}</div>
                   {bhNorm ? (
@@ -1133,18 +1139,20 @@ export function RegimesPanel() {
               ) : null}
               </>
             ) : (
-              <div className="text-xs text-slate-500 mt-2">No se encontró run {selectedA} / {selectedB}</div>
+              <div className="text-xs text-slate-500 mt-2">No se encontró run {label(selectedA)} / {label(selectedB)}</div>
             )}
           </div>
           <div className="mt-4 flex justify-end">
-            <button
-              onClick={handleRefreshRuns}
-              disabled={runsRefreshing}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-sky-600 hover:bg-sky-500 disabled:bg-slate-700 disabled:text-slate-400 text-white text-sm font-semibold shadow border border-sky-500/30 transition"
-            >
-              <span className={runsRefreshing ? 'animate-spin inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full' : ''}>{runsRefreshing ? '' : '↻'}</span>
-              {runsRefreshing ? t('refreshing') : t('refreshRunsButton')}
-            </button>
+            {isAdmin && (
+              <button
+                onClick={handleRefreshRuns}
+                disabled={runsRefreshing}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-sky-600 hover:bg-sky-500 disabled:bg-slate-700 disabled:text-slate-400 text-white text-sm font-semibold shadow border border-sky-500/30 transition"
+              >
+                <span className={runsRefreshing ? 'animate-spin inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full' : ''}>{runsRefreshing ? '' : '↻'}</span>
+                {runsRefreshing ? t('refreshing') : t('refreshRunsButton')}
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -1156,7 +1164,7 @@ export function RegimesPanel() {
             <div className="px-5 py-4 border-b border-slate-800 flex items-start justify-between gap-4">
               <div>
                 <h3 className="text-lg font-semibold text-slate-100">{t('refreshRunsTitle')}</h3>
-                <p className="text-xs text-slate-400 mt-1">{t('refreshRunsSubtitle')} — {selectedA} vs {selectedB}</p>
+                <p className="text-xs text-slate-400 mt-1">{t('refreshRunsSubtitle')} — {label(selectedA)} vs {label(selectedB)}</p>
               </div>
               <button onClick={closeRunsRefreshModal} className="shrink-0 px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-700 text-xs text-slate-300 hover:bg-slate-700">✕ {t('close')}</button>
             </div>
@@ -1180,7 +1188,7 @@ export function RegimesPanel() {
                   <tbody className="divide-y divide-slate-800">
                     {runsRefreshLogs.map((r) => (
                       <tr key={r.strategyCode} className="hover:bg-slate-800/40">
-                        <td className="p-2 font-mono font-semibold text-sky-300 whitespace-nowrap">{r.strategyCode}</td>
+                        <td className="p-2 font-mono font-semibold text-sky-300 whitespace-nowrap">{label(r.strategyCode)}</td>
                         <td className="p-2 text-right font-mono text-slate-300">{r.totalDays?.toLocaleString('en-US') ?? '—'}</td>
                         <td className="p-2 text-right font-mono text-amber-300">{r.newDays ?? 0}</td>
                         <td className="p-2 text-right font-mono text-slate-500 text-[11px]">{r.beforeDate ?? '—'}</td>
@@ -1215,7 +1223,7 @@ export function RegimesPanel() {
         <div className="w-full bg-slate-900 border border-slate-800 rounded-xl p-4">
           <div className="flex items-center justify-between mb-2">
             <div>
-              <h3 className="font-semibold text-slate-100">Equity — <span className="text-teal-300">{run?.strategy?.code || selectedA}</span> <span className="text-slate-500">vs</span> <span className="text-slate-400">{bhRun?.strategy?.code || selectedB}</span> {run?.startDate ? `· ${String(run.startDate).slice(0,10)}→${String(run.endDate).slice(0,10)}` : ''} — {Math.max(equity.length,bhEquity.length).toLocaleString('en-US')} pts · escala log</h3>
+              <h3 className="font-semibold text-slate-100">Equity — <span className="text-teal-300">{label(run?.strategy?.code || selectedA)}</span> <span className="text-slate-500">vs</span> <span className="text-slate-400">{label(bhRun?.strategy?.code || selectedB)}</span> {run?.startDate ? `· ${String(run.startDate).slice(0,10)}→${String(run.endDate).slice(0,10)}` : ''} — {Math.max(equity.length,bhEquity.length).toLocaleString('en-US')} pts · escala log</h3>
               <div className="flex items-center gap-2 mt-1 text-xs font-mono"><span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-teal-400 inline-block"></span> Estrategia</span><span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-slate-500 inline-block border-dashed border-t border-slate-500"></span> BH</span></div>
             </div>
             <span className="text-xs font-mono text-slate-400 text-right">{equity[0]?.date.slice(0,4)} → {equity[equity.length-1]?.date.slice(0,10)}<br/><span className="text-teal-300">{((equity[equity.length-1]?.value/100000-1)*100).toLocaleString('en-US', {minimumFractionDigits:0, maximumFractionDigits:0})}% ${equity[equity.length-1] ? '$'+Number(equity[equity.length-1].value).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2}) : ''}</span> <span className="text-slate-500">vs</span> <span className="text-slate-400">{bhEquity.length ? `${((bhEquity[bhEquity.length-1]?.value/100000-1)*100).toLocaleString('en-US', {minimumFractionDigits:0, maximumFractionDigits:0})}% $${Number(bhEquity[bhEquity.length-1].value).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}` : '—'}</span> {bhEquity.length && equity.length ? (<span className={Number(equity[equity.length-1].value) >= Number(bhEquity[bhEquity.length-1].value) ? 'text-emerald-400' : 'text-red-400'}> Δ {(Number(equity[equity.length-1].value)-Number(bhEquity[bhEquity.length-1].value)).toLocaleString('en-US', {minimumFractionDigits:0, maximumFractionDigits:0})} ({(((Number(equity[equity.length-1].value)/Number(bhEquity[bhEquity.length-1].value)-1)*100).toFixed(1))}%)</span>) : null}</span>

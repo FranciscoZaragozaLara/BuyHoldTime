@@ -4,6 +4,7 @@ import { getApiBase } from '@/lib/apiBase';
 import React, { useEffect, useState } from 'react';
 import { useAuth, UserRole } from '@/context/AuthContext';
 import { Layout } from '@/components/Layout';
+import { DataOpsCard } from '@/components/admin/DataOpsCard';
 import { ShieldCheck, Users, BarChart2, Clock, RefreshCw, CheckCircle, ShieldAlert } from 'lucide-react';
 
 interface TickerData {
@@ -149,7 +150,7 @@ export default function AdminPage() {
               Panel de Administración
             </h1>
             <p className="text-slate-400 text-sm mt-1">
-              Gestión de tickers en base de datos y usuarios registrados.
+              Operaciones de datos, tickers en base de datos y usuarios registrados.
             </p>
           </div>
 
@@ -169,6 +170,9 @@ export default function AdminPage() {
             <span>{error}</span>
           </div>
         )}
+
+        {/* Operaciones de datos (sync de mercado) */}
+        <DataOpsCard />
 
         {/* Tabs */}
         <div className="flex gap-2 mb-6 border-b border-slate-900 pb-3">

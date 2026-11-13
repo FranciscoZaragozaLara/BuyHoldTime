@@ -132,3 +132,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 };
 
 export const useAuth = () => useContext(AuthContext);
+
+/** ¿Usuario administrador? Controles de operación (sync, run & seed, códigos internos). */
+export const useIsAdmin = () => useContext(AuthContext).role === 'ADMIN';

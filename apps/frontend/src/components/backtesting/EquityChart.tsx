@@ -3,6 +3,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { createChart, ColorType, IChartApi, ISeriesApi, LineSeries } from 'lightweight-charts';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as ReTooltip, Legend, ResponsiveContainer } from 'recharts';
 import { getStrategyColor } from '@/lib/strategyColors';
+import { useStrategyLabel } from './StrategyLabels';
 
 interface EquityPoint { date: string; value: number }
 interface MarketPoint { date: string; close: number }
@@ -14,6 +15,7 @@ const fmtPct = (v: number) => `${(v*100).toFixed(2)}%`;
 const colorFor = (k: string) => getStrategyColor(k);
 
 export function EquityChart({ data, startDate, marketQQQ, marketTQQQ, marketNasdaq, marketSP500, capeData }: Props) {
+  const label = useStrategyLabel();
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRefs = useRef<Record<string, ISeriesApi<'Line'>>>({});
@@ -87,7 +89,7 @@ export function EquityChart({ data, startDate, marketQQQ, marketTQQQ, marketNasd
     chartRef.current = chart;
     // 3 líneas
     for (const [k, arr] of Object.entries(chartData)) {
-      const s = chart.addSeries(LineSeries, { color: colorFor(k), lineWidth: 2, priceLineVisible: false, lastValueVisible: true, title: k });
+      const s = chart.addSeries(LineSeries, { color: colorFor(k), lineWidth: 2, priceLineVisible: false, lastValueVisible: true, title: label(k) });
       s.setData(arr as any);
       seriesRefs.current[k]=s as any;
     }
@@ -219,7 +221,7 @@ export function EquityChart({ data, startDate, marketQQQ, marketTQQQ, marketNasd
                 return (
               <div key={k} className="border-b border-slate-700/50 last:border-0 py-1.5">
                 <div className="flex justify-between items-center gap-3 leading-5">
-                  <span className="flex items-center gap-2 font-medium text-slate-200"><span className="w-2.5 h-2.5 rounded-full shrink-0" style={{background: colorFor(k)}} /><span className="tracking-tight">{k}</span></span>
+                  <span className="flex items-center gap-2 font-medium text-slate-200"><span className="w-2.5 h-2.5 rounded-full shrink-0" style={{background: colorFor(k)}} /><span className="tracking-tight">{label(k)}</span></span>
                   <span className="font-mono font-semibold text-white tabular-nums">{fmtMoney(v)}</span>
                 </div>
                 <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-slate-400 mt-0.5 pl-4">
@@ -239,7 +241,7 @@ export function EquityChart({ data, startDate, marketQQQ, marketTQQQ, marketNasd
       </div>
       <div className="flex flex-wrap gap-x-4 gap-y-1.5 mt-3 text-xs">
         {Object.keys(data).map(k=>(
-          <span key={k} className="flex items-center gap-2"><span className="w-3.5 h-0.5 rounded" style={{background: colorFor(k)}} /> <span className="font-medium tracking-tight" style={{color: colorFor(k)}}>{k}</span></span>
+          <span key={k} className="flex items-center gap-2"><span className="w-3.5 h-0.5 rounded" style={{background: colorFor(k)}} /> <span className="font-medium tracking-tight" style={{color: colorFor(k)}}>{label(k)}</span></span>
         ))}
         <span className="ml-auto text-slate-500">Scroll/arrastra para zoom • 5Y por defecto</span>
       </div>

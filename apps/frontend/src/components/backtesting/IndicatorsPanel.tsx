@@ -15,6 +15,7 @@ import { exportToExcel } from '@/lib/exportExcel';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getLiveStaleTime, isMarketOpen } from '@/lib/queryClient';
 import { RiskDisclaimer } from '@/components/RiskDisclaimer';
+import { useIsAdmin } from '@/context/AuthContext';
 
 
 // Termómetro de hoy (BHT en vivo + bonus HY/LIQ/Oil) calculado en el backend con la misma
@@ -571,6 +572,7 @@ export function IndicatorsPanel() {
   };
   const [loading, setLoading] = useState(true);
   const tSync = useTranslations('Backtesting.regimes');
+  const isAdmin = useIsAdmin();
   const queryClient = useQueryClient();
   const marketSync = useMarketSyncStream(async () => {
     // Tras la extracción, la caché live de react-query (1h FRED / 5-30min mercado)
@@ -1090,15 +1092,17 @@ export function IndicatorsPanel() {
       <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
         <div className="flex flex-wrap items-center justify-between gap-3 mb-2">
           <h3 className="font-semibold text-slate-100">Indicadores diarios — actualización automática</h3>
+          {isAdmin && (
           <button onClick={runSync} disabled={syncing} className="shrink-0 inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-teal-600 hover:bg-teal-500 disabled:bg-slate-700 disabled:text-slate-400 text-white text-sm font-semibold shadow border border-teal-500/30 transition">
             <span className={syncing ? 'animate-spin inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full' : ''}>{syncing ? '' : '↻'}</span>
             {syncing ? tSync('refreshing') : tSync('refreshButton')}
           </button>
+          )}
         </div>
         <p className="text-xs text-slate-500">
-          Cron <code className="text-teal-400">L-V 22:05 America/New_York</code> → <code>daily_update.py</code> (yfinance <code>auto_adjust</code> + <code>verify_splits</code>) + <code>build_shiller_daily()</code>.
+          {isAdmin && <>Cron <code className="text-teal-400">L-V 22:05 America/New_York</code> → <code>daily_update.py</code> (yfinance <code>auto_adjust</code> + <code>verify_splits</code>) + <code>build_shiller_daily()</code>.{' '}</>}
           Último CAPE: <span className="text-emerald-400 font-mono">{capeLast?.cape?.toFixed(2) ?? '—'}</span> ratio {capeLast?.capeRatio?.toFixed(3) ?? '—'} @ {capeLast?.date?.slice(0,10) ?? '—'}
-          <span className="ml-2 text-[11px] text-slate-500">· Precios/Bonos live vía API con caché (mercado 5 min / FRED 1h), CAPE diario desde DB</span>
+          {isAdmin && <span className="ml-2 text-[11px] text-slate-500">· Precios/Bonos live vía API con caché (mercado 5 min / FRED 1h), CAPE diario desde DB</span>}
 
         </p>
       </div>

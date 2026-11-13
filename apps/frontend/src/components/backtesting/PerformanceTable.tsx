@@ -4,6 +4,7 @@ import { Calendar, Clock, ArrowLeftRight, Layers, Download } from 'lucide-react'
 import { useLocale } from 'next-intl';
 import { getStrategyColor } from '@/lib/strategyColors';
 import { exportToExcel } from '@/lib/exportExcel';
+import { useStrategyLabel } from './StrategyLabels';
 
 interface EquityPoint { date: string; value: number }
 interface CapePoint { date: string; cape: number | null; capeRatio: number | null }
@@ -21,6 +22,7 @@ const capeRatioColor = (r: number | null | undefined) => {
 };
 
 export const PerformanceTable: React.FC<Props> = ({ equity, startDate, capeData }) => {
+  const label = useStrategyLabel();
   const locale = useLocale();
   const [activeTab, setActiveTab] = useState<PeriodTab>('annual');
   const [selectedYear, setSelectedYear] = useState<string>('all');
@@ -225,10 +227,10 @@ export const PerformanceTable: React.FC<Props> = ({ equity, startDate, capeData 
                   return '';
                 });
                 const best = (()=>{ let b:string='', bp=-Infinity; for(let i=0;i<strategies.length;i++){ const v=varVals[i]; const n=parseFloat(v); if(!isNaN(n) && n>bp){bp=n; b=strategies[i];}} return b;})();
-                return [dateLabel, capeCell, ...vals.map(v=> v===''?'':`$${Number(v).toFixed(2)}`), ...varVals, best] as (string|number)[];
+                return [dateLabel, capeCell, ...vals.map(v=> v===''?'':`$${Number(v).toFixed(2)}`), ...varVals, best ? label(best) : best] as (string|number)[];
               });
             };
-            const headers = ['Fecha','CAPE', ...strategies, ...strategies.map(s=>s+' Var %'), 'Mejor'];
+            const headers = ['Fecha','CAPE', ...strategies.map(label), ...strategies.map(s=>label(s)+' Var %'), 'Mejor'];
             const formatAnnual = (label:string)=> label.startsWith('Inicio ') ? label : label;
             const formatMonthly = (label:string)=> {
               if(label.startsWith('Inicio ')) return label;
@@ -282,10 +284,10 @@ export const PerformanceTable: React.FC<Props> = ({ equity, startDate, capeData 
               <th className="px-2 py-2 text-[11px] leading-tight whitespace-nowrap">{locale === 'es' ? 'Fecha' : 'Date'}</th>
               <th className="px-2 py-2 text-[11px] leading-tight whitespace-nowrap text-center" title="CAPE al cierre del periodo">CAPE</th>
               {strategies.map((k) => (
-                <th key={k} className="px-2 py-2 text-[11px] leading-tight whitespace-normal break-words max-w-[110px] text-right align-bottom"><span className="inline-flex items-center justify-end gap-1 flex-wrap text-right" title={k}><span className="w-2 h-2 rounded-full shrink-0" style={{background: getStrategyColor(k)}}/><span className="break-all">{k}</span></span></th>
+                <th key={k} className="px-2 py-2 text-[11px] leading-tight whitespace-normal break-words max-w-[110px] text-right align-bottom"><span className="inline-flex items-center justify-end gap-1 flex-wrap text-right" title={label(k)}><span className="w-2 h-2 rounded-full shrink-0" style={{background: getStrategyColor(k)}}/><span className="break-all">{label(k)}</span></span></th>
               ))}
               {strategies.map((k) => (
-                <th key={`var-${k}`} className="px-2 py-2 text-[11px] leading-tight whitespace-normal break-words max-w-[90px] text-right align-bottom"><span className="inline-flex items-center justify-end gap-1 flex-wrap text-right" title={`${k} Var.`}><span className="w-2 h-2 rounded-full shrink-0 opacity-60" style={{background: getStrategyColor(k)}}/><span className="break-all">{k}<br/>Var.</span></span></th>
+                <th key={`var-${k}`} className="px-2 py-2 text-[11px] leading-tight whitespace-normal break-words max-w-[90px] text-right align-bottom"><span className="inline-flex items-center justify-end gap-1 flex-wrap text-right" title={`${label(k)} Var.`}><span className="w-2 h-2 rounded-full shrink-0 opacity-60" style={{background: getStrategyColor(k)}}/><span className="break-all">{label(k)}<br/>Var.</span></span></th>
               ))}
               <th className="px-2 py-2 text-[11px] leading-tight whitespace-nowrap text-right">{locale === 'es' ? 'Mejor' : 'Best'}</th>
             </tr>
@@ -335,7 +337,7 @@ export const PerformanceTable: React.FC<Props> = ({ equity, startDate, capeData 
                     return <td key={`v-${k}`} className={`px-2 py-2 text-right font-semibold text-xs tabular-nums whitespace-nowrap ${color}`}>{fmtPct(v.pct)}</td>;
                   })}
                   <td className="px-2 py-2 text-right">
-                    {best ? <span className="inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold border bg-teal-500/10 text-teal-400 border-teal-500/20 max-w-[110px] truncate" title={best}>{best}</span> : <span className="text-slate-500">—</span>}
+                    {best ? <span className="inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold border bg-teal-500/10 text-teal-400 border-teal-500/20 max-w-[110px] truncate" title={label(best)}>{label(best)}</span> : <span className="text-slate-500">—</span>}
                   </td>
                 </tr>
               );
