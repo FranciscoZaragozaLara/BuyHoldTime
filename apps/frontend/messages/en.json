@@ -478,7 +478,13 @@
       "historyYearsAgo": "{n} years ago",
       "historyPeak": "Peak since that month (% and date)",
       "bhtHistoryTitle": "BHT Index history — last 12 months + 2 and 3 years ago",
-      "bhtHistoryNote": "BHT at the close of the last trading day of each month (today's value above is live and may differ) · performance from that close to the latest available · peak = highest later close and its date. Historical results; they do not guarantee future returns."
+      "bhtHistoryNote": "BHT at the close of the last trading day of each month (today's value above is live and may differ) · performance from that close to the latest available · peak = highest later close and its date. Historical results; they do not guarantee future returns.",
+      "detailComputing": "Detail being computed (saved at close)…",
+      "detailLoading": "Loading detail…",
+      "strategyButton": "Strategy",
+      "colContributionShort": "Contrib.",
+      "triggerShort": "trigger",
+      "bhtPopHistoryTitle": "BHT history up to {date} — 12 months + 2 and 3 years ago · performance to today and peak"
     },
     "regimesPanel": {
       "loadingDates": "Loading dates…",

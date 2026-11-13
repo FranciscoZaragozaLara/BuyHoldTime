@@ -77,4 +77,14 @@ describe('monthlyPartsFromDaily', () => {
     expect(out[1].peak.spx).toEqual({ pct: expect.closeTo(30, 5), date: '2026-10-15' });
     expect(out[1].peak.ndx).toEqual({ pct: 0, date: '2026-09-30' });
   });
+  test('con `to` los meses terminan en esa fecha y el pico sigue buscándose hasta hoy', () => {
+    const rows = [
+      { date: '2026-09-15', parts: p(60), spx: 100 }, { date: '2026-09-30', parts: p(61), spx: 105 },
+      { date: '2026-10-15', parts: p(62), spx: 120 }, { date: '2026-11-13', parts: p(70), spx: 110 },
+    ];
+    const out = monthlyPartsFromDaily(rows, 12, { spx: 110, ndx: null, tqqq: null }, [], { spx: '2026-11-13', ndx: null, tqqq: null }, '2026-09-15');
+    expect(out.map((m) => m.date)).toEqual(['2026-09-15']);
+    expect(out[0].peak.spx).toEqual({ pct: expect.closeTo(20, 5), date: '2026-10-15' });
+    expect(out[0].perf.spx).toBeCloseTo(10);
+  });
 });

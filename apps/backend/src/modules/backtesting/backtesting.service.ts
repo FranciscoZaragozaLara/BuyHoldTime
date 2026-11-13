@@ -640,11 +640,12 @@ export class BacktestingService {
 
   /**
    * Últimos `months` meses del termómetro por componente (valor y puntaje base 100), más el mismo
-   * mes de hace 2 y 3 años, con el rendimiento a hoy de S&P 500, Nasdaq y TQQQ desde cada fecha.
+   * mes de hace 2 y 3 años, con el rendimiento a hoy de S&P 500, Nasdaq y TQQQ desde cada fecha (meses hasta `to`).
    */
-  async getThermoPartsMonthly(months = 12) {
+  async getThermoPartsMonthly(months = 12, to?: string) {
+    const end = to && /^\d{4}-\d{2}-\d{2}$/.test(to) ? to : undefined;
     const n = Math.min(Math.max(Math.trunc(months) || 12, 1), 36);
-    const since = new Date(); since.setUTCMonth(since.getUTCMonth() - 37);
+    const since = end ? new Date(`${end}T00:00:00Z`) : new Date(); since.setUTCMonth(since.getUTCMonth() - 37);
     const [rows, ...latest] = await Promise.all([
       this.prisma.btBhtForward.findMany({ where: { date: { gte: since } }, select: { date: true, parts: true, bhtValue: true, spx: true, ndx: true, tqqq: true }, orderBy: { date: 'asc' } }),
       ...['^GSPC', '^IXIC', 'TQQQ'].map((t) => this.prisma.btMarketData.findFirst({ where: { ticker: t }, orderBy: { date: 'desc' } })),
@@ -657,6 +658,7 @@ export class BacktestingService {
       { spx: close(latest[0]), ndx: close(latest[1]), tqqq: close(latest[2]) },
       [2, 3],
       { spx: day(latest[0]), ndx: day(latest[1]), tqqq: day(latest[2]) },
+      end,
     );
   }
 

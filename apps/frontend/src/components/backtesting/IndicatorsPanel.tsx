@@ -278,7 +278,7 @@ function momBlend(lvlSegs: [number, number, number, number][], trdSegs: [number,
   return { level: y, levelScore, delta: y - ma, ma, maLabel, trendScore };
 }
 // Tabla de historia (12 meses + hace 2 y 3 años) con rendimiento a hoy y pico; la usan los orbes y el detalle del BHT.
-function OrbHistoryTable({ rows: histRows, loading, valueHeader, dec = 2, showValue = true }: { rows: OrbHistoryRow[]; loading: boolean; valueHeader: string; dec?: number; showValue?: boolean }) {
+function OrbHistoryTable({ rows: histRows, loading, valueHeader, dec = 2, showValue = true, compact = false }: { rows: OrbHistoryRow[]; loading: boolean; valueHeader: string; dec?: number; showValue?: boolean; compact?: boolean }) {
   const ti = useTranslations('Backtesting.indicators');
   const loc = useLocale();
   return (
@@ -312,7 +312,9 @@ function OrbHistoryTable({ rows: histRows, loading, valueHeader, dec = 2, showVa
                         const first = r.yearsAgo != null && (i === 0 || histRows[i - 1].yearsAgo == null);
                         const pk = (v: { pct: number; date: string } | null) => (
                           <td className="text-right align-top py-0.5 whitespace-nowrap">
-                            {v == null ? <span className="text-slate-600">—</span> : <>
+                            {v == null ? <span className="text-slate-600">—</span> : compact ? <>
+                              <span className="text-emerald-300">+{v.pct.toFixed(1)}%</span> <span className="text-[9px] text-slate-500">{shortDate(v.date, loc)}</span>
+                            </> : <>
                               <div className="text-emerald-300">+{v.pct.toFixed(1)}%</div>
                               <div className="text-[9px] text-slate-500">{shortDate(v.date, loc)}</div>
                             </>}
@@ -338,12 +340,12 @@ function OrbHistoryTable({ rows: histRows, loading, valueHeader, dec = 2, showVa
 }
 
 /** Historia mensual compartida (una petición para todos los orbes y el detalle del BHT). */
-function useThermoPartsMonthly(enabled: boolean) {
+function useThermoPartsMonthly(enabled: boolean, to?: string) {
   return useQuery({
     // v4: respuesta con bht, perf, peak y filas de 2/3 años; la versión evita reutilizar una caché con otra forma.
-    queryKey: ['thermo-parts-monthly', 12, 'v4'],
+    queryKey: ['thermo-parts-monthly', 12, 'v4', to ?? 'hoy'],
     queryFn: async (): Promise<MonthlyParts[]> => {
-      const r = await fetch(`${getApiBase()}/api/backtesting/thermo-parts-monthly?months=12`);
+      const r = await fetch(`${getApiBase()}/api/backtesting/thermo-parts-monthly?months=12${to ? `&to=${to}` : ''}`);
       if (!r.ok) throw new Error(`thermo-parts-monthly ${r.status}`);
       return r.json();
     },
@@ -466,27 +468,35 @@ export const bhtLeaveGuard = (e: any, det: { scheduleClear: () => void; cancelCl
   else det.scheduleClear();
 };
 
-export function BhtDetailPopover({ hover, detail, forward, onLeave, onHold, liveValue }: { hover: { d: string; x: number; y: number }; detail: any; forward?: any; onLeave: () => void; onHold?: () => void; liveValue?: number | null }) {
+const PART_SHORT: Record<string, string> = { RATIO: 'Ratio' };
+
+export function BhtDetailPopover({ hover, detail, onLeave, onHold, liveValue }: { hover: { d: string; x: number; y: number }; detail: any; forward?: any; onLeave: () => void; onHold?: () => void; liveValue?: number | null }) {
   const ti = useTranslations('Backtesting.indicators');
   const loc = useLocale();
-  const left = Math.min(Math.max(8, hover.x + 12), (typeof window !== 'undefined' ? window.innerWidth - 540 : 1000));
-  // A la derecha y debajo del cursor para no tapar el punto observado; si no cabe
-  // abajo, se voltea arriba del cursor.
-  const winH = typeof window !== 'undefined' ? window.innerHeight : 800;
-  const below = hover.y + 16;
-  const top = below > winH - 560 ? Math.max(8, hover.y - 560) : Math.max(8, below);
-  const half = detail != null ? Math.ceil(detail.parts.length / 2) : 0;
+  const popRef = useRef<HTMLDivElement>(null);
+  const hist = useThermoPartsMonthly(true, hover.d);
+  // Posición fija junto al cursor, medida con la altura real: abajo-derecha; si no cabe, arriba; si tampoco, se recorre.
+  const [pos, setPos] = useState<{ left: number; top: number } | null>(null);
+  useLayoutEffect(() => {
+    const vw = window.innerWidth, vh = window.innerHeight;
+    const w = popRef.current?.offsetWidth ?? 720, h = Math.min(popRef.current?.offsetHeight ?? 0, vh - 16);
+    const left = Math.min(Math.max(8, hover.x + 12), vw - w - 8);
+    let top = hover.y + 16;
+    if (top + h > vh - 8) top = hover.y - 16 - h >= 8 ? hover.y - 16 - h : Math.max(8, vh - 8 - h);
+    setPos({ left, top });
+  }, [hover.x, hover.y, detail, hist.data]);
   const bd = detail != null ? bhtBand(Number(detail.value)) : null;
   const headV = liveValue ?? (detail != null ? Number(detail.value) : null);
-  const loadMsg = liveValue != null ? 'Detalle en cálculo (se guarda al cierre)...' : 'Cargando detalle...';
+  const loadMsg = liveValue != null ? ti('detailComputing') : ti('detailLoading');
   const [showStrat, setShowStrat] = useState(false);
   useEffect(() => { setShowStrat(false); }, [hover.d]);
+  const sign = (v: number) => `${v > 0 ? '+' : ''}${v.toFixed(0)}`;
   return (
-    <div data-bht-pop className="fixed z-[9999] w-[520px] max-w-[calc(100vw-16px)] p-3 rounded-xl bg-slate-900 border border-slate-700 shadow-2xl text-xs leading-relaxed text-slate-200 text-left pointer-events-none" style={{ left, top }} onMouseEnter={() => onHold?.()} onMouseLeave={onLeave}>
+    <div ref={popRef} data-bht-pop className="fixed z-[9999] w-[720px] max-w-[calc(100vw-16px)] max-h-[calc(100vh-16px)] overflow-y-auto p-3 rounded-xl bg-slate-900 border border-slate-700 shadow-2xl text-xs leading-snug text-slate-200 text-left pointer-events-none" style={pos ? { left: pos.left, top: pos.top } : { left: -9999, top: 0 }} onMouseEnter={() => onHold?.()} onMouseLeave={onLeave}>
       <div className="font-bold mb-1.5"><span className="text-sky-300">{hover.d}</span> <span className="text-slate-100">· BHT</span> {headV != null && <span className="font-mono" style={{ color: capeScoreColor(headV) }}>{headV.toFixed(1)}/100</span>}{liveValue != null && <span className="ml-1.5 text-[10px] px-1.5 py-px rounded-full bg-teal-500/20 text-teal-300 font-bold" title={ti('liveTitle')}>{ti('live')}</span>}{bd && (
         <button type="button" onClick={(e) => { e.stopPropagation(); setShowStrat((v) => !v); }}
           className="ml-2 px-2 py-0.5 rounded-md text-[11px] font-bold text-slate-900 align-middle cursor-pointer pointer-events-auto"
-          style={{ backgroundColor: bd.color }}>Estrategia {showStrat ? '▾' : '▸'}</button>
+          style={{ backgroundColor: bd.color }}>{ti('strategyButton')} {showStrat ? '▾' : '▸'}</button>
       )}</div>
       {showStrat && bd && (
         <div className="mt-1 mb-1.5 p-2 rounded-lg border" style={{ borderColor: `${bd.color}66`, backgroundColor: `${bd.color}14` }}>
@@ -496,68 +506,41 @@ export function BhtDetailPopover({ hover, detail, forward, onLeave, onHold, live
       )}
       {detail == null ? <div className="text-slate-500 font-mono">{loadMsg}</div> : (
         <>
-          <div className="flex gap-3">
-            {[0, 1].map((col) => (
-              <table key={col} className="flex-1 font-mono text-[11px]">
-                <thead><tr className="text-slate-500"><th className="text-left font-normal py-0.5">Ind</th><th className="text-right font-normal">{ti('colValue')}</th><th className="text-right font-normal">Pts</th><th className="text-right font-normal">{ti('colContribution')}</th></tr></thead>
-                <tbody>
-                  {detail.parts.slice(col * half, (col + 1) * half).map((p: any) => {
-                    const dec = p.key === 'RATIO' ? 3 : p.key === 'FG' ? 0 : p.key === 'MS' ? 1 : 2;
-                    return <tr key={p.key} className="border-t border-slate-800/60"><td className="py-px pr-1 text-slate-300 text-[10px] whitespace-nowrap">{partLabel(p.key, loc)}</td><td className="text-right">{Number(p.value).toFixed(dec)}</td><td className="text-right" style={{ color: capeScoreColor(p.score) }}>{Math.round(p.score)}</td><td className="text-right text-slate-100">{Number(p.aporte).toFixed(1)}</td></tr>;
-                  })}
-                </tbody>
-              </table>
+          {/* Componentes en cuadrícula compacta: nombre corto · valor · puntaje · aporte (nombre largo en el tooltip). */}
+          <div className="grid grid-cols-3 gap-x-4 font-mono text-[11px]">
+            {[0, 1, 2].map((c) => (
+              <div key={`h${c}`} className="flex gap-1.5 text-[9px] text-slate-500 uppercase tracking-wide pb-0.5 border-b border-slate-700/70">
+                <span className="w-11">Ind</span><span className="flex-1 text-right">{ti('colValue')}</span><span className="w-6 text-right">Pts</span><span className="w-8 text-right">{ti('colContributionShort')}</span>
+              </div>
             ))}
+            {detail.parts.map((p: any) => {
+              const dec = p.key === 'RATIO' ? 3 : p.key === 'FG' ? 0 : p.key === 'MS' ? 1 : 2;
+              return (
+                <div key={p.key} className="flex gap-1.5 py-[1px] border-b border-slate-800/60" title={partLabel(p.key, loc)}>
+                  <span className="w-11 text-slate-400">{PART_SHORT[p.key] ?? p.key}</span>
+                  <span className="flex-1 text-right text-slate-200">{Number(p.value).toFixed(dec)}</span>
+                  <span className="w-6 text-right font-bold" style={{ color: capeScoreColor(p.score) }}>{Math.round(p.score)}</span>
+                  <span className="w-8 text-right text-sky-300/80">{Number(p.aporte).toFixed(1)}</span>
+                </div>
+              );
+            })}
           </div>
-          {(detail.bonus ?? 0) > 0 && <div className="font-mono text-[11px] mt-1.5 text-orange-300">{ti('hyBonusDetail', { label: detail.bonusLabel ?? '', n: Number(detail.bonus).toFixed(0) })}</div>}
-          {(detail.liqBonus ?? 0) !== 0 && <div className={`font-mono text-[11px] mt-1 ${Number(detail.liqBonus) > 0 ? 'text-orange-300' : 'text-emerald-300'}`}>Bonus liquidez M2/M0 ({detail.liqBonusLabel ?? ''}): {Number(detail.liqBonus) > 0 ? '+' : ''}{Number(detail.liqBonus).toFixed(0)} (fuera del promedio){detail.liqYoy != null && <> · M2 +{Number(detail.liqYoy).toFixed(1)}%{detail.liqM0d3 != null && <> · M0 Δ3M {Number(detail.liqM0d3) >= 0 ? '+' : ''}{Number(detail.liqM0d3).toFixed(1)}%</>}{detail.liqDrop != null && Number(detail.liqDrop) >= 50 && <> · −{Number(detail.liqDrop).toFixed(0)}% del pico</>}</>}</div>}
-          {(detail.oilBonus ?? 0) !== 0 && <div className={`font-mono text-[11px] mt-1 ${Number(detail.oilBonus) > 0 ? 'text-orange-300' : 'text-emerald-300'}`}>Bonus petróleo WTI ({detail.oilBonusLabel ?? ''}): {Number(detail.oilBonus) > 0 ? '+' : ''}{Number(detail.oilBonus).toFixed(0)} (fuera del promedio){detail.oilPrice != null && <> · ${Number(detail.oilPrice).toFixed(2)}{detail.oilRatio != null && <> · ×{Number(detail.oilRatio).toFixed(2)} SMA36M</>}</>}</div>}
-          {(detail.bonus ?? 0) > 0 && detail.bonusHy != null && (
-            <div className="font-mono text-[11px] mt-1 text-slate-400">
-              HY {Number(detail.bonusHy).toFixed(2)}{detail.bonusD1 != null && <> · 1M-atrás {(Number(detail.bonusHy) - Number(detail.bonusD1)).toFixed(2)} · Δ1M {Number(detail.bonusD1) >= 0 ? '+' : ''}{Number(detail.bonusD1).toFixed(2)} (gatillo {'≥'} +1.00)</>}{detail.bonusZ != null && detail.bonusSigma != null && <> · Δ3M {(Number(detail.bonusZ) * Number(detail.bonusSigma)).toFixed(2)} · σ24 {Number(detail.bonusSigma).toFixed(2)} → z {Number(detail.bonusZ) >= 0 ? '+' : ''}{Number(detail.bonusZ).toFixed(1)}σ (gatillo z{'>'}1.5, HY{'>'}5)</>}{detail.bonusFed != null && <> · Fed {Number(detail.bonusFed).toFixed(2)} rescate→tope +5</>}
-            </div>
-          )}
-          <div className="font-mono text-[11px] text-slate-400 mt-1.5">Σ {Number(detail.numerator).toFixed(1)} ÷ {detail.denominator}{(detail.bonus ?? 0) > 0 ? ` + ${Number(detail.bonus).toFixed(0)}` : ''}{(detail.liqBonus ?? 0) !== 0 ? ` ${Number(detail.liqBonus) > 0 ? '+' : ''}${Number(detail.liqBonus).toFixed(0)}` : ''}{(detail.oilBonus ?? 0) !== 0 ? ` ${Number(detail.oilBonus) > 0 ? '+' : ''}${Number(detail.oilBonus).toFixed(0)}` : ''} = <span className="text-slate-100 font-bold">{Number(detail.value).toFixed(1)}</span> · {detail.coverage}/13</div>
-          {forward && (
-            <div className="mt-2 border-t border-slate-800 pt-1.5">
-              <div className="text-slate-400 mb-1">Si comprabas el {hover.d}</div>
-              {(() => {
-                const keys = ['spx', 'ndx', 'tqqq'];
-                const matureY = [1, 2, 3, 5].filter((y) => keys.some((k) => forward[`${k}${y}y`] != null));
-                const showHoy = keys.some((k) => [1, 2, 3, 5].some((y) => forward[`${k}${y}y`] == null)) && keys.some((k) => forward[`${k}Tt`] != null);
-                const lineColor: Record<string, string> = { spx: '#38bdf8', ndx: '#a78bfa', tqqq: '#f472b6' };
-                const fmtFull = (v: number) => '$' + Math.round(v).toLocaleString('en-US');
-                const base = (k: string) => forward[k] != null ? Number(forward[k]) : null;
-                const nomCell = (key: string | number, k: string, pct: number | null, title: string, prefix = '') => {
-                  if (pct == null) return <td key={key} className="text-right text-slate-600">—</td>;
-                  const v = Number(pct);
-                  const b = base(k);
-                  const nom = b != null ? fmtFull(b * (1 + v / 100)) : null;
-                  return <td key={key} className="text-right" title={title}>
-                    <div style={{ color: v >= 0 ? '#84cc36' : '#f87171' }}>{prefix}{v >= 0 ? '▲ ' : '▼ '}{Math.abs(v).toFixed(1)}%</div>
-                    {nom != null && <div className="text-[10px]" style={{ color: lineColor[k], opacity: 0.8 }}>{nom}</div>}
-                  </td>;
-                };
-                return (
-                  <table className="w-full font-mono text-[11px]">
-                    <thead><tr className="text-slate-500"><th className="text-left font-normal py-0.5"></th>{matureY.map((y) => <th key={y} className="text-right font-normal">{y}Y</th>)}{showHoy && <th className="text-right font-normal" title={ti('partialTitle')}>{ti('today')}</th>}</tr></thead>
-                    <tbody>
-                      {([['SPX', 'spx'], ['NDX', 'ndx'], ['TQQQ', 'tqqq']] as const).map(([label, k]) => (
-                        <tr key={k} className="border-t border-slate-800/60">
-                          <td className="py-0.5 font-bold" style={{ color: lineColor[k] }}>{label}
-                            {base(k) != null && <div className="text-[10px] font-normal" style={{ opacity: 0.8 }}>{fmtFull(base(k)!)}</div>}
-                          </td>
-                          {matureY.map((y) => nomCell(y, k, forward[`${k}${y}y`], `${label} ${y}Y desde ${hover.d}: nominal entonces → nominal +${y}a`))}
-                          {showHoy && nomCell('hoy', k, forward[`${k}Tt`], `${label} a hoy (parcial, horizonte no maduro)`, '~ ')}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                )})()}
-            </div>
-          )}
+          <div className="mt-1.5 font-mono text-[10px] text-slate-400 space-y-0.5">
+            {(detail.bonus ?? 0) > 0 && (
+              <div><span className="text-orange-300">{ti('hyBonusDetail', { label: detail.bonusLabel ?? '', n: Number(detail.bonus).toFixed(0) })}</span>
+                {detail.bonusHy != null && <> · HY {Number(detail.bonusHy).toFixed(2)}{detail.bonusD1 != null && <> · Δ1M {Number(detail.bonusD1) >= 0 ? '+' : ''}{Number(detail.bonusD1).toFixed(2)} ({ti('triggerShort')} ≥ +1.00)</>}{detail.bonusZ != null && <> · z {Number(detail.bonusZ) >= 0 ? '+' : ''}{Number(detail.bonusZ).toFixed(1)}σ ({ti('triggerShort')} z&gt;1.5, HY&gt;5)</>}</>}
+              </div>
+            )}
+            {(detail.liqBonus ?? 0) !== 0 && <div className={Number(detail.liqBonus) > 0 ? 'text-orange-300' : 'text-emerald-300'}>{ti('liqBonusRow', { label: detail.liqBonusLabel ?? '' })}: {sign(Number(detail.liqBonus))}</div>}
+            {(detail.oilBonus ?? 0) !== 0 && <div className={Number(detail.oilBonus) > 0 ? 'text-orange-300' : 'text-emerald-300'}>{ti('oilBonusRow', { label: detail.oilBonusLabel ?? '' })}: {sign(Number(detail.oilBonus))}{detail.oilRatio != null && <> · ×{Number(detail.oilRatio).toFixed(2)} SMA36M</>}</div>}
+            <div>Σ {Number(detail.numerator).toFixed(1)} ÷ {detail.denominator}{(detail.bonus ?? 0) > 0 ? ` + ${Number(detail.bonus).toFixed(0)}` : ''}{(detail.liqBonus ?? 0) !== 0 ? ` ${sign(Number(detail.liqBonus))}` : ''}{(detail.oilBonus ?? 0) !== 0 ? ` ${sign(Number(detail.oilBonus))}` : ''} = <span className="text-slate-100 font-bold">{Number(detail.value).toFixed(1)}</span> · {detail.coverage}/13</div>
+          </div>
         </>
       )}
+      <div className="mt-2 pt-1.5 border-t border-slate-800">
+        <div className="text-[11px] font-semibold text-slate-100 mb-1">{ti('bhtPopHistoryTitle', { date: hover.d })}</div>
+        <OrbHistoryTable rows={bhtHistoryRows(hist.data)} loading={hist.isLoading} valueHeader="BHT" dec={1} showValue={false} compact />
+      </div>
     </div>
   );
 }

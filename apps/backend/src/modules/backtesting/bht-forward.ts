@@ -70,6 +70,8 @@ const shiftMonth = (month: string, delta: number) => {
 export function monthlyPartsFromDaily(
   rows: DailyRow[], n = 12, latest: IndexCloses = { spx: null, ndx: null, tqqq: null }, extraYears: number[] = [],
   latestDates: IndexDates = { spx: null, ndx: null, tqqq: null },
+  /** Fecha final (incluida) para elegir los meses; el pico siempre se busca hasta hoy. */
+  to?: string,
 ): MonthlyParts[] {
   const sorted = [...rows].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
   const IDX = ['spx', 'ndx', 'tqqq'] as const;
@@ -89,6 +91,7 @@ export function monthlyPartsFromDaily(
   const byMonth = new Map<string, DailyRow>();
   for (const r of rows) {
     if (!Array.isArray(r.parts) || !r.parts.length) continue;
+    if (to && r.date > to) continue;
     const m = r.date.slice(0, 7);
     const cur = byMonth.get(m);
     if (!cur || r.date > cur.date) byMonth.set(m, r);
