@@ -93,7 +93,9 @@ Marcar `[x]` con rama y commit al terminar.
 - [x] Home: sin datos de ejemplo inventados; si el API falla se ocultan las cards sin dato y la sección de destacadas (probado con una instancia temporal apuntando a un backend caído). Ya no se pide `/indicators` (las cards usan series reales).
 - [ ] Home: el bloque de suscripción dice "Únete a más de 10,000 Inversores" y promete alertas de "recomendaciones de compra/venta"; confirmar la cifra o quitarla y suavizar el texto.
 - [ ] Tabla `indicators`: `fear_greed`, `vix`, `fed_rate`, `treasury_30y` siguen con valores del seed (19 ago); nada los actualiza.
-- [ ] Monitor de frescura por fuente (EDGAR, GuruFocus, FRED, precios) con aviso al admin.
+- [x] Monitor de frescura, fase 1 (rama `feat/data-freshness-monitor`): `GET /admin/data-freshness` (ADMIN) con 16 fuentes configuradas en `apps/backend/src/modules/admin/data-freshness.ts` (tipo API/Archivo/Scraper/Cálculo, ritmo y umbrales de atraso que incluyen el retraso normal de publicación; la fuente vale lo que su serie más atrasada); tarjeta "Frescura de datos" en `/admin` (resumen, detalle por serie) y aviso rojo en el menú de usuario si hay fuentes vencidas. Al 13 nov: 15 al día, Yardeni atrasada (PDF del 29 oct).
+- [ ] Monitor de frescura, fase 2: tabla `data_source_runs` (fuente, inicio, fin, ok/error, filas, mensaje) y registro desde cada proceso (sync de precios, daily_update.py, EDGAR, Shiller, GuruFocus) para mostrar la última corrida y su error.
+- [ ] Ajustar umbrales de GuruFocus (hoy semanal: atrasada a 8 días) según la frecuencia real de su scraper.
 - [ ] Dividir `IndicatorsPanel.tsx` (2,073 líneas), `RegimesPanel.tsx` (1,510) y `EpsHistoryChart.tsx` (984).
 
 ### P6 — PugInvestor (marca casual, después de validar)

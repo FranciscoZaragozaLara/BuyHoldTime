@@ -807,5 +807,110 @@
     "indicatorsTitle": "Market Indicators: Shiller PE (CAPE), S&P 500 PE Ratio & Treasury Yields",
     "indicatorsDescription": "Track market valuation indicators: Shiller PE (CAPE), S&P 500 P/E ratio, 10-year Treasury yield, inflation, and margin debt.",
     "indicatorsOgTitle": "Shiller PE (CAPE) & S&P 500 Valuation"
+  },
+  "Admin": {
+    "freshness": {
+      "title": "Data freshness",
+      "subtitle": "Latest data available per source and status based on its publication cadence (includes each source's normal lag).",
+      "loading": "Checking sources…",
+      "refresh": "Check again",
+      "status": {
+        "fresh": "fresh",
+        "late": "late",
+        "stale": "stale",
+        "missing": "no data"
+      },
+      "type": {
+        "api": "API",
+        "file": "File",
+        "scraper": "Scraper",
+        "computed": "Computed"
+      },
+      "cadence": {
+        "daily": "Daily",
+        "weekly": "Weekly",
+        "monthly": "Monthly",
+        "quarterly": "Quarterly"
+      },
+      "col": {
+        "source": "Source",
+        "type": "Type",
+        "feeds": "Feeds",
+        "cadence": "Cadence",
+        "lastDate": "Latest data",
+        "age": "Age",
+        "status": "Status"
+      },
+      "days": "{n} d",
+      "thresholds": "Late after {late} days, stale after {stale}",
+      "footer": "Reference date: {today} (New York time). Phase 1: data freshness; failed runs will be logged in phase 2.",
+      "menuStale": "{n} stale data source(s)",
+      "src": {
+        "stock_prices": {
+          "name": "Stock prices",
+          "feeds": "Ticker pages, price list, daily movers"
+        },
+        "etf_prices": {
+          "name": "Indices & ETFs (yfinance)",
+          "feeds": "S&P 500, Nasdaq, TQQQ, backtests, sparklines"
+        },
+        "fred_daily": {
+          "name": "FRED daily",
+          "feeds": "2Y/10Y/30Y rates, Fed, HY OAS, VIX, oil"
+        },
+        "fred_inflation": {
+          "name": "FRED inflation",
+          "feeds": "Thermometer CPI and Core CPI"
+        },
+        "fred_money_housing": {
+          "name": "FRED money & housing",
+          "feeds": "M2, M0 (liquidity bonus), housing inventory"
+        },
+        "fred_gdp": {
+          "name": "FRED GDP",
+          "feeds": "Nominal and real GDP (growth, margin/GDP)"
+        },
+        "cnn_fear_greed": {
+          "name": "CNN Fear & Greed",
+          "feeds": "Thermometer sentiment and home card"
+        },
+        "breadth": {
+          "name": "Breadth (WSJ / Yahoo)",
+          "feeds": "Up/down volume NYSE, Nasdaq, S&P"
+        },
+        "finra_margin": {
+          "name": "FINRA margin debt",
+          "feeds": "Leverage / GDP, high-debt regime"
+        },
+        "shiller_cape": {
+          "name": "Shiller CAPE (ie_data.xls)",
+          "feeds": "Registered CAPE, ratio, thermometer"
+        },
+        "yardeni_fwd_eps": {
+          "name": "Yardeni forward EPS",
+          "feeds": "Thermometer forward P/E"
+        },
+        "multpl_eps": {
+          "name": "multpl EPS",
+          "feeds": "S&P 500 trailing P/E"
+        },
+        "sec_edgar": {
+          "name": "SEC EDGAR",
+          "feeds": "Quarterly EPS and revenue (10-Q / 10-K)"
+        },
+        "gurufocus": {
+          "name": "GuruFocus Scrapper",
+          "feeds": "Stock snapshots and metrics (sibling repo)"
+        },
+        "thermo_history": {
+          "name": "BHT thermometer (history)",
+          "feeds": "BHT history, charts and CAPE table"
+        },
+        "bht_forward": {
+          "name": "BHT forward",
+          "feeds": "Daily components, popovers and orb history"
+        }
+      }
+    }
   }
 }

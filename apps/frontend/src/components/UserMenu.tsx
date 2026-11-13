@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useLocale } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
+import { useDataFreshness } from '@/components/admin/useDataFreshness';
 import { LogOut, User as UserIcon, ShieldCheck, Crown, Sparkles } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 
@@ -9,6 +10,10 @@ export const UserMenu: React.FC = () => {
   const locale = useLocale();
   const { user, role, logout } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
+  const tf = useTranslations('Admin.freshness');
+  // Aviso para admins si alguna fuente de datos está vencida (misma consulta que el panel).
+  const fresh = useDataFreshness(role === 'ADMIN');
+  const staleCount = fresh.data?.summary.stale ?? 0;
 
   if (!user) return null;
 
@@ -43,8 +48,10 @@ export const UserMenu: React.FC = () => {
     <div className="relative">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 p-1.5 pl-2.5 rounded-xl border border-slate-800 bg-slate-900/80 hover:bg-slate-900 transition cursor-pointer"
+        className="relative flex items-center gap-2 p-1.5 pl-2.5 rounded-xl border border-slate-800 bg-slate-900/80 hover:bg-slate-900 transition cursor-pointer"
+        title={staleCount > 0 ? tf('menuStale', { n: staleCount }) : undefined}
       >
+        {staleCount > 0 && <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-risk-500 ring-2 ring-slate-950" aria-label={tf('menuStale', { n: staleCount })} />}
         {/* Role Badge */}
         <span className={`text-[10px] font-black px-1.5 py-0.5 rounded border flex items-center gap-1 ${badge.className}`}>
           {badge.icon}
@@ -87,6 +94,7 @@ export const UserMenu: React.FC = () => {
             >
               <ShieldCheck size={13} />
               <span>{locale === 'es' ? 'Panel Administrador' : 'Admin Panel'}</span>
+              {staleCount > 0 && <span className="ml-1 text-[10px] font-black px-1.5 rounded-full bg-risk-500 text-white" title={tf('menuStale', { n: staleCount })}>{staleCount}</span>}
             </a>
           )}
 

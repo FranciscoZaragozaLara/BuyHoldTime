@@ -5,6 +5,7 @@ import React, { useEffect, useState } from 'react';
 import { useAuth, UserRole } from '@/context/AuthContext';
 import { Layout } from '@/components/Layout';
 import { DataOpsCard } from '@/components/admin/DataOpsCard';
+import { DataFreshnessCard } from '@/components/admin/DataFreshnessCard';
 import { ShieldCheck, Users, BarChart2, Clock, RefreshCw, CheckCircle, ShieldAlert } from 'lucide-react';
 
 interface TickerData {
@@ -172,6 +173,7 @@ export default function AdminPage() {
         )}
 
         {/* Operaciones de datos (sync de mercado) */}
+        <DataFreshnessCard />
         <DataOpsCard />
 
         {/* Tabs */}

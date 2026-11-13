@@ -5,6 +5,7 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { PrismaService } from '../../prisma/prisma.service';
 import { FirebaseAdminService } from '../auth/firebase-admin.service';
 import { Role } from '@prisma/client';
+import { DATA_SOURCES, evaluateSource, summarize } from './data-freshness';
 
 @Controller('admin')
 @UseGuards(FirebaseAuthGuard, RolesGuard)
@@ -14,6 +15,21 @@ export class AdminController {
     private readonly prisma: PrismaService,
     private readonly firebaseAdminService: FirebaseAdminService,
   ) {}
+
+  /** Frescura de datos por fuente (último dato en la BD y estatus según su ritmo de publicación). */
+  @Get('data-freshness')
+  async getDataFreshness() {
+    const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+    const sources = await Promise.all(DATA_SOURCES.map(async (cfg) => {
+      try {
+        const rows = await this.prisma.$queryRawUnsafe<{ series: string; d: string | null }[]>(cfg.sql);
+        return evaluateSource(cfg, rows, today);
+      } catch (e: any) {
+        return evaluateSource(cfg, [], today, String(e?.message ?? e).slice(0, 200));
+      }
+    }));
+    return { today, generatedAt: new Date().toISOString(), summary: summarize(sources), sources };
+  }
 
   @Get('tickers')
   async getTickers() {

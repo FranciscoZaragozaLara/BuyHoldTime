@@ -807,5 +807,110 @@
     "indicatorsTitle": "Indicadores de mercado: CAPE de Shiller, P/E del S&P 500 y bonos del Tesoro",
     "indicatorsDescription": "Sigue indicadores de valuación del mercado: CAPE de Shiller, P/E del S&P 500, rendimiento del bono a 10 años, inflación y deuda en margen.",
     "indicatorsOgTitle": "CAPE de Shiller y valuación del S&P 500"
+  },
+  "Admin": {
+    "freshness": {
+      "title": "Frescura de datos",
+      "subtitle": "Último dato disponible por fuente y estatus según su ritmo de publicación (incluye el retraso normal de cada fuente).",
+      "loading": "Revisando fuentes…",
+      "refresh": "Volver a revisar",
+      "status": {
+        "fresh": "al día",
+        "late": "atrasada",
+        "stale": "vencida",
+        "missing": "sin dato"
+      },
+      "type": {
+        "api": "API",
+        "file": "Archivo",
+        "scraper": "Scraper",
+        "computed": "Cálculo"
+      },
+      "cadence": {
+        "daily": "Diaria",
+        "weekly": "Semanal",
+        "monthly": "Mensual",
+        "quarterly": "Trimestral"
+      },
+      "col": {
+        "source": "Fuente",
+        "type": "Tipo",
+        "feeds": "Alimenta",
+        "cadence": "Ritmo",
+        "lastDate": "Último dato",
+        "age": "Antigüedad",
+        "status": "Estatus"
+      },
+      "days": "{n} d",
+      "thresholds": "Atrasada después de {late} días, vencida después de {stale}",
+      "footer": "Fecha de referencia: {today} (hora de Nueva York). Fase 1: frescura del dato; las corridas fallidas se registrarán en una fase 2.",
+      "menuStale": "{n} fuente(s) de datos vencida(s)",
+      "src": {
+        "stock_prices": {
+          "name": "Precios de acciones",
+          "feeds": "Fichas, lista de precios, movimientos del día"
+        },
+        "etf_prices": {
+          "name": "Índices y ETFs (yfinance)",
+          "feeds": "S&P 500, Nasdaq, TQQQ, backtests, mini-gráficas"
+        },
+        "fred_daily": {
+          "name": "FRED diario",
+          "feeds": "Tasas 2Y/10Y/30Y, Fed, HY OAS, VIX, petróleo"
+        },
+        "fred_inflation": {
+          "name": "FRED inflación",
+          "feeds": "CPI y Core CPI del termómetro"
+        },
+        "fred_money_housing": {
+          "name": "FRED dinero y vivienda",
+          "feeds": "M2, M0 (bonus de liquidez), inventario de vivienda"
+        },
+        "fred_gdp": {
+          "name": "FRED PIB",
+          "feeds": "PIB nominal y real (crecimiento, margen/PIB)"
+        },
+        "cnn_fear_greed": {
+          "name": "CNN Fear & Greed",
+          "feeds": "Sentimiento del termómetro y card del home"
+        },
+        "breadth": {
+          "name": "Amplitud (WSJ / Yahoo)",
+          "feeds": "Volumen al alza/baja NYSE, Nasdaq, S&P"
+        },
+        "finra_margin": {
+          "name": "FINRA deuda en margen",
+          "feeds": "Apalancamiento / PIB, régimen de alta deuda"
+        },
+        "shiller_cape": {
+          "name": "Shiller CAPE (ie_data.xls)",
+          "feeds": "CAPE registrado, ratio, termómetro"
+        },
+        "yardeni_fwd_eps": {
+          "name": "Yardeni EPS estimado",
+          "feeds": "P/E estimado del termómetro"
+        },
+        "multpl_eps": {
+          "name": "multpl EPS",
+          "feeds": "P/E trailing del S&P 500"
+        },
+        "sec_edgar": {
+          "name": "SEC EDGAR",
+          "feeds": "EPS e ingresos trimestrales (10-Q / 10-K)"
+        },
+        "gurufocus": {
+          "name": "GuruFocus Scrapper",
+          "feeds": "Snapshots y métricas de acciones (repo hermano)"
+        },
+        "thermo_history": {
+          "name": "Termómetro BHT (histórico)",
+          "feeds": "Historia del BHT, gráficas y tabla CAPE"
+        },
+        "bht_forward": {
+          "name": "BHT forward",
+          "feeds": "Componentes por día, popovers e historia de orbes"
+        }
+      }
+    }
   }
 }
