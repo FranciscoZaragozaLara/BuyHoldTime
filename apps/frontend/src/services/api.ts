@@ -125,6 +125,24 @@ export async function getLatestMarketValue(ticker: string, lookbackDays = 14): P
   return last ? { date: String(last.date).slice(0, 10), value: Number(last.close) } : null;
 }
 
+/** Últimos `points` cierres diarios de una serie de bt_market_data (para mini-gráficas), del más viejo al más nuevo. */
+export async function getMarketSeries(ticker: string, points = 30): Promise<{ date: string; value: number }[]> {
+  const from = new Date(Date.now() - Math.ceil(points * 1.6 + 10) * 86400000).toISOString().slice(0, 10);
+  const res = await fetch(`${getApiBaseUrl()}/api/backtesting/market-data?ticker=${encodeURIComponent(ticker)}&from=${from}`, { next: { revalidate: 3600 } });
+  if (!res.ok) return [];
+  const rows = (await res.json()) as { date: string; close: number | null }[];
+  return rows.filter((r) => r.close != null && Number.isFinite(Number(r.close))).map((r) => ({ date: String(r.date).slice(0, 10), value: Number(r.close) })).slice(-points);
+}
+
+/** Últimos `points` valores del CAPE registrado diario (bt_shiller_daily). */
+export async function getCapeSeries(points = 30): Promise<{ date: string; value: number }[]> {
+  const from = new Date(Date.now() - Math.ceil(points * 1.6 + 10) * 86400000).toISOString().slice(0, 10);
+  const res = await fetch(`${getApiBaseUrl()}/api/backtesting/shiller-daily?from=${from}`, { next: { revalidate: 3600 } });
+  if (!res.ok) return [];
+  const rows = (await res.json()) as { date: string; cape: number | null }[];
+  return rows.filter((r) => r.cape != null && Number.isFinite(Number(r.cape))).map((r) => ({ date: String(r.date).slice(0, 10), value: Number(r.cape) })).slice(-points);
+}
+
 export async function getIndicators(): Promise<Indicator[]> {
   const res = await fetch(`${getApiBaseUrl()}/indicators`, {
     // Macro indicators change slowly — revalidate every hour

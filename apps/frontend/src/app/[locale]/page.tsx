@@ -6,10 +6,12 @@ import { Layout } from '@/components/Layout';
 import { SubscribeForm } from '@/components/SubscribeForm';
 import { IndexSparklineCard } from '@/components/IndexSparklineCard';
 import { JsonLd } from '@/components/JsonLd';
-import { getTickers, getIndicators, getLatestMarketValue, Ticker, Indicator } from '@/services/api';
+import { getTickers, getIndicators, getLatestMarketValue, getMarketSeries, getCapeSeries, Ticker, Indicator } from '@/services/api';
 import { RiskDisclaimer } from '@/components/RiskDisclaimer';
 import { TOKENS } from '@/lib/designTokens';
 import { changeBadgeType, fearGreedLabel, formatChangePct } from '@/lib/formatChange';
+import { capeBadgeType, capeBandLabel } from '@/lib/capeBands';
+import { levelLabel } from '@/lib/levelLabels';
 
 // ISR: revalidate home page every 60 seconds
 export const revalidate = 60;
@@ -17,10 +19,6 @@ export const revalidate = 60;
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://buyholdtime.com';
 
 // Sparkline trends for the home page cards
-const spySpark = [{ value: 480 }, { value: 485 }, { value: 490 }, { value: 488 }, { value: 495 }, { value: 505 }, { value: 512 }];
-const nasdaqSpark = [{ value: 15500 }, { value: 15700 }, { value: 15600 }, { value: 15900 }, { value: 16100 }, { value: 16300 }, { value: 16420 }];
-const fearSpark = [{ value: 45 }, { value: 50 }, { value: 52 }, { value: 58 }, { value: 65 }, { value: 60 }, { value: 62 }];
-const schillerSpark = [{ value: 31.2 }, { value: 31.8 }, { value: 32.5 }, { value: 33.1 }, { value: 33.5 }, { value: 34.0 }, { value: 34.25 }];
 
 export default async function HomePage({
   params,
@@ -72,14 +70,20 @@ export default async function HomePage({
 
   // Fear & Greed real (serie diaria FEAR_GREED de CNN en bt_market_data, la misma del termómetro).
   // La fila fear_greed de la tabla `indicators` viene del seed y no se actualiza.
-  const fg = await getLatestMarketValue('FEAR_GREED').catch(() => null);
+  // Mini-gráficas con las series reales de los últimos 30 días hábiles.
+  const [spySpark, nasdaqSpark, fearSpark, schillerSpark] = await Promise.all([
+    getMarketSeries('SPY').catch(() => []), getMarketSeries('QQQ').catch(() => []),
+    getMarketSeries('FEAR_GREED').catch(() => []), getCapeSeries().catch(() => []),
+  ]);
+  const fg = fearSpark.length ? fearSpark[fearSpark.length - 1] : await getLatestMarketValue('FEAR_GREED').catch(() => null);
   const fgLabel = fg ? fearGreedLabel(fg.value) : null;
   const fearVal = fg ? `${Math.round(fg.value)} / 100` : '—';
   const fearStatus = fgLabel ? t(`fg_${fgLabel}`) : '—';
 
-  const capeIndex = indicators.find((i) => i.key === 'schiller_pe');
-  const capeVal = capeIndex ? `${capeIndex.currentValue.toFixed(2)}x` : '—';
-  const capeStatus = capeIndex ? capeIndex.status : '—';
+  // CAPE registrado diario (el mismo del termómetro): valor, etiqueta y mini-gráfica de la misma serie.
+  const capeLast = schillerSpark.length ? schillerSpark[schillerSpark.length - 1].value : null;
+  const capeVal = capeLast != null ? `${capeLast.toFixed(2)}x` : '—';
+  const capeStatus = capeLast != null ? levelLabel(capeBandLabel(capeLast), locale) : '—';
 
   return (
     <Layout>
@@ -170,6 +174,7 @@ export default async function HomePage({
               badgeText={fearStatus}
               badgeType={fgLabel === 'fear' || fgLabel === 'extremeFear' ? 'error' : fgLabel ? 'warning' : 'info'}
               sparklineData={fearSpark}
+              dec={0}
               color="#fbbf24"
               footerText={t('cardFgFooter')}
             />
@@ -177,7 +182,7 @@ export default async function HomePage({
               title="Shiller PE Ratio (CAPE)"
               valueStr={capeVal}
               badgeText={capeStatus}
-              badgeType="error"
+              badgeType={capeLast != null ? capeBadgeType(capeLast) : 'info'}
               sparklineData={schillerSpark}
               color="#f87171"
               footerText={t('cardCapeFooter')}

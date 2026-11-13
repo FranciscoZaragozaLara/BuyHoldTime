@@ -3,6 +3,7 @@ import { getApiBase } from '@/lib/apiBase';
 import { useCallback, useEffect, useLayoutEffect, useState, useRef, useMemo } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import { levelLabel } from '@/lib/levelLabels';
+import { capeBandLabel } from '@/lib/capeBands';
 import { bhtHistoryRows, monthLabel, orbHistoryRows, shortDate, ORB_PART_KEY, PART_ORB_NAME, type MonthlyParts, type OrbHistoryRow } from '@/lib/orbHistory';
 import { useMarketSyncStream } from './useMarketSyncStream';
 import MarketSyncModal from './MarketSyncModal';
@@ -196,7 +197,6 @@ const partDesc: Record<string, string> = {
   MS: 'Vivienda', PIB: 'Crecimiento',
 };
 const partLabel = (k: string, loc = 'es') => partDesc[k] ? `${partName(k)} - (${levelLabel(partDesc[k], loc)})` : partName(k);
-const capeBandLabel = (cape: number) => cape < 29 ? 'Barato' : cape < 35 ? 'Justo' : cape < 40 ? 'Caro' : cape < 43 ? 'Elevado' : 'Extremo';
 const fwdBandLabel = (pe: number) => pe < 15 ? 'Barato' : pe < 19 ? 'Justo' : pe < 22 ? 'Caro' : pe < 24 ? 'Elevado' : 'Extremo';
 // Bandas para el popover del orbe: [lo, hi, display, puntos, nivel]
 const CAPE_BANDS: [number, number, string, string, string][] = [

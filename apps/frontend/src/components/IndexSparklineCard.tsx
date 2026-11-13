@@ -1,10 +1,11 @@
 'use client';
 
-import React from 'react';
-import { AreaChart, Area, ResponsiveContainer } from 'recharts';
+import React, { useId } from 'react';
+import { AreaChart, Area, ResponsiveContainer, YAxis, Tooltip } from 'recharts';
 
 interface SparklineDataPoint {
   value: number;
+  date?: string;
 }
 
 interface IndexSparklineCardProps {
@@ -15,6 +16,10 @@ interface IndexSparklineCardProps {
   sparklineData: SparklineDataPoint[];
   color: string;
   footerText: string;
+  /** Texto cuando no hay datos. */
+  emptyText?: string;
+  /** Decimales del valor en el tooltip. */
+  dec?: number;
 }
 
 export const IndexSparklineCard: React.FC<IndexSparklineCardProps> = ({
@@ -25,6 +30,8 @@ export const IndexSparklineCard: React.FC<IndexSparklineCardProps> = ({
   sparklineData,
   color,
   footerText,
+  emptyText = '—',
+  dec = 2,
 }) => {
   const getBadgeClass = () => {
     switch (badgeType) {
@@ -40,7 +47,8 @@ export const IndexSparklineCard: React.FC<IndexSparklineCardProps> = ({
     }
   };
 
-  const gradientId = `glow-${title.replace(/\s+/g, '-').toLowerCase()}`;
+  // id seguro para url(#…): el título trae "(SPY)" y "&", que rompían la referencia y el relleno salía negro.
+  const gradientId = `glow-${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`;
 
   return (
     <div className="flex flex-col gap-4 p-6 rounded-2xl border border-slate-900 bg-slate-950/40 backdrop-blur-sm shadow-xl relative overflow-hidden transition-all duration-300 hover:border-slate-800 hover:bg-slate-900/10">
@@ -61,7 +69,17 @@ export const IndexSparklineCard: React.FC<IndexSparklineCardProps> = ({
       <div className="h-12 w-full">
         {sparklineData && sparklineData.length > 0 ? (
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={sparklineData}>
+            <AreaChart data={sparklineData} margin={{ top: 2, right: 0, bottom: 2, left: 0 }}>
+              {/* Escala ajustada al rango de la serie (con eje desde 0 los precios se veían planos). */}
+              <YAxis hide domain={[(min: number) => min - (Math.abs(min) * 0.002 || 1), (max: number) => max + (Math.abs(max) * 0.002 || 1)]} />
+              <Tooltip
+                cursor={{ stroke: '#475569', strokeWidth: 1 }}
+                contentStyle={{ background: '#0f172a', border: '1px solid #334155', borderRadius: 8, fontSize: 11, padding: '4px 8px' }}
+                labelStyle={{ color: '#94a3b8' }}
+                itemStyle={{ color: '#e2e8f0' }}
+                labelFormatter={(_, p) => (p?.[0]?.payload?.date as string) ?? ''}
+                formatter={(v) => [Number(v).toFixed(dec), title]}
+              />
               <defs>
                 <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor={color} stopOpacity={0.2} />
@@ -75,12 +93,13 @@ export const IndexSparklineCard: React.FC<IndexSparklineCardProps> = ({
                 strokeWidth={1.5}
                 fillOpacity={1}
                 fill={`url(#${gradientId})`}
+                isAnimationActive={false}
               />
             </AreaChart>
           </ResponsiveContainer>
         ) : (
           <div className="h-full flex items-center justify-center text-xs text-slate-700">
-            No data
+            {emptyText}
           </div>
         )}
       </div>
