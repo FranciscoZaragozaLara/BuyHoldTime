@@ -12,11 +12,11 @@ export interface BhtBand {
 }
 
 export const BHT_BANDS: BhtBand[] = [
-  { lo: 0, hi: 40, color: '#22c55e', textClass: 'text-emerald-400', label: 'Miedo Extremo (Alta Oportunidad)', range: '0–39', advice: 'A mayor miedo, mejor oportunidad: evalúa pisos y sobreventa con CAPE y RSI para entrar fuerte en QQQ, TQQQ, SOXX — incluso con margin.' },
-  { lo: 40, hi: 50, color: '#84cc36', textClass: 'text-lime-400', label: 'Miedo (Oportunidad)', range: '40–49', advice: 'Puedes usar margen y apalancados, sin margen extremo; confirma reversión a tendencia alcista para comprar QQQ, TQQQ y calidad undervalued.' },
-  { lo: 50, hi: 62, color: '#eab308', textClass: 'text-yellow-300', label: 'Neutral', range: '50–61', advice: 'No compres ni incrementes apalancados o alto margen (TQQQ, SOXL). Estrategia base: Hold de tus posiciones y acumula liquidez y defensivas.' },
-  { lo: 62, hi: 70, color: '#f97316', textClass: 'text-orange-400', label: 'Codicia (Riesgo)', range: '62–69', advice: 'Reduce QQQ/TQQQ/SOXX y baja el margen; mantén al menos 10% en Cash/SGOV para oportunidades.' },
-  { lo: 70, hi: 100, color: '#ef4444', textClass: 'text-red-400', label: 'Codicia Extrema (Alto Riesgo)', range: '70–100', advice: 'Cero margen y apalancados a menos del 20%; lleva 20–40% a defensivas (SGOV/IB01 o SCHD según tu perfil), acumula CASH para caídas y reduce acciones/ETFs caros de forma incremental según suba el CAPE Ratio.' },
+  { lo: 0, hi: 40, color: '#22c55e', textClass: 'text-emerald-400', label: 'Miedo Extremo (Alta Oportunidad)', range: '0–39', advice: 'Miedo extremo suele ser la mejor oportunidad: considera entrar con más fuerza en QQQ, TQQQ o SOXX tras confirmar pisos y sobreventa con el CAPE y el RSI. El margen solo tiene sentido si toleras alta volatilidad.' },
+  { lo: 40, hi: 50, color: '#84cc36', textClass: 'text-lime-400', label: 'Miedo (Oportunidad)', range: '40–49', advice: 'Zona favorable: puedes considerar margen moderado y apalancados, evitando el margen extremo. Conviene esperar una reversión a tendencia alcista antes de comprar QQQ, TQQQ o empresas de calidad subvaluadas.' },
+  { lo: 50, hi: 62, color: '#eab308', textClass: 'text-yellow-300', label: 'Neutral', range: '50–61', advice: 'Sin señal clara: sugerimos no aumentar apalancados ni margen (TQQQ, SOXL). Mantener posiciones y acumular liquidez y defensivas suele ser la estrategia base.' },
+  { lo: 62, hi: 70, color: '#f97316', textClass: 'text-orange-400', label: 'Codicia (Riesgo)', range: '62–69', advice: 'Riesgo en aumento: considera reducir QQQ/TQQQ/SOXX y bajar el margen, manteniendo al menos un 10% en efectivo o SGOV para aprovechar oportunidades.' },
+  { lo: 70, hi: 100, color: '#ef4444', textClass: 'text-red-400', label: 'Codicia Extrema (Alto Riesgo)', range: '70–100', advice: 'Riesgo alto: sugerimos eliminar el margen y dejar los apalancados por debajo del 20%; mover un 20–40% a defensivas (SGOV/IB01 o SCHD según tu perfil), acumular efectivo para las caídas y recortar de forma gradual acciones y ETFs caros conforme suba el CAPE Ratio.' },
 ];
 
 // Cortes interiores (bordes entre bandas), para degradados y geometría del gauge.

@@ -428,23 +428,23 @@
       "bht": {
         "b0": {
           "label": "Extreme Fear (High Opportunity)",
-          "advice": "The greater the fear, the better the opportunity: assess bottoms and oversold conditions with CAPE and RSI to enter strongly into QQQ, TQQQ, SOXX — even with margin."
+          "advice": "Extreme fear tends to be the best opportunity: consider entering more strongly into QQQ, TQQQ or SOXX after confirming bottoms and oversold conditions with CAPE and RSI. Margin only makes sense if you tolerate high volatility."
         },
         "b1": {
           "label": "Fear (Opportunity)",
-          "advice": "You can use margin and leveraged ETFs, without extreme margin; confirm a reversal to an uptrend before buying QQQ, TQQQ and undervalued quality."
+          "advice": "Favorable zone: you may consider moderate margin and leveraged ETFs, avoiding extreme margin. It is worth waiting for a reversal to an uptrend before buying QQQ, TQQQ or undervalued quality companies."
         },
         "b2": {
           "label": "Neutral",
-          "advice": "Do not buy or increase leveraged ETFs or high margin (TQQQ, SOXL). Base strategy: hold your positions and build up cash and defensives."
+          "advice": "No clear signal: we suggest not increasing leveraged ETFs or margin (TQQQ, SOXL). Holding positions and building cash and defensives is usually the base strategy."
         },
         "b3": {
           "label": "Greed (Risk)",
-          "advice": "Reduce QQQ/TQQQ/SOXX and lower margin; keep at least 10% in cash/SGOV for opportunities."
+          "advice": "Rising risk: consider trimming QQQ/TQQQ/SOXX and lowering margin, keeping at least 10% in cash or SGOV to take advantage of opportunities."
         },
         "b4": {
           "label": "Extreme Greed (High Risk)",
-          "advice": "Zero margin and leveraged ETFs below 20%; move 20–40% to defensives (SGOV/IB01 or SCHD depending on your profile), build CASH for drawdowns and trim expensive stocks/ETFs incrementally as the CAPE Ratio rises."
+          "advice": "High risk: we suggest removing margin and keeping leveraged ETFs below 20%; moving 20–40% to defensives (SGOV/IB01 or SCHD depending on your profile), building cash for drawdowns and gradually trimming expensive stocks and ETFs as the CAPE Ratio rises."
         }
       },
       "ratioDesc": "Valuation relative to its 3-year mean.",

@@ -428,23 +428,23 @@
       "bht": {
         "b0": {
           "label": "Miedo Extremo (Alta Oportunidad)",
-          "advice": "A mayor miedo, mejor oportunidad: evalúa pisos y sobreventa con CAPE y RSI para entrar fuerte en QQQ, TQQQ, SOXX — incluso con margin."
+          "advice": "Miedo extremo suele ser la mejor oportunidad: considera entrar con más fuerza en QQQ, TQQQ o SOXX tras confirmar pisos y sobreventa con el CAPE y el RSI. El margen solo tiene sentido si toleras alta volatilidad."
         },
         "b1": {
           "label": "Miedo (Oportunidad)",
-          "advice": "Puedes usar margen y apalancados, sin margen extremo; confirma reversión a tendencia alcista para comprar QQQ, TQQQ y calidad undervalued."
+          "advice": "Zona favorable: puedes considerar margen moderado y apalancados, evitando el margen extremo. Conviene esperar una reversión a tendencia alcista antes de comprar QQQ, TQQQ o empresas de calidad subvaluadas."
         },
         "b2": {
           "label": "Neutral",
-          "advice": "No compres ni incrementes apalancados o alto margen (TQQQ, SOXL). Estrategia base: Hold de tus posiciones y acumula liquidez y defensivas."
+          "advice": "Sin señal clara: sugerimos no aumentar apalancados ni margen (TQQQ, SOXL). Mantener posiciones y acumular liquidez y defensivas suele ser la estrategia base."
         },
         "b3": {
           "label": "Codicia (Riesgo)",
-          "advice": "Reduce QQQ/TQQQ/SOXX y baja el margen; mantén al menos 10% en Cash/SGOV para oportunidades."
+          "advice": "Riesgo en aumento: considera reducir QQQ/TQQQ/SOXX y bajar el margen, manteniendo al menos un 10% en efectivo o SGOV para aprovechar oportunidades."
         },
         "b4": {
           "label": "Codicia Extrema (Alto Riesgo)",
-          "advice": "Cero margen y apalancados a menos del 20%; lleva 20–40% a defensivas (SGOV/IB01 o SCHD según tu perfil), acumula CASH para caídas y reduce acciones/ETFs caros de forma incremental según suba el CAPE Ratio."
+          "advice": "Riesgo alto: sugerimos eliminar el margen y dejar los apalancados por debajo del 20%; mover un 20–40% a defensivas (SGOV/IB01 o SCHD según tu perfil), acumular efectivo para las caídas y recortar de forma gradual acciones y ETFs caros conforme suba el CAPE Ratio."
         }
       },
       "ratioDesc": "Valuación relativa a su media de 3 años.",
