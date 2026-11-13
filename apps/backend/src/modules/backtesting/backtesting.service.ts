@@ -3,6 +3,7 @@ import { BACKTEST_DIR } from '../../config/backtest-dir';
 import { PrismaService } from '../../prisma/prisma.service';
 import NodeCache from 'node-cache';
 import { toShillerApiRow } from './shiller-daily';
+import { monthlyPartsFromDaily } from './bht-forward';
 import { computeThermoLive, LivePoints, THERMO_LIVE_TICKERS, THERMO_TICKERS, getHyBonus, getHySigma24, getLiqBonus, getOilBonus, PriceMap } from './thermo-history';
 
 // Día con mercado (lun–vie). Sáb/dom no operan y el BHT no se calcula.
@@ -635,6 +636,14 @@ export class BacktestingService {
       select: { date: true, value: true, numerator: true, denominator: true, coverage: true, bonus: true, bonusLabel: true, liqBonus: true, liqBonusLabel: true, oilBonus: true, oilBonusLabel: true },
     });
     return rows.map((r) => ({ date: r.date.toISOString().slice(0, 10), value: r.value, numerator: r.numerator, denominator: r.denominator, coverage: r.coverage, bonus: r.bonus, bonusLabel: r.bonusLabel, liqBonus: (r as any).liqBonus ?? 0, liqBonusLabel: (r as any).liqBonusLabel ?? null, oilBonus: (r as any).oilBonus ?? 0, oilBonusLabel: (r as any).oilBonusLabel ?? null }));
+  }
+
+  /** Últimos `months` meses del termómetro por componente (valor y puntaje base 100), para la "Historia" de cada card. */
+  async getThermoPartsMonthly(months = 12) {
+    const n = Math.min(Math.max(Math.trunc(months) || 12, 1), 120);
+    const since = new Date(); since.setUTCMonth(since.getUTCMonth() - n - 1);
+    const rows = await this.prisma.btBhtForward.findMany({ where: { date: { gte: since } }, select: { date: true, parts: true }, orderBy: { date: 'asc' } });
+    return monthlyPartsFromDaily(rows.map((r) => ({ date: r.date.toISOString().slice(0, 10), parts: r.parts })), n);
   }
 
   async getBhtForward(from?: string, to?: string) {

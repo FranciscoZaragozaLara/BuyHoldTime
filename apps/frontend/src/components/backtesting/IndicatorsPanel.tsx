@@ -3,6 +3,7 @@ import { getApiBase } from '@/lib/apiBase';
 import { useCallback, useEffect, useState, useRef, useMemo } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import { levelLabel } from '@/lib/levelLabels';
+import { monthLabel, orbHistoryRows, ORB_PART_KEY, type MonthlyParts } from '@/lib/orbHistory';
 import { useMarketSyncStream } from './useMarketSyncStream';
 import MarketSyncModal from './MarketSyncModal';
 import { MarginGdpChart } from './MarginGdpChart';
@@ -281,20 +282,34 @@ function ScoreOrb({ name, value, dec = 2, weight, score, bands, blend = null, sm
   const loc = useLocale();
   const [open, setOpen] = useState(false);
   const c = capeScoreColor(score);
+  const hasHistory = name in ORB_PART_KEY;
+  // Historia: una sola petición compartida por todos los orbes, al abrir el primero.
+  const hist = useQuery({
+    queryKey: ['thermo-parts-monthly', 12],
+    queryFn: async (): Promise<MonthlyParts[]> => {
+      const r = await fetch(`${getApiBase()}/api/backtesting/thermo-parts-monthly?months=12`);
+      if (!r.ok) throw new Error(`thermo-parts-monthly ${r.status}`);
+      return r.json();
+    },
+    enabled: open && hasHistory,
+    staleTime: 60 * 60 * 1000,
+    retry: false,
+  });
+  const histRows = orbHistoryRows(hist.data, name);
   return (
     <span className="relative inline-flex">
-      <button type="button" onClick={() => setOpen(o => !o)} onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)} title={`Riesgo ${name} ${score}/100`}
+      <button type="button" onClick={() => setOpen(o => !o)} onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)} title={ti('orbTitle', { name, score })}
         className={`relative rounded-full cursor-pointer shrink-0 ${small ? 'w-7 h-7' : 'w-11 h-11'}`}
         style={{ background: `radial-gradient(circle at 30% 18%, rgba(255,255,255,.55), rgba(255,255,255,.08) 30%, transparent 48%), linear-gradient(145deg, ${c}dd, ${c}55)`, boxShadow: `0 0 14px ${c}77, inset 0 0 8px rgba(255,255,255,.3)`, border: `1px solid ${c}` }}>
         <span className={`absolute inset-0 flex items-center justify-center font-mono font-extrabold text-slate-950 ${small ? 'text-[10px]' : 'text-[13px]'}`} style={{ textShadow: '0 0 4px rgba(255,255,255,.95), 0 0 2px rgba(255,255,255,.9), 0 1px 1px rgba(255,255,255,.6)' }}>{score}</span>
       </button>
       {open && (
         <div className="absolute z-50 right-0 top-12 w-72 p-3 rounded-xl bg-slate-800 border border-slate-700 shadow-2xl text-left normal-case" onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)}>
-          <div className="text-xs font-semibold text-slate-100">Riesgo {name} <span className="font-mono" style={{ color: c }}>{score}/100</span></div>
-          <div className="text-[11px] text-slate-400 mt-0.5 font-mono">{name} {value.toFixed(dec)} → <span className="text-sky-300 font-semibold">{score}/100</span> · peso {weight} ÷ peso total</div>
+          <div className="text-xs font-semibold text-slate-100">{ti('orbRisk', { name })} <span className="font-mono" style={{ color: c }}>{score}/100</span></div>
+          <div className="text-[11px] text-slate-400 mt-0.5 font-mono">{name} {value.toFixed(dec)} → <span className="text-sky-300 font-semibold">{score}/100</span> · {ti('orbWeight', { weight })}</div>
           {blend && (
             <div className="mt-1.5 rounded-lg bg-slate-900/70 border border-slate-700/60 px-2 py-1.5 font-mono text-[10px] leading-relaxed">
-              <div className="text-slate-300">Nivel {blend.level.toFixed(2)} → {blend.levelScore.toFixed(1)} <span className="text-slate-500">×0.4</span></div>
+              <div className="text-slate-300">{ti('colLevel')} {blend.level.toFixed(2)} → {blend.levelScore.toFixed(1)} <span className="text-slate-500">×0.4</span></div>
               <div className="text-slate-300">Δ {blend.delta>=0?'+':''}{blend.delta.toFixed(2)}pp vs {blend.maLabel} {blend.ma.toFixed(2)} → {blend.trendScore.toFixed(1)} <span className="text-slate-500">×0.6</span>{(()=>{ const t = trendTag(blend.delta); return <span className="font-bold"> · <span style={{ color: t.color }}>{t.text}</span></span>; })()}</div>
               <div className="text-slate-100">= <span className="font-bold" style={{ color: capeScoreColor(score) }}>{score}</span> <span className="text-slate-500">{ti('trendWeighs')}</span></div>
             </div>
@@ -308,6 +323,28 @@ function ScoreOrb({ name, value, dec = 2, weight, score, bands, blend = null, sm
               })}
             </tbody>
           </table>
+          {hasHistory && (
+            <div className="mt-2.5 pt-2 border-t border-slate-700/70">
+              <div className="text-[11px] font-semibold text-slate-200 mb-1">{ti('historyTitle')}</div>
+              {hist.isLoading ? <div className="text-[10px] text-slate-500 font-mono">{ti('historyLoading')}</div>
+                : histRows.length === 0 ? <div className="text-[10px] text-slate-500 font-mono">{ti('historyEmpty')}</div>
+                : (
+                  <table className="w-full text-[10px] font-mono">
+                    <thead><tr className="text-slate-500"><th className="text-left font-normal py-0.5">{ti('historyMonth')}</th><th className="text-right font-normal">{name}</th><th className="text-right font-normal">{ti('historyScore')}</th></tr></thead>
+                    <tbody>
+                      {histRows.map((r) => (
+                        <tr key={r.month} className="text-slate-300" title={r.date}>
+                          <td className="py-0.5 capitalize">{monthLabel(r.month, loc)}</td>
+                          <td className="text-right">{r.value != null ? r.value.toFixed(dec) : '—'}</td>
+                          <td className="text-right font-bold" style={{ color: r.score != null ? capeScoreColor(r.score) : undefined }}>{r.score != null ? Math.round(r.score) : '—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              <div className="text-[9px] text-slate-500 mt-1">{ti('historyNote')}</div>
+            </div>
+          )}
         </div>
       )}
     </span>

@@ -464,7 +464,16 @@
       "capeFootB": "S&P 500/Nasdaq/TQQQ daily close · SMA/EMA 3/5/10 on daily CAPE · Color-coded ratio",
       "hyBonusDetail": "HY Bonus - (Regime 3 {label}): +{n} (outside the average)",
       "fwdFoot": "BHT Index at close + forward returns only with elapsed horizon · '—' = not yet mature · {shown} of {total} in view ({days} days)",
-      "fwdMore": " — scroll for more"
+      "fwdMore": " — scroll for more",
+      "orbTitle": "{name} risk {score}/100",
+      "orbRisk": "{name} risk",
+      "orbWeight": "weight {weight} ÷ total weight",
+      "historyTitle": "History — last 12 months",
+      "historyLoading": "Loading history…",
+      "historyEmpty": "No history available.",
+      "historyMonth": "Month",
+      "historyScore": "Score",
+      "historyNote": "Close of the last trading day of each month · base-100 score contributed to the thermometer."
     },
     "regimesPanel": {
       "loadingDates": "Loading dates…",

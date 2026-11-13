@@ -68,6 +68,10 @@ export class BacktestingController {
   @Get('thermo-history')
   getThermoHistory(@Query('from') from?: string, @Query('to') to?: string) { return this.svc.getThermoHistory(from, to); }
 
+  // Historia mensual por componente del termómetro (cards de indicadores).
+  @Get('thermo-parts-monthly')
+  getThermoPartsMonthly(@Query('months') months?: string) { return this.svc.getThermoPartsMonthly(months ? Number(months) : 12); }
+
   @Get('bht-forward')
   getBhtForward(@Query('from') from?: string, @Query('to') to?: string) { return this.svc.getBhtForward(from, to); }
 

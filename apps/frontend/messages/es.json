@@ -464,7 +464,16 @@
       "capeFootB": "S&P 500/Nasdaq/TQQQ cierre diario · SMA/EMA 3/5/10 sobre CAPE diario · Ratio con semáforo",
       "hyBonusDetail": "Bonus HY - (Régimen 3 {label}): +{n} (fuera del promedio)",
       "fwdFoot": "BHT Index al cierre + retornos forward solo con horizonte cumplido · '—' = aún no madura · {shown} de {total} en vista ({days} días)",
-      "fwdMore": " — desplázate para ver más"
+      "fwdMore": " — desplázate para ver más",
+      "orbTitle": "Riesgo {name} {score}/100",
+      "orbRisk": "Riesgo {name}",
+      "orbWeight": "peso {weight} ÷ peso total",
+      "historyTitle": "Historia — últimos 12 meses",
+      "historyLoading": "Cargando historia…",
+      "historyEmpty": "Sin historia disponible.",
+      "historyMonth": "Mes",
+      "historyScore": "Puntaje",
+      "historyNote": "Cierre del último día hábil de cada mes · puntaje base 100 que aporta al termómetro."
     },
     "regimesPanel": {
       "loadingDates": "Cargando fechas…",
