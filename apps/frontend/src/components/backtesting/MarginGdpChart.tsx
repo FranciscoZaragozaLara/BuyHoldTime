@@ -305,7 +305,7 @@ export function MarginGdpChart({ marketHistory, cape = [], volHistory = {} }: Pr
     sRatio.setData(rows.map(r => mapTime(r.ratio, r.date)).filter(Boolean) as any);
     sSpx.setData(rows.map(r => mapTime(r.spx, r.date)).filter(Boolean) as any);
     // Picos/suelos de grandes crisis sobre el SP500 (anclados a puntos mensuales reales)
-    applyCrisisMarkers(sSpx as any, createSeriesMarkers as any, snapToTime(rows.map((r:any)=>r.date)));
+    applyCrisisMarkers(sSpx as any, createSeriesMarkers as any, snapToTime(rows.map((r:any)=>r.date)), locale);
     // Inicial: escalar según ventana inicial (5Y por defecto)
     try {
       const initTo = rows[rows.length-1].date;

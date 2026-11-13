@@ -5,7 +5,7 @@ import { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { RegimesDocsTable, type RegimeLive } from './RegimesDocsTable';
-import { useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import { useMarketSyncStream } from './useMarketSyncStream';
 import MarketSyncModal from './MarketSyncModal';
 import { createChart, ColorType, LineSeries, createSeriesMarkers } from 'lightweight-charts';
@@ -19,6 +19,8 @@ export function RegimesPanel() {
   const isAdmin = useIsAdmin();
   const label = useStrategyLabel();
   const t = useTranslations('Backtesting.regimes');
+  const tr = useTranslations('Backtesting.regimesPanel');
+  const locale = useLocale();
   const tTabs = useTranslations('Backtesting.tabs');
   const [run, setRun] = useState<any>(null);
   const [metrics, setMetrics] = useState<any>(null);
@@ -598,7 +600,7 @@ export function RegimesPanel() {
           }
         }catch(e){ console.warn('markers error', e); }
         // Picos/suelos de grandes crisis sobre BH SPY (anclados a puntos diarios reales)
-        applyCrisisMarkers(((bhSeries ?? series) as any), createSeriesMarkers as any, snapToTime((bhSorted.length?bhSorted:sorted).map((p:any)=>String(p.date).slice(0,10))));
+        applyCrisisMarkers(((bhSeries ?? series) as any), createSeriesMarkers as any, snapToTime((bhSorted.length?bhSorted:sorted).map((p:any)=>String(p.date).slice(0,10))), locale);
         chart.timeScale().fitContent();
         handleCrosshair = (param:any)=>{
           if(!param.time || !param.point){ setEquityTooltip(null); return; }
@@ -966,16 +968,16 @@ export function RegimesPanel() {
         <div className="mt-6 grid grid-cols-1 gap-4">
           <div className="bg-slate-800/60 border border-slate-700 rounded-lg p-4">
             <div className="flex flex-col gap-3">
-              <div className="text-xs font-semibold text-slate-300">Estrategias — comparativa dual <span className="text-[10px] font-normal text-slate-500">· Estrategia-DateRun</span></div>
+              <div className="text-xs font-semibold text-slate-300">{tr('dualTitle')} <span className="text-[10px] font-normal text-slate-500">· {tr('dualSub')}</span></div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div className="bg-slate-900/60 rounded-lg p-2.5 border border-teal-500/20">
-                  <div className="text-[10px] text-teal-400 font-semibold mb-1.5 flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-teal-400 inline-block"></span> A — Estrategia · DateRun</div>
+                  <div className="text-[10px] text-teal-400 font-semibold mb-1.5 flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-teal-400 inline-block"></span> {tr('aPicker')}</div>
                   <select value={selectedA} onChange={e=>{setSelectedA(e.target.value); setSelectedAStart('');}} className="w-full px-2 py-1.5 rounded bg-slate-900 border border-teal-500/30 text-xs text-slate-200">
                     {strategies.map((s:any)=> <option key={'a-'+s.code} value={s.code}>{isAdmin ? `${s.code} — ${s.name}` : label(s.code)}</option>)}
                     { !strategies.find((s:any)=>s.code===selectedA) && <option value={selectedA}>{label(selectedA)}</option>}
                   </select>
                   <select value={selectedAStart} onChange={e=>setSelectedAStart(e.target.value)} className="mt-1.5 w-full px-2 py-1.5 rounded bg-slate-800 border border-slate-700 text-xs font-mono text-slate-300">
-                    {runsA.length===0 && <option value="">Cargando fechas…</option>}
+                    {runsA.length===0 && <option value="">{tr('loadingDates')}</option>}
                     {runsA.map((r:any)=> {
                       const sd=String(r.startDate).slice(0,10);
                       const ed=String(r.endDate).slice(0,10);
@@ -983,18 +985,18 @@ export function RegimesPanel() {
                       const desc=startDatesMap.get(sd) || '';
                       return <option key={'a-date-'+r.id} value={sd}>{sd}{desc ? ` — ${desc}` : ''} → {ed} · {fv ? `$${Number(fv).toLocaleString('en-US',{maximumFractionDigits:0})}` : ''}</option>
                     })}
-                    {runsA.length>0 && !runsA.find((r:any)=> String(r.startDate).slice(0,10)===selectedAStart) && selectedAStart && <option value={selectedAStart}>{selectedAStart} (no encontrado)</option>}
+                    {runsA.length>0 && !runsA.find((r:any)=> String(r.startDate).slice(0,10)===selectedAStart) && selectedAStart && <option value={selectedAStart}>{selectedAStart} {tr('notFound')}</option>}
                   </select>
                   <div className="text-[10px] font-mono text-slate-500 mt-1">{runsA.length} runs · {selectedAStart || '—'}{startDatesMap.get(selectedAStart) ? ` — ${startDatesMap.get(selectedAStart)}` : ''} {run ? `→ ${String(run.endDate).slice(0,10)}` : ''}</div>
                 </div>
                 <div className="bg-slate-900/60 rounded-lg p-2.5 border border-slate-600">
-                  <div className="text-[10px] text-slate-400 font-semibold mb-1.5 flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-slate-500 inline-block"></span> B — Base · DateRun</div>
+                  <div className="text-[10px] text-slate-400 font-semibold mb-1.5 flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-slate-500 inline-block"></span> {tr('bPicker')}</div>
                   <select value={selectedB} onChange={e=>{setSelectedB(e.target.value); setSelectedBStart('');}} className="w-full px-2 py-1.5 rounded bg-slate-900 border border-slate-700 text-xs text-slate-200">
                     {strategies.map((s:any)=> <option key={'b-'+s.code} value={s.code}>{isAdmin ? `${s.code} — ${s.name}` : label(s.code)}</option>)}
                     { !strategies.find((s:any)=>s.code===selectedB) && <option value={selectedB}>{label(selectedB)}</option>}
                   </select>
                   <select value={selectedBStart} onChange={e=>setSelectedBStart(e.target.value)} className="mt-1.5 w-full px-2 py-1.5 rounded bg-slate-800 border border-slate-700 text-xs font-mono text-slate-300">
-                    {runsB.length===0 && <option value="">Cargando fechas…</option>}
+                    {runsB.length===0 && <option value="">{tr('loadingDates')}</option>}
                     {runsB.map((r:any)=> {
                       const sd=String(r.startDate).slice(0,10);
                       const ed=String(r.endDate).slice(0,10);
@@ -1002,7 +1004,7 @@ export function RegimesPanel() {
                       const desc=startDatesMap.get(sd) || '';
                       return <option key={'b-date-'+r.id} value={sd}>{sd}{desc ? ` — ${desc}` : ''} → {ed} · {fv ? `$${Number(fv).toLocaleString('en-US',{maximumFractionDigits:0})}` : ''}</option>
                     })}
-                    {runsB.length>0 && !runsB.find((r:any)=> String(r.startDate).slice(0,10)===selectedBStart) && selectedBStart && <option value={selectedBStart}>{selectedBStart} (no encontrado)</option>}
+                    {runsB.length>0 && !runsB.find((r:any)=> String(r.startDate).slice(0,10)===selectedBStart) && selectedBStart && <option value={selectedBStart}>{selectedBStart} {tr('notFound')}</option>}
                   </select>
                   <div className="text-[10px] font-mono text-slate-500 mt-1">{runsB.length} runs · {selectedBStart || '—'}{startDatesMap.get(selectedBStart) ? ` — ${startDatesMap.get(selectedBStart)}` : ''} {bhRun ? `→ ${String(bhRun.endDate).slice(0,10)}` : ''}</div>
                 </div>
@@ -1018,28 +1020,28 @@ export function RegimesPanel() {
                 <div className="bg-slate-900 rounded-xl p-3 border border-teal-500/30 flex flex-col">
                   <div className="flex items-center gap-2 mb-2.5">
                     <span className="w-2.5 h-2.5 rounded-full bg-teal-400 inline-block shadow shadow-teal-500/30"></span>
-                    <span className="text-xs font-bold text-teal-300 tracking-wide">A — Estrategia</span>
+                    <span className="text-xs font-bold text-teal-300 tracking-wide">{tr('aStrategy')}</span>
                     <span className="text-[10px] font-mono text-teal-200/70 truncate">{label(selectedA)} · {selectedAStart || (run?String(run.startDate).slice(0,10):'')} {startDatesMap.get(selectedAStart || (run?String(run.startDate).slice(0,10):'')) ? `— ${startDatesMap.get(selectedAStart || (run?String(run.startDate).slice(0,10):''))}` : ''}</span>
                   </div>
                   <div className="text-[11px] font-mono text-slate-500 mb-1">{run ? `${String(run.startDate).slice(0,10)} → ${String(run.endDate).slice(0,10)}` : '—'}</div>
                   <div className="space-y-1.5 font-mono text-xs">
                     <div className="flex justify-between items-center bg-slate-800/60 rounded px-2 py-1.5 border border-slate-700/50">
-                      <span className="text-slate-400">Final</span><span className="text-teal-300 font-bold">{fmtMoney(stratMetrics.final_value)}</span>
+                      <span className="text-slate-400">{tr('final')}</span><span className="text-teal-300 font-bold">{fmtMoney(stratMetrics.final_value)}</span>
                     </div>
                     <div className="flex justify-between items-center bg-slate-800/60 rounded px-2 py-1.5 border border-slate-700/50">
-                      <span className="text-slate-400">Performance</span><span className={(getPerfPct(stratMetrics)??0) >=0 ? 'text-emerald-400 font-semibold' : 'text-red-400 font-semibold'}>{getPerfPct(stratMetrics)!=null ? `${getPerfPct(stratMetrics)!.toFixed(1)}%` : '—'}</span>
+                      <span className="text-slate-400">{tr('performance')}</span><span className={(getPerfPct(stratMetrics)??0) >=0 ? 'text-emerald-400 font-semibold' : 'text-red-400 font-semibold'}>{getPerfPct(stratMetrics)!=null ? `${getPerfPct(stratMetrics)!.toFixed(1)}%` : '—'}</span>
                     </div>
                     <div className="flex justify-between items-center bg-slate-800/60 rounded px-2 py-1.5 border border-slate-700/50">
                       <span className="text-slate-400">CAGR</span><span className="text-sky-300 font-semibold">{fmtPct(stratMetrics.cagr,2)}</span>
                     </div>
                     <div className="flex justify-between items-center bg-slate-800/60 rounded px-2 py-1.5 border border-slate-700/50">
-                      <span className="text-slate-400">Max Drawdown</span><span className="text-orange-300">{fmtPct(stratMetrics.max_drawdown,1)}{stratMetrics.max_dd_length ? ` · ${stratMetrics.max_dd_length}d` : ''}</span>
+                      <span className="text-slate-400">{tr('maxDd')}</span><span className="text-orange-300">{fmtPct(stratMetrics.max_drawdown,1)}{stratMetrics.max_dd_length ? ` · ${stratMetrics.max_dd_length}d` : ''}</span>
                     </div>
                     <div className="flex justify-between items-center bg-slate-800/60 rounded px-2 py-1.5 border border-slate-700/50">
                       <span className="text-slate-400">Sharpe</span><span className="text-violet-300">{fmtNum(stratMetrics.sharpe,2)}</span>
                     </div>
                     <div className="flex justify-between items-center bg-slate-800/60 rounded px-2 py-1.5 border border-slate-700/50">
-                      <span className="text-slate-400">Trades · WinRate</span><span className="text-slate-200">{stratMetrics.num_trades} trades{stratMetrics.win_rate!=null ? ` · ${(Number(stratMetrics.win_rate)*100).toFixed(1)}%` : ''}</span>
+                      <span className="text-slate-400">{tr('tradesWin')}</span><span className="text-slate-200">{stratMetrics.num_trades} trades{stratMetrics.win_rate!=null ? ` · ${(Number(stratMetrics.win_rate)*100).toFixed(1)}%` : ''}</span>
                     </div>
                   </div>
                 </div>
@@ -1047,33 +1049,33 @@ export function RegimesPanel() {
                 <div className="bg-slate-900 rounded-xl p-3 border border-slate-600 flex flex-col">
                   <div className="flex items-center gap-2 mb-2.5">
                     <span className="w-2.5 h-2.5 rounded-full bg-slate-400 inline-block"></span>
-                    <span className="text-xs font-bold text-slate-300 tracking-wide">B — Base</span>
+                    <span className="text-xs font-bold text-slate-300 tracking-wide">{tr('bBase')}</span>
                     <span className="text-[10px] font-mono text-slate-400 truncate">{label(selectedB)} · {selectedBStart || (bhRun?String(bhRun.startDate).slice(0,10):'')} {startDatesMap.get(selectedBStart || (bhRun?String(bhRun.startDate).slice(0,10):'')) ? `— ${startDatesMap.get(selectedBStart || (bhRun?String(bhRun.startDate).slice(0,10):''))}` : ''}</span>
                   </div>
                   <div className="text-[11px] font-mono text-slate-500 mb-1">{bhRun ? `${String(bhRun.startDate).slice(0,10)} → ${String(bhRun.endDate).slice(0,10)}` : '—'}</div>
                   {bhNorm ? (
                   <div className="space-y-1.5 font-mono text-xs">
                     <div className="flex justify-between items-center bg-slate-800/60 rounded px-2 py-1.5 border border-slate-700/50">
-                      <span className="text-slate-400">Final</span><span className="text-slate-200 font-bold">{fmtMoney(bhNorm.final_value)}</span>
+                      <span className="text-slate-400">{tr('final')}</span><span className="text-slate-200 font-bold">{fmtMoney(bhNorm.final_value)}</span>
                     </div>
                     <div className="flex justify-between items-center bg-slate-800/60 rounded px-2 py-1.5 border border-slate-700/50">
-                      <span className="text-slate-400">Performance</span><span className={(getPerfPct(bhNorm)??0) >=0 ? 'text-slate-200 font-semibold' : 'text-red-300 font-semibold'}>{getPerfPct(bhNorm)!=null ? `${getPerfPct(bhNorm)!.toFixed(1)}%` : '—'}</span>
+                      <span className="text-slate-400">{tr('performance')}</span><span className={(getPerfPct(bhNorm)??0) >=0 ? 'text-slate-200 font-semibold' : 'text-red-300 font-semibold'}>{getPerfPct(bhNorm)!=null ? `${getPerfPct(bhNorm)!.toFixed(1)}%` : '—'}</span>
                     </div>
                     <div className="flex justify-between items-center bg-slate-800/60 rounded px-2 py-1.5 border border-slate-700/50">
                       <span className="text-slate-400">CAGR</span><span className="text-slate-200 font-semibold">{fmtPct(bhNorm.cagr,2)}</span>
                     </div>
                     <div className="flex justify-between items-center bg-slate-800/60 rounded px-2 py-1.5 border border-slate-700/50">
-                      <span className="text-slate-400">Max Drawdown</span><span className="text-orange-300/80">{fmtPct(bhNorm.max_drawdown,1)}{bhNorm.max_dd_length ? ` · ${bhNorm.max_dd_length}d` : ''}</span>
+                      <span className="text-slate-400">{tr('maxDd')}</span><span className="text-orange-300/80">{fmtPct(bhNorm.max_drawdown,1)}{bhNorm.max_dd_length ? ` · ${bhNorm.max_dd_length}d` : ''}</span>
                     </div>
                     <div className="flex justify-between items-center bg-slate-800/60 rounded px-2 py-1.5 border border-slate-700/50">
                       <span className="text-slate-400">Sharpe</span><span className="text-slate-300">{fmtNum(bhNorm.sharpe,2)}</span>
                     </div>
                     <div className="flex justify-between items-center bg-slate-800/60 rounded px-2 py-1.5 border border-slate-700/50">
-                      <span className="text-slate-400">Trades · WinRate</span><span className="text-slate-200">{bhNorm.num_trades} trades{bhNorm.win_rate!=null ? ` · ${(Number(bhNorm.win_rate)*100).toFixed(1)}%` : ''}</span>
+                      <span className="text-slate-400">{tr('tradesWin')}</span><span className="text-slate-200">{bhNorm.num_trades} trades{bhNorm.win_rate!=null ? ` · ${(Number(bhNorm.win_rate)*100).toFixed(1)}%` : ''}</span>
                     </div>
                   </div>
                   ) : (
-                    <div className="text-xs text-slate-500 font-mono py-6 text-center">Sin datos B</div>
+                    <div className="text-xs text-slate-500 font-mono py-6 text-center">{tr('noDataB')}</div>
                   )}
                 </div>
               </div>
@@ -1083,10 +1085,10 @@ export function RegimesPanel() {
                 <div className="flex items-center justify-between mb-2.5">
                   <div className="flex items-center gap-2">
                     <span className="w-2.5 h-2.5 rounded-full bg-amber-400 inline-block"></span>
-                    <span className="text-xs font-bold text-amber-300 tracking-wide">Δ  A vs B — cómo A cambia respecto a B</span>
+                    <span className="text-xs font-bold text-amber-300 tracking-wide">{tr('deltaTitle')}</span>
                   </div>
                   <span className={`text-[11px] font-mono px-2 py-0.5 rounded-full border ${Number(stratMetrics.final_value) >= Number(bhNorm.final_value) ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30' : 'bg-red-500/15 text-red-300 border-red-500/30'}`}>
-                    {Number(stratMetrics.final_value) >= Number(bhNorm.final_value) ? '▲ A supera a B' : '▼ A por debajo de B'}
+                    {Number(stratMetrics.final_value) >= Number(bhNorm.final_value) ? tr('aAbove') : tr('aBelow')}
                   </span>
                 </div>
                 {(() => {
@@ -1103,12 +1105,12 @@ export function RegimesPanel() {
                   return (
                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 font-mono text-xs">
                       <div className="bg-slate-800/70 rounded px-2.5 py-2 border border-slate-700/50">
-                        <div className="text-[10px] text-slate-500 uppercase tracking-wide">Δ Final $</div>
+                        <div className="text-[10px] text-slate-500 uppercase tracking-wide">{tr('dFinal')}</div>
                         <div className={`font-bold text-sm ${dFinal>=0 ? 'text-emerald-400' : 'text-red-400'}`}>{dFinal>=0?'+':''}${Math.abs(dFinal).toLocaleString('en-US',{minimumFractionDigits:0, maximumFractionDigits:0})}</div>
                         <div className={`text-[11px] ${dFinalPct!=null && dFinalPct>=0 ? 'text-emerald-400/80' : 'text-red-400/80'}`}>{dFinalPct!=null ? `${dFinalPct>=0?'+':''}${dFinalPct.toFixed(1)}%` : '—'}</div>
                       </div>
                       <div className="bg-slate-800/70 rounded px-2.5 py-2 border border-slate-700/50">
-                        <div className="text-[10px] text-slate-500 uppercase tracking-wide">Δ Performance</div>
+                        <div className="text-[10px] text-slate-500 uppercase tracking-wide">{tr('dPerf')}</div>
                         <div className={`font-bold text-sm ${dPerf!=null && dPerf>=0 ? 'text-emerald-400' : 'text-red-400'}`}>{dPerf!=null ? `${dPerf>=0?'+':''}${dPerf.toFixed(1)}pp` : '—'}</div>
                         <div className="text-[10px] text-slate-500">A {perfA!=null? perfA.toFixed(1)+'%':'—'} vs B {perfB!=null? perfB.toFixed(1)+'%':'—'}</div>
                       </div>
@@ -1118,9 +1120,9 @@ export function RegimesPanel() {
                         <div className="text-[10px] text-slate-500">A {fmtPct(stratMetrics.cagr,2)} vs B {fmtPct(bhNorm.cagr,2)}</div>
                       </div>
                       <div className="bg-slate-800/70 rounded px-2.5 py-2 border border-slate-700/50">
-                        <div className="text-[10px] text-slate-500 uppercase tracking-wide">Δ Max DD</div>
+                        <div className="text-[10px] text-slate-500 uppercase tracking-wide">{tr('dMaxDd')}</div>
                         <div className={`font-bold text-sm ${dDd<=0 ? 'text-emerald-400' : 'text-red-400'}`}>{`${dDd>0?'+':''}${dDd.toFixed(1)}pp`}</div>
-                        <div className="text-[10px] text-slate-500">{dDd<=0 ? 'A sufre menos' : 'A sufre más'} · A {fmtPct(stratMetrics.max_drawdown,1)} vs B {fmtPct(bhNorm.max_drawdown,1)}</div>
+                        <div className="text-[10px] text-slate-500">{dDd<=0 ? tr('aLessDd') : tr('aMoreDd')} · A {fmtPct(stratMetrics.max_drawdown,1)} vs B {fmtPct(bhNorm.max_drawdown,1)}</div>
                       </div>
                       <div className="bg-slate-800/70 rounded px-2.5 py-2 border border-slate-700/50">
                         <div className="text-[10px] text-slate-500 uppercase tracking-wide">Δ Sharpe</div>
@@ -1128,7 +1130,7 @@ export function RegimesPanel() {
                         <div className="text-[10px] text-slate-500">A {fmtNum(stratMetrics.sharpe,2)} vs B {fmtNum(bhNorm.sharpe,2)}</div>
                       </div>
                       <div className="bg-slate-800/70 rounded px-2.5 py-2 border border-slate-700/50">
-                        <div className="text-[10px] text-slate-500 uppercase tracking-wide">Δ Trades</div>
+                        <div className="text-[10px] text-slate-500 uppercase tracking-wide">{tr('dTrades')}</div>
                         <div className={`font-bold text-sm ${dTrades===0 ? 'text-slate-300' : dTrades>0 ? 'text-amber-300' : 'text-slate-400'}`}>{dTrades>0?'+':''}{dTrades}</div>
                         <div className="text-[10px] text-slate-500">A {stratMetrics.num_trades} vs B {bhNorm.num_trades}</div>
                       </div>
@@ -1224,7 +1226,7 @@ export function RegimesPanel() {
           <div className="flex items-center justify-between mb-2">
             <div>
               <h3 className="font-semibold text-slate-100">Equity — <span className="text-teal-300">{label(run?.strategy?.code || selectedA)}</span> <span className="text-slate-500">vs</span> <span className="text-slate-400">{label(bhRun?.strategy?.code || selectedB)}</span> {run?.startDate ? `· ${String(run.startDate).slice(0,10)}→${String(run.endDate).slice(0,10)}` : ''} — {Math.max(equity.length,bhEquity.length).toLocaleString('en-US')} pts · escala log</h3>
-              <div className="flex items-center gap-2 mt-1 text-xs font-mono"><span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-teal-400 inline-block"></span> Estrategia</span><span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-slate-500 inline-block border-dashed border-t border-slate-500"></span> BH</span></div>
+              <div className="flex items-center gap-2 mt-1 text-xs font-mono"><span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-teal-400 inline-block"></span> {tr('strategy')}</span><span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-slate-500 inline-block border-dashed border-t border-slate-500"></span> BH</span></div>
             </div>
             <span className="text-xs font-mono text-slate-400 text-right">{equity[0]?.date.slice(0,4)} → {equity[equity.length-1]?.date.slice(0,10)}<br/><span className="text-teal-300">{((equity[equity.length-1]?.value/100000-1)*100).toLocaleString('en-US', {minimumFractionDigits:0, maximumFractionDigits:0})}% ${equity[equity.length-1] ? '$'+Number(equity[equity.length-1].value).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2}) : ''}</span> <span className="text-slate-500">vs</span> <span className="text-slate-400">{bhEquity.length ? `${((bhEquity[bhEquity.length-1]?.value/100000-1)*100).toLocaleString('en-US', {minimumFractionDigits:0, maximumFractionDigits:0})}% $${Number(bhEquity[bhEquity.length-1].value).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}` : '—'}</span> {bhEquity.length && equity.length ? (<span className={Number(equity[equity.length-1].value) >= Number(bhEquity[bhEquity.length-1].value) ? 'text-emerald-400' : 'text-red-400'}> Δ {(Number(equity[equity.length-1].value)-Number(bhEquity[bhEquity.length-1].value)).toLocaleString('en-US', {minimumFractionDigits:0, maximumFractionDigits:0})} ({(((Number(equity[equity.length-1].value)/Number(bhEquity[bhEquity.length-1].value)-1)*100).toFixed(1))}%)</span>) : null}</span>
           </div>
@@ -1240,18 +1242,18 @@ export function RegimesPanel() {
                   <span className={`ml-auto px-2.5 py-1 rounded-full text-xs font-bold border ${equityTooltip.total===3?'bg-red-500/20 text-red-300 border-red-500/30':equityTooltip.total===2?'bg-orange-500/20 text-orange-300 border-orange-500/30':equityTooltip.total===1?'bg-amber-500/20 text-amber-300 border-amber-500/30':'bg-slate-700 text-slate-400 border-slate-600'}`}>{equityTooltip.total ?? 0}/3 activos</span>
                 </div>
                 <div className="grid grid-cols-1 gap-1 font-mono text-[11px]">
-                  <div className="flex justify-between"><span className="text-slate-400">Estrategia</span><span className="text-teal-300 font-bold">{equityTooltip.value!=null ? `$${Number(equityTooltip.value).toLocaleString('en-US',{minimumFractionDigits:2, maximumFractionDigits:2})}` : '—'}</span></div>
-                  <div className="flex justify-between"><span className="text-slate-400">BH Base</span><span className="text-slate-300 font-bold">{(equityTooltip as any).bhValue!=null ? `$${Number((equityTooltip as any).bhValue).toLocaleString('en-US',{minimumFractionDigits:2, maximumFractionDigits:2})}` : '—'}</span></div>
+                  <div className="flex justify-between"><span className="text-slate-400">{tr('strategy')}</span><span className="text-teal-300 font-bold">{equityTooltip.value!=null ? `$${Number(equityTooltip.value).toLocaleString('en-US',{minimumFractionDigits:2, maximumFractionDigits:2})}` : '—'}</span></div>
+                  <div className="flex justify-between"><span className="text-slate-400">{tr('bhBase')}</span><span className="text-slate-300 font-bold">{(equityTooltip as any).bhValue!=null ? `$${Number((equityTooltip as any).bhValue).toLocaleString('en-US',{minimumFractionDigits:2, maximumFractionDigits:2})}` : '—'}</span></div>
                   <div className="flex justify-between"><span className="text-slate-400">Δ (val)</span><span className={(equityTooltip as any).diff!=null && (equityTooltip as any).diff>=0 ? 'text-emerald-400' : 'text-red-400'}>{(equityTooltip as any).diff!=null ? `${(equityTooltip as any).diff>=0?'+':''}$${Number((equityTooltip as any).diff).toLocaleString('en-US',{minimumFractionDigits:2, maximumFractionDigits:2})}` : '—'}</span></div>
-                  <div className="flex justify-between"><span className="text-slate-400">Perf. Estrat</span><span className={equityTooltip.perf!=null && equityTooltip.perf>=0 ? 'text-emerald-400' : 'text-red-400'}>{equityTooltip.perf!=null ? `${equityTooltip.perf>=0?'+':''}${equityTooltip.perf.toFixed(2)}%` : '—'}</span></div>
-                  <div className="flex justify-between"><span className="text-slate-400">Perf. BH</span><span className={(equityTooltip as any).bhPerf!=null && (equityTooltip as any).bhPerf>=0 ? 'text-emerald-400' : 'text-slate-400'}>{(equityTooltip as any).bhPerf!=null ? `${(equityTooltip as any).bhPerf>=0?'+':''}${(equityTooltip as any).bhPerf.toFixed(2)}%` : '—'}</span></div>
-                  <div className="flex justify-between"><span className="text-slate-400">CAGR Estrat</span><span className="text-sky-300">{equityTooltip.cagr!=null ? `${equityTooltip.cagr.toFixed(2)}%` : '—'}</span></div>
-                  <div className="flex justify-between"><span className="text-slate-400">CAGR BH</span><span className="text-slate-400">{(equityTooltip as any).bhCagr!=null ? `${(equityTooltip as any).bhCagr.toFixed(2)}%` : '—'}</span></div>
+                  <div className="flex justify-between"><span className="text-slate-400">{tr('perfStrat')}</span><span className={equityTooltip.perf!=null && equityTooltip.perf>=0 ? 'text-emerald-400' : 'text-red-400'}>{equityTooltip.perf!=null ? `${equityTooltip.perf>=0?'+':''}${equityTooltip.perf.toFixed(2)}%` : '—'}</span></div>
+                  <div className="flex justify-between"><span className="text-slate-400">{tr('perfBh')}</span><span className={(equityTooltip as any).bhPerf!=null && (equityTooltip as any).bhPerf>=0 ? 'text-emerald-400' : 'text-slate-400'}>{(equityTooltip as any).bhPerf!=null ? `${(equityTooltip as any).bhPerf>=0?'+':''}${(equityTooltip as any).bhPerf.toFixed(2)}%` : '—'}</span></div>
+                  <div className="flex justify-between"><span className="text-slate-400">{tr('cagrStrat')}</span><span className="text-sky-300">{equityTooltip.cagr!=null ? `${equityTooltip.cagr.toFixed(2)}%` : '—'}</span></div>
+                  <div className="flex justify-between"><span className="text-slate-400">{tr('cagrBh')}</span><span className="text-slate-400">{(equityTooltip as any).bhCagr!=null ? `${(equityTooltip as any).bhCagr.toFixed(2)}%` : '—'}</span></div>
                   <div className="flex justify-between"><span className="text-slate-400">DD</span><span className="text-orange-300">{equityTooltip.drawdown!=null ? `${(equityTooltip.drawdown*100).toFixed(2)}%` : '—'}</span></div>
                   {/* Indicadores semaforizados */}
                   {(equityTooltip as any).ind && (
                     <div className="mt-2 pt-2 border-t border-slate-700 space-y-1">
-                      <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Indicadores del día</div>
+                      <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">{tr('dayIndicators')}</div>
                       {(()=>{ const ind=(equityTooltip as any).ind; const det=ind.det; const fmt=(v:any, d=2)=> v!=null && isFinite(v) ? Number(v).toFixed(d) : '—'; const ratio=ind.ratio; const thr=ind.thr; const ratioColor = ratio==null ? 'text-slate-500' : ratio>=1.18 ? 'text-red-400 bg-red-500/10 border-red-500/30' : ratio>=1.05 ? 'text-amber-400 bg-amber-500/10 border-amber-500/20' : 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20'; const cpiOk = ind.cpi!=null && ind.cpiSma!=null && ind.cpi>=4.0 && ind.cpi > (ind.cpiThr ?? 1e9); const cpiColor = ind.cpi==null ? 'text-slate-500' : cpiOk ? 'text-red-300 bg-red-500/10 border-red-500/20' : 'text-emerald-300 bg-emerald-500/10 border-emerald-500/20'; const zColor = ind.z==null ? 'text-slate-500' : ind.z>=2.0 ? 'text-red-400 bg-red-500/10 border-red-500/20' : ind.z>=1.0 ? 'text-orange-400 bg-orange-500/10 border-orange-500/20' : ind.z<0 ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20' : 'text-slate-300 bg-slate-700/30 border-slate-600'; const hyOk = ind.hy!=null && (ind.hy < (ind.p20 ?? 1e9) || ind.hy < 3.5); const hyColor = ind.hy==null ? 'text-slate-500' : hyOk ? 'text-violet-300 bg-violet-500/10 border-violet-500/20' : 'text-emerald-300 bg-emerald-500/10 border-emerald-500/20'; return (
                         <>
                           <div className={`flex justify-between items-center border rounded px-2 py-1 text-[11px] ${ratioColor}`}><span className="text-slate-400">CAPE</span><span className="font-mono font-bold">{fmt(ind.cape)} / SMA3y {fmt(ind.mean3y)} → {fmt(thr)} · {ratio!=null? ratio.toFixed(3)+'x': '—'} {ratio!=null ? (ratio>=1.18 ? '🔴' : ratio>=1.05 ? '🟡' : '🟢') : ''}</span></div>
@@ -1295,24 +1297,24 @@ export function RegimesPanel() {
                       )}
                     </div>
                   ) : null}
-                  <div className="flex justify-between"><span className="text-slate-500">Sharpe (total)</span><span className="text-violet-300">{stratMetrics?.sharpe!=null ? Number(stratMetrics.sharpe).toFixed(2) : '—'}</span></div>
-                  <div className="flex justify-between"><span className="text-slate-500">MaxDD (total)</span><span className="text-red-300">{stratMetrics?.max_drawdown!=null ? `${(Number(stratMetrics.max_drawdown)*100).toFixed(1)}%` : '—'}</span></div>
+                  <div className="flex justify-between"><span className="text-slate-500">{tr('sharpeTotal')}</span><span className="text-violet-300">{stratMetrics?.sharpe!=null ? Number(stratMetrics.sharpe).toFixed(2) : '—'}</span></div>
+                  <div className="flex justify-between"><span className="text-slate-500">{tr('maxDdTotal')}</span><span className="text-red-300">{stratMetrics?.max_drawdown!=null ? `${(Number(stratMetrics.max_drawdown)*100).toFixed(1)}%` : '—'}</span></div>
                 </div>
               </div>
             )}
           </div>
           <div className="flex flex-wrap gap-x-3 gap-y-1.5 mt-2 text-xs items-center">
-            <span className="text-slate-500">Scroll/arrastra para zoom</span>
+            <span className="text-slate-500">{tr('zoom')}</span>
             <span className="text-slate-600">·</span>
             <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-orange-500 inline-block"></span> G1</span>
             <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-red-500 inline-block"></span> G2</span>
             <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-sky-500 inline-block"></span> G3</span>
             <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span> G4</span>
-            <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-purple-500 inline-block"></span> Sanación</span>
+            <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-purple-500 inline-block"></span> {tr('healing')}</span>
             <span className="text-slate-600">·</span>
-            <span className="text-teal-400">A: arriba</span><span className="text-slate-400">B: abajo</span>
-            {tradesA.length? <span className="text-slate-500">· A {tradesA.length} gatillos</span>: null}
-            {tradesB.length? <span className="text-slate-500">· B {tradesB.length} gatillos</span>: null}
+            <span className="text-teal-400">{tr('aTop')}</span><span className="text-slate-400">{tr('bBottom')}</span>
+            {tradesA.length? <span className="text-slate-500">· {tr('triggersA', { n: tradesA.length })}</span>: null}
+            {tradesB.length? <span className="text-slate-500">· {tr('triggersB', { n: tradesB.length })}</span>: null}
           </div>
         </div>
       )}
@@ -1322,7 +1324,7 @@ export function RegimesPanel() {
       {/* Tabla Daily / Monthly / Yearly con mismos indicadores que Backtesting */}
       <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
         <div className="flex items-center justify-between gap-2 mb-3">
-          <h3 className="font-semibold text-slate-100">Evolución — {capeView==='daily'?'Daily':capeView==='monthly'?'Monthly':'Yearly'} <span className="text-slate-500 font-normal text-xs">· {sorted.length.toLocaleString('en-US')} filas{filterYear?` · ${filterYear}`:''}</span></h3>
+          <h3 className="font-semibold text-slate-100">{tr('evoTitle', { view: tr(`view_${capeView}`) })} <span className="text-slate-500 font-normal text-xs">· {tr('rows', { n: sorted.length.toLocaleString('en-US') })}{filterYear?` · ${filterYear}`:''}</span></h3>
           <div className="flex items-center gap-2">
             <select value={filterYear} onChange={e=>{ setFilterYear(e.target.value); if(scrollRef.current) scrollRef.current.scrollTop=0; }} className="px-2.5 py-1.5 rounded-lg bg-slate-800 border border-slate-700 text-xs text-slate-200 focus:outline-none focus:border-teal-500">
               <option value="">Todos ({rowsView.length.toLocaleString('en-US')})</option>
@@ -1335,20 +1337,20 @@ export function RegimesPanel() {
             </div>
           </div>
         </div>
-        <p className="text-xs text-slate-500 mb-3">Mismos indicadores que tabla Backtesting (SP500, Nasdaq, TQQQ, FED, 2Y/10Y/30Y, HY OAS, CAPE, CPI YoY, GDP, Margin/GDP) + Régimen.</p>
+        <p className="text-xs text-slate-500 mb-3">{tr('evoHint')}</p>
         <div ref={scrollRef} className="overflow-auto max-h-[520px] border border-slate-800 rounded-lg">
           <table className="w-full text-xs">
             <thead className="sticky top-0 bg-slate-900 z-10">
               <tr className="text-slate-400">
-                <th className="p-2 text-left sticky left-0 bg-slate-900">Fecha</th>
+                <th className="p-2 text-left sticky left-0 bg-slate-900">{tr('date')}</th>
                 <th className="p-2 text-center" title="Múltiplos Altos 4 Fases — F0 Armado: CAPE>1.18 & Core CPI YoY≥4.0 & >SMA12×1.20 (12M YoY %) — G1: Fed>0 o 10Y>1.10 (30%) — G2: (FED>G1 & CPI>1.30 y crec) OR (CPI>4.5 & >CPI_G1 y crec) + hike 3m & SPY<SMA50 (70%) — G3: 3M caídas o Pausa2M (35%) — G4: CPI<1.05 o Fed<0 + SMA50 (65%) — Sanación CPI<1.05+SMA50">📈</th>
                 <th className="p-2 text-center" title="Alta Deuda/PIB 4 Fases — Fase 1 Armado: Z>2.0 en 6M (con memoria) — Fase 2 G1: ROC3M<0+SMA50 vende 30% — G2: ROC3M<−σ24M vende 70% — F3 Sanación: >SMA50+ROC>0 — F4 Desarme: Z<0">🏦</th>
                 <th className="p-2 text-center" title="Complacencia OAS: HY<P20 OR <3.5% — Independiente — Qué mide: Ceguera al riesgo (bonos) — Gatillo: Salto spreads +50bps — Fórmula: HY<P20 OR HY<3.5%  ·  Ventana 36M  (independiente de R1/R2) — Ej: 2007 <3% →2008 >11%">😴</th>
-                <th className="p-2 text-right text-teal-300">Port. Estrat</th>
+                <th className="p-2 text-right text-teal-300">{tr('portStrat')}</th>
                 <th className="p-2 text-right text-slate-400">BH</th>
                 <th className="p-2 text-right">Δ $</th>
                 <th className="p-2 text-right">Δ %</th>
-                <th className="p-2 text-right">Perf.</th>
+                <th className="p-2 text-right">{tr('perfShort')}</th>
                 <th className="p-2 text-right">CAGR</th>
                 <th className="p-2 text-right">DD</th>
                 <th className="p-2 text-right">SP500</th>
@@ -1365,7 +1367,7 @@ export function RegimesPanel() {
                 <th className="p-2 text-right">FINRA</th>
                 <th className="p-2 text-right">Core CPI YoY</th>
                 <th className="p-2 text-right">SMA12 YoY</th>
-                <th className="p-2 text-right">Umbral SMA×1.20</th>
+                <th className="p-2 text-right">{tr('thresholdSma')}</th>
                 <th className="p-2 text-right">CPI YoY</th>
                 <th className="p-2 text-right">FED</th>
                 <th className="p-2 text-right">2Y</th>
@@ -1422,7 +1424,7 @@ export function RegimesPanel() {
                 const diffPct = (portVal!=null && bhVal!=null && bhVal!==0) ? (portVal/bhVal-1)*100 : null;
                 return (
                   <tr key={r.date} ref={isLast? observerRef : null} className={`${isCurrent ? 'bg-teal-500/[0.08] border-l-2 border-l-teal-500 ring-1 ring-teal-500/15' : 'hover:bg-slate-800/40'} border-t border-slate-800 transition-colors`}>
-                    <td className={`p-2 font-mono sticky left-0 text-slate-200 ${isCurrent ? 'bg-slate-900' : 'bg-slate-900'} w-[110px] min-w-[110px]`}><div className="flex flex-col leading-none gap-0.5"><span className={`${isCurrent ? 'text-teal-300 font-bold' : 'text-slate-200'} text-xs`}>{capeView==='yearly'? d.slice(0,4): capeView==='monthly'? d.slice(0,7): d}</span>{isCurrent && <span className="text-[9px] px-1 py-0.5 rounded bg-teal-500 text-white font-bold leading-none w-fit">Actual</span>}</div></td>
+                    <td className={`p-2 font-mono sticky left-0 text-slate-200 ${isCurrent ? 'bg-slate-900' : 'bg-slate-900'} w-[110px] min-w-[110px]`}><div className="flex flex-col leading-none gap-0.5"><span className={`${isCurrent ? 'text-teal-300 font-bold' : 'text-slate-200'} text-xs`}>{capeView==='yearly'? d.slice(0,4): capeView==='monthly'? d.slice(0,7): d}</span>{isCurrent && <span className="text-[9px] px-1 py-0.5 rounded bg-teal-500 text-white font-bold leading-none w-fit">{tr('current')}</span>}</div></td>
                     {(() => {
                       const det=detRow;
                       const {r1: d1, r2: d2, r3: d3}=det;
@@ -1492,7 +1494,7 @@ export function RegimesPanel() {
             </tbody>
           </table>
         </div>
-        <div className="text-[11px] text-slate-500 mt-2">Virtualizado · {sorted.length.toLocaleString('en-US')} filas visibles de {rowsView.length.toLocaleString('en-US')} totales · {virtualItems.length} renderizadas · 📈 CAPE&gt;1.18 &amp; CPI YoY≥4.0 &amp; &gt;1.20 · 🏦 Z&gt;2.0 (6M) · 😴 HY&lt;P20 — filtro Año para saltar rápido.</div>
+        <div className="text-[11px] text-slate-500 mt-2">{tr('virtFoot', { shown: sorted.length.toLocaleString('en-US'), total: rowsView.length.toLocaleString('en-US'), rendered: virtualItems.length })}</div>
       </div>
 
       <MarketSyncModal open={marketSync.open} logs={marketSync.logs} refreshing={marketSync.refreshing} error={marketSync.error} onClose={marketSync.close} />
@@ -1505,12 +1507,12 @@ export function RegimesPanel() {
       )}
 
       <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 border-dashed">
-        <div className="text-sm font-semibold text-slate-200">Próximos: Estrategias de Régimen (no implementado)</div>
+        <div className="text-sm font-semibold text-slate-200">{tr('nextTitle')}</div>
         <ul className="mt-2 list-disc list-inside text-xs text-slate-400 space-y-1">
-          <li><span className="text-slate-200">Regime Bull</span> — CAPE &lt;20 y HY OAS &lt;3% → 100% SP500</li>
-          <li><span className="text-slate-200">Regime Bear</span> — CAPE &gt;30 o Margin/GDP &gt;5 → 50% cash</li>
-          <li><span className="text-slate-200">Regime Stress</span> — HY OAS &gt;5% o VIX &gt;25 → 100% cash / defensivo</li>
-          <li>Triggers: cruce de medias, inversión de curva, etc. — se agregarán como nuevas `bt_strategies` clonando este baseline.</li>
+          <li><span className="text-slate-200">Regime Bull</span> {tr('nextBull')}</li>
+          <li><span className="text-slate-200">Regime Bear</span> {tr('nextBear')}</li>
+          <li><span className="text-slate-200">Regime Stress</span> {tr('nextStress')}</li>
+          <li>{tr('nextTriggers')}</li>
         </ul>
       </div>
     </div>

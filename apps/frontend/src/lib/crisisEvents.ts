@@ -89,20 +89,25 @@ export function snapToTime(times: string[]) {
 
 // Marcadores lightweight-charts para una serie: pico arriba + suelo abajo.
 // snap: anclar a los tiempos reales de la serie (obligatorio en series mensuales).
-export function crisisMarkers(snap?: (iso: string) => string) {
+const NAMES_EN: Record<string, string> = {
+  dotcom: 'Dot-com bubble', gfc: '2008 financial crisis', covid: 'COVID-19 crash', bear2022: '2022 inflation bear market',
+};
+
+export function crisisMarkers(snap?: (iso: string) => string, locale = 'es') {
+  const en = locale !== 'es';
   const out: any[] = [];
   for (const e of CRISIS_EVENTS) {
     const p = snap ? snap(e.peakDate) : e.peakDate;
     const b = snap ? snap(e.bottomDate) : e.bottomDate;
-    out.push({ time: p as any, position: 'aboveBar' as const, color: e.color, shape: 'arrowDown' as const, text: `${e.icon} PICO ${e.name.toUpperCase()}`, size: 1 } as any);
-    out.push({ time: b as any, position: 'belowBar' as const, color: '#22c55e', shape: 'arrowUp' as const, text: `${e.icon} SUELO ${e.dropPct}%`, size: 1 } as any);
+    out.push({ time: p as any, position: 'aboveBar' as const, color: e.color, shape: 'arrowDown' as const, text: `${e.icon} ${en ? 'PEAK' : 'PICO'} ${(en ? NAMES_EN[e.id] ?? e.name : e.name).toUpperCase()}`, size: 1 } as any);
+    out.push({ time: b as any, position: 'belowBar' as const, color: '#22c55e', shape: 'arrowUp' as const, text: `${e.icon} ${en ? 'BOTTOM' : 'SUELO'} ${e.dropPct}%`, size: 1 } as any);
   }
   return out;
 }
 
-export function applyCrisisMarkers(series: any, createSeriesMarkersFn?: any, snap?: (iso: string) => string) {
+export function applyCrisisMarkers(series: any, createSeriesMarkersFn?: any, snap?: (iso: string) => string, locale = 'es') {
   try {
-    const m = crisisMarkers(snap);
+    const m = crisisMarkers(snap, locale);
     if (!m.length) return;
     if (typeof series?.setMarkers === 'function') series.setMarkers(m);
     else if (typeof createSeriesMarkersFn === 'function') createSeriesMarkersFn(series, m);
