@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Database, Layers, BarChart3, DollarSign, Activity, ExternalLink } from 'lucide-react';
-import { useLocale } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import { isFundTicker } from '@/lib/isFund';
 
 interface QuarterData {
@@ -38,6 +38,7 @@ interface QuarterlyDataTableProps {
 
 export const QuarterlyDataTable: React.FC<QuarterlyDataTableProps> = ({ ticker, quarters, historicalPrices = [] }) => {
   const locale = useLocale();
+  const tt = useTranslations('Terms');
   const [filterSource, setFilterSource] = useState<'all' | 'real' | 'estimated'>('all');
   
   // Infinite scroll limit state
@@ -340,7 +341,7 @@ export const QuarterlyDataTable: React.FC<QuarterlyDataTableProps> = ({ ticker, 
                 <th className="p-4 text-right">{locale === 'es' ? 'Tasa Dividendo TTM' : 'TTM Dividend Rate'}</th>
                 <th className="p-4 text-right">{locale === 'es' ? 'Div. Yield TTM' : 'TTM Dividend Yield'}</th>
                 <th className="p-4 text-right">{locale === 'es' ? 'EPS TTM (Real)' : 'TTM EPS (Real)'}</th>
-                <th className="p-4 text-right">{locale === 'es' ? 'P/E Ratio (Real)' : 'P/E Ratio (Real)'}</th>
+                <th className="p-4 text-right">{tt('peReal')}</th>
                 <th className="p-4 text-center">{locale === 'es' ? 'Origen' : 'Source'}</th>
               </tr>
 
@@ -350,7 +351,7 @@ export const QuarterlyDataTable: React.FC<QuarterlyDataTableProps> = ({ ticker, 
                 <th className="p-4">{locale === 'es' ? 'Publicación Reporte' : 'Report Date'}</th>
                 <th className="p-4">{locale === 'es' ? 'Periodo / Año' : 'Period / Year'}</th>
                 <th className="p-4 text-right">{locale === 'es' ? 'Precio' : 'Price'}</th>
-                <th className="p-4 text-right">Market Cap</th>
+                <th className="p-4 text-right">{tt('marketCap')}</th>
                 <th className="p-4 text-right">{locale === 'es' ? 'Ingresos' : 'Revenue'}</th>
                 <th className="p-4 text-right">{locale === 'es' ? 'Utilidad Neta' : 'Net Income'}</th>
                 <th className="p-4 text-right">{locale === 'es' ? 'Margen Neto' : 'Net Margin'}</th>

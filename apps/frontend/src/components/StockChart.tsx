@@ -4,7 +4,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { createChart, ColorType, IChartApi, ISeriesApi, CandlestickSeries, AreaSeries, LineSeries, createSeriesMarkers } from 'lightweight-charts';
 import { HistoricalPrice, Ticker } from '@/services/api';
 import { BarChart2, TrendingUp, X, Calendar, Activity, Info } from 'lucide-react';
-import { useLocale } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 
 interface StockChartProps {
   prices: HistoricalPrice[];
@@ -22,6 +22,7 @@ interface ClickedPoint {
 
 export const StockChart: React.FC<StockChartProps> = ({ prices, buyHoldIndex, recommendation, ticker }) => {
   const locale = useLocale();
+  const tt = useTranslations('Terms');
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const candlestickSeriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
@@ -553,11 +554,11 @@ export const StockChart: React.FC<StockChartProps> = ({ prices, buyHoldIndex, re
         <div className="flex bg-slate-900/80 border border-slate-800 rounded-lg p-0.5">
           <button onClick={() => toggleChartType('candle')}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition cursor-pointer ${chartType === 'candle' ? 'bg-slate-800 text-teal-400' : 'text-slate-400 hover:text-slate-200'}`}>
-            <BarChart2 size={14} /> Candles
+            <BarChart2 size={14} /> {tt('candles')}
           </button>
           <button onClick={() => toggleChartType('line')}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition cursor-pointer ${chartType === 'line' ? 'bg-slate-800 text-teal-400' : 'text-slate-400 hover:text-slate-200'}`}>
-            <TrendingUp size={14} /> Line
+            <TrendingUp size={14} /> {tt('line')}
           </button>
         </div>
       </div>
@@ -587,7 +588,7 @@ export const StockChart: React.FC<StockChartProps> = ({ prices, buyHoldIndex, re
         {!isLoaded && (
           <div className="absolute inset-0 flex items-center justify-center bg-slate-950/80 z-10 text-slate-500 text-xs">
             <span className="animate-spin rounded-full h-5 w-5 border-b-2 border-teal-500 mr-2" />
-            Loading chart...
+            {tt('loadingChart')}
           </div>
         )}
 
@@ -679,14 +680,14 @@ export const StockChart: React.FC<StockChartProps> = ({ prices, buyHoldIndex, re
               {([
                 { label: locale === 'es' ? 'Precio Cierre' : 'Close Price', value: `$${modalData.close.toFixed(2)}`, color: 'text-white' },
                 { label: locale === 'es' ? 'Volumen' : 'Volume', value: modalData.volume > 0 ? modalData.volume.toLocaleString() : 'N/A', color: 'text-slate-200' },
-                { label: 'High', value: `$${modalData.high.toFixed(2)}`, color: 'text-emerald-400' },
-                { label: 'Low', value: `$${modalData.low.toFixed(2)}`, color: 'text-rose-400' },
+                { label: tt('high'), value: `$${modalData.high.toFixed(2)}`, color: 'text-emerald-400' },
+                { label: tt('low'), value: `$${modalData.low.toFixed(2)}`, color: 'text-rose-400' },
                 { label: 'EMA 50', value: modalData.ema50 ? `$${modalData.ema50.toFixed(2)}` : 'N/A', color: 'text-orange-400', icon: <Activity size={10} className="text-orange-400" /> },
                 { label: 'EMA 200', value: modalData.ema200 ? `$${modalData.ema200.toFixed(2)}` : 'N/A', color: 'text-emerald-400', icon: <Activity size={10} className="text-emerald-400" /> },
-                { label: 'EPS (TTM)', value: modalData.eps ? `$${modalData.eps.toFixed(2)}` : 'N/A', color: modalData.epsSource === 'real' ? 'text-sky-300' : 'text-amber-300', badge: modalData.epsSource?.substring(0, 3).toUpperCase() },
-                { label: 'P/E Ratio', value: modalData.pe ? `${modalData.pe.toFixed(2)}x` : 'N/A', color: 'text-slate-200' },
-                { label: 'Div. Rate', value: modalData.divRate > 0 ? `$${modalData.divRate.toFixed(2)}` : '$0.00', color: 'text-slate-200' },
-                { label: 'Div. Yield', value: modalData.divYield > 0 ? `${modalData.divYield.toFixed(2)}%` : '0.00%', color: 'text-emerald-400' },
+                { label: tt('epsTtm'), value: modalData.eps ? `$${modalData.eps.toFixed(2)}` : 'N/A', color: modalData.epsSource === 'real' ? 'text-sky-300' : 'text-amber-300', badge: modalData.epsSource?.substring(0, 3).toUpperCase() },
+                { label: tt('peRatio'), value: modalData.pe ? `${modalData.pe.toFixed(2)}x` : 'N/A', color: 'text-slate-200' },
+                { label: tt('divRate'), value: modalData.divRate > 0 ? `$${modalData.divRate.toFixed(2)}` : '$0.00', color: 'text-slate-200' },
+                { label: tt('divYield'), value: modalData.divYield > 0 ? `${modalData.divYield.toFixed(2)}%` : '0.00%', color: 'text-emerald-400' },
               ] as any[]).map(({ label, value, color, icon, badge }: any) => (
                 <div key={label} className="flex flex-col gap-1 p-3 rounded-xl border border-slate-800/60 bg-slate-900/20">
                   <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider flex items-center gap-1">
@@ -704,7 +705,7 @@ export const StockChart: React.FC<StockChartProps> = ({ prices, buyHoldIndex, re
               ))}
               {/* Market Cap — full width */}
               <div className="col-span-2 flex flex-col gap-1 p-3 rounded-xl border border-slate-800/60 bg-slate-900/20">
-                <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Market Cap</span>
+                <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">{tt('marketCap')}</span>
                 <span className="text-sm font-black font-mono text-white">{formatMarketCap(modalData.marketCap)}</span>
               </div>
             </div>

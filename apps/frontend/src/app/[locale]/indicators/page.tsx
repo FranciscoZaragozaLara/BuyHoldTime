@@ -4,40 +4,32 @@ import { MarketValueIndicatorClient } from '@/components/MarketValueIndicatorCli
 import { MarginDebtPanel } from '@/components/MarginDebtPanel';
 import { getIndicatorDetails, IndicatorDetails, getMarginDebtHistory, getMarginDebtRiskSummary, MarginDebtRecord, MarginDebtRiskSummary } from '@/services/api';
 import { Sparkles } from 'lucide-react';
+import { getTranslations } from 'next-intl/server';
 
 // ISR: macro indicators change slowly — revalidate every hour
 export const revalidate = 3600;
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://buyholdtime.com';
 
-export const metadata = {
-  title: 'Market Indicators: Shiller PE (CAPE), S&P 500 PE Ratio & Treasury Yields',
-  description:
-    'Track macroeconomic market valuation indicators: Shiller PE Ratio (CAPE), S&P 500 P/E ratio, 10-Year Treasury Yield (GS10), Excess CAPE Yield, CPI, and FINRA Margin Debt. Identify market bubbles and buying opportunities.',
-  keywords: [
-    'Shiller PE ratio', 'CAPE ratio', 'S&P 500 PE ratio', 'market valuation', 'is market overvalued',
-    '10 year treasury yield', 'excess CAPE yield', 'FINRA margin debt', 'stock market bubble',
-    'market timing indicators', 'CPI inflation', 'macro indicators',
-  ],
-  openGraph: {
-    title: 'Market Indicators: Shiller PE (CAPE) & S&P 500 Valuation | BuyHoldTime',
-    description: 'Is the stock market overvalued? Track CAPE, PE ratio, Treasury yields, and margin debt in one dashboard.',
-    url: `${BASE_URL}/en/indicators`,
-    type: 'website',
-  },
-  twitter: {
-    card: 'summary',
-    title: 'Shiller PE (CAPE) & S&P 500 Valuation Indicators | BuyHoldTime',
-    description: 'Track CAPE, PE ratio, Treasury yields, and margin debt to spot market tops and buying windows.',
-  },
-  alternates: {
-    canonical: `${BASE_URL}/en/indicators`,
-    languages: {
-      'en': `${BASE_URL}/en/indicators`,
-      'es': `${BASE_URL}/es/indicators`,
+export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }) {
+  const { locale } = await params;
+  const t = await getTranslations({ locale, namespace: 'Meta' });
+  const url = `${BASE_URL}/${locale}/indicators`;
+  return {
+    title: t('indicatorsTitle'),
+    description: t('indicatorsDescription'),
+    keywords: [
+      'Shiller PE ratio', 'CAPE ratio', 'S&P 500 PE ratio', 'market valuation',
+      '10 year treasury yield', 'excess CAPE yield', 'margin debt', 'market timing indicators', 'CPI inflation',
+    ],
+    openGraph: { title: `${t('indicatorsOgTitle')} | BuyHoldTime`, description: t('indicatorsDescription'), url, type: 'website' },
+    twitter: { card: 'summary', title: `${t('indicatorsOgTitle')} | BuyHoldTime`, description: t('indicatorsDescription') },
+    alternates: {
+      canonical: url,
+      languages: { en: `${BASE_URL}/en/indicators`, es: `${BASE_URL}/es/indicators` },
     },
-  },
-};
+  };
+}
 
 export default async function IndicatorsPage({
   params,

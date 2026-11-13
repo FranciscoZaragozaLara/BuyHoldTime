@@ -62,7 +62,7 @@ export async function generateMetadata({ params }: { params: Promise<Params> }) 
     const isEs = locale === 'es';
 
     const title = isEs
-      ? `${ticker.symbol} — Análisis, P/E, EPS e Índice Buy/Hold | BuyHoldTime`
+      ? `${ticker.symbol} — Análisis, P/E, EPS e Índice Buy/Hold`
       : `${ticker.symbol} (${ticker.name}) — P/E Ratio, EPS History & Buy/Hold Score`;
 
     const description = isEs
@@ -92,7 +92,7 @@ export async function generateMetadata({ params }: { params: Promise<Params> }) 
         images: ['/og-image.png'],
       },
       alternates: {
-        canonical: `${BASE_URL}/en/prices/${ticker.symbol}`,
+        canonical: `${BASE_URL}/${locale}/prices/${ticker.symbol}`,
         languages: {
           'en': `${BASE_URL}/en/prices/${ticker.symbol}`,
           'es': `${BASE_URL}/es/prices/${ticker.symbol}`,
@@ -101,7 +101,7 @@ export async function generateMetadata({ params }: { params: Promise<Params> }) 
     };
   } catch {
     return {
-      title: `${symbol.toUpperCase()} Stock Analysis | BuyHoldTime`,
+      title: `${symbol.toUpperCase()} Stock Analysis`,
       description: `Analyze ${symbol.toUpperCase()} prices, EPS history, P/E ratios, and algorithmic buy/hold ratings.`,
     };
   }

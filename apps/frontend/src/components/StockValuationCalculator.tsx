@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { useLocale } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import { Calculator, TrendingUp, TrendingDown, RefreshCw, ShieldAlert, Sliders, AlertTriangle, ArrowRightLeft, Lock, Crown, Sparkles, LogIn } from 'lucide-react';
 import { Ticker } from '@/services/api';
 import { useAuth } from '@/context/AuthContext';
@@ -14,6 +14,7 @@ interface StockValuationCalculatorProps {
 
 export const StockValuationCalculator: React.FC<StockValuationCalculatorProps> = ({ ticker, snapshot }) => {
   const locale = useLocale();
+  const tt = useTranslations('Terms');
   const { user, role } = useAuth();
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
@@ -322,7 +323,7 @@ export const StockValuationCalculator: React.FC<StockValuationCalculatorProps> =
                 <AlertTriangle size={12} className="text-amber-400 shrink-0 mt-0.5" />
                 <div>
                   <span className="font-extrabold block">
-                    {locale === 'es' ? '⚠️ Sanity Warning:' : '⚠️ Sanity Warning:'}
+                    {tt('sanityWarning')}
                   </span>
                   {isHighReturnWarning && (
                     <span>
@@ -506,7 +507,7 @@ export const StockValuationCalculator: React.FC<StockValuationCalculatorProps> =
                 className="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 hover:bg-emerald-500/20 transition cursor-pointer flex items-center gap-1"
               >
                 <TrendingUp size={12} className="text-emerald-400" />
-                {locale === 'es' ? 'Bullish' : 'Bullish'}
+                {tt('bullish')}
               </button>
               <button
                 onClick={() => applyPreset(0, 0)}

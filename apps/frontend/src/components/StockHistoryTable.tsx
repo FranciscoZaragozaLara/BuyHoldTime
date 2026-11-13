@@ -3,7 +3,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Calendar, Layers, Clock, ArrowLeftRight, Database, TrendingUp } from 'lucide-react';
 import { HistoricalPrice, Ticker } from '@/services/api';
-import { useLocale } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import { isFundTicker } from '@/lib/isFund';
 
 interface StockHistoryTableProps {
@@ -15,6 +15,7 @@ type PeriodTab = 'daily' | 'monthly' | 'annual';
 
 export const StockHistoryTable: React.FC<StockHistoryTableProps> = ({ prices, ticker }) => {
   const locale = useLocale();
+  const tt = useTranslations('Terms');
   const [activeTab, setActiveTab] = useState<PeriodTab>('annual');
   
   // Infinite scroll limit state
@@ -303,13 +304,13 @@ export const StockHistoryTable: React.FC<StockHistoryTableProps> = ({ prices, ti
             <tr>
               <th className="p-4">{locale === 'es' ? 'Fecha' : 'Date'}</th>
               <th className="p-4">{locale === 'es' ? 'Cierre' : 'Close'}</th>
-              <th className="p-4 text-right">{locale === 'es' ? 'Var. ($)' : 'Var. ($)'}</th>
-              <th className="p-4 text-right">{locale === 'es' ? 'Var. (%)' : 'Var. (%)'}</th>
+              <th className="p-4 text-right">{tt('varUsd')}</th>
+              <th className="p-4 text-right">{tt('varPct')}</th>
               <th className="p-4 text-right">{locale === 'es' ? 'Rend. / ATH' : 'Return / ATH'}</th>
-              <th className="p-4">Market Cap</th>
+              <th className="p-4">{tt('marketCap')}</th>
               <th className="p-4">
                 <div className="flex items-center gap-2">
-                  EPS (TTM Cal.)
+                  {tt('epsTtmCal')}
                   <div className="flex items-center gap-1 ml-1">
                     <span className="inline-flex items-center gap-0.5 text-[9px] font-bold bg-sky-500/10 text-sky-400 border border-sky-500/20 rounded px-1 py-0.5">
                       <Database size={8} /> R
@@ -320,13 +321,13 @@ export const StockHistoryTable: React.FC<StockHistoryTableProps> = ({ prices, ti
                   </div>
                 </div>
               </th>
-              <th className="p-4">P/E (TTM Cal.)</th>
+              <th className="p-4">{tt('peTtmCal')}</th>
               {/* Un fondo no presenta 10-K: sin columnas fiscales */}
-              {activeTab === 'annual' && !isFund && <th className="p-4 text-purple-400">EPS (Fiscal 10-K)</th>}
-              {activeTab === 'annual' && !isFund && <th className="p-4 text-purple-400">P/E (Fiscal 10-K)</th>}
+              {activeTab === 'annual' && !isFund && <th className="p-4 text-purple-400">{tt('epsFiscal')}</th>}
+              {activeTab === 'annual' && !isFund && <th className="p-4 text-purple-400">{tt('peFiscal')}</th>}
 
-              <th className="p-4">Div. Rate</th>
-              <th className="p-4">Div. Yield</th>
+              <th className="p-4">{tt('divRate')}</th>
+              <th className="p-4">{tt('divYield')}</th>
               <th className="p-4">{locale === 'es' ? 'Volumen' : 'Volume'}</th>
               <th className="p-4">{locale === 'es' ? 'Índice' : 'Index'}</th>
               <th className="p-4 text-right">{locale === 'es' ? 'Recomendación' : 'Rating'}</th>
@@ -662,7 +663,7 @@ export const StockHistoryTable: React.FC<StockHistoryTableProps> = ({ prices, ti
                           <span className="text-slate-400">
                             {cellMode === 'growth' 
                               ? (locale === 'es' ? 'Rend. acumulado:' : 'Total Return:')
-                              : 'From High:'}
+                              : tt('fromHighColon')}
                           </span>
                           <strong className={cellColor}>
                             {cellVal > 0 ? '+' : ''}{cellVal.toFixed(2)}%
@@ -754,7 +755,7 @@ export const StockHistoryTable: React.FC<StockHistoryTableProps> = ({ prices, ti
                         }`}></div>
 
                         <div className="flex items-center justify-between border-b border-slate-900 pb-2 font-extrabold text-sky-400 relative z-10">
-                          <span>Desglose EPS TTM (4 Trimestres)</span>
+                          <span>{tt('ttmBreakdown')}</span>
                           <span className="text-[10px] font-bold text-slate-400 bg-slate-900 px-1.5 py-0.5 rounded border border-slate-800">{ticker.symbol}</span>
                         </div>
 
@@ -776,7 +777,7 @@ export const StockHistoryTable: React.FC<StockHistoryTableProps> = ({ prices, ti
                             </div>
                           ))}
                           <div className="flex justify-between pt-1 font-bold">
-                            <span className="text-slate-300">Suma TTM Calendar:</span>
+                            <span className="text-slate-300">{tt('ttmSum')}</span>
                             <span className="text-sky-400 text-sm">${estimatedEps?.toFixed(2)} USD</span>
                           </div>
                         </div>
@@ -811,7 +812,7 @@ export const StockHistoryTable: React.FC<StockHistoryTableProps> = ({ prices, ti
                             }`}></div>
 
                             <div className="flex items-center justify-between border-b border-slate-900 pb-2 font-extrabold text-purple-400 relative z-10">
-                              <span>Desglose 10-K Fiscal Auditado</span>
+                              <span>{tt('fiscalBreakdown')}</span>
                               <span className="text-[10px] font-bold text-slate-400 bg-slate-900 px-1.5 py-0.5 rounded border border-slate-800">{ticker.symbol}</span>
                             </div>
 
@@ -833,7 +834,7 @@ export const StockHistoryTable: React.FC<StockHistoryTableProps> = ({ prices, ti
                                 </div>
                               ))}
                               <div className="flex justify-between pt-1 font-bold">
-                                <span className="text-slate-300">Suma Form 10-K SEC:</span>
+                                <span className="text-slate-300">{tt('fiscalSum')}</span>
                                 <span className="text-purple-400 text-sm">${fiscalEps?.toFixed(2)} USD</span>
                               </div>
                             </div>

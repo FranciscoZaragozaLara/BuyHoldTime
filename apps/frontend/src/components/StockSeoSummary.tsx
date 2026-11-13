@@ -118,8 +118,8 @@ export function StockSeoSummary({ ticker, locale }: Props) {
           { label: isEs ? 'Precio' : 'Price', value: `$${ticker.price.toFixed(2)}` },
           { label: isEs ? 'P/E Trailing' : 'Trailing P/E', value: pe ? `${pe.toFixed(1)}x` : 'N/A' },
           { label: isEs ? 'P/E Forward' : 'Forward P/E', value: fwdPe ? `${fwdPe.toFixed(1)}x` : 'N/A' },
-          { label: 'EPS TTM', value: eps ? `$${eps.toFixed(2)}` : 'N/A' },
-          { label: isEs ? 'Div. Yield' : 'Div. Yield', value: dyield ? `${dyield.toFixed(2)}%` : 'N/A' },
+          { label: isEs ? 'EPS (12 meses)' : 'EPS TTM', value: eps ? `$${eps.toFixed(2)}` : 'N/A' },
+          { label: isEs ? 'Rend. dividendo' : 'Div. Yield', value: dyield ? `${dyield.toFixed(2)}%` : 'N/A' },
           { label: isEs ? 'Score BHT' : 'BHT Score', value: `${score}/100` },
         ].map(({ label, value }) => (
           <div key={label} className="flex flex-col gap-0.5 p-3 rounded-xl bg-slate-900/50 border border-slate-900">

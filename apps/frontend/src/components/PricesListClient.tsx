@@ -18,6 +18,7 @@ export const PricesListClient: React.FC<PricesListClientProps> = ({ initialTicke
   const tCommon = useTranslations('Common');
   const tPrices = useTranslations('HistoricalPrices');
   const tHeatmap = useTranslations('Heatmap');
+  const tt = useTranslations('Terms');
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSector, setSelectedSector] = useState('All');
@@ -220,7 +221,7 @@ export const PricesListClient: React.FC<PricesListClientProps> = ({ initialTicke
               <strong className="text-slate-100">${currentPrice.toFixed(2)}</strong>
             </div>
             <div className="flex justify-between pt-1 border-t border-slate-900">
-              <span className="text-slate-400">From High:</span>
+              <span className="text-slate-400">{tt('fromHighColon')}</span>
               <strong className={textColor}>
                 {fromHighVal > 0 ? '+' : ''}{fromHighVal.toFixed(2)}%
               </strong>
@@ -228,9 +229,9 @@ export const PricesListClient: React.FC<PricesListClientProps> = ({ initialTicke
           </div>
 
           <div className="text-[10px] text-slate-400 bg-slate-900/60 rounded px-2 py-1 border border-slate-800/80 flex flex-col gap-0.5 mt-0.5 relative z-10">
-            <span className="font-semibold text-slate-300">{locale === 'es' ? 'Cálculo de From High:' : 'Calculation:'}</span>
+            <span className="font-semibold text-slate-300">{locale === 'es' ? 'Cálculo de la caída desde máximo:' : 'Calculation:'}</span>
             <span className="font-mono text-[9.5px] text-slate-400">
-              Highest Price - Actual Price = From High
+              {tt('fromHighFormula')}
             </span>
           </div>
 
@@ -289,8 +290,8 @@ export const PricesListClient: React.FC<PricesListClientProps> = ({ initialTicke
             >
               <option value="score-desc">{tCommon('buyHoldIndex')} (↑)</option>
               <option value="score-asc">{tCommon('buyHoldIndex')} (↓)</option>
-              <option value="symbol-asc">Ticker (A-Z)</option>
-              <option value="symbol-desc">Ticker (Z-A)</option>
+              <option value="symbol-asc">{tt('tickerAz')}</option>
+              <option value="symbol-desc">{tt('tickerZa')}</option>
               <option value="price-desc">{tCommon('price')} (↑)</option>
               <option value="price-asc">{tCommon('price')} (↓)</option>
             </select>
@@ -434,8 +435,8 @@ export const PricesListClient: React.FC<PricesListClientProps> = ({ initialTicke
                             </div>
                           </div>
                           <div className="flex flex-col">
-                            <span className="text-[8px] uppercase tracking-wider text-slate-500 font-bold">Buy/Hold</span>
-                            <span className="text-[10px] uppercase font-bold text-slate-300">Index</span>
+                            <span className="text-[8px] uppercase tracking-wider text-slate-500 font-bold">{tt('buyHold')}</span>
+                            <span className="text-[10px] uppercase font-bold text-slate-300">{tt('index')}</span>
                           </div>
                         </div>
                       </div>
@@ -444,7 +445,7 @@ export const PricesListClient: React.FC<PricesListClientProps> = ({ initialTicke
                         <span>•</span>
                         <span>{tPrices('dy')}: <strong className="text-slate-400">{stock.dy ? `${stock.dy}%` : '0.00%'}</strong></span>
                         <span>•</span>
-                        <span>Cap: <strong className="text-slate-400">{stock.cap}</strong></span>
+                        <span>{tt('capColon')} <strong className="text-slate-400">{stock.cap}</strong></span>
                       </div>
                     </Link>
                   );
@@ -516,8 +517,8 @@ export const PricesListClient: React.FC<PricesListClientProps> = ({ initialTicke
                             </div>
                           </div>
                           <div className="flex flex-col">
-                            <span className="text-[8px] uppercase tracking-wider text-slate-500 font-bold">Buy/Hold</span>
-                            <span className="text-[10px] uppercase font-bold text-slate-300">Index</span>
+                            <span className="text-[8px] uppercase tracking-wider text-slate-500 font-bold">{tt('buyHold')}</span>
+                            <span className="text-[10px] uppercase font-bold text-slate-300">{tt('index')}</span>
                           </div>
                         </div>
                       </div>
@@ -526,7 +527,7 @@ export const PricesListClient: React.FC<PricesListClientProps> = ({ initialTicke
                         <span>•</span>
                         <span>{tPrices('dy')}: <strong className="text-slate-400">{stock.dy ? `${stock.dy}%` : '0.00%'}</strong></span>
                         <span>•</span>
-                        <span>Cap: <strong className="text-slate-400">{stock.cap}</strong></span>
+                        <span>{tt('capColon')} <strong className="text-slate-400">{stock.cap}</strong></span>
                       </div>
                     </Link>
                   );
@@ -552,16 +553,16 @@ export const PricesListClient: React.FC<PricesListClientProps> = ({ initialTicke
                       <th className="p-3.5 px-4 bg-slate-950 whitespace-nowrap">{tPrices('sector')}</th>
                       <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap">{tCommon('price')}</th>
                       <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap">{tCommon('change')}</th>
-                      <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap">Perf 1M</th>
-                      <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap">Perf YTD</th>
-                      <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap">Perf 1Y</th>
-                      <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap">Perf 5Y</th>
-                      <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap">From High</th>
+                      <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap">{tt('perf1m')}</th>
+                      <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap">{tt('perfYtd')}</th>
+                      <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap">{tt('perf1y')}</th>
+                      <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap">{tt('perf5y')}</th>
+                      <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap">{tt('fromHigh')}</th>
                       <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap">{tPrices('cap')}</th>
                       <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap">{tPrices('pe')}</th>
-                      <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap">Forward P/E</th>
-                      <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap">EPS (TTM)</th>
-                      <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap">Div. Rate</th>
+                      <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap">{tt('forwardPe')}</th>
+                      <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap">{tt('epsTtm')}</th>
+                      <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap">{tt('divRate')}</th>
                       <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap">{tPrices('dy')}</th>
                       <th className="p-3.5 px-4 text-center bg-slate-950 whitespace-nowrap">{tCommon('buyHoldIndex')}</th>
                       <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap">{tCommon('recommendation')}</th>
@@ -641,16 +642,16 @@ export const PricesListClient: React.FC<PricesListClientProps> = ({ initialTicke
                       <th className="p-3.5 px-4 bg-slate-950 whitespace-nowrap">{tPrices('sector')}</th>
                       <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap">{tCommon('price')}</th>
                       <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap">{tCommon('change')}</th>
-                      <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap">Perf 1M</th>
-                      <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap">Perf YTD</th>
-                      <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap">Perf 1Y</th>
-                      <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap">Perf 5Y</th>
-                      <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap">From High</th>
+                      <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap">{tt('perf1m')}</th>
+                      <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap">{tt('perfYtd')}</th>
+                      <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap">{tt('perf1y')}</th>
+                      <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap">{tt('perf5y')}</th>
+                      <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap">{tt('fromHigh')}</th>
                       <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap">{tPrices('cap')}</th>
                       <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap">{tPrices('pe')}</th>
-                      <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap">Forward P/E</th>
-                      <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap">EPS (TTM)</th>
-                      <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap">Div. Rate</th>
+                      <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap">{tt('forwardPe')}</th>
+                      <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap">{tt('epsTtm')}</th>
+                      <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap">{tt('divRate')}</th>
                       <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap">{tPrices('dy')}</th>
                       <th className="p-3.5 px-4 text-center bg-slate-950 whitespace-nowrap">{tCommon('buyHoldIndex')}</th>
                       <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap">{tCommon('recommendation')}</th>

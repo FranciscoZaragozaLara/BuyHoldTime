@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { BarChart3, TrendingUp, Sparkles, CheckCircle2, Calendar, HelpCircle, Layers, ArrowUpRight, ArrowDownRight, Info, ChevronLeft, ChevronRight, DollarSign, Calculator, Activity, Sun } from 'lucide-react';
-import { useLocale } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import { solarYearEps } from '@/lib/solarYearEps';
 import { isFundTicker } from '@/lib/isFund';
 
@@ -60,6 +60,7 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
   historicalPrices = [],
 }) => {
   const locale = useLocale();
+  const tt = useTranslations('Terms');
   const [viewMode, setViewMode] = useState<'annual' | 'quarterly'>('annual');
   const [hoveredItem, setHoveredItem] = useState<ChartItem | null>(null);
 
@@ -538,7 +539,7 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
             <h3 className="text-base font-extrabold text-white flex items-center gap-2">
               {locale === 'es' ? 'Histórico de EPS, Precio y P/E (Calendario Solar)' : 'EPS, Stock Price & P/E Lines (Solar Calendar Year)'}
               <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20">
-                <Sun size={10} /> Escala Dinámica
+                <Sun size={10} /> {tt('dynamicScale')}
               </span>
             </h3>
             <p className="text-xs text-slate-400 mt-0.5">
@@ -876,7 +877,7 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
 
                     {item.isProjection && (
                       <span className="inline-flex items-center gap-0.5 text-[8px] font-extrabold uppercase tracking-widest text-purple-300 bg-purple-500/20 border border-purple-500/40 rounded px-1 mt-1">
-                        <Sparkles size={8} /> {locale === 'es' ? 'MIX EST.' : 'MIX EST.'}
+                        <Sparkles size={8} /> {tt('mixEst')}
                       </span>
                     )}
                   </div>
@@ -961,7 +962,7 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
               </span>
               {hoveredItem.isProjection && (
                 <span className="text-[10px] text-purple-300 block">
-                  (P/E Mix Convergente)
+                  {tt('mixPe')}
                 </span>
               )}
             </div>
