@@ -1,6 +1,7 @@
 'use client';
 import { getApiBase } from '@/lib/apiBase';
 import React, { useEffect, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { bhtBandColor } from './bhtBands';
 import { capeRiskScore } from './IndicatorsPanel';
 
@@ -66,6 +67,7 @@ const ASSETS: { k: AssetKey; label: string; note: string }[] = [
 ];
 
 export function BhtStats() {
+  const t = useTranslations('Backtesting.bhtStats');
   const [buckets, setBuckets] = useState<Bucket[]>([]);
   const [capeBuckets, setCapeBuckets] = useState<CapeBucket[]>([]);
   const [capeTotal, setCapeTotal] = useState(0);
@@ -76,7 +78,8 @@ export function BhtStats() {
   const [to, setTo] = useState(isoToday());
   const [asset, setAsset] = useState<AssetKey>('spx');
   const assetLabel = ASSETS.find((a) => a.k === asset)!.label;
-  const assetNote = ASSETS.find((a) => a.k === asset)!.note;
+  const assetNote = t(`note_${asset}`);
+  const RICH = { b: (c: React.ReactNode) => <span className="font-bold text-slate-100">{c}</span>, g: (c: React.ReactNode) => <span className="text-emerald-400 font-bold">{c}</span>, r: (c: React.ReactNode) => <span className="text-red-400 font-bold">{c}</span> };
 
   useEffect(() => {
     let alive = true;
@@ -114,19 +117,19 @@ export function BhtStats() {
     return () => { alive = false; };
   }, [from, to, asset]);
 
-  if (loading) return <div className="text-[11px] text-slate-500 font-mono">Cargando stats…</div>;
+  if (loading) return <div className="text-[11px] text-slate-500 font-mono">{t('loading')}</div>;
   return (
     <div>
       <div className="flex flex-wrap items-center gap-2 mb-2">
-        <label className="text-[11px] text-slate-400 font-mono">Desde
+        <label className="text-[11px] text-slate-400 font-mono">{t('from')}
           <input type="date" value={from} min="1993-01-01" max={to} onChange={(e) => e.target.value && setFrom(e.target.value)}
             className="ml-1.5 px-2 py-1 text-[11px] font-mono rounded-md bg-slate-800 border border-slate-700 text-slate-200 [color-scheme:dark]" />
         </label>
-        <label className="text-[11px] text-slate-400 font-mono">Hasta
+        <label className="text-[11px] text-slate-400 font-mono">{t('to')}
           <input type="date" value={to} min={from} max={isoToday()} onChange={(e) => e.target.value && setTo(e.target.value)}
             className="ml-1.5 px-2 py-1 text-[11px] font-mono rounded-md bg-slate-800 border border-slate-700 text-slate-200 [color-scheme:dark]" />
         </label>
-        <div className="inline-flex rounded-lg border border-slate-700 bg-slate-800/60 p-0.5" title="Activo para medir el performance posterior">
+        <div className="inline-flex rounded-lg border border-slate-700 bg-slate-800/60 p-0.5" title={t('assetTitle')}>
           {ASSETS.map((a) => (
             <button key={a.k} type="button" onClick={() => setAsset(a.k)}
               className={`px-2.5 py-1 text-[11px] font-mono rounded-md transition ${asset === a.k ? 'bg-teal-500 text-white font-bold' : 'text-slate-400 hover:text-slate-200'}`}>
@@ -136,46 +139,27 @@ export function BhtStats() {
         </div>
       </div>
       <div className="text-xs text-slate-300 leading-relaxed mb-2 space-y-1">
-        <p>
-          El <span className="font-bold text-slate-100">BHT Index</span> mide el riesgo del mercado de 0 a 100:
-          abajo (verde) = barato y tranquilo, arriba (rojo) = caro y peligroso.
-        </p>
-        <p>
-          Esta tabla agrupa los días del rango por nivel de BHT y muestra qué le pasó al {assetLabel}
-          {' '}({assetNote}) en el <span className="font-bold text-slate-100">año siguiente</span> y a los
-          {' '}<span className="font-bold text-slate-100">3 años</span> (solo días con ese horizonte ya cumplido):
-          lo peor (mín), lo típico (prom) y lo mejor (máx), más el
-          {' '}<span className="font-bold text-slate-100">CAGR</span> (cuánto rindió por año en promedio a 3 años).
-        </p>
-        <p>
-          {asset === 'spx' ? (<>
-            La lectura es simple: cuando el BHT estuvo abajo (20–35), el año siguiente ganó ~+37% en promedio;
-            cuando estuvo arriba (65 o más), el año siguiente apenas ganó o perdió.
-          </>) : (<>
-            La lectura es simple: compara el prom de 1Y entre bandas bajas (verdes) y altas (rojas):
-            si las verdes rinden mucho más, el BHT anticipa bien a este activo.
-          </>)}
-          Úsalo como brújula: <span className="text-emerald-400 font-bold">verde = oportunidad</span>,
-          {' '}<span className="text-red-400 font-bold">rojo = precaución</span>.
-        </p>
+        <p>{t.rich('p1', RICH)}</p>
+        <p>{t.rich('p2', { ...RICH, asset: assetLabel, note: assetNote })}</p>
+        <p>{asset === 'spx' ? t('p3spx') : t('p3other')}{t.rich('compass', RICH)}</p>
       </div>
       <p className="text-[11px] text-slate-500 mb-2">
-        {from} → {to} · {total.toLocaleString('en-US')} días con 1Y maduro · {buckets.reduce((m, b) => m + (b.y3?.n ?? 0), 0).toLocaleString('en-US')} con 3Y maduro ({span}) · performance {assetLabel} a 1 y 3 años por banda de BHT.
+        {t('summaryBht', { from, to, n1: total.toLocaleString('en-US'), n3: buckets.reduce((m, b) => m + (b.y3?.n ?? 0), 0).toLocaleString('en-US'), span, asset: assetLabel })}
       </p>
       <div className="overflow-x-auto">
         <table className="w-full text-xs font-mono">
           <thead>
             <tr className="text-slate-500 text-left border-b border-slate-800">
-              <th className="py-1 pr-2 font-normal">Banda</th>
-              <th className="py-1 pr-2 font-normal text-right">Días</th>
+              <th className="py-1 pr-2 font-normal">{t('band')}</th>
+              <th className="py-1 pr-2 font-normal text-right">{t('days')}</th>
               <th className="py-1 pr-2 font-normal text-right">%</th>
-              <th className="py-1 pr-2 font-normal text-right">1Y mín</th>
-              <th className="py-1 pr-2 font-normal text-right">1Y prom</th>
-              <th className="py-1 pr-2 font-normal text-right">1Y máx</th>
-              <th className="py-1 pr-2 font-normal text-right">3Y mín</th>
-              <th className="py-1 pr-2 font-normal text-right">3Y prom</th>
-              <th className="py-1 pr-2 font-normal text-right">3Y máx</th>
-              <th className="py-1 font-normal text-right">3Y CAGR</th>
+              <th className="py-1 pr-2 font-normal text-right">{t('y1min')}</th>
+              <th className="py-1 pr-2 font-normal text-right">{t('y1avg')}</th>
+              <th className="py-1 pr-2 font-normal text-right">{t('y1max')}</th>
+              <th className="py-1 pr-2 font-normal text-right">{t('y3min')}</th>
+              <th className="py-1 pr-2 font-normal text-right">{t('y3avg')}</th>
+              <th className="py-1 pr-2 font-normal text-right">{t('y3max')}</th>
+              <th className="py-1 font-normal text-right">{t('y3cagr')}</th>
             </tr>
           </thead>
           <tbody>
@@ -194,29 +178,26 @@ export function BhtStats() {
         </table>
       </div>
       <p className="text-xs text-slate-300 leading-relaxed mt-4 mb-2">
-        Misma lectura agrupada por <span className="font-bold text-slate-100">CAPE Shiller</span> (precio / ganancias
-        de 10 años): CAPE bajo = mercado barato, CAPE alto = mercado caro.
-        {' '}<span className="font-bold text-slate-100">Score</span> = puntos de riesgo que aporta ese CAPE
-        (0 barato – 100 extremo).
+        {t.rich('capeIntro', RICH)}
       </p>
       <p className="text-[11px] text-slate-500 mb-2">
-        {from} → {to} · {capeTotal.toLocaleString('en-US')} días con CAPE y 1Y maduro · {capeBuckets.reduce((m, b) => m + (b.y3?.n ?? 0), 0).toLocaleString('en-US')} con 3Y maduro · performance {assetLabel} a 1 y 3 años por CAPE.
+        {t('summaryCape', { from, to, n1: capeTotal.toLocaleString('en-US'), n3: capeBuckets.reduce((m, b) => m + (b.y3?.n ?? 0), 0).toLocaleString('en-US'), asset: assetLabel })}
       </p>
       <div className="overflow-x-auto">
         <table className="w-full text-xs font-mono">
           <thead>
             <tr className="text-slate-500 text-left border-b border-slate-800">
               <th className="py-1 pr-2 font-normal">CAPE</th>
-              <th className="py-1 pr-2 font-normal text-right">Score</th>
-              <th className="py-1 pr-2 font-normal text-right">Días</th>
+              <th className="py-1 pr-2 font-normal text-right">{t('score')}</th>
+              <th className="py-1 pr-2 font-normal text-right">{t('days')}</th>
               <th className="py-1 pr-2 font-normal text-right">%</th>
-              <th className="py-1 pr-2 font-normal text-right">1Y mín</th>
-              <th className="py-1 pr-2 font-normal text-right">1Y prom</th>
-              <th className="py-1 pr-2 font-normal text-right">1Y máx</th>
-              <th className="py-1 pr-2 font-normal text-right">3Y mín</th>
-              <th className="py-1 pr-2 font-normal text-right">3Y prom</th>
-              <th className="py-1 pr-2 font-normal text-right">3Y máx</th>
-              <th className="py-1 font-normal text-right">3Y CAGR</th>
+              <th className="py-1 pr-2 font-normal text-right">{t('y1min')}</th>
+              <th className="py-1 pr-2 font-normal text-right">{t('y1avg')}</th>
+              <th className="py-1 pr-2 font-normal text-right">{t('y1max')}</th>
+              <th className="py-1 pr-2 font-normal text-right">{t('y3min')}</th>
+              <th className="py-1 pr-2 font-normal text-right">{t('y3avg')}</th>
+              <th className="py-1 pr-2 font-normal text-right">{t('y3max')}</th>
+              <th className="py-1 font-normal text-right">{t('y3cagr')}</th>
             </tr>
           </thead>
           <tbody>
