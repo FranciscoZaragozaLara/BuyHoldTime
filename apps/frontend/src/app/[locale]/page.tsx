@@ -6,7 +6,7 @@ import { Layout } from '@/components/Layout';
 import { SubscribeForm } from '@/components/SubscribeForm';
 import { IndexSparklineCard } from '@/components/IndexSparklineCard';
 import { JsonLd } from '@/components/JsonLd';
-import { getTickers, getIndicators, getLatestMarketValue, getMarketSeries, getCapeSeries, Ticker, Indicator } from '@/services/api';
+import { getTickers, getLatestMarketValue, getMarketSeries, getCapeSeries, Ticker } from '@/services/api';
 import { RiskDisclaimer } from '@/components/RiskDisclaimer';
 import { TOKENS } from '@/lib/designTokens';
 import { changeBadgeType, fearGreedLabel, formatChangePct } from '@/lib/formatChange';
@@ -27,32 +27,12 @@ export default async function HomePage({
 }) {
   const { locale } = await params;
   const t = await getTranslations({ locale, namespace: 'Home' });
+  // Sin datos inventados: si la API falla, las secciones que dependen de ella no se muestran.
   let tickers: Ticker[] = [];
-  let indicators: Indicator[] = [];
-  let errorState = false;
-
   try {
-    // Fetch live data from backend NestJS microservices
-    [tickers, indicators] = await Promise.all([
-      getTickers(),
-      getIndicators(),
-    ]);
+    tickers = await getTickers();
   } catch (err) {
-    console.error('API Fetch failed in Server Component, falling back to mock data:', err);
-    errorState = true;
-    
-    // Resilient Fallback mock data if NestJS is not running during build
-    tickers = [
-      { id: '1', symbol: 'AAPL', name: 'Apple Inc.', price: 178.52, changePercent: 1.25, sector: 'Technology', buyHoldIndex: 88, recommendation: 'Strong Buy', pe: 28.4, dy: 0.52, cap: '2.8T', createdAt: '', updatedAt: '' },
-      { id: '2', symbol: 'MSFT', name: 'Microsoft Corporation', price: 421.90, changePercent: -0.45, sector: 'Technology', buyHoldIndex: 82, recommendation: 'Buy', pe: 35.1, dy: 0.71, cap: '3.1T', createdAt: '', updatedAt: '' },
-      { id: '3', symbol: 'NVDA', name: 'NVIDIA Corporation', price: 914.35, changePercent: 3.82, sector: 'Technology', buyHoldIndex: 94, recommendation: 'Strong Buy', pe: 72.3, dy: 0.02, cap: '2.2T', createdAt: '', updatedAt: '' },
-      { id: '4', symbol: 'AMZN', name: 'Amazon.com, Inc.', price: 180.12, changePercent: 0.90, sector: 'Consumer Cyclical', buyHoldIndex: 78, recommendation: 'Buy', pe: 41.2, dy: 0.00, cap: '1.8T', createdAt: '', updatedAt: '' },
-      { id: '5', symbol: 'GOOGL', name: 'Alphabet Inc.', price: 172.50, changePercent: 1.15, sector: 'Communication Services', buyHoldIndex: 85, recommendation: 'Buy', pe: 25.8, dy: 0.46, cap: '2.1T', createdAt: '', updatedAt: '' },
-    ];
-    indicators = [
-      { id: '1', key: 'fear_greed', name: 'Fear & Greed Index', currentValue: 62.0, unit: '', status: 'Greed', description: '', createdAt: '', updatedAt: '' },
-      { id: '2', key: 'schiller_pe', name: 'Shiller PE Ratio (CAPE)', currentValue: 34.25, unit: 'x', status: 'High', description: '', createdAt: '', updatedAt: '' },
-    ];
+    console.error('Home: no se pudieron cargar los tickers', err);
   }
 
   // Filter top recommended tickers sorted by index desc
@@ -145,52 +125,63 @@ export default async function HomePage({
         </section>
 
         {/* Market Gauges Dashboard */}
+        {(spyTicker || qqqTicker || fg || capeLast != null) && (
         <section className="flex flex-col gap-6">
           <h2 className="text-xl font-bold tracking-tight text-white text-center sm:text-left">
             {t('indicatorsTitle')}
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {spyTicker && (
             <IndexSparklineCard
-              title="S&P 500 ETF (SPY)"
-              valueStr={spyPrice}
-              badgeText={spyChange}
-              badgeType={changeBadgeType(spyTicker?.changePercent)}
-              sparklineData={spySpark}
-              color={TOKENS.favorable}
-              footerText={t('cardSpyFooter')}
-            />
+                title="S&P 500 ETF (SPY)"
+                valueStr={spyPrice}
+                badgeText={spyChange}
+                badgeType={changeBadgeType(spyTicker?.changePercent)}
+                sparklineData={spySpark}
+                color={TOKENS.favorable}
+                footerText={t('cardSpyFooter')}
+              />
+            )}
+            {qqqTicker && (
             <IndexSparklineCard
-              title="NASDAQ 100 ETF (QQQ)"
-              valueStr={qqqPrice}
-              badgeText={qqqChange}
-              badgeType={changeBadgeType(qqqTicker?.changePercent)}
-              sparklineData={nasdaqSpark}
-              color="#3b82f6"
-              footerText={t('cardQqqFooter')}
-            />
+                title="NASDAQ 100 ETF (QQQ)"
+                valueStr={qqqPrice}
+                badgeText={qqqChange}
+                badgeType={changeBadgeType(qqqTicker?.changePercent)}
+                sparklineData={nasdaqSpark}
+                color="#3b82f6"
+                footerText={t('cardQqqFooter')}
+              />
+            )}
+            {fg && (
             <IndexSparklineCard
-              title="Fear & Greed Index"
-              valueStr={fearVal}
-              badgeText={fearStatus}
-              badgeType={fgLabel === 'fear' || fgLabel === 'extremeFear' ? 'error' : fgLabel ? 'warning' : 'info'}
-              sparklineData={fearSpark}
-              dec={0}
-              color="#fbbf24"
-              footerText={t('cardFgFooter')}
-            />
+                title="Fear & Greed Index"
+                valueStr={fearVal}
+                badgeText={fearStatus}
+                badgeType={fgLabel === 'fear' || fgLabel === 'extremeFear' ? 'error' : fgLabel ? 'warning' : 'info'}
+                sparklineData={fearSpark}
+                dec={0}
+                color="#fbbf24"
+                footerText={t('cardFgFooter')}
+              />
+            )}
+            {capeLast != null && (
             <IndexSparklineCard
-              title="Shiller PE Ratio (CAPE)"
-              valueStr={capeVal}
-              badgeText={capeStatus}
-              badgeType={capeLast != null ? capeBadgeType(capeLast) : 'info'}
-              sparklineData={schillerSpark}
-              color="#f87171"
-              footerText={t('cardCapeFooter')}
-            />
+                title="Shiller PE Ratio (CAPE)"
+                valueStr={capeVal}
+                badgeText={capeStatus}
+                badgeType={capeLast != null ? capeBadgeType(capeLast) : 'info'}
+                sparklineData={schillerSpark}
+                color="#f87171"
+                footerText={t('cardCapeFooter')}
+              />
+            )}
           </div>
         </section>
+        )}
 
-        {/* Featured Stocks */}
+        {/* Featured Stocks (oculta si la API no respondió) */}
+        {recommendedTickers.length > 0 && (
         <section className="flex flex-col gap-6">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div>
@@ -268,6 +259,7 @@ export default async function HomePage({
           </div>
           <RiskDisclaimer variant="signal" />
         </section>
+        )}
 
         {/* Newsletter Subscription */}
         <section className="flex justify-center py-6">
