@@ -844,7 +844,7 @@
       },
       "days": "{n} d",
       "thresholds": "Late after {late} days, stale after {stale}",
-      "footer": "Reference date: {today} (New York time). Runs come from data_source_runs (price sync, daily_update.py, market stream, breadth, thermometer, EDGAR and GuruFocus); Yardeni and multpl are updated manually.",
+      "footer": "Reference date: {today} (New York time). Runs come from data_source_runs (price sync, daily_update.py, market stream, breadth, thermometer, EDGAR and GuruFocus); Yardeni is updated manually.",
       "menuStale": "{n} data source(s) stale or with a failed run",
       "src": {
         "stock_prices": {
@@ -891,10 +891,6 @@
           "name": "Yardeni forward EPS",
           "feeds": "Thermometer forward P/E"
         },
-        "multpl_eps": {
-          "name": "multpl EPS",
-          "feeds": "S&P 500 trailing P/E"
-        },
         "sec_edgar": {
           "name": "SEC EDGAR",
           "feeds": "Quarterly EPS and revenue (10-Q / 10-K)"
@@ -910,6 +906,10 @@
         "bht_forward": {
           "name": "BHT forward",
           "feeds": "Daily components, popovers and orb history"
+        },
+        "spx_eps": {
+          "name": "S&P 500 EPS (Shiller E)",
+          "feeds": "S&P 500 trailing P/E and SPX EPS column"
         }
       },
       "noRuns": "no record",

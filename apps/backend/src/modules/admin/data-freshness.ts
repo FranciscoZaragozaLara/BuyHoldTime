@@ -48,8 +48,9 @@ export const DATA_SOURCES: SourceConfig[] = [
     sql: `SELECT 'E10 (ie_data.xls)' AS series, max(e10_month)::text AS d FROM bt_shiller_daily` },
   { id: 'yardeni_fwd_eps', type: 'file', cadence: 'weekly', lateDays: 10, staleDays: 21,
     sql: mdMax('yardeni%', ['SPX_FWD_EPS']), series: ['SPX_FWD_EPS'] },
-  { id: 'multpl_eps', type: 'scraper', cadence: 'quarterly', lateDays: 200, staleDays: 280,
-    sql: mdMax('multpl', ['SPX_EPS']), series: ['SPX_EPS'] },
+  // EPS del S&P 500 a 12 meses: columna E de ie_data.xls (Shiller), cargada por daily_update.py.
+  { id: 'spx_eps', type: 'file', cadence: 'quarterly', lateDays: 200, staleDays: 280,
+    sql: mdMax(null, ['SPX_EPS']), series: ['SPX_EPS'] },
   { id: 'sec_edgar', type: 'api', cadence: 'quarterly', lateDays: 60, staleDays: 100,
     sql: `SELECT 'filedDate (10-Q/10-K)' AS series, max(e->>'filedDate') AS d FROM tickers, jsonb_array_elements(COALESCE(historical_eps_quarterly::jsonb, '[]'::jsonb)) e WHERE e->>'source' = 'EDGAR'` },
   // GuruFocus Scrapper corre a diario (cron 6 AM en su repo) y rota los tickers.

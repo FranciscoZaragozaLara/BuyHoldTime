@@ -4,9 +4,9 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
 
 /**
- * SALVAGUARDA: serie mensual de EPS TTM del S&P 500 (multpl) en bt_market_data.
+ * SALVAGUARDA: serie mensual de EPS TTM del S&P 500 (columna E de Shiller, daily_update.py) en bt_market_data.
  * La columna SPX EPS de la tabla de indicadores (antes de CAPE) depende de
- * este ticker. Seed: prisma/seed-sp500-eps-monthly.ts (re-correr cada mes).
+ * este ticker. Lo carga daily_update.py (sync_spx_eps); prisma/seed-sp500-eps-monthly.ts (multpl) queda como respaldo manual.
  */
 
 describe("SPX EPS Monthly Series Suite", () => {

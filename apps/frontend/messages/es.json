@@ -844,7 +844,7 @@
       },
       "days": "{n} d",
       "thresholds": "Atrasada después de {late} días, vencida después de {stale}",
-      "footer": "Fecha de referencia: {today} (hora de Nueva York). Las corridas vienen de data_source_runs (sync de precios, daily_update.py, stream de mercado, amplitud, termómetro, EDGAR y GuruFocus); Yardeni y multpl se actualizan a mano.",
+      "footer": "Fecha de referencia: {today} (hora de Nueva York). Las corridas vienen de data_source_runs (sync de precios, daily_update.py, stream de mercado, amplitud, termómetro, EDGAR y GuruFocus); Yardeni se actualiza a mano.",
       "menuStale": "{n} fuente(s) de datos vencida(s) o con corrida fallida",
       "src": {
         "stock_prices": {
@@ -891,10 +891,6 @@
           "name": "Yardeni EPS estimado",
           "feeds": "P/E estimado del termómetro"
         },
-        "multpl_eps": {
-          "name": "multpl EPS",
-          "feeds": "P/E trailing del S&P 500"
-        },
         "sec_edgar": {
           "name": "SEC EDGAR",
           "feeds": "EPS e ingresos trimestrales (10-Q / 10-K)"
@@ -910,6 +906,10 @@
         "bht_forward": {
           "name": "BHT forward",
           "feeds": "Componentes por día, popovers e historia de orbes"
+        },
+        "spx_eps": {
+          "name": "S&P 500 EPS (Shiller E)",
+          "feeds": "P/E trailing del S&P 500 y columna SPX EPS"
         }
       },
       "noRuns": "sin registro",
