@@ -3,7 +3,7 @@ import { getApiBase } from '@/lib/apiBase';
 import { useCallback, useEffect, useLayoutEffect, useState, useRef, useMemo } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import { levelLabel } from '@/lib/levelLabels';
-import { monthLabel, orbHistoryRows, shortDate, ORB_PART_KEY, PART_ORB_NAME, type MonthlyParts } from '@/lib/orbHistory';
+import { bhtHistoryRows, monthLabel, orbHistoryRows, shortDate, ORB_PART_KEY, PART_ORB_NAME, type MonthlyParts, type OrbHistoryRow } from '@/lib/orbHistory';
 import { useMarketSyncStream } from './useMarketSyncStream';
 import MarketSyncModal from './MarketSyncModal';
 import { MarginGdpChart } from './MarginGdpChart';
@@ -277,6 +277,95 @@ function momBlend(lvlSegs: [number, number, number, number][], trdSegs: [number,
   const trendScore = bandScore(trdSegs, y - ma);
   return { level: y, levelScore, delta: y - ma, ma, maLabel, trendScore };
 }
+// Tabla de historia (12 meses + hace 2 y 3 años) con rendimiento a hoy y pico; la usan los orbes y el detalle del BHT.
+function OrbHistoryTable({ rows: histRows, loading, valueHeader, dec = 2, showValue = true }: { rows: OrbHistoryRow[]; loading: boolean; valueHeader: string; dec?: number; showValue?: boolean }) {
+  const ti = useTranslations('Backtesting.indicators');
+  const loc = useLocale();
+  return (
+    <>
+              {loading ? <div className="text-[10px] text-slate-500 font-mono">{ti('historyLoading')}</div>
+                : histRows.length === 0 ? <div className="text-[10px] text-slate-500 font-mono">{ti('historyEmpty')}</div>
+                : (
+                  <table className="w-full text-[10px] font-mono tabular-nums">
+                    <thead>
+                      <tr className="text-slate-500">
+                        <th colSpan={showValue ? 3 : 2} />
+                        <th colSpan={3} className="text-center font-normal pb-0.5 border-b border-slate-700/70">{ti('historyPerfToday')}</th>
+                        <th className="w-3" />
+                        <th colSpan={3} className="text-center font-normal pb-0.5 border-b border-slate-700/70">{ti('historyPeak')}</th>
+                      </tr>
+                      <tr className="text-slate-500">
+                        <th className="text-left font-normal py-0.5">{ti('historyMonth')}</th>
+                        {showValue && <th className="text-right font-normal">{valueHeader}</th>}
+                        <th className="text-right font-normal pr-2">{ti('historyScore')}</th>
+                        <th className="text-right font-normal text-sky-300/80">S&amp;P 500</th>
+                        <th className="text-right font-normal text-violet-300/80">Nasdaq</th>
+                        <th className="text-right font-normal text-pink-300/80">TQQQ</th>
+                        <th />
+                        <th className="text-right font-normal text-sky-300/80">S&amp;P 500</th>
+                        <th className="text-right font-normal text-violet-300/80">Nasdaq</th>
+                        <th className="text-right font-normal text-pink-300/80">TQQQ</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {histRows.map((r, i) => {
+                        const first = r.yearsAgo != null && (i === 0 || histRows[i - 1].yearsAgo == null);
+                        const pk = (v: { pct: number; date: string } | null) => (
+                          <td className="text-right align-top py-0.5 whitespace-nowrap">
+                            {v == null ? <span className="text-slate-600">—</span> : <>
+                              <div className="text-emerald-300">+{v.pct.toFixed(1)}%</div>
+                              <div className="text-[9px] text-slate-500">{shortDate(v.date, loc)}</div>
+                            </>}
+                          </td>
+                        );
+                        const pc = (v: number | null) => <td className={`text-right ${v == null ? 'text-slate-600' : v >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{v == null ? '—' : `${v >= 0 ? '+' : ''}${v.toFixed(1)}%`}</td>;
+                        return (
+                          <tr key={r.month} className={`text-slate-300 ${first ? 'border-t border-slate-600' : ''} ${i === 0 ? 'bg-slate-700/40' : ''}`} title={r.date}>
+                            <td className="py-0.5 whitespace-nowrap capitalize">{monthLabel(r.month, loc)}{r.yearsAgo != null && <span className="text-slate-500 normal-case"> · {ti('historyYearsAgo', { n: r.yearsAgo })}</span>}</td>
+                            {showValue && <td className="text-right">{r.value != null ? r.value.toFixed(dec) : '—'}</td>}
+                            <td className="text-right font-bold pr-2" style={{ color: r.score != null ? capeScoreColor(r.score) : undefined }}>{r.score != null ? Math.round(r.score) : '—'}</td>
+                            {pc(r.perf.spx)}{pc(r.perf.ndx)}{pc(r.perf.tqqq)}
+                            <td />
+                            {pk(r.peak.spx)}{pk(r.peak.ndx)}{pk(r.peak.tqqq)}
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                )}
+    </>
+  );
+}
+
+/** Historia mensual compartida (una petición para todos los orbes y el detalle del BHT). */
+function useThermoPartsMonthly(enabled: boolean) {
+  return useQuery({
+    // v4: respuesta con bht, perf, peak y filas de 2/3 años; la versión evita reutilizar una caché con otra forma.
+    queryKey: ['thermo-parts-monthly', 12, 'v4'],
+    queryFn: async (): Promise<MonthlyParts[]> => {
+      const r = await fetch(`${getApiBase()}/api/backtesting/thermo-parts-monthly?months=12`);
+      if (!r.ok) throw new Error(`thermo-parts-monthly ${r.status}`);
+      return r.json();
+    },
+    enabled,
+    staleTime: 15 * 60 * 1000,
+    retry: false,
+  });
+}
+
+// Historia del BHT Index arriba del detalle del cálculo (mismas columnas que el popover de los orbes).
+function BhtHistoryBlock() {
+  const ti = useTranslations('Backtesting.indicators');
+  const hist = useThermoPartsMonthly(true);
+  return (
+    <div className="mt-2 rounded-lg border border-slate-800 p-3 overflow-x-auto">
+      <div className="text-xs font-semibold text-slate-100 mb-1.5">{ti('bhtHistoryTitle')}</div>
+      <OrbHistoryTable rows={bhtHistoryRows(hist.data)} loading={hist.isLoading} valueHeader="BHT" dec={1} showValue={false} />
+      <div className="text-[9px] text-slate-500 mt-1.5">{ti('bhtHistoryNote')}</div>
+    </div>
+  );
+}
+
 function ScoreOrb({ name, value, dec = 2, weight, score, bands, blend = null, small = false }: { name: string; value: number; dec?: number; weight: number; score: number; bands: [number, number, string, string, string][]; blend?: MomBlend; small?: boolean }) {
   const ti = useTranslations('Backtesting.indicators');
   const loc = useLocale();
@@ -302,18 +391,7 @@ function ScoreOrb({ name, value, dec = 2, weight, score, bands, blend = null, sm
   };
   const show = () => { setOpen(true); place(); };
   // Historia: una sola petición compartida por todos los orbes, al abrir el primero.
-  const hist = useQuery({
-    // v3: respuesta con perf, peak y filas de 2/3 años; la versión evita reutilizar una caché con la forma anterior.
-    queryKey: ['thermo-parts-monthly', 12, 'v3'],
-    queryFn: async (): Promise<MonthlyParts[]> => {
-      const r = await fetch(`${getApiBase()}/api/backtesting/thermo-parts-monthly?months=12`);
-      if (!r.ok) throw new Error(`thermo-parts-monthly ${r.status}`);
-      return r.json();
-    },
-    enabled: open && hasHistory,
-    staleTime: 15 * 60 * 1000,
-    retry: false,
-  });
+  const hist = useThermoPartsMonthly(open && hasHistory);
   const histRows = orbHistoryRows(hist.data, name);
   // Al abrir (o al llegar la historia) se mide la altura real y se recoloca.
   useLayoutEffect(() => { if (open) place(); }, [open, hist.data, hist.isLoading]);
@@ -349,56 +427,7 @@ function ScoreOrb({ name, value, dec = 2, weight, score, bands, blend = null, sm
           {hasHistory && (
             <div className="flex-1 min-w-0 md:border-l md:border-slate-700/70 md:pl-4 border-t md:border-t-0 border-slate-700/70 pt-2 md:pt-0">
               <div className="text-xs font-semibold text-slate-100 mb-1.5">{ti('historyTitle')}</div>
-              {hist.isLoading ? <div className="text-[10px] text-slate-500 font-mono">{ti('historyLoading')}</div>
-                : histRows.length === 0 ? <div className="text-[10px] text-slate-500 font-mono">{ti('historyEmpty')}</div>
-                : (
-                  <table className="w-full text-[10px] font-mono tabular-nums">
-                    <thead>
-                      <tr className="text-slate-500">
-                        <th colSpan={3} />
-                        <th colSpan={3} className="text-center font-normal pb-0.5 border-b border-slate-700/70">{ti('historyPerfToday')}</th>
-                        <th className="w-3" />
-                        <th colSpan={3} className="text-center font-normal pb-0.5 border-b border-slate-700/70">{ti('historyPeak')}</th>
-                      </tr>
-                      <tr className="text-slate-500">
-                        <th className="text-left font-normal py-0.5">{ti('historyMonth')}</th>
-                        <th className="text-right font-normal">{name}</th>
-                        <th className="text-right font-normal pr-2">{ti('historyScore')}</th>
-                        <th className="text-right font-normal text-sky-300/80">S&amp;P 500</th>
-                        <th className="text-right font-normal text-violet-300/80">Nasdaq</th>
-                        <th className="text-right font-normal text-pink-300/80">TQQQ</th>
-                        <th />
-                        <th className="text-right font-normal text-sky-300/80">S&amp;P 500</th>
-                        <th className="text-right font-normal text-violet-300/80">Nasdaq</th>
-                        <th className="text-right font-normal text-pink-300/80">TQQQ</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {histRows.map((r, i) => {
-                        const first = r.yearsAgo != null && (i === 0 || histRows[i - 1].yearsAgo == null);
-                        const pk = (v: { pct: number; date: string } | null) => (
-                          <td className="text-right align-top py-0.5 whitespace-nowrap">
-                            {v == null ? <span className="text-slate-600">—</span> : <>
-                              <div className="text-emerald-300">+{v.pct.toFixed(1)}%</div>
-                              <div className="text-[9px] text-slate-500">{shortDate(v.date, loc)}</div>
-                            </>}
-                          </td>
-                        );
-                        const pc = (v: number | null) => <td className={`text-right ${v == null ? 'text-slate-600' : v >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{v == null ? '—' : `${v >= 0 ? '+' : ''}${v.toFixed(1)}%`}</td>;
-                        return (
-                          <tr key={r.month} className={`text-slate-300 ${first ? 'border-t border-slate-600' : ''} ${i === 0 ? 'bg-slate-700/40' : ''}`} title={r.date}>
-                            <td className="py-0.5 whitespace-nowrap capitalize">{monthLabel(r.month, loc)}{r.yearsAgo != null && <span className="text-slate-500 normal-case"> · {ti('historyYearsAgo', { n: r.yearsAgo })}</span>}</td>
-                            <td className="text-right">{r.value != null ? r.value.toFixed(dec) : '—'}</td>
-                            <td className="text-right font-bold pr-2" style={{ color: r.score != null ? capeScoreColor(r.score) : undefined }}>{r.score != null ? Math.round(r.score) : '—'}</td>
-                            {pc(r.perf.spx)}{pc(r.perf.ndx)}{pc(r.perf.tqqq)}
-                            <td />
-                            {pk(r.peak.spx)}{pk(r.peak.ndx)}{pk(r.peak.tqqq)}
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                )}
+              <OrbHistoryTable rows={histRows} loading={hist.isLoading} valueHeader={name} dec={dec} />
               <div className="text-[9px] text-slate-500 mt-1.5">{ti('historyNote')}</div>
             </div>
           )}
@@ -1304,6 +1333,7 @@ export function IndicatorsPanel() {
           <button type="button" onClick={() => setRiskDetailOpen(o => !o)} className="mt-2 text-xs px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800 text-slate-200 hover:text-teal-300 hover:border-slate-600 transition">
             {riskDetailOpen ? ti('hideDetail') : ti('showDetail')}
           </button>
+          {riskDetailOpen && <BhtHistoryBlock />}
           {riskDetailOpen && (
             <div className="mt-2 overflow-x-auto rounded-lg border border-slate-800">
               <table className="w-full text-xs font-mono">

@@ -476,7 +476,9 @@
       "historyNote": "Cierre del último día hábil de cada mes · puntaje base 100 que aporta al termómetro · rendimiento desde ese cierre hasta el último disponible · pico = máximo cierre posterior y su fecha. Resultados históricos; no garantizan rendimientos futuros.",
       "historyPerfToday": "Rendimiento a hoy",
       "historyYearsAgo": "hace {n} años",
-      "historyPeak": "Pico desde ese mes (% y fecha)"
+      "historyPeak": "Pico desde ese mes (% y fecha)",
+      "bhtHistoryTitle": "Historia del BHT Index — últimos 12 meses + hace 2 y 3 años",
+      "bhtHistoryNote": "BHT al cierre del último día hábil de cada mes (el valor de hoy arriba es en vivo y puede diferir) · rendimiento desde ese cierre hasta el último disponible · pico = máximo cierre posterior y su fecha. Resultados históricos; no garantizan rendimientos futuros."
     },
     "regimesPanel": {
       "loadingDates": "Cargando fechas…",

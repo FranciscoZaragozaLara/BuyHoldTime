@@ -40,6 +40,8 @@ export type PartPoint = { value: number | null; score: number | null; weight: nu
 export type IndexCloses = { spx: number | null; ndx: number | null; tqqq: number | null };
 export type MonthlyParts = {
   month: string; date: string; parts: Record<string, PartPoint>;
+  /** BHT Index de ese día (0–100). */
+  bht: number | null;
   /** Rendimiento % desde el cierre de ese día hasta el último cierre disponible. */
   perf: IndexCloses;
   /** Máximo cierre de cada índice desde ese día hasta hoy: % sobre el cierre del día y fecha del pico. */
@@ -49,7 +51,7 @@ export type MonthlyParts = {
 };
 export type PeakPoint = { pct: number; date: string };
 export type IndexDates = { spx: string | null; ndx: string | null; tqqq: string | null };
-type DailyRow = { date: string; parts: unknown; spx?: number | null; ndx?: number | null; tqqq?: number | null };
+type DailyRow = { date: string; parts: unknown; bht?: number | null; spx?: number | null; ndx?: number | null; tqqq?: number | null };
 
 const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
 const perfTo = (base: number | null | undefined, now: number | null) =>
@@ -95,7 +97,7 @@ export function monthlyPartsFromDaily(
     const parts: Record<string, PartPoint> = {};
     for (const p of r.parts as any[]) if (p && typeof p.key === 'string') parts[p.key] = { value: num(p.value), score: num(p.score), weight: num(p.weight) };
     return {
-      month, date: r.date, parts, yearsAgo,
+      month, date: r.date, parts, yearsAgo, bht: num(r.bht),
       perf: { spx: perfTo(num(r.spx), latest.spx), ndx: perfTo(num(r.ndx), latest.ndx), tqqq: perfTo(num(r.tqqq), latest.tqqq) },
       peak: { spx: peakFrom(r.date, num(r.spx), 'spx'), ndx: peakFrom(r.date, num(r.ndx), 'ndx'), tqqq: peakFrom(r.date, num(r.tqqq), 'tqqq') },
     };

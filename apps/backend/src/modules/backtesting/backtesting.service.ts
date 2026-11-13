@@ -646,13 +646,13 @@ export class BacktestingService {
     const n = Math.min(Math.max(Math.trunc(months) || 12, 1), 36);
     const since = new Date(); since.setUTCMonth(since.getUTCMonth() - 37);
     const [rows, ...latest] = await Promise.all([
-      this.prisma.btBhtForward.findMany({ where: { date: { gte: since } }, select: { date: true, parts: true, spx: true, ndx: true, tqqq: true }, orderBy: { date: 'asc' } }),
+      this.prisma.btBhtForward.findMany({ where: { date: { gte: since } }, select: { date: true, parts: true, bhtValue: true, spx: true, ndx: true, tqqq: true }, orderBy: { date: 'asc' } }),
       ...['^GSPC', '^IXIC', 'TQQQ'].map((t) => this.prisma.btMarketData.findFirst({ where: { ticker: t }, orderBy: { date: 'desc' } })),
     ]);
     const close = (r: any) => (r?.close != null ? Number(r.close) : null);
     const day = (r: any) => (r?.date ? new Date(r.date).toISOString().slice(0, 10) : null);
     return monthlyPartsFromDaily(
-      (rows as any[]).map((r) => ({ date: r.date.toISOString().slice(0, 10), parts: r.parts, spx: r.spx, ndx: r.ndx, tqqq: r.tqqq })),
+      (rows as any[]).map((r) => ({ date: r.date.toISOString().slice(0, 10), parts: r.parts, bht: r.bhtValue, spx: r.spx, ndx: r.ndx, tqqq: r.tqqq })),
       n,
       { spx: close(latest[0]), ndx: close(latest[1]), tqqq: close(latest[2]) },
       [2, 3],

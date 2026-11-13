@@ -49,7 +49,7 @@ describe('monthlyPartsFromDaily', () => {
   });
   test('rendimiento a hoy por índice y filas de 2 y 3 años atrás', () => {
     const rows = [
-      { date: '2026-11-13', parts: p(70), spx: 6000, ndx: 20000, tqqq: 100 },
+      { date: '2026-11-13', parts: p(70), bht: 67.1, spx: 6000, ndx: 20000, tqqq: 100 },
       { date: '2026-10-30', parts: p(65), spx: 5000, ndx: 16000, tqqq: 50 },
       { date: '2024-11-29', parts: p(50), spx: 4000, ndx: null, tqqq: 25 },
       { date: '2023-11-30', parts: p(40), spx: 3000, ndx: 10000, tqqq: 20 },
@@ -57,6 +57,8 @@ describe('monthlyPartsFromDaily', () => {
     const out = monthlyPartsFromDaily(rows, 2, { spx: 6000, ndx: 20000, tqqq: 100 }, [2, 3, 5]);
     expect(out.map((m) => [m.month, m.yearsAgo])).toEqual([['2026-11', null], ['2026-10', null], ['2024-11', 2], ['2023-11', 3]]);
     expect(out[0].perf).toEqual({ spx: 0, ndx: 0, tqqq: 0 });
+    expect(out[0].bht).toBe(67.1);
+    expect(out[1].bht).toBeNull();
     expect(out[1].perf.spx).toBeCloseTo(20);
     expect(out[2].perf).toEqual({ spx: 50, ndx: null, tqqq: 300 });
     expect(out[3].perf.spx).toBeCloseTo(100);

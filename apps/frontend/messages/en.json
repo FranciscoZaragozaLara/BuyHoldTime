@@ -476,7 +476,9 @@
       "historyNote": "Close of the last trading day of each month · base-100 score contributed to the thermometer · performance from that close to the latest available · peak = highest later close and its date. Historical results; they do not guarantee future returns.",
       "historyPerfToday": "Performance to today",
       "historyYearsAgo": "{n} years ago",
-      "historyPeak": "Peak since that month (% and date)"
+      "historyPeak": "Peak since that month (% and date)",
+      "bhtHistoryTitle": "BHT Index history — last 12 months + 2 and 3 years ago",
+      "bhtHistoryNote": "BHT at the close of the last trading day of each month (today's value above is live and may differ) · performance from that close to the latest available · peak = highest later close and its date. Historical results; they do not guarantee future returns."
     },
     "regimesPanel": {
       "loadingDates": "Loading dates…",
