@@ -5,6 +5,7 @@ import { useLocale } from 'next-intl';
 import { createChart, ColorType, LineSeries, IChartApi, createSeriesMarkers } from 'lightweight-charts';
 import { Eye, EyeOff, Calendar, Table, LineChart as ChartIcon, Sparkles } from 'lucide-react';
 import { IndicatorDetails } from '@/services/api';
+import { TOKENS } from '@/lib/designTokens';
 
 interface MarketValueIndicatorClientProps {
   shillerPeData: IndicatorDetails;
@@ -215,7 +216,7 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
           markers.push({
             time: markerTime,
             position: 'aboveBar',
-            color: '#10b981', // Green
+            color: TOKENS.favorable, // Green
             shape: 'circle',
             text: '$$',
             size: 1.15,
@@ -274,7 +275,7 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
 
     // Create Series
     const sp500Series = chart.addSeries(LineSeries, {
-      color: '#14b8a6',
+      color: TOKENS.accent,
       lineWidth: 2,
       priceScaleId: 'right',
       priceLineVisible: false,
@@ -282,7 +283,7 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
     });
 
     const ema50Series = chart.addSeries(LineSeries, {
-      color: '#f97316', // Orange
+      color: TOKENS.elevated, // Orange
       lineWidth: 2,
       lineStyle: 1, // dashed
       priceScaleId: 'right',
@@ -292,7 +293,7 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
     });
 
     const ema200Series = chart.addSeries(LineSeries, {
-      color: '#10b981', // Emerald
+      color: TOKENS.favorable, // Emerald
       lineWidth: 2,
       lineStyle: 1, // dashed
       priceScaleId: 'right',
@@ -302,7 +303,7 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
     });
 
     const peSeries = chart.addSeries(LineSeries, {
-      color: '#f59e0b',
+      color: TOKENS.caution,
       lineWidth: 2,
       priceScaleId: 'left',
       priceLineVisible: false,
@@ -346,7 +347,7 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
     if (showShillerPe) {
       overvaluedLine = shillerPeSeries.createPriceLine({
         price: 39,
-        color: '#f97316',
+        color: TOKENS.elevated,
         lineWidth: 2,
         lineStyle: 1, // dashed
         axisLabelVisible: true,
@@ -379,7 +380,7 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
         }
         maxPriceLine = shillerPeSeries.createPriceLine({
           price: maxVal,
-          color: '#ef4444',
+          color: TOKENS.risk,
           lineWidth: 2,
           lineStyle: 1, // dashed
           axisLabelVisible: true,
@@ -530,13 +531,13 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
       {/* Visual Header / Summary Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="p-6 rounded-2xl border border-slate-900 bg-slate-900/30 backdrop-blur-sm relative overflow-hidden group">
-          <div className="absolute top-0 right-0 p-3 opacity-10 text-teal-400 group-hover:scale-110 transition duration-300">
+          <div className="absolute top-0 right-0 p-3 opacity-10 text-accent-400 group-hover:scale-110 transition duration-300">
             <Sparkles size={48} />
           </div>
           <p className="text-xs text-slate-500 font-bold tracking-wider uppercase">
             {locale === 'es' ? 'VALOR S&P 500' : 'S&P 500 PRICE'}
           </p>
-          <p className="text-3xl font-extrabold mt-2 text-teal-400">
+          <p className="text-3xl font-extrabold mt-2 text-accent-400">
             {sp500PriceData.indicator.currentValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </p>
           <p className="text-xs text-slate-400 mt-2">
@@ -545,13 +546,13 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
         </div>
 
         <div className="p-6 rounded-2xl border border-slate-900 bg-slate-900/30 backdrop-blur-sm relative overflow-hidden group">
-          <div className="absolute top-0 right-0 p-3 opacity-10 text-amber-500 group-hover:scale-110 transition duration-300">
+          <div className="absolute top-0 right-0 p-3 opacity-10 text-caution-500 group-hover:scale-110 transition duration-300">
             <Sparkles size={48} />
           </div>
           <p className="text-xs text-slate-500 font-bold tracking-wider uppercase">
             {locale === 'es' ? 'P/E RATIO REGULAR' : 'REGULAR P/E RATIO'}
           </p>
-          <p className="text-3xl font-extrabold mt-2 text-amber-400">
+          <p className="text-3xl font-extrabold mt-2 text-caution-400">
             {peRatioData.indicator.currentValue.toFixed(2)}x
           </p>
           <p className="text-xs text-slate-400 mt-2">
@@ -560,13 +561,13 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
         </div>
 
         <div className="p-6 rounded-2xl border border-slate-900 bg-slate-900/30 backdrop-blur-sm relative overflow-hidden group">
-          <div className="absolute top-0 right-0 p-3 opacity-10 text-rose-500 group-hover:scale-110 transition duration-300">
+          <div className="absolute top-0 right-0 p-3 opacity-10 text-risk-500 group-hover:scale-110 transition duration-300">
             <Sparkles size={48} />
           </div>
           <p className="text-xs text-slate-500 font-bold tracking-wider uppercase">
             {locale === 'es' ? 'SHILLER PE (CAPE)' : 'SHILLER PE (CAPE)'}
           </p>
-          <p className="text-3xl font-extrabold mt-2 text-rose-400">
+          <p className="text-3xl font-extrabold mt-2 text-risk-400">
             {shillerPeData.indicator.currentValue.toFixed(2)}x
           </p>
           <p className="text-xs text-slate-400 mt-2">
@@ -579,7 +580,7 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
       <div className="p-6 rounded-2xl border border-slate-900 bg-slate-900/10 backdrop-blur-sm flex flex-col gap-6">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-2">
-            <ChartIcon className="text-teal-400" size={20} />
+            <ChartIcon className="text-accent-400" size={20} />
             <h2 className="text-lg font-bold text-white">
               {locale === 'es' ? 'Gráfica del Valor de Mercado' : 'Market Valuation Multi-Line Chart'}
             </h2>
@@ -593,7 +594,7 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
                   onClick={() => setTimeframe(t)}
                   className={`px-3 py-1 text-xs font-semibold rounded-md transition-all ${
                     timeframe === t
-                      ? 'bg-teal-500 text-slate-950 shadow-md'
+                      ? 'bg-accent-500 text-slate-950 shadow-md'
                       : 'text-slate-400 hover:text-slate-200'
                   }`}
                 >
@@ -610,12 +611,12 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
             onClick={() => setShowSp500Price(!showSp500Price)}
             className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border transition ${
               showSp500Price
-                ? 'bg-teal-500/10 border-teal-500/30 text-teal-300'
+                ? 'bg-accent-500/10 border-accent-500/30 text-accent-300'
                 : 'bg-slate-950 border-slate-900 text-slate-600'
             }`}
           >
             {showSp500Price ? <Eye size={14} /> : <EyeOff size={14} />}
-            <span className="w-2.5 h-2.5 rounded-full bg-teal-400" />
+            <span className="w-2.5 h-2.5 rounded-full bg-accent-400" />
             <span>S&P 500 Index Price{hoveredData?.sp500Price ? `: $${hoveredData.sp500Price.toLocaleString(undefined, { minimumFractionDigits: 2 })}` : ''}</span>
           </button>
 
@@ -623,12 +624,12 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
             onClick={() => setShowPeRatio(!showPeRatio)}
             className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border transition ${
               showPeRatio
-                ? 'bg-amber-500/10 border-amber-500/30 text-amber-300'
+                ? 'bg-caution-500/10 border-caution-500/30 text-caution-300'
                 : 'bg-slate-950 border-slate-900 text-slate-600'
             }`}
           >
             {showPeRatio ? <Eye size={14} /> : <EyeOff size={14} />}
-            <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
+            <span className="w-2.5 h-2.5 rounded-full bg-caution-500" />
             <span>Regular P/E Ratio{hoveredData?.peRatio ? `: ${hoveredData.peRatio.toFixed(2)}x` : ''}</span>
           </button>
 
@@ -636,12 +637,12 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
             onClick={() => setShowShillerPe(!showShillerPe)}
             className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border transition ${
               showShillerPe
-                ? 'bg-rose-500/10 border-rose-500/30 text-rose-300'
+                ? 'bg-risk-500/10 border-risk-500/30 text-risk-300'
                 : 'bg-slate-950 border-slate-900 text-slate-600'
             }`}
           >
             {showShillerPe ? <Eye size={14} /> : <EyeOff size={14} />}
-            <span className="w-2.5 h-2.5 rounded-full bg-rose-500" />
+            <span className="w-2.5 h-2.5 rounded-full bg-risk-500" />
             <span>Shiller P/E Ratio (CAPE){hoveredData?.shillerPe ? `: ${hoveredData.shillerPe.toFixed(2)}x` : ''}</span>
           </button>
 
@@ -649,12 +650,12 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
             onClick={() => setShowMa50(!showMa50)}
             className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border transition ${
               showMa50
-                ? 'bg-orange-500/10 border-orange-500/30 text-orange-300'
+                ? 'bg-elevated-500/10 border-elevated-500/30 text-elevated-300'
                 : 'bg-slate-950 border-slate-900 text-slate-600'
             }`}
           >
             {showMa50 ? <Eye size={14} /> : <EyeOff size={14} />}
-            <span className="w-2.5 h-2.5 rounded-full bg-orange-500" />
+            <span className="w-2.5 h-2.5 rounded-full bg-elevated-500" />
             <span>S&P 500 EMA 50{hoveredData?.sp500Ema50 ? `: $${hoveredData.sp500Ema50.toFixed(2)}` : ''}</span>
           </button>
 
@@ -662,12 +663,12 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
             onClick={() => setShowMa200(!showMa200)}
             className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border transition ${
               showMa200
-                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+                ? 'bg-favorable-500/10 border-favorable-500/30 text-favorable-300'
                 : 'bg-slate-950 border-slate-900 text-slate-600'
             }`}
           >
             {showMa200 ? <Eye size={14} /> : <EyeOff size={14} />}
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+            <span className="w-2.5 h-2.5 rounded-full bg-favorable-500" />
             <span>S&P 500 EMA 200{hoveredData?.sp500Ema200 ? `: $${hoveredData.sp500Ema200.toFixed(2)}` : ''}</span>
           </button>
         </div>
@@ -676,7 +677,7 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
         <div className="relative">
           {hoveredData?.date && (
             <div className="absolute top-2 left-2 z-10 text-[10px] sm:text-xs font-semibold px-2.5 py-1 rounded bg-slate-950/80 text-slate-300 border border-slate-800 backdrop-blur-sm pointer-events-none">
-              <span className="text-teal-400 font-bold">{formatDateLabel(hoveredData.date)}</span>
+              <span className="text-accent-400 font-bold">{formatDateLabel(hoveredData.date)}</span>
             </div>
           )}
           <div ref={chartContainerRef} className="h-[400px] w-full" />
@@ -686,7 +687,7 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
       {/* Table Section */}
       <div className="p-6 rounded-2xl border border-slate-900 bg-slate-900/10 backdrop-blur-sm flex flex-col gap-6">
         <div className="flex items-center gap-2">
-          <Table className="text-teal-400" size={20} />
+          <Table className="text-accent-400" size={20} />
           <h2 className="text-lg font-bold text-white">
             {locale === 'es' ? 'Historial de Valuación del Mercado' : 'Market Valuation Historical Table'}
           </h2>
@@ -714,15 +715,15 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
                     <Calendar size={13} className="text-slate-500" />
                     {formatDateLabel(item.date)}
                   </td>
-                  <td className="p-3 text-teal-400 font-semibold">
+                  <td className="p-3 text-accent-400 font-semibold">
                     {item.sp500Price !== undefined 
                       ? `$${item.sp500Price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                       : '-'}
                   </td>
-                  <td className="p-3 text-amber-500 font-semibold">
+                  <td className="p-3 text-caution-500 font-semibold">
                     {item.peRatio !== undefined ? `${item.peRatio.toFixed(2)}x` : '-'}
                   </td>
-                  <td className="p-3 text-rose-500 font-semibold">
+                  <td className="p-3 text-risk-500 font-semibold">
                     {item.shillerPe !== undefined ? `${item.shillerPe.toFixed(2)}x` : '-'}
                   </td>
                   <td className="p-3 text-slate-300">
@@ -734,10 +735,10 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
                   <td className="p-3 text-slate-400">
                     {item.cpi !== undefined ? item.cpi.toFixed(2) : '-'}
                   </td>
-                  <td className="p-3 text-teal-500 font-medium">
+                  <td className="p-3 text-accent-500 font-medium">
                     {item.rateGs10 !== undefined ? `${item.rateGs10.toFixed(2)}%` : '-'}
                   </td>
-                  <td className="p-3 text-emerald-500 font-semibold">
+                  <td className="p-3 text-favorable-500 font-semibold">
                     {item.excessCapeYield !== undefined ? `${item.excessCapeYield.toFixed(3)}%` : '-'}
                   </td>
                 </tr>

@@ -5,6 +5,7 @@ import { createChart, ColorType, IChartApi, ISeriesApi, CandlestickSeries, AreaS
 import { HistoricalPrice, Ticker } from '@/services/api';
 import { BarChart2, TrendingUp, X, Calendar, Activity, Info } from 'lucide-react';
 import { useLocale, useTranslations } from 'next-intl';
+import { TOKENS } from '@/lib/designTokens';
 
 interface StockChartProps {
   prices: HistoricalPrice[];
@@ -214,7 +215,7 @@ export const StockChart: React.FC<StockChartProps> = ({ prices, buyHoldIndex, re
             markers.push({
               time: d.time,
               position: 'aboveBar',
-              color: '#10b981', // Green
+              color: TOKENS.favorable, // Green
               shape: 'circle',
               text: '$$',
               size: 1.15,
@@ -242,9 +243,9 @@ export const StockChart: React.FC<StockChartProps> = ({ prices, buyHoldIndex, re
   // ─── Theme Color ────────────────────────────────────────────────────────────
   const themeColor = React.useMemo(() => {
     const rec = recommendation.toLowerCase();
-    if (buyHoldIndex >= 85 || rec.includes('strong buy')) return '#10b981';
-    if (buyHoldIndex >= 75 || rec.includes('buy')) return '#14b8a6';
-    if (buyHoldIndex >= 45 || rec.includes('hold') || rec.includes('neutral')) return '#f59e0b';
+    if (buyHoldIndex >= 85 || rec.includes('strong buy')) return TOKENS.favorable;
+    if (buyHoldIndex >= 75 || rec.includes('buy')) return TOKENS.accent;
+    if (buyHoldIndex >= 45 || rec.includes('hold') || rec.includes('neutral')) return TOKENS.caution;
     return '#f43f5e';
   }, [buyHoldIndex, recommendation]);
 
@@ -288,7 +289,7 @@ export const StockChart: React.FC<StockChartProps> = ({ prices, buyHoldIndex, re
     chartRef.current = chart;
 
     const candlestickSeries = chart.addSeries(CandlestickSeries, {
-      upColor: '#10b981', downColor: '#ef4444', borderVisible: false, wickUpColor: '#10b981', wickDownColor: '#ef4444',
+      upColor: TOKENS.favorable, downColor: TOKENS.risk, borderVisible: false, wickUpColor: TOKENS.favorable, wickDownColor: TOKENS.risk,
     });
     candlestickSeriesRef.current = candlestickSeries;
 
@@ -297,8 +298,8 @@ export const StockChart: React.FC<StockChartProps> = ({ prices, buyHoldIndex, re
     });
     areaSeriesRef.current = areaSeries;
 
-    const emaSeries = chart.addSeries(LineSeries, { color: '#10b981', lineWidth: 2, priceLineVisible: false, lastValueVisible: true, title: 'EMA 200' });
-    const ema50Series = chart.addSeries(LineSeries, { color: '#f97316', lineWidth: 2, priceLineVisible: false, lastValueVisible: true, title: 'EMA 50' });
+    const emaSeries = chart.addSeries(LineSeries, { color: TOKENS.favorable, lineWidth: 2, priceLineVisible: false, lastValueVisible: true, title: 'EMA 200' });
+    const ema50Series = chart.addSeries(LineSeries, { color: TOKENS.elevated, lineWidth: 2, priceLineVisible: false, lastValueVisible: true, title: 'EMA 50' });
 
     // Línea punteada azul de ATH (All Time High)
     const athSeries = chart.addSeries(LineSeries, {
@@ -509,12 +510,12 @@ export const StockChart: React.FC<StockChartProps> = ({ prices, buyHoldIndex, re
     const deviation = ratio > 1 ? Math.min(12, (ratio - 1) * 25) : Math.max(-12, (ratio - 1) * 25);
     const ratingScore = Math.max(15, Math.min(98, Math.round(ticker.buyHoldIndex + deviation)));
 
-    let rec = 'Hold', badge = 'bg-amber-500/10 text-amber-400 border-amber-500/20';
-    if (ratingScore >= 85) { rec = locale === 'es' ? 'Compra Fuerte' : 'Strong Buy'; badge = 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'; }
-    else if (ratingScore >= 75) { rec = locale === 'es' ? 'Comprar' : 'Buy'; badge = 'bg-teal-500/10 text-teal-400 border-teal-500/20'; }
-    else if (ratingScore >= 45) { rec = locale === 'es' ? 'Mantener' : 'Hold'; badge = 'bg-amber-500/10 text-amber-400 border-amber-500/20'; }
-    else if (ratingScore >= 30) { rec = locale === 'es' ? 'Vender' : 'Sell'; badge = 'bg-orange-500/10 text-orange-400 border-orange-500/20'; }
-    else { rec = locale === 'es' ? 'Venta Fuerte' : 'Strong Sell'; badge = 'bg-red-500/10 text-red-400 border-red-500/30'; }
+    let rec = 'Hold', badge = 'bg-caution-500/10 text-caution-400 border-caution-500/20';
+    if (ratingScore >= 85) { rec = locale === 'es' ? 'Compra Fuerte' : 'Strong Buy'; badge = 'bg-favorable-500/10 text-favorable-400 border-favorable-500/30'; }
+    else if (ratingScore >= 75) { rec = locale === 'es' ? 'Comprar' : 'Buy'; badge = 'bg-accent-500/10 text-accent-400 border-accent-500/20'; }
+    else if (ratingScore >= 45) { rec = locale === 'es' ? 'Mantener' : 'Hold'; badge = 'bg-caution-500/10 text-caution-400 border-caution-500/20'; }
+    else if (ratingScore >= 30) { rec = locale === 'es' ? 'Vender' : 'Sell'; badge = 'bg-elevated-500/10 text-elevated-400 border-elevated-500/20'; }
+    else { rec = locale === 'es' ? 'Venta Fuerte' : 'Strong Sell'; badge = 'bg-risk-500/10 text-risk-400 border-risk-500/30'; }
 
     const peRatio = isFund ? resolvedPe : (resolvedEps && resolvedEps > 0 ? priceRecord.close / resolvedEps : null);
     const divYield = priceRecord.close > 0 ? (finalDivRate / priceRecord.close) * 100 : 0;
@@ -537,14 +538,14 @@ export const StockChart: React.FC<StockChartProps> = ({ prices, buyHoldIndex, re
         <div className="flex flex-col gap-2.5">
           <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
             {chartType === 'candle' ? 'Candlestick Chart' : 'Close Price Area Chart'}
-            <span className="ml-3 text-[10px] text-teal-500/60 font-normal normal-case">
+            <span className="ml-3 text-[10px] text-accent-500/60 font-normal normal-case">
               {locale === 'es' ? '· Clic en la gráfica para ver detalle del punto' : '· Click chart to inspect any data point'}
             </span>
           </span>
           <div className="flex bg-slate-900/60 border border-slate-800/80 rounded-lg p-0.5 text-[10px] font-bold">
             {(['1M', '6M', 'YTD', '1Y', '5Y', 'ALL'] as const).map((range) => (
               <button key={range} onClick={() => { setTimeRange(range); setClickedPoint(null); }}
-                className={`px-2.5 py-1.5 rounded transition-all cursor-pointer ${timeRange === range ? 'bg-slate-800 text-teal-400 font-extrabold shadow-sm' : 'text-slate-400 hover:text-slate-200'}`}>
+                className={`px-2.5 py-1.5 rounded transition-all cursor-pointer ${timeRange === range ? 'bg-slate-800 text-accent-400 font-extrabold shadow-sm' : 'text-slate-400 hover:text-slate-200'}`}>
                 {range}
               </button>
             ))}
@@ -553,11 +554,11 @@ export const StockChart: React.FC<StockChartProps> = ({ prices, buyHoldIndex, re
 
         <div className="flex bg-slate-900/80 border border-slate-800 rounded-lg p-0.5">
           <button onClick={() => toggleChartType('candle')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition cursor-pointer ${chartType === 'candle' ? 'bg-slate-800 text-teal-400' : 'text-slate-400 hover:text-slate-200'}`}>
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition cursor-pointer ${chartType === 'candle' ? 'bg-slate-800 text-accent-400' : 'text-slate-400 hover:text-slate-200'}`}>
             <BarChart2 size={14} /> {tt('candles')}
           </button>
           <button onClick={() => toggleChartType('line')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition cursor-pointer ${chartType === 'line' ? 'bg-slate-800 text-teal-400' : 'text-slate-400 hover:text-slate-200'}`}>
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition cursor-pointer ${chartType === 'line' ? 'bg-slate-800 text-accent-400' : 'text-slate-400 hover:text-slate-200'}`}>
             <TrendingUp size={14} /> {tt('line')}
           </button>
         </div>
@@ -577,8 +578,8 @@ export const StockChart: React.FC<StockChartProps> = ({ prices, buyHoldIndex, re
             </span>
             <span className={`px-2 py-0.5 rounded-full text-[10px] font-black border ${
               drawdownPct === 0
-                ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
-                : 'bg-rose-500/10 text-rose-400 border-rose-500/30'
+                ? 'bg-favorable-500/10 text-favorable-400 border-favorable-500/30'
+                : 'bg-risk-500/10 text-risk-400 border-risk-500/30'
             }`}>
               {drawdownPct === 0 ? 'EN MAXIMO HISTORICO' : `${drawdownPct}% vs ATH`}
             </span>
@@ -587,7 +588,7 @@ export const StockChart: React.FC<StockChartProps> = ({ prices, buyHoldIndex, re
 
         {!isLoaded && (
           <div className="absolute inset-0 flex items-center justify-center bg-slate-950/80 z-10 text-slate-500 text-xs">
-            <span className="animate-spin rounded-full h-5 w-5 border-b-2 border-teal-500 mr-2" />
+            <span className="animate-spin rounded-full h-5 w-5 border-b-2 border-accent-500 mr-2" />
             {tt('loadingChart')}
           </div>
         )}
@@ -608,7 +609,7 @@ export const StockChart: React.FC<StockChartProps> = ({ prices, buyHoldIndex, re
             {/* Vertical stem */}
             <div className="flex flex-col items-center gap-0">
               <button
-                className="pointer-events-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold text-white cursor-pointer shadow-xl border border-teal-500/60 whitespace-nowrap"
+                className="pointer-events-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold text-white cursor-pointer shadow-xl border border-accent-500/60 whitespace-nowrap"
                 style={{
                   background: 'linear-gradient(135deg, #0f766e 0%, #0d9488 100%)',
                   boxShadow: '0 4px 20px rgba(20,184,166,0.4)',
@@ -623,7 +624,7 @@ export const StockChart: React.FC<StockChartProps> = ({ prices, buyHoldIndex, re
                 {locale === 'es' ? 'Ver Detalle' : 'View Detail'}
               </button>
               {/* Date label */}
-              <div className="text-[9px] font-bold text-teal-400/80 mt-0.5 bg-slate-950/90 px-2 py-0.5 rounded-full border border-slate-800/60">
+              <div className="text-[9px] font-bold text-accent-400/80 mt-0.5 bg-slate-950/90 px-2 py-0.5 rounded-full border border-slate-800/60">
                 {formatDateLabel(clickedPoint.time)}
               </div>
             </div>
@@ -646,7 +647,7 @@ export const StockChart: React.FC<StockChartProps> = ({ prices, buyHoldIndex, re
             <div className="flex justify-between items-start border-b border-slate-800 pb-4">
               <div className="flex flex-col gap-0.5">
                 <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
-                  <Calendar size={11} className="text-teal-400" />
+                  <Calendar size={11} className="text-accent-400" />
                   {locale === 'es' ? 'Instantánea Histórica' : 'Historical Snapshot'}
                 </span>
                 <h3 className="text-lg font-black text-white">{formatDateLabel(modalData.date)}</h3>
@@ -680,14 +681,14 @@ export const StockChart: React.FC<StockChartProps> = ({ prices, buyHoldIndex, re
               {([
                 { label: locale === 'es' ? 'Precio Cierre' : 'Close Price', value: `$${modalData.close.toFixed(2)}`, color: 'text-white' },
                 { label: locale === 'es' ? 'Volumen' : 'Volume', value: modalData.volume > 0 ? modalData.volume.toLocaleString() : 'N/A', color: 'text-slate-200' },
-                { label: tt('high'), value: `$${modalData.high.toFixed(2)}`, color: 'text-emerald-400' },
-                { label: tt('low'), value: `$${modalData.low.toFixed(2)}`, color: 'text-rose-400' },
-                { label: 'EMA 50', value: modalData.ema50 ? `$${modalData.ema50.toFixed(2)}` : 'N/A', color: 'text-orange-400', icon: <Activity size={10} className="text-orange-400" /> },
-                { label: 'EMA 200', value: modalData.ema200 ? `$${modalData.ema200.toFixed(2)}` : 'N/A', color: 'text-emerald-400', icon: <Activity size={10} className="text-emerald-400" /> },
-                { label: tt('epsTtm'), value: modalData.eps ? `$${modalData.eps.toFixed(2)}` : 'N/A', color: modalData.epsSource === 'real' ? 'text-sky-300' : 'text-amber-300', badge: modalData.epsSource?.substring(0, 3).toUpperCase() },
+                { label: tt('high'), value: `$${modalData.high.toFixed(2)}`, color: 'text-favorable-400' },
+                { label: tt('low'), value: `$${modalData.low.toFixed(2)}`, color: 'text-risk-400' },
+                { label: 'EMA 50', value: modalData.ema50 ? `$${modalData.ema50.toFixed(2)}` : 'N/A', color: 'text-elevated-400', icon: <Activity size={10} className="text-elevated-400" /> },
+                { label: 'EMA 200', value: modalData.ema200 ? `$${modalData.ema200.toFixed(2)}` : 'N/A', color: 'text-favorable-400', icon: <Activity size={10} className="text-favorable-400" /> },
+                { label: tt('epsTtm'), value: modalData.eps ? `$${modalData.eps.toFixed(2)}` : 'N/A', color: modalData.epsSource === 'real' ? 'text-sky-300' : 'text-caution-300', badge: modalData.epsSource?.substring(0, 3).toUpperCase() },
                 { label: tt('peRatio'), value: modalData.pe ? `${modalData.pe.toFixed(2)}x` : 'N/A', color: 'text-slate-200' },
                 { label: tt('divRate'), value: modalData.divRate > 0 ? `$${modalData.divRate.toFixed(2)}` : '$0.00', color: 'text-slate-200' },
-                { label: tt('divYield'), value: modalData.divYield > 0 ? `${modalData.divYield.toFixed(2)}%` : '0.00%', color: 'text-emerald-400' },
+                { label: tt('divYield'), value: modalData.divYield > 0 ? `${modalData.divYield.toFixed(2)}%` : '0.00%', color: 'text-favorable-400' },
               ] as any[]).map(({ label, value, color, icon, badge }: any) => (
                 <div key={label} className="flex flex-col gap-1 p-3 rounded-xl border border-slate-800/60 bg-slate-900/20">
                   <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider flex items-center gap-1">

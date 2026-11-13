@@ -55,9 +55,9 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
           
           {/* Logo */}
           <Link href={`/${locale}`} className="flex items-center gap-2">
-            <TrendingUp size={28} className="text-teal-500" />
+            <TrendingUp size={28} className="text-accent-500" />
             <span className="text-xl font-extrabold tracking-tight bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">
-              BuyHold<span className="text-teal-500">Time</span>.com
+              BuyHold<span className="text-accent-500">Time</span>.com
             </span>
           </Link>
 
@@ -76,7 +76,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                   href={item.path}
                   className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 border ${
                     isActive
-                      ? 'bg-teal-500/10 text-teal-400 border-teal-500/20'
+                      ? 'bg-accent-500/10 text-accent-400 border-accent-500/20'
                       : 'text-slate-400 hover:text-slate-100 hover:bg-slate-900/50 border-transparent'
                   }`}
                 >
@@ -94,14 +94,14 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
               <Globe size={13} className="text-slate-500" />
               <button 
                 onClick={() => switchLocale('en')}
-                className={`hover:text-slate-100 font-semibold px-1 py-0.5 rounded transition ${locale === 'en' ? 'text-teal-400 bg-slate-800' : ''}`}
+                className={`hover:text-slate-100 font-semibold px-1 py-0.5 rounded transition ${locale === 'en' ? 'text-accent-400 bg-slate-800' : ''}`}
               >
                 EN
               </button>
               <span className="text-slate-800">|</span>
               <button 
                 onClick={() => switchLocale('es')}
-                className={`hover:text-slate-100 font-semibold px-1 py-0.5 rounded transition ${locale === 'es' ? 'text-teal-400 bg-slate-800' : ''}`}
+                className={`hover:text-slate-100 font-semibold px-1 py-0.5 rounded transition ${locale === 'es' ? 'text-accent-400 bg-slate-800' : ''}`}
               >
                 ES
               </button>
@@ -113,7 +113,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
             ) : (
               <button
                 onClick={() => setIsAuthModalOpen(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-teal-500/30 bg-teal-500/10 hover:bg-teal-500/20 text-teal-300 text-xs font-extrabold transition cursor-pointer"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-accent-500/30 bg-accent-500/10 hover:bg-accent-500/20 text-accent-300 text-xs font-extrabold transition cursor-pointer"
               >
                 <LogIn size={14} />
                 <span>{locale === 'es' ? 'Iniciar Sesión' : 'Sign In'}</span>
@@ -123,7 +123,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
             {/* Subscribe Action */}
             <a 
               href="#subscribe" 
-              className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold text-slate-950 bg-teal-400 hover:bg-teal-300 transition-colors shadow-lg shadow-teal-500/10"
+              className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold text-slate-950 bg-accent-400 hover:bg-accent-300 transition-colors shadow-lg shadow-accent-500/10"
             >
               <Mail size={14} />
               {t('ctaSubscribe')}
@@ -136,13 +136,13 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
             <div className="flex items-center gap-1 text-slate-400 border border-slate-800 rounded-lg px-2 py-1 bg-slate-900/30 text-xs">
               <button 
                 onClick={() => switchLocale('en')}
-                className={`hover:text-slate-100 px-1 py-0.5 rounded ${locale === 'en' ? 'text-teal-400 bg-slate-800 font-bold' : ''}`}
+                className={`hover:text-slate-100 px-1 py-0.5 rounded ${locale === 'en' ? 'text-accent-400 bg-slate-800 font-bold' : ''}`}
               >
                 EN
               </button>
               <button 
                 onClick={() => switchLocale('es')}
-                className={`hover:text-slate-100 px-1 py-0.5 rounded ${locale === 'es' ? 'text-teal-400 bg-slate-800 font-bold' : ''}`}
+                className={`hover:text-slate-100 px-1 py-0.5 rounded ${locale === 'es' ? 'text-accent-400 bg-slate-800 font-bold' : ''}`}
               >
                 ES
               </button>
@@ -178,7 +178,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                   onClick={() => setMobileMenuOpen(false)}
                   className={`flex items-center gap-3 p-3 rounded-xl text-sm font-semibold transition-all border ${
                     isActive
-                      ? 'bg-teal-500/10 text-teal-400 border-teal-500/20'
+                      ? 'bg-accent-500/10 text-accent-400 border-accent-500/20'
                       : 'text-slate-400 hover:text-slate-100 hover:bg-slate-900/30 border-transparent'
                   }`}
                 >
@@ -191,7 +191,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
           <a 
             href="#subscribe" 
             onClick={() => setMobileMenuOpen(false)} 
-            className="flex items-center justify-center gap-2 p-3 mt-4 rounded-xl text-sm font-bold text-slate-950 bg-teal-400 hover:bg-teal-300 transition"
+            className="flex items-center justify-center gap-2 p-3 mt-4 rounded-xl text-sm font-bold text-slate-950 bg-accent-400 hover:bg-accent-300 transition"
           >
             <Mail size={16} />
             {t('ctaSubscribe')}
@@ -214,7 +214,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
             {/* Brand Column */}
             <div className="flex flex-col gap-3">
               <p className="font-black text-slate-200 text-base tracking-tight">
-                BuyHold<span className="text-teal-500">Time</span>.com
+                BuyHold<span className="text-accent-500">Time</span>.com
               </p>
               <p className="text-slate-500 leading-relaxed text-[11px]">
                 {tFooter('description')}
@@ -232,7 +232,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                   { label: tFooter('toolMargin'), path: `/${locale}/indicators` },
                 ].map(({ label, path }) => (
                   <li key={label}>
-                    <Link href={path} className="hover:text-teal-400 transition text-[11px]">
+                    <Link href={path} className="hover:text-accent-400 transition text-[11px]">
                       {label}
                     </Link>
                   </li>
@@ -246,7 +246,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
               <ul className="flex flex-col gap-2">
                 {['AAPL', 'MSFT', 'NVDA', 'AMZN', 'GOOGL', 'META', 'TSLA'].map((sym) => (
                   <li key={sym}>
-                    <Link href={`/${locale}/prices/${sym}`} className="hover:text-teal-400 transition text-[11px]">
+                    <Link href={`/${locale}/prices/${sym}`} className="hover:text-accent-400 transition text-[11px]">
                       {tFooter('stockLink', { symbol: sym })}
                     </Link>
                   </li>
@@ -260,7 +260,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
               <ul className="flex flex-col gap-2">
                 {['SPY', 'QQQ'].map((sym) => (
                   <li key={sym}>
-                    <Link href={`/${locale}/prices/${sym}`} className="hover:text-teal-400 transition text-[11px]">
+                    <Link href={`/${locale}/prices/${sym}`} className="hover:text-accent-400 transition text-[11px]">
                       {tFooter('etfLink', { symbol: sym })}
                     </Link>
                   </li>
@@ -278,7 +278,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
           <div className="border-t border-slate-900 pt-6 flex flex-col sm:flex-row justify-between items-center gap-3 text-[11px]">
             <p>
               © {new Date().getFullYear()} BuyHoldTime.com. {tLegal('footer')}{' '}
-              <Link href={termsPath(locale)} className="underline decoration-slate-700 underline-offset-2 hover:text-teal-400">
+              <Link href={termsPath(locale)} className="underline decoration-slate-700 underline-offset-2 hover:text-accent-400">
                 {tLegal('termsLink')}
               </Link>
             </p>

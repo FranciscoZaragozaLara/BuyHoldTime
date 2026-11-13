@@ -5,6 +5,7 @@ import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as ReTooltip, Leg
 import { getStrategyColor } from '@/lib/strategyColors';
 import { useStrategyLabel } from './StrategyLabels';
 import { useTranslations } from 'next-intl';
+import { TOKENS } from '@/lib/designTokens';
 
 interface EquityPoint { date: string; value: number }
 interface MarketPoint { date: string; close: number }
@@ -83,7 +84,7 @@ export function EquityChart({ data, startDate, marketQQQ, marketTQQQ, marketNasd
       width: w, height: h,
       layout: { background: { type: ColorType.Solid, color: '#020617' }, textColor: '#94a3b8', fontSize: 11 },
       grid: { vertLines: { color: 'rgba(30,41,59,0.3)' }, horzLines: { color: 'rgba(30,41,59,0.3)' } },
-      crosshair: { mode: 1, vertLine: { color: '#14b8a6', width: 1, style: 3, labelBackgroundColor: '#14b8a6' }, horzLine: { color: '#14b8a6', width: 1, style: 3, labelBackgroundColor: '#14b8a6' } },
+      crosshair: { mode: 1, vertLine: { color: TOKENS.accent, width: 1, style: 3, labelBackgroundColor: TOKENS.accent }, horzLine: { color: TOKENS.accent, width: 1, style: 3, labelBackgroundColor: TOKENS.accent } },
       rightPriceScale: { borderColor: 'rgba(30,41,59,0.5)', scaleMargins: { top: 0.1, bottom: 0.1 } },
       timeScale: { borderColor: 'rgba(30,41,59,0.5)', rightOffset: 5, barSpacing: 4 },
       localization: { priceFormatter: (p: number) => fmtMoney(p) },
@@ -205,7 +206,7 @@ export function EquityChart({ data, startDate, marketQQQ, marketTQQQ, marketNasd
         <h3 className="font-semibold text-slate-100">Equity Curves (100k inicial) — {rangeLabel}</h3>
         <div className="flex gap-1">
           {(['1Y','5Y','ALL'] as const).map(r=>(
-            <button key={r} onClick={()=>setTimeRange(r)} className={`px-2.5 py-1 rounded text-xs font-medium border transition-colors ${timeRange===r ? 'bg-teal-600 text-white border-teal-600' : 'bg-slate-800 text-slate-400 border-slate-700 hover:border-slate-600'}`}>{r}</button>
+            <button key={r} onClick={()=>setTimeRange(r)} className={`px-2.5 py-1 rounded text-xs font-medium border transition-colors ${timeRange===r ? 'bg-accent-600 text-white border-accent-600' : 'bg-slate-800 text-slate-400 border-slate-700 hover:border-slate-600'}`}>{r}</button>
           ))}
         </div>
       </div>
@@ -229,7 +230,7 @@ export function EquityChart({ data, startDate, marketQQQ, marketTQQQ, marketNasd
                 <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-slate-400 mt-0.5 pl-4">
                   <span>{tb('incr')} <span className="text-slate-200 font-mono">{inc!=null ? fmtPct(inc) : '—'}</span></span>
                   <span>c) CAGR: <span className="text-slate-200 font-mono">{cg!=null ? fmtPct(cg) : '—'}</span></span>
-                  <span>{tb('ddMax')} <span className="text-amber-300 font-mono">{dd ? `${fmtPct(dd.pct)} @ ${new Date(dd.date).toLocaleDateString('es-ES',{day:'2-digit',month:'short',year:'2-digit'})}` : '—'}</span></span>
+                  <span>{tb('ddMax')} <span className="text-caution-300 font-mono">{dd ? `${fmtPct(dd.pct)} @ ${new Date(dd.date).toLocaleDateString('es-ES',{day:'2-digit',month:'short',year:'2-digit'})}` : '—'}</span></span>
                 </div>
               </div>
             )})}

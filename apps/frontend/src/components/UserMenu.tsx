@@ -27,7 +27,7 @@ export const UserMenu: React.FC = () => {
       return {
         label: 'PRO',
         icon: <Crown size={10} />,
-        className: 'bg-amber-500/10 text-amber-400 border-amber-500/30',
+        className: 'bg-caution-500/10 text-caution-400 border-caution-500/30',
       };
     }
     return {
@@ -55,7 +55,7 @@ export const UserMenu: React.FC = () => {
         {photoUrl ? (
           <img src={photoUrl} alt={displayName} className="w-7 h-7 rounded-lg object-cover border border-slate-700" />
         ) : (
-          <div className="w-7 h-7 rounded-lg bg-teal-500/10 border border-teal-500/30 text-teal-400 flex items-center justify-center font-bold text-xs">
+          <div className="w-7 h-7 rounded-lg bg-accent-500/10 border border-accent-500/30 text-accent-400 flex items-center justify-center font-bold text-xs">
             <UserIcon size={14} />
           </div>
         )}
@@ -96,7 +96,7 @@ export const UserMenu: React.FC = () => {
               setIsOpen(false);
               logout();
             }}
-            className="w-full mt-1 py-1.5 px-2.5 rounded-xl border border-rose-500/20 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 font-bold transition cursor-pointer flex items-center gap-2 justify-center"
+            className="w-full mt-1 py-1.5 px-2.5 rounded-xl border border-risk-500/20 bg-risk-500/10 hover:bg-risk-500/20 text-risk-300 font-bold transition cursor-pointer flex items-center gap-2 justify-center"
           >
             <LogOut size={13} />
             <span>{locale === 'es' ? 'Cerrar Sesión' : 'Sign Out'}</span>

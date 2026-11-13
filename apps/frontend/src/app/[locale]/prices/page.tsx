@@ -65,7 +65,7 @@ export default async function PricesPage({
         
         {/* Header Title Section */}
         <div className="flex flex-col gap-4 text-center sm:text-left max-w-3xl">
-          <div className="inline-flex items-center gap-1.5 self-center sm:self-start px-3 py-1 rounded-full border border-teal-500/25 bg-teal-500/5 text-teal-400 text-[10px] font-bold uppercase tracking-wider">
+          <div className="inline-flex items-center gap-1.5 self-center sm:self-start px-3 py-1 rounded-full border border-accent-500/25 bg-accent-500/5 text-accent-400 text-[10px] font-bold uppercase tracking-wider">
             <Sparkles size={12} className="animate-pulse" />
             {locale === 'es' ? 'Catalogo de Inversiones' : 'Investment Catalog'}
           </div>
@@ -83,7 +83,7 @@ export default async function PricesPage({
 
         {/* Live status alert if database fallback is active */}
         {errorState && (
-          <div className="p-4 rounded-xl border border-amber-500/20 bg-amber-500/5 text-amber-400 text-xs text-center">
+          <div className="p-4 rounded-xl border border-caution-500/20 bg-caution-500/5 text-caution-400 text-xs text-center">
             {locale === 'es'
               ? '⚠️ Modo offline activo. Mostrando datos de simulación local.'
               : '⚠️ Offline mode active. Displaying local simulated stock details.'}

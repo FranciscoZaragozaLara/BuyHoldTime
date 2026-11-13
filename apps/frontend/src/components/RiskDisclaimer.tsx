@@ -22,7 +22,7 @@ export function RiskDisclaimer({ variant = 'signal', className = '' }: { variant
       <ShieldAlert size={12} className="mt-[2px] shrink-0 text-slate-600" aria-hidden />
       <span>
         {t(variant)}{' '}
-        <Link href={termsPath(locale)} className="underline decoration-slate-700 underline-offset-2 hover:text-teal-400">
+        <Link href={termsPath(locale)} className="underline decoration-slate-700 underline-offset-2 hover:text-accent-400">
           {t('readTerms')}
         </Link>
         .

@@ -15,7 +15,7 @@ export function StrategySelector({ strategies, selected, onChange }: { strategie
       <h3 className="font-semibold mb-2 text-slate-100">{tb('strategies')}</h3>
       <div className="flex flex-wrap gap-2">
         {strategies.map(s => (
-          <label key={s.code} className={`px-3 py-1.5 rounded-full border cursor-pointer text-sm transition-colors ${selected.includes(s.code) ? 'bg-teal-600 text-white border-teal-600' : 'bg-slate-800 text-slate-300 border-slate-700 hover:border-slate-600'}`}>
+          <label key={s.code} className={`px-3 py-1.5 rounded-full border cursor-pointer text-sm transition-colors ${selected.includes(s.code) ? 'bg-accent-600 text-white border-accent-600' : 'bg-slate-800 text-slate-300 border-slate-700 hover:border-slate-600'}`}>
             <input type="checkbox" className="hidden" checked={selected.includes(s.code)} onChange={() => toggle(s.code)} />
             {strategyLabel(s, isAdmin)}{isAdmin && <span className="opacity-70 text-xs"> v{s.version}</span>}
           </label>

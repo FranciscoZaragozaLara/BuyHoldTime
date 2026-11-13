@@ -8,6 +8,7 @@ import { IndexSparklineCard } from '@/components/IndexSparklineCard';
 import { JsonLd } from '@/components/JsonLd';
 import { getTickers, getIndicators, Ticker, Indicator } from '@/services/api';
 import { RiskDisclaimer } from '@/components/RiskDisclaimer';
+import { TOKENS } from '@/lib/designTokens';
 
 // ISR: revalidate home page every 60 seconds
 export const revalidate = 60;
@@ -104,14 +105,14 @@ export default async function HomePage({
         
         {/* Hero Section */}
         <section className="flex flex-col items-center text-center gap-6 max-w-4xl mx-auto py-8">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-teal-500/20 bg-teal-500/5 text-teal-400 text-xs font-semibold">
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-accent-500/20 bg-accent-500/5 text-accent-400 text-xs font-semibold">
             <Sparkles size={14} className="animate-pulse" />
             <span>{t('badge')}</span>
           </div>
 
           <h1 className="text-4xl sm:text-6xl font-black tracking-tight leading-none text-white">
             {t('heroLine1')}<br />
-            {t('heroLine2a')}<span className="bg-gradient-to-r from-teal-400 to-emerald-400 bg-clip-text text-transparent">{t('heroLine2b')}</span>.
+            {t('heroLine2a')}<span className="bg-gradient-to-r from-accent-400 to-favorable-400 bg-clip-text text-transparent">{t('heroLine2b')}</span>.
           </h1>
 
           <p className="text-base sm:text-lg text-slate-400 max-w-2xl leading-relaxed">
@@ -121,7 +122,7 @@ export default async function HomePage({
           <div className="flex flex-wrap gap-4 mt-4 justify-center">
             <Link 
               href={`/${locale}/prices`} 
-              className="flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-bold text-slate-950 bg-teal-400 hover:bg-teal-300 transition"
+              className="flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-bold text-slate-950 bg-accent-400 hover:bg-accent-300 transition"
             >
               {t('ctaTickers')}
               <ArrowRight size={16} />
@@ -147,7 +148,7 @@ export default async function HomePage({
               badgeText={spyChange}
               badgeType="success"
               sparklineData={spySpark}
-              color="#10b981"
+              color={TOKENS.favorable}
               footerText="Real-time S&P 500 benchmark"
             />
             <IndexSparklineCard
@@ -193,7 +194,7 @@ export default async function HomePage({
             </div>
             <Link 
               href={`/${locale}/prices`} 
-              className="text-xs font-semibold text-teal-400 hover:text-teal-300 transition"
+              className="text-xs font-semibold text-accent-400 hover:text-accent-300 transition"
             >
               {t('viewAll', { count: tickers.length })}
             </Link>
@@ -203,7 +204,7 @@ export default async function HomePage({
             {recommendedTickers.map((stock) => {
               const isBuy = stock.buyHoldIndex >= 75;
               const badgeClass = stock.buyHoldIndex >= 85 
-                ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' 
+                ? 'bg-favorable-500/10 text-favorable-400 border-favorable-500/20' 
                 : 'bg-blue-500/10 text-blue-400 border-blue-500/20';
 
               return (
@@ -212,7 +213,7 @@ export default async function HomePage({
                   className="flex flex-col gap-4 p-6 rounded-2xl border border-slate-900 bg-slate-950/40 backdrop-blur-sm shadow-xl relative overflow-hidden transition hover:border-slate-800 hover:bg-slate-900/10"
                 >
                   {/* Color strip accent representing index score */}
-                  <div className={`absolute top-0 left-0 w-1 h-full ${isBuy ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+                  <div className={`absolute top-0 left-0 w-1 h-full ${isBuy ? 'bg-favorable-500' : 'bg-caution-500'}`} />
                   
                   <div className="flex justify-between items-center">
                     <div>
@@ -231,7 +232,7 @@ export default async function HomePage({
                     </div>
                     <div className="text-right">
                       <span className="text-[10px] text-slate-500 uppercase font-semibold">{t('dailyChange')}</span>
-                      <p className={`text-base font-bold ${stock.changePercent >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                      <p className={`text-base font-bold ${stock.changePercent >= 0 ? 'text-favorable-400' : 'text-risk-400'}`}>
                         {stock.changePercent >= 0 ? '+' : ''}{stock.changePercent}%
                       </p>
                     </div>
@@ -239,10 +240,10 @@ export default async function HomePage({
 
                   <div className="flex justify-between items-center bg-slate-900/30 border border-slate-900/50 p-3 rounded-xl text-xs">
                     <span className="text-slate-400 flex items-center gap-1">
-                      <Star size={14} className="fill-amber-400 stroke-amber-400" />
+                      <Star size={14} className="fill-caution-400 stroke-caution-400" />
                       {t('indexScore')}
                     </span>
-                    <span className={`font-extrabold text-sm ${isBuy ? 'text-emerald-400' : 'text-amber-400'}`}>
+                    <span className={`font-extrabold text-sm ${isBuy ? 'text-favorable-400' : 'text-caution-400'}`}>
                       {stock.buyHoldIndex} / 100
                     </span>
                   </div>

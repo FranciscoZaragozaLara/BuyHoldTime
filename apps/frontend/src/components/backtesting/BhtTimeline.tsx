@@ -5,6 +5,7 @@ import { createChart, ColorType, IChartApi, LineSeries } from 'lightweight-chart
 import { BhtDetailPopover, useBhtDetail, bhtLeaveGuard } from './IndicatorsPanel';
 import { BHT_CUTS, bhtBandColor } from './bhtBands';
 import { useTranslations } from 'next-intl';
+import { TOKENS } from '@/lib/designTokens';
 
 
 type RangeKey = '1A' | '3A' | '5A' | '10A';
@@ -83,7 +84,7 @@ export function BhtTimeline() {
       width: w, height: h,
       layout: { background: { type: ColorType.Solid, color: '#020617' }, textColor: '#94a3b8', fontSize: 11 },
       grid: { vertLines: { color: 'rgba(30,41,59,0.3)' }, horzLines: { color: 'rgba(30,41,59,0.3)' } },
-      crosshair: { mode: 1, vertLine: { color: '#14b8a6', width: 1, style: 3, labelBackgroundColor: '#14b8a6' }, horzLine: { color: '#14b8a6', width: 1, style: 3, labelBackgroundColor: '#14b8a6' } },
+      crosshair: { mode: 1, vertLine: { color: TOKENS.accent, width: 1, style: 3, labelBackgroundColor: TOKENS.accent }, horzLine: { color: TOKENS.accent, width: 1, style: 3, labelBackgroundColor: TOKENS.accent } },
       rightPriceScale: { borderColor: 'rgba(30,41,59,0.5)', scaleMargins: { top: 0.12, bottom: 0.12 } },
       timeScale: { borderColor: 'rgba(30,41,59,0.5)', rightOffset: 5, barSpacing: 4, fixLeftEdge: false, fixRightEdge: false },
       handleScroll: { mouseWheel: true, pressedMouseMove: true, horzTouchDrag: true, vertTouchDrag: false },
@@ -260,7 +261,7 @@ export function BhtTimeline() {
         <div className="inline-flex rounded-lg border border-slate-700 bg-slate-800/60 p-0.5">
           {(Object.keys(RANGE_YEARS) as RangeKey[]).map((k) => (
             <button key={k} type="button" onClick={() => setRange(k)}
-              className={`px-2.5 py-1 text-[11px] font-mono rounded-md transition ${range === k ? 'bg-teal-500 text-white font-bold' : 'text-slate-400 hover:text-slate-200'}`}>
+              className={`px-2.5 py-1 text-[11px] font-mono rounded-md transition ${range === k ? 'bg-accent-500 text-white font-bold' : 'text-slate-400 hover:text-slate-200'}`}>
               {k === '1A' ? '1 año' : k === '3A' ? '3 años' : k === '5A' ? '5 años' : '10 años'}
             </button>
           ))}

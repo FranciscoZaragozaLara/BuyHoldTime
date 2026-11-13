@@ -101,12 +101,12 @@ export function CrisisEventsTable() {
                 <td className="p-2 text-right text-sky-300 whitespace-nowrap">{fmt$(e.peakSpx)}</td>
                 <td className="p-2 text-right text-slate-300 whitespace-nowrap">{e.bottomDate}{bhtBadge(e.bottomDate)}</td>
                 <td className="p-2 text-right text-sky-300 whitespace-nowrap">{fmt$(e.bottomSpx)}</td>
-                <td className="p-2 text-right font-bold text-red-400 whitespace-nowrap">{e.dropPct.toFixed(1)}%</td>
+                <td className="p-2 text-right font-bold text-risk-400 whitespace-nowrap">{e.dropPct.toFixed(1)}%</td>
                 <td className="p-2 text-right text-slate-300 whitespace-nowrap border-l border-slate-800/60">{e.peakDate}</td>
                 <td className="p-2 text-right text-violet-300 whitespace-nowrap">{fmt0(e.peakNdx)}</td>
                 <td className="p-2 text-right text-slate-300 whitespace-nowrap">{e.bottomDate}</td>
                 <td className="p-2 text-right text-violet-300 whitespace-nowrap">{fmt0(e.bottomNdx)}</td>
-                <td className="p-2 text-right font-bold text-red-400 whitespace-nowrap">{ndxDrop != null ? `${ndxDrop.toFixed(1)}%` : '—'}</td>
+                <td className="p-2 text-right font-bold text-risk-400 whitespace-nowrap">{ndxDrop != null ? `${ndxDrop.toFixed(1)}%` : '—'}</td>
                 <td className="p-2 font-sans text-slate-400 text-[11px] leading-snug min-w-[220px]">{tc(`${e.id}_text`)}</td>
               </tr>
               );

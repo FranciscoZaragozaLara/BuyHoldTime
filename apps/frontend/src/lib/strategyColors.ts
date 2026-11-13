@@ -1,3 +1,4 @@
+import { TOKENS } from './designTokens';
 const PALETTE = [
   '#2dd4bf', // teal
   '#a78bfa', // violet
@@ -13,7 +14,7 @@ const PALETTE = [
   '#34d399', // emerald
   '#f43f5e', // rose
   '#818cf8', // indigo
-  '#f97316', // orange-500
+  TOKENS.elevated, // orange-500
   '#22d3ee', // cyan
   '#a3e635', // lime
   '#ec72ff', // pink

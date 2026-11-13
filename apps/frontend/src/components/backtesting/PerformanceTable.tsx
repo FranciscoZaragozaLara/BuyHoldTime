@@ -16,10 +16,10 @@ const fmtMoney = (v: number) => `$${Number(v).toLocaleString('en-US', { minimumF
 const fmtPct = (v: number) => `${v > 0 ? '+' : ''}${v.toFixed(2)}%`;
 const capeRatioColor = (r: number | null | undefined) => {
   if (r == null) return 'text-slate-500';
-  if (r < 1.0) return 'text-emerald-400';
-  if (r < 1.15) return 'text-yellow-400';
-  if (r < 1.30) return 'text-orange-400';
-  return 'text-red-400';
+  if (r < 1.0) return 'text-favorable-400';
+  if (r < 1.15) return 'text-caution-400';
+  if (r < 1.30) return 'text-elevated-400';
+  return 'text-risk-400';
 };
 
 export const PerformanceTable: React.FC<Props> = ({ equity, startDate, capeData }) => {
@@ -196,7 +196,7 @@ export const PerformanceTable: React.FC<Props> = ({ equity, startDate, capeData 
       <div className="flex justify-between items-center flex-wrap gap-4 border-b border-slate-900/60 pb-4">
         <div>
           <h3 className="text-base font-bold text-white flex items-center gap-2">
-            <Layers size={18} className="text-teal-400" />
+            <Layers size={18} className="text-accent-400" />
             {locale === 'es' ? 'Performance por Periodo' : 'Performance by Period'}{startDate ? ` — ${startDate}` : ''}
           </h3>
           <p className="text-xs text-slate-400 mt-0.5">
@@ -257,21 +257,21 @@ export const PerformanceTable: React.FC<Props> = ({ equity, startDate, capeData 
               { name: 'Monthly', headers, rows: monthlyRows },
               { name: 'Daily', headers, rows: dailyRows },
             ]);
-          }} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-teal-600 hover:bg-teal-500 text-white text-xs font-semibold transition">
+          }} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent-600 hover:bg-accent-500 text-white text-xs font-semibold transition">
             <Download size={14} /> {tb('excel3')}
           </button>
-          <select value={selectedYear} onChange={e=>{ setSelectedYear(e.target.value); setVisibleCount(15); }} className="px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-xs font-semibold text-slate-200 focus:outline-none focus:border-teal-500 cursor-pointer">
+          <select value={selectedYear} onChange={e=>{ setSelectedYear(e.target.value); setVisibleCount(15); }} className="px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-xs font-semibold text-slate-200 focus:outline-none focus:border-accent-500 cursor-pointer">
             <option value="all">{locale==='es' ? 'Todos los años' : 'All years'}</option>
             {availableYears.map(y=> <option key={y} value={y}>{y}</option>)}
           </select>
           <div className="flex bg-slate-900/80 border border-slate-800 rounded-lg p-0.5">
-            <button onClick={() => handleTabChange('annual')} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition cursor-pointer ${activeTab === 'annual' ? 'bg-slate-800 text-teal-400' : 'text-slate-400 hover:text-slate-200'}`}>
+            <button onClick={() => handleTabChange('annual')} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition cursor-pointer ${activeTab === 'annual' ? 'bg-slate-800 text-accent-400' : 'text-slate-400 hover:text-slate-200'}`}>
               <Calendar size={14} /> {locale === 'es' ? 'Anual' : 'Annual'}
             </button>
-            <button onClick={() => handleTabChange('monthly')} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition cursor-pointer ${activeTab === 'monthly' ? 'bg-slate-800 text-teal-400' : 'text-slate-400 hover:text-slate-200'}`}>
+            <button onClick={() => handleTabChange('monthly')} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition cursor-pointer ${activeTab === 'monthly' ? 'bg-slate-800 text-accent-400' : 'text-slate-400 hover:text-slate-200'}`}>
               <Clock size={14} /> {locale === 'es' ? 'Mensual' : 'Monthly'}
             </button>
-            <button onClick={() => handleTabChange('daily')} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition cursor-pointer ${activeTab === 'daily' ? 'bg-slate-800 text-teal-400' : 'text-slate-400 hover:text-slate-200'}`}>
+            <button onClick={() => handleTabChange('daily')} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition cursor-pointer ${activeTab === 'daily' ? 'bg-slate-800 text-accent-400' : 'text-slate-400 hover:text-slate-200'}`}>
               <ArrowLeftRight size={14} /> {locale === 'es' ? 'Diario' : 'Daily'}
             </button>
           </div>
@@ -335,11 +335,11 @@ export const PerformanceTable: React.FC<Props> = ({ equity, startDate, capeData 
                   {strategies.map((k) => {
                     const v = vars[k];
                     if (!v) return <td key={`v-${k}`} className="px-2 py-2 text-right text-slate-500 text-xs">—</td>;
-                    const color = v.pct > 0 ? 'text-emerald-400' : v.pct < 0 ? 'text-rose-400' : 'text-slate-400';
+                    const color = v.pct > 0 ? 'text-favorable-400' : v.pct < 0 ? 'text-risk-400' : 'text-slate-400';
                     return <td key={`v-${k}`} className={`px-2 py-2 text-right font-semibold text-xs tabular-nums whitespace-nowrap ${color}`}>{fmtPct(v.pct)}</td>;
                   })}
                   <td className="px-2 py-2 text-right">
-                    {best ? <span className="inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold border bg-teal-500/10 text-teal-400 border-teal-500/20 max-w-[110px] truncate" title={label(best)}>{label(best)}</span> : <span className="text-slate-500">—</span>}
+                    {best ? <span className="inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold border bg-accent-500/10 text-accent-400 border-accent-500/20 max-w-[110px] truncate" title={label(best)}>{label(best)}</span> : <span className="text-slate-500">—</span>}
                   </td>
                 </tr>
               );

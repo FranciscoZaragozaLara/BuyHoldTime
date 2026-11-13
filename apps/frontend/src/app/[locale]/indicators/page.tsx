@@ -128,7 +128,7 @@ export default async function IndicatorsPage({
         
         {/* Title Section */}
         <div className="flex flex-col gap-4 text-center sm:text-left max-w-3xl">
-          <div className="inline-flex items-center gap-1.5 self-center sm:self-start px-3 py-1 rounded-full border border-teal-500/25 bg-teal-500/5 text-teal-400 text-[10px] font-bold uppercase tracking-wider">
+          <div className="inline-flex items-center gap-1.5 self-center sm:self-start px-3 py-1 rounded-full border border-accent-500/25 bg-accent-500/5 text-accent-400 text-[10px] font-bold uppercase tracking-wider">
             <Sparkles size={12} className="animate-pulse" />
             {locale === 'es' ? 'Indicador de Valoración Macro' : 'Macro Valuation Indicator'}
           </div>
@@ -146,7 +146,7 @@ export default async function IndicatorsPage({
 
         {/* Offline Warning banner */}
         {errorState && (
-          <div className="p-4 rounded-xl border border-amber-500/20 bg-amber-500/5 text-amber-400 text-xs text-center">
+          <div className="p-4 rounded-xl border border-caution-500/20 bg-caution-500/5 text-caution-400 text-xs text-center">
             {locale === 'es'
               ? '⚠️ Cargando datos de simulación local. Conecta el servidor NestJS para ver datos reales.'
               : '⚠️ Loading local simulation values. Connect the NestJS server to retrieve real market data.'}

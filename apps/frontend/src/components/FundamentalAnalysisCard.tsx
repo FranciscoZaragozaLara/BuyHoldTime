@@ -6,6 +6,7 @@ import { Sparkles, DollarSign, Award, TrendingUp, BarChart2 } from 'lucide-react
 import { Ticker } from '@/services/api';
 
 import precalculatedPerformance from '../data/precalculated_performance.json';
+import { TOKENS } from '@/lib/designTokens';
 
 interface FundamentalAnalysisCardProps {
   ticker: Ticker;
@@ -67,12 +68,12 @@ export const FundamentalAnalysisCard: React.FC<FundamentalAnalysisCardProps> = (
   const getStatusBadgeStyle = (rec: string | null, diff: number | null) => {
     const text = (rec || '').toLowerCase();
     if (text.includes('undervalued') || (diff !== null && diff < -10)) {
-      return 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30';
+      return 'bg-favorable-500/10 text-favorable-400 border-favorable-500/30';
     }
     if (text.includes('overvalued') || (diff !== null && diff > 15)) {
-      return 'bg-rose-500/10 text-rose-400 border-rose-500/30';
+      return 'bg-risk-500/10 text-risk-400 border-risk-500/30';
     }
-    return 'bg-amber-500/10 text-amber-400 border-amber-500/30';
+    return 'bg-caution-500/10 text-caution-400 border-caution-500/30';
   };
 
   // Consolidated non-repeating metrics organized by Broker category
@@ -128,7 +129,7 @@ export const FundamentalAnalysisCard: React.FC<FundamentalAnalysisCardProps> = (
   const fromHighValCard = perfData?.fromHigh ?? (ticker.fiftyTwoWeekHigh ? Math.min(0, ((currentPrice - ticker.fiftyTwoWeekHigh) / ticker.fiftyTwoWeekHigh) * 100) : 0);
   const isAtHighCard = Math.abs(fromHighValCard) < 0.01;
   const fromHighFormattedCard = `${fromHighValCard > 0 ? '+' : ''}${fromHighValCard.toFixed(2)}%`;
-  const fromHighColorCard = isAtHighCard ? 'text-teal-400 font-bold' : 'text-rose-400 font-bold';
+  const fromHighColorCard = isAtHighCard ? 'text-accent-400 font-bold' : 'text-risk-400 font-bold';
 
   const marketMetrics = [
     { label: tm('fromHigh'), value: fromHighFormattedCard, isCustomColor: true, colorClass: fromHighColorCard },
@@ -146,7 +147,7 @@ export const FundamentalAnalysisCard: React.FC<FundamentalAnalysisCardProps> = (
       {/* Top Header Bar */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-3 border-b border-slate-900/80">
         <div className="flex items-center gap-2.5">
-          <div className="p-2 rounded-lg bg-teal-500/10 border border-teal-500/30 text-teal-400">
+          <div className="p-2 rounded-lg bg-accent-500/10 border border-accent-500/30 text-accent-400">
             <Sparkles size={16} />
           </div>
           <div>
@@ -178,7 +179,7 @@ export const FundamentalAnalysisCard: React.FC<FundamentalAnalysisCardProps> = (
           <div className="md:col-span-4 flex items-center justify-between p-3.5 rounded-xl border border-slate-900 bg-slate-900/30">
             <div className="flex flex-col gap-0.5">
               <span className="text-[9px] uppercase tracking-wider font-extrabold text-slate-400 flex items-center gap-1">
-                <Award size={12} className="text-teal-400" />
+                <Award size={12} className="text-accent-400" />
                 BHT Score
               </span>
               <div className="flex items-baseline gap-1 mt-0.5">
@@ -200,7 +201,7 @@ export const FundamentalAnalysisCard: React.FC<FundamentalAnalysisCardProps> = (
                     cy="24"
                     r="19"
                     fill="transparent"
-                    stroke={bhtScore >= 80 ? '#14b8a6' : bhtScore >= 60 ? '#f59e0b' : '#f43f5e'}
+                    stroke={bhtScore >= 80 ? TOKENS.accent : bhtScore >= 60 ? TOKENS.caution : '#f43f5e'}
                     strokeWidth="3.5"
                     strokeDasharray={2 * Math.PI * 19}
                     strokeDashoffset={2 * Math.PI * 19 - (bhtScore / 100) * (2 * Math.PI * 19)}
@@ -216,11 +217,11 @@ export const FundamentalAnalysisCard: React.FC<FundamentalAnalysisCardProps> = (
           <div className="md:col-span-8 flex items-center justify-between p-3.5 rounded-xl border border-slate-900 bg-slate-900/30">
             <div className="flex flex-col gap-0.5">
               <span className="text-[9px] uppercase tracking-wider font-extrabold text-slate-400 flex items-center gap-1">
-                <DollarSign size={12} className="text-emerald-400" />
+                <DollarSign size={12} className="text-favorable-400" />
                 BHT Value ({locale === 'es' ? 'Valor Intrínseco' : 'Intrinsic Value'})
               </span>
               <div className="flex items-baseline gap-3 mt-0.5">
-                <span className="text-2xl font-black text-emerald-400">
+                <span className="text-2xl font-black text-favorable-400">
                   {bhtValue ? `$${bhtValue.toFixed(2)}` : 'N/A'}
                 </span>
                 <span className="text-xs text-slate-400">
@@ -228,7 +229,7 @@ export const FundamentalAnalysisCard: React.FC<FundamentalAnalysisCardProps> = (
                 </span>
               </div>
               {diffPercent !== null && (
-                <span className={`text-[10px] font-bold ${diffPercent >= 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
+                <span className={`text-[10px] font-bold ${diffPercent >= 0 ? 'text-risk-400' : 'text-favorable-400'}`}>
                   {diffPercent >= 0 ? `+${diffPercent.toFixed(1)}%` : `${diffPercent.toFixed(1)}%`} {diffPercent >= 0 ? (locale === 'es' ? 'sobre BHT Value' : 'above BHT Value') : (locale === 'es' ? 'bajo BHT Value' : 'below BHT Value')}
                 </span>
               )}
@@ -249,7 +250,7 @@ export const FundamentalAnalysisCard: React.FC<FundamentalAnalysisCardProps> = (
         {/* Section 1: Valuation & Multiples */}
         <div className="flex flex-col gap-1.5">
           <span className="text-[9.5px] uppercase font-extrabold tracking-wider text-slate-500 flex items-center gap-1">
-            <TrendingUp size={11} className="text-teal-400" />
+            <TrendingUp size={11} className="text-accent-400" />
             {locale === 'es' ? 'Valoración & Múltiples' : 'Valuation & Multiples'}
           </span>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-9 gap-1.5">
@@ -268,7 +269,7 @@ export const FundamentalAnalysisCard: React.FC<FundamentalAnalysisCardProps> = (
           {/* Rentabilidad & Dividendos (8 cols) */}
           <div className="md:col-span-8 flex flex-col gap-1.5">
             <span className="text-[9.5px] uppercase font-extrabold tracking-wider text-slate-500 flex items-center gap-1">
-              <BarChart2 size={11} className="text-teal-400" />
+              <BarChart2 size={11} className="text-accent-400" />
               {locale === 'es' ? 'Rentabilidad, Dividendos & Mercado' : 'Earnings, Dividends & Market'}
             </span>
             <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-1.5">
@@ -294,7 +295,7 @@ export const FundamentalAnalysisCard: React.FC<FundamentalAnalysisCardProps> = (
             {ticker.fiftyTwoWeekLow && ticker.fiftyTwoWeekHigh && (
               <div className="relative w-full h-1.5 bg-slate-900 rounded-full mt-1 overflow-hidden">
                 <div 
-                  className="absolute h-full bg-teal-400 rounded-full" 
+                  className="absolute h-full bg-accent-400 rounded-full" 
                   style={{
                     left: `${Math.max(0, Math.min(100, ((currentPrice - ticker.fiftyTwoWeekLow) / (ticker.fiftyTwoWeekHigh - ticker.fiftyTwoWeekLow)) * 100))}%`,
                     width: '4px',

@@ -40,13 +40,13 @@ const toBuckets = (groups: Map<number, Slot>, denom: number): Bucket[] =>
 
 function BucketPerfCells({ b }: { b: Bucket }) {
   return (<>
-    <td className={`py-1 pr-2 text-right ${b.min >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{fmtSigned(b.min)}</td>
-    <td className={`py-1 pr-2 text-right font-bold ${b.avg >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{fmtSigned(b.avg)}</td>
-    <td className={`py-1 pr-2 text-right ${b.max >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{fmtSigned(b.max)}</td>
+    <td className={`py-1 pr-2 text-right ${b.min >= 0 ? 'text-favorable-400' : 'text-risk-400'}`}>{fmtSigned(b.min)}</td>
+    <td className={`py-1 pr-2 text-right font-bold ${b.avg >= 0 ? 'text-favorable-400' : 'text-risk-400'}`}>{fmtSigned(b.avg)}</td>
+    <td className={`py-1 pr-2 text-right ${b.max >= 0 ? 'text-favorable-400' : 'text-risk-400'}`}>{fmtSigned(b.max)}</td>
     {b.y3 == null ? (
       <><td className="py-1 pr-2 text-right text-slate-600">—</td><td className="py-1 pr-2 text-right text-slate-600">—</td><td className="py-1 pr-2 text-right text-slate-600">—</td><td className="py-1 text-right text-slate-600">—</td></>
     ) : (
-      <><td className={`py-1 pr-2 text-right ${b.y3.min >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{fmtSigned(b.y3.min)}</td><td className={`py-1 pr-2 text-right font-bold ${b.y3.avg >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{fmtSigned(b.y3.avg)}</td><td className={`py-1 pr-2 text-right ${b.y3.max >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{fmtSigned(b.y3.max)}</td><td className={`py-1 text-right font-bold ${b.cagr3 != null && b.cagr3 >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{b.cagr3 == null ? '—' : fmtSigned(b.cagr3)}</td></>
+      <><td className={`py-1 pr-2 text-right ${b.y3.min >= 0 ? 'text-favorable-400' : 'text-risk-400'}`}>{fmtSigned(b.y3.min)}</td><td className={`py-1 pr-2 text-right font-bold ${b.y3.avg >= 0 ? 'text-favorable-400' : 'text-risk-400'}`}>{fmtSigned(b.y3.avg)}</td><td className={`py-1 pr-2 text-right ${b.y3.max >= 0 ? 'text-favorable-400' : 'text-risk-400'}`}>{fmtSigned(b.y3.max)}</td><td className={`py-1 text-right font-bold ${b.cagr3 != null && b.cagr3 >= 0 ? 'text-favorable-400' : 'text-risk-400'}`}>{b.cagr3 == null ? '—' : fmtSigned(b.cagr3)}</td></>
     )}
   </>);
 }
@@ -79,7 +79,7 @@ export function BhtStats() {
   const [asset, setAsset] = useState<AssetKey>('spx');
   const assetLabel = ASSETS.find((a) => a.k === asset)!.label;
   const assetNote = t(`note_${asset}`);
-  const RICH = { b: (c: React.ReactNode) => <span className="font-bold text-slate-100">{c}</span>, g: (c: React.ReactNode) => <span className="text-emerald-400 font-bold">{c}</span>, r: (c: React.ReactNode) => <span className="text-red-400 font-bold">{c}</span> };
+  const RICH = { b: (c: React.ReactNode) => <span className="font-bold text-slate-100">{c}</span>, g: (c: React.ReactNode) => <span className="text-favorable-400 font-bold">{c}</span>, r: (c: React.ReactNode) => <span className="text-risk-400 font-bold">{c}</span> };
 
   useEffect(() => {
     let alive = true;
@@ -132,7 +132,7 @@ export function BhtStats() {
         <div className="inline-flex rounded-lg border border-slate-700 bg-slate-800/60 p-0.5" title={t('assetTitle')}>
           {ASSETS.map((a) => (
             <button key={a.k} type="button" onClick={() => setAsset(a.k)}
-              className={`px-2.5 py-1 text-[11px] font-mono rounded-md transition ${asset === a.k ? 'bg-teal-500 text-white font-bold' : 'text-slate-400 hover:text-slate-200'}`}>
+              className={`px-2.5 py-1 text-[11px] font-mono rounded-md transition ${asset === a.k ? 'bg-accent-500 text-white font-bold' : 'text-slate-400 hover:text-slate-200'}`}>
               {a.label}
             </button>
           ))}

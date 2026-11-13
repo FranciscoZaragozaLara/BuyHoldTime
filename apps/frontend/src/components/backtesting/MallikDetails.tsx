@@ -3,6 +3,7 @@ import { getApiBase } from '@/lib/apiBase';
 import React, { useEffect, useState, useMemo } from 'react';
 import { Layers, Calendar, TrendingUp, ArrowUpRight, ArrowDownRight, Wallet } from 'lucide-react';
 import { useTranslations } from 'next-intl';
+import { TOKENS } from '@/lib/designTokens';
 
 
 const fmtMoney = (v: number) => `$${Number(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -30,10 +31,10 @@ function getMallikLabels(code: string | null | undefined){
 function capeRatioColor(r: number | null | undefined){
   if(r==null || isNaN(Number(r))) return 'text-slate-400';
   const v=Number(r);
-  if(v < 1.0) return 'text-emerald-400';
-  if(v < 1.15) return 'text-yellow-400';
-  if(v < 1.30) return 'text-orange-400';
-  return 'text-red-400';
+  if(v < 1.0) return 'text-favorable-400';
+  if(v < 1.15) return 'text-caution-400';
+  if(v < 1.30) return 'text-elevated-400';
+  return 'text-risk-400';
 }
 
 interface Allocation {
@@ -149,7 +150,7 @@ export function MallikDetails({ runId, strategyCode, strategyName, run, startDat
       <div className="p-6 rounded-2xl border border-slate-900 bg-slate-950/60 backdrop-blur-xl shadow-2xl flex flex-col gap-6">
         <div className="flex justify-between items-center border-b border-slate-900/60 pb-4">
           <div>
-            <h3 className="text-base font-bold text-white flex items-center gap-2"><Wallet size={18} className="text-teal-400"/> {displayName} — {startDetail || run?.startDate?.slice(0,10) || displayCode} — Asignación {labels.primary}{labels.secondary ? ` vs ${labels.secondary} vs ${labels.cash}` : ` vs ${labels.cash}`} (mensual)</h3>
+            <h3 className="text-base font-bold text-white flex items-center gap-2"><Wallet size={18} className="text-accent-400"/> {displayName} — {startDetail || run?.startDate?.slice(0,10) || displayCode} — Asignación {labels.primary}{labels.secondary ? ` vs ${labels.secondary} vs ${labels.cash}` : ` vs ${labels.cash}`} (mensual)</h3>
             <p className="text-xs text-slate-400 mt-0.5">Último día de cada mes · {monthlyAllocs.length ? monthlyAllocs.length : 187} meses · Target vs real · {loading ? 'cargando...' : `${monthlyAllocs.length} meses, ${trades.length} trades`}</p>
           </div>
         </div>
@@ -160,13 +161,13 @@ export function MallikDetails({ runId, strategyCode, strategyName, run, startDat
             const qqqPct = (a as any).qqqPct ?? Math.max(0, 1 - a.tqqqPct - a.cashPct);
             return (
             <div key={a.date} className="flex-1 flex flex-col" title={`${a.date} ${labels.primary} ${(a.tqqqPct*100).toFixed(0)}%${labels.secondary ? ` ${labels.secondary} ${(qqqPct*100).toFixed(0)}%` : ''} ${labels.cash} ${(a.cashPct*100).toFixed(0)}%`}>
-              <div style={{height: `${a.tqqqPct*100}%`, background:'#14b8a6'}}/>
+              <div style={{height: `${a.tqqqPct*100}%`, background:TOKENS.accent}}/>
               {labels.secondary && <div style={{height: `${qqqPct*100}%`, background:'#a78bfa'}}/>}
               <div style={{height: `${a.cashPct*100}%`, background:'#1e293b'}}/>
             </div>
           )})}
         </div>
-        <div className="flex gap-4 text-xs text-slate-400"><span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-teal-500 inline-block"/>{labels.primary}</span>{labels.secondary && <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-violet-500 inline-block"/>{labels.secondary}</span>}<span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-slate-700 inline-block"/>{labels.cash}</span><span className="ml-auto">{tb('last60')}</span></div>
+        <div className="flex gap-4 text-xs text-slate-400"><span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-accent-500 inline-block"/>{labels.primary}</span>{labels.secondary && <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-violet-500 inline-block"/>{labels.secondary}</span>}<span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-slate-700 inline-block"/>{labels.cash}</span><span className="ml-auto">{tb('last60')}</span></div>
 
         <div className="overflow-x-auto overflow-y-auto max-h-[520px] border border-slate-900 rounded-xl custom-scrollbar">
           <table className="w-full text-left text-xs relative">
@@ -196,7 +197,7 @@ export function MallikDetails({ runId, strategyCode, strategyName, run, startDat
                     <td className="p-3 font-semibold text-slate-200 whitespace-nowrap">{a.date.substring(0,7)}</td>
                     <td className="p-3 text-right">
                       <div className="flex items-center justify-end gap-2">
-                        <div className="w-16 h-1.5 bg-slate-800 rounded-full overflow-hidden"><div className="h-full bg-teal-500" style={{width: `${a.tqqqPct*100}%`}}/></div>
+                        <div className="w-16 h-1.5 bg-slate-800 rounded-full overflow-hidden"><div className="h-full bg-accent-500" style={{width: `${a.tqqqPct*100}%`}}/></div>
                         <span className="text-slate-100 font-semibold">{fmtPct(a.tqqqPct)}</span>
                       </div>
                     </td>
@@ -206,12 +207,12 @@ export function MallikDetails({ runId, strategyCode, strategyName, run, startDat
                     {labels.secondary && (()=>{ const qqqVal = (a as any).qqqValue ?? Math.max(0, a.portfolioValue - a.tqqqValue - cashTotal(a)); return <td className="p-3 text-right text-violet-300">{fmtMoney(qqqVal)}</td>; })()}
                     <td className="p-3 text-right text-slate-400">{fmtMoney(cashTotal(a))}</td>
                     <td className="p-3 text-right text-white font-semibold">{fmtMoney(a.portfolioValue)}</td>
-                    <td className="p-3 text-right text-teal-400">{a.targetPct!==null?fmtPct(a.targetPct):'—'}</td>
+                    <td className="p-3 text-right text-accent-400">{a.targetPct!==null?fmtPct(a.targetPct):'—'}</td>
                     <td className="p-3 text-center">
                       {monthTrades.length ? (
                         <span className="inline-flex gap-1">
-                          {buys ? <span className="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px]">{buys} BUY</span>:null}
-                          {sells ? <span className="px-1.5 py-0.5 rounded bg-rose-500/10 text-rose-400 border border-rose-500/20 text-[10px]">{sells} SELL</span>:null}
+                          {buys ? <span className="px-1.5 py-0.5 rounded bg-favorable-500/10 text-favorable-400 border border-favorable-500/20 text-[10px]">{buys} BUY</span>:null}
+                          {sells ? <span className="px-1.5 py-0.5 rounded bg-risk-500/10 text-risk-400 border border-risk-500/20 text-[10px]">{sells} SELL</span>:null}
                         </span>
                       ) : <span className="text-slate-600">—</span>}
                     </td>
@@ -258,7 +259,7 @@ export function MallikDetails({ runId, strategyCode, strategyName, run, startDat
 
       {/* Trades timeline - generic for any strategy */}
       <div className="p-6 rounded-2xl border border-slate-900 bg-slate-950/60 backdrop-blur-xl shadow-2xl flex flex-col gap-4">
-        <h3 className="text-base font-bold text-white flex items-center gap-2"><TrendingUp size={18} className="text-teal-400"/> {tb('buysSells')} <span className="text-xs font-mono text-slate-400">· {displayName} — {startDetail || run?.startDate?.slice(0,10) || displayCode}</span></h3>
+        <h3 className="text-base font-bold text-white flex items-center gap-2"><TrendingUp size={18} className="text-accent-400"/> {tb('buysSells')} <span className="text-xs font-mono text-slate-400">· {displayName} — {startDetail || run?.startDate?.slice(0,10) || displayCode}</span></h3>
         <div ref={tradesContainerRef} onScroll={(e)=>{ const el=e.currentTarget; if(el.scrollTop+el.clientHeight >= el.scrollHeight - 120 && visibleCount < trades.length){ setVisibleCount(v=> Math.min(v+50, trades.length)); } }} className="overflow-x-auto overflow-y-auto max-h-[400px] border border-slate-900 rounded-xl">
           <table className="w-full text-left text-xs">
             <thead className="bg-slate-900 text-slate-400 font-bold sticky top-0">
@@ -284,12 +285,12 @@ export function MallikDetails({ runId, strategyCode, strategyName, run, startDat
                 const ind = t.indicators || {};
                 const ticker = (t.ticker || 'TQQQ').toUpperCase();
                 const tickerStyles: Record<string,string> = {
-                  TQQQ: 'bg-teal-500/10 text-teal-300 border-teal-500/20',
+                  TQQQ: 'bg-accent-500/10 text-accent-300 border-accent-500/20',
                   QQQ: 'bg-sky-500/10 text-sky-300 border-sky-500/20',
-                  VOO: 'bg-teal-500/10 text-teal-300 border-teal-500/20',
-                  SPY: 'bg-teal-500/10 text-teal-300 border-teal-500/20',
-                  SGOV: 'bg-amber-500/10 text-amber-300 border-amber-500/20',
-                  BIL: 'bg-amber-500/10 text-amber-300 border-amber-500/20',
+                  VOO: 'bg-accent-500/10 text-accent-300 border-accent-500/20',
+                  SPY: 'bg-accent-500/10 text-accent-300 border-accent-500/20',
+                  SGOV: 'bg-caution-500/10 text-caution-300 border-caution-500/20',
+                  BIL: 'bg-caution-500/10 text-caution-300 border-caution-500/20',
                   CASH: 'bg-slate-500/10 text-slate-300 border-slate-500/20',
                 };
                 const style = tickerStyles[ticker] || 'bg-slate-500/10 text-slate-300 border-slate-500/20';
@@ -319,14 +320,14 @@ export function MallikDetails({ runId, strategyCode, strategyName, run, startDat
                   <tr key={t.id} className="hover:bg-slate-900/40">
                     <td className="p-3 text-slate-200 whitespace-nowrap">{t.datetime.substring(0,10)}</td>
                     <td className="p-3"><span className={`inline-flex items-center px-2 py-0.5 rounded border text-[10px] font-bold ${style}`}>{ticker}</span></td>
-                    <td className="p-3">{t.side==='BUY' ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"><ArrowUpRight size={10}/>BUY</span> : <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-rose-500/10 text-rose-400 border border-rose-500/20"><ArrowDownRight size={10}/>SELL</span>}</td>
+                    <td className="p-3">{t.side==='BUY' ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-favorable-500/10 text-favorable-400 border border-favorable-500/20"><ArrowUpRight size={10}/>BUY</span> : <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-risk-500/10 text-risk-400 border border-risk-500/20"><ArrowDownRight size={10}/>SELL</span>}</td>
                     <td className="p-3 text-right text-slate-100">{fmtMoney(t.price)}</td>
                     <td className="p-3 text-right text-slate-300">{Number(t.size).toLocaleString('en-US')}</td>
                     <td className="p-3 text-right text-slate-100">{fmtMoney(t.value)}</td>
-                    <td className="p-3 text-right text-teal-400">{t.targetPct!==null?fmtPct(t.targetPct):'—'}</td>
-                    <td className="p-3 text-right"><div className="flex flex-col items-end leading-tight"><span className="text-teal-300 font-medium">{alloc ? fmtMoney(tqqqVal) : '—'}</span><span className="text-[11px] text-slate-400">{alloc ? fmtPct(tqqqPct) : '—'}</span><span className="text-[10px] text-slate-500">{alloc ? fmtSh(tqqqShares) : '—'}</span></div></td>
+                    <td className="p-3 text-right text-accent-400">{t.targetPct!==null?fmtPct(t.targetPct):'—'}</td>
+                    <td className="p-3 text-right"><div className="flex flex-col items-end leading-tight"><span className="text-accent-300 font-medium">{alloc ? fmtMoney(tqqqVal) : '—'}</span><span className="text-[11px] text-slate-400">{alloc ? fmtPct(tqqqPct) : '—'}</span><span className="text-[10px] text-slate-500">{alloc ? fmtSh(tqqqShares) : '—'}</span></div></td>
                     {labels.primary==='TQQQ' && <td className="p-3 text-right"><div className="flex flex-col items-end leading-tight"><span className="text-sky-300 font-medium">{alloc ? fmtMoney(qqqVal) : '—'}</span><span className="text-[11px] text-slate-400">{alloc ? fmtPct(qqqPct) : '—'}</span><span className="text-[10px] text-slate-500">{alloc ? fmtSh(qqqShares) : '—'}</span></div></td>}
-                    <td className="p-3 text-right"><div className="flex flex-col items-end leading-tight"><span className="text-amber-300 font-medium">{alloc ? fmtMoney(sgovVal) : '—'}</span><span className="text-[11px] text-slate-400">{alloc ? fmtPct(sgovPct) : '—'}</span><span className="text-[10px] text-slate-500">{alloc ? fmtSh(sgovShares) : '—'}</span></div></td>
+                    <td className="p-3 text-right"><div className="flex flex-col items-end leading-tight"><span className="text-caution-300 font-medium">{alloc ? fmtMoney(sgovVal) : '—'}</span><span className="text-[11px] text-slate-400">{alloc ? fmtPct(sgovPct) : '—'}</span><span className="text-[10px] text-slate-500">{alloc ? fmtSh(sgovShares) : '—'}</span></div></td>
                     <td className="p-3 text-right"><div className="flex flex-col items-end leading-tight"><span className="text-slate-200 font-medium">{cashFreeVal ? fmtMoney(cashFreeVal) : '—'}</span><span className="text-[11px] text-slate-400">{cashFreePct ? fmtPct(cashFreePct) : '—'}</span><span className="text-[10px] text-slate-500">{cashFreeVal ? 'cash' : '—'}</span></div></td>
                     <td className="p-3 text-right text-white font-semibold whitespace-nowrap">{alloc ? fmtMoney(portfolioVal) : '—'}</td>
                     <td className={`p-3 text-right font-mono font-bold text-xs ${capeColor}`}>{capeVal ? Number(capeVal).toFixed(2) : '—'} {capeRatioVal!=null ? <span className="text-[10px] font-normal opacity-70">·{Number(capeRatioVal).toFixed(2)}×</span> : ''}</td>

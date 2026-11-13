@@ -46,15 +46,15 @@ export default function MarketSyncModal({ open, logs, refreshing, error, onClose
                       <td className="p-2 text-slate-300 max-w-[220px] leading-tight">{r.purpose}</td>
                       <td className="p-2"><span className="inline-flex px-2 py-0.5 rounded-full bg-slate-800 border border-slate-700 text-slate-300 text-[11px]">{r.source}</span></td>
                       <td className="p-2 font-mono text-[10px] text-slate-500 max-w-[200px] truncate" title={r.api}>{r.api}</td>
-                      <td className="p-2 text-right font-mono text-amber-300">{r.daysExtracted ?? '—'}</td>
+                      <td className="p-2 text-right font-mono text-caution-300">{r.daysExtracted ?? '—'}</td>
                       <td className="p-2 text-right font-mono text-slate-400">{r.before != null ? Number(r.before).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—'}<span className="text-slate-600 text-[10px] ml-1">{r.beforeDate ? r.beforeDate.slice(0,10) : ''}</span></td>
-                      <td className="p-2 text-right font-mono text-emerald-300">{r.after != null ? Number(r.after).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—'}<span className="text-slate-600 text-[10px] ml-1">{r.afterDate ? r.afterDate.slice(0,10) : ''}</span></td>
-                      <td className={`p-2 text-right font-mono ${r.nominal == null ? 'text-slate-500' : r.nominal >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{r.nominal != null ? `${r.nominal >= 0 ? '+' : ''}${r.nominal.toFixed(2)}` : '—'}</td>
-                      <td className={`p-2 text-right font-mono ${r.pct == null ? 'text-slate-500' : r.pct >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{r.pct != null ? `${r.pct >= 0 ? '+' : ''}${r.pct.toFixed(2)}%` : '—'}</td>
+                      <td className="p-2 text-right font-mono text-favorable-300">{r.after != null ? Number(r.after).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—'}<span className="text-slate-600 text-[10px] ml-1">{r.afterDate ? r.afterDate.slice(0,10) : ''}</span></td>
+                      <td className={`p-2 text-right font-mono ${r.nominal == null ? 'text-slate-500' : r.nominal >= 0 ? 'text-favorable-400' : 'text-risk-400'}`}>{r.nominal != null ? `${r.nominal >= 0 ? '+' : ''}${r.nominal.toFixed(2)}` : '—'}</td>
+                      <td className={`p-2 text-right font-mono ${r.pct == null ? 'text-slate-500' : r.pct >= 0 ? 'text-favorable-400' : 'text-risk-400'}`}>{r.pct != null ? `${r.pct >= 0 ? '+' : ''}${r.pct.toFixed(2)}%` : '—'}</td>
                       <td className="p-2 text-center">
-                        {r.status === 'updating' && <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[11px]"><span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" /> {t('statusUpdating')}</span>}
-                        {r.status === 'success' && <span className="inline-flex px-2 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[11px]">✓ {t('statusSuccess')}</span>}
-                        {r.status === 'error' && <span className="inline-flex px-2 py-1 rounded-full bg-red-500/20 text-red-300 border border-red-500/30 text-[11px]" title={r.error}>✕ {t('statusError')}</span>}
+                        {r.status === 'updating' && <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-caution-500/20 text-caution-300 border border-caution-500/30 text-[11px]"><span className="w-2 h-2 rounded-full bg-caution-400 animate-pulse" /> {t('statusUpdating')}</span>}
+                        {r.status === 'success' && <span className="inline-flex px-2 py-1 rounded-full bg-favorable-500/20 text-favorable-300 border border-favorable-500/30 text-[11px]">✓ {t('statusSuccess')}</span>}
+                        {r.status === 'error' && <span className="inline-flex px-2 py-1 rounded-full bg-risk-500/20 text-risk-300 border border-risk-500/30 text-[11px]" title={r.error}>✕ {t('statusError')}</span>}
                       </td>
                     </tr>
                   ))}

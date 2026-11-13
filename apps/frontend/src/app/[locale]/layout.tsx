@@ -80,7 +80,7 @@ export default async function LocaleLayout({ children, params }: Props) {
       lang={locale}
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col bg-slate-950 text-slate-100 selection:bg-teal-500 selection:text-slate-900">
+      <body className="min-h-full flex flex-col bg-slate-950 text-slate-100 selection:bg-accent-500 selection:text-slate-900">
         <NextIntlClientProvider messages={messages}>
           <QueryProvider>
             <AuthProvider>

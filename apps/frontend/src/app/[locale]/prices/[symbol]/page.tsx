@@ -15,6 +15,7 @@ import { StockValuationCalculator } from '@/components/StockValuationCalculator'
 import { StockSeoSummary } from '@/components/StockSeoSummary';
 import { JsonLd } from '@/components/JsonLd';
 import { RiskDisclaimer } from '@/components/RiskDisclaimer';
+import { TOKENS } from '@/lib/designTokens';
 import { 
   ArrowLeft, Star, TrendingUp, DollarSign, Calendar, BarChart3, 
   Activity, ShieldAlert, BadgeInfo, Scale 
@@ -299,23 +300,23 @@ export default async function TickerDetailsPage({
 
   // Gauge colors mapping
   let gaugeColor = '#f43f5e'; // Rose (default Sell)
-  let recBg = 'bg-rose-500/10 border-rose-500/30 text-rose-400';
+  let recBg = 'bg-risk-500/10 border-risk-500/30 text-risk-400';
   if (score >= 85) {
-    gaugeColor = '#10b981'; // Emerald
-    recBg = 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400';
+    gaugeColor = TOKENS.favorable; // Emerald
+    recBg = 'bg-favorable-500/10 border-favorable-500/30 text-favorable-400';
   } else if (score >= 75) {
-    gaugeColor = '#14b8a6'; // Teal
-    recBg = 'bg-teal-500/10 border-teal-500/20 text-teal-400';
+    gaugeColor = TOKENS.accent; // Teal
+    recBg = 'bg-accent-500/10 border-accent-500/20 text-accent-400';
   } else if (score >= 45) {
-    gaugeColor = '#f59e0b'; // Amber
-    recBg = 'bg-amber-500/10 border-amber-500/20 text-amber-400';
+    gaugeColor = TOKENS.caution; // Amber
+    recBg = 'bg-caution-500/10 border-caution-500/20 text-caution-400';
   } else if (score >= 30) {
-    gaugeColor = '#f97316'; // Orange
-    recBg = 'bg-orange-500/10 border-orange-500/20 text-orange-400';
+    gaugeColor = TOKENS.elevated; // Orange
+    recBg = 'bg-elevated-500/10 border-elevated-500/20 text-elevated-400';
   }
 
   const isBuy = score >= 75;
-  const changeColor = ticker.changePercent >= 0 ? 'text-emerald-400' : 'text-rose-400';
+  const changeColor = ticker.changePercent >= 0 ? 'text-favorable-400' : 'text-risk-400';
 
   return (
     <Layout>
@@ -325,7 +326,7 @@ export default async function TickerDetailsPage({
         <div>
           <Link
             href={`/${locale}/prices`}
-            className="inline-flex items-center gap-2 text-xs font-semibold text-slate-400 hover:text-teal-400 transition"
+            className="inline-flex items-center gap-2 text-xs font-semibold text-slate-400 hover:text-accent-400 transition"
           >
             <ArrowLeft size={14} />
             {locale === 'es' ? 'Volver al catálogo' : 'Return to Catalog'}
@@ -334,7 +335,7 @@ export default async function TickerDetailsPage({
 
         {/* Offline fallback message */}
         {offlineFallback && (
-          <div className="p-4 rounded-xl border border-amber-500/20 bg-amber-500/5 text-amber-400 text-xs text-center">
+          <div className="p-4 rounded-xl border border-caution-500/20 bg-caution-500/5 text-caution-400 text-xs text-center">
             {locale === 'es'
               ? '⚠️ La base de datos no tiene información disponible para este símbolo. Mostrando simulación offline.'
               : '⚠️ The database contains no records for this symbol. Displaying simulated offline data.'}
@@ -458,7 +459,7 @@ export default async function TickerDetailsPage({
                 <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
                   {tTicker('scoreTitle')}
                 </h3>
-                <Star size={14} className="fill-amber-400 stroke-amber-400" />
+                <Star size={14} className="fill-caution-400 stroke-caution-400" />
               </div>
 
               {/* SVG Speedometer */}
@@ -513,11 +514,11 @@ export default async function TickerDetailsPage({
               <div className="p-3 bg-slate-900/30 border border-slate-900/60 rounded-xl text-xs text-slate-400 leading-relaxed">
                 {locale === 'es' ? (
                   <span>
-                    Una puntuación de <strong className="text-teal-400">{score}</strong> ubica a la acción en la zona <strong>{ticker.recommendation}</strong> del modelo. En la metodología, esa zona se asocia con {isBuy ? 'condiciones históricamente favorables' : 'condiciones de mayor cautela'}; es una lectura estadística, no una recomendación.
+                    Una puntuación de <strong className="text-accent-400">{score}</strong> ubica a la acción en la zona <strong>{ticker.recommendation}</strong> del modelo. En la metodología, esa zona se asocia con {isBuy ? 'condiciones históricamente favorables' : 'condiciones de mayor cautela'}; es una lectura estadística, no una recomendación.
                   </span>
                 ) : (
                   <span>
-                    A score of <strong className="text-teal-400">{score}</strong> places this stock in the model&apos;s <strong>{ticker.recommendation}</strong> zone. In the methodology, that zone is associated with {isBuy ? 'historically favorable conditions' : 'conditions calling for more caution'}; it is a statistical reading, not a recommendation.
+                    A score of <strong className="text-accent-400">{score}</strong> places this stock in the model&apos;s <strong>{ticker.recommendation}</strong> zone. In the methodology, that zone is associated with {isBuy ? 'historically favorable conditions' : 'conditions calling for more caution'}; it is a statistical reading, not a recommendation.
                   </span>
                 )}
               </div>
@@ -575,7 +576,7 @@ export default async function TickerDetailsPage({
           <div className="p-6 rounded-2xl border border-slate-900 bg-slate-950/60 backdrop-blur-xl shadow-2xl flex flex-col gap-6">
             <div>
               <h3 className="text-base font-bold text-white flex items-center gap-2">
-                <Scale size={18} className="text-teal-400" />
+                <Scale size={18} className="text-accent-400" />
                 {locale === 'es' ? 'Simulador de Rendimientos Anuales' : 'Annual Simulated Returns Table'}
               </h3>
               <p className="text-xs text-slate-400 mt-1">
@@ -603,15 +604,15 @@ export default async function TickerDetailsPage({
                   <tbody className="divide-y divide-slate-900/60 bg-slate-950/20">
                     {annualReturns.map((item) => {
                       const alpha = item.activeReturn - item.benchmarkReturn;
-                      const alphaColor = alpha >= 0 ? 'text-emerald-400 font-bold' : 'text-slate-400';
+                      const alphaColor = alpha >= 0 ? 'text-favorable-400 font-bold' : 'text-slate-400';
                       
                       return (
                         <tr key={item.year} className="hover:bg-slate-900/20 transition-colors">
                           <td className="p-4 font-bold text-white">{item.year}</td>
-                          <td className={`p-4 font-semibold ${item.benchmarkReturn >= 0 ? 'text-emerald-400/90' : 'text-rose-400/90'}`}>
+                          <td className={`p-4 font-semibold ${item.benchmarkReturn >= 0 ? 'text-favorable-400/90' : 'text-risk-400/90'}`}>
                             {item.benchmarkReturn >= 0 ? '+' : ''}{item.benchmarkReturn.toFixed(2)}%
                           </td>
-                          <td className={`p-4 font-bold ${item.activeReturn >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                          <td className={`p-4 font-bold ${item.activeReturn >= 0 ? 'text-favorable-400' : 'text-risk-400'}`}>
                             {item.activeReturn >= 0 ? '+' : ''}{item.activeReturn.toFixed(2)}%
                           </td>
                           <td className={`p-4 text-right ${alphaColor}`}>

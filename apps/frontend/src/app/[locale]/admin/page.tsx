@@ -114,7 +114,7 @@ export default function AdminPage() {
     return (
       <Layout>
         <div className="flex items-center justify-center min-h-[60vh]">
-          <RefreshCw className="animate-spin text-teal-400" size={32} />
+          <RefreshCw className="animate-spin text-accent-400" size={32} />
         </div>
       </Layout>
     );
@@ -124,7 +124,7 @@ export default function AdminPage() {
     return (
       <Layout>
         <div className="max-w-4xl mx-auto px-4 py-20 text-center">
-          <div className="inline-flex p-4 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-400 mb-4">
+          <div className="inline-flex p-4 rounded-full bg-risk-500/10 border border-risk-500/20 text-risk-400 mb-4">
             <ShieldAlert size={48} />
           </div>
           <h1 className="text-2xl font-bold text-white mb-2">Acceso Restringido</h1>
@@ -165,7 +165,7 @@ export default function AdminPage() {
         </div>
 
         {error && (
-          <div className="p-4 mb-6 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-sm flex items-center gap-2">
+          <div className="p-4 mb-6 rounded-xl bg-risk-500/10 border border-risk-500/20 text-risk-300 text-sm flex items-center gap-2">
             <ShieldAlert size={18} />
             <span>{error}</span>
           </div>
@@ -180,7 +180,7 @@ export default function AdminPage() {
             onClick={() => setActiveTab('tickers')}
             className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer border ${
               activeTab === 'tickers'
-                ? 'bg-teal-500/10 text-teal-400 border-teal-500/30'
+                ? 'bg-accent-500/10 text-accent-400 border-accent-500/30'
                 : 'text-slate-400 hover:bg-slate-900 border-transparent'
             }`}
           >
@@ -222,12 +222,12 @@ export default function AdminPage() {
                 <tbody className="divide-y divide-slate-900/60">
                   {tickers.map((t) => (
                     <tr key={t.id} className="hover:bg-slate-900/30 transition">
-                      <td className="p-4 font-extrabold text-teal-400">{t.symbol}</td>
+                      <td className="p-4 font-extrabold text-accent-400">{t.symbol}</td>
                       <td className="p-4 font-semibold text-white">{t.name}</td>
                       <td className="p-4 font-bold text-slate-200">${t.price.toFixed(2)}</td>
-                      <td className="p-4 font-bold text-amber-400">{t.buyHoldIndex} / 100</td>
+                      <td className="p-4 font-bold text-caution-400">{t.buyHoldIndex} / 100</td>
                       <td className="p-4">
-                        <span className="px-2 py-0.5 rounded text-[10px] font-extrabold bg-teal-500/10 text-teal-400 border border-teal-500/20 uppercase">
+                        <span className="px-2 py-0.5 rounded text-[10px] font-extrabold bg-accent-500/10 text-accent-400 border border-accent-500/20 uppercase">
                           {t.recommendation}
                         </span>
                       </td>
@@ -276,7 +276,7 @@ export default function AdminPage() {
                             u.role === 'ADMIN'
                               ? 'bg-purple-500/10 text-purple-400 border-purple-500/30'
                               : u.role === 'PRO_USER'
-                              ? 'bg-amber-500/10 text-amber-400 border-amber-500/30'
+                              ? 'bg-caution-500/10 text-caution-400 border-caution-500/30'
                               : 'bg-slate-800 text-slate-300 border-slate-700'
                           }`}
                         >
@@ -288,7 +288,7 @@ export default function AdminPage() {
                           value={u.role}
                           disabled={updatingUserRole === u.id}
                           onChange={(e) => handleRoleChange(u.id, e.target.value as UserRole)}
-                          className="bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1 text-xs font-semibold text-slate-200 focus:outline-none focus:border-teal-500 cursor-pointer disabled:opacity-50"
+                          className="bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1 text-xs font-semibold text-slate-200 focus:outline-none focus:border-accent-500 cursor-pointer disabled:opacity-50"
                         >
                           <option value="FREE_USER">Free User</option>
                           <option value="PRO_USER">Premium User</option>

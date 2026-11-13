@@ -3,6 +3,7 @@ import { getApiBase } from '@/lib/apiBase';
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { createChart, ColorType, IChartApi, ISeriesApi, LineSeries } from 'lightweight-charts';
 import { useTranslations } from 'next-intl';
+import { TOKENS } from '@/lib/designTokens';
 
 
 const fmtMoney = (v: number) => `$${Number(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -96,7 +97,7 @@ export function QQQStrategyChart({ runId }: { runId: string | null }) {
       width: w, height: h,
       layout: { background: { type: ColorType.Solid, color: '#020617' }, textColor: '#94a3b8', fontSize: 11 },
       grid: { vertLines: { color: 'rgba(30,41,59,0.3)' }, horzLines: { color: 'rgba(30,41,59,0.3)' } },
-      crosshair: { mode: 1, vertLine: { color: '#14b8a6', width: 1, style: 3, labelBackgroundColor: '#14b8a6' }, horzLine: { color: '#14b8a6', width: 1, style: 3, labelBackgroundColor: '#14b8a6' } },
+      crosshair: { mode: 1, vertLine: { color: TOKENS.accent, width: 1, style: 3, labelBackgroundColor: TOKENS.accent }, horzLine: { color: TOKENS.accent, width: 1, style: 3, labelBackgroundColor: TOKENS.accent } },
       rightPriceScale: { borderColor: 'rgba(30,41,59,0.5)', scaleMargins: { top: 0.1, bottom: 0.15 } },
       timeScale: { borderColor: 'rgba(30,41,59,0.5)', rightOffset: 5, barSpacing: 2 },
       handleScroll: true,
@@ -104,8 +105,8 @@ export function QQQStrategyChart({ runId }: { runId: string | null }) {
     });
     chartRef.current = chart;
     const priceSeries = chart.addSeries(LineSeries, { color: '#e2e8f0', lineWidth: 2, title: 'QQQ' });
-    const s20Series = chart.addSeries(LineSeries, { color: '#14b8a6', lineWidth: 2, title: 'SMA20' });
-    const s250Series = chart.addSeries(LineSeries, { color: '#f59e0b', lineWidth: 2, title: 'SMA250' });
+    const s20Series = chart.addSeries(LineSeries, { color: TOKENS.accent, lineWidth: 2, title: 'SMA20' });
+    const s250Series = chart.addSeries(LineSeries, { color: TOKENS.caution, lineWidth: 2, title: 'SMA250' });
     const topSeries = chart.addSeries(LineSeries, { color: 'rgba(100,116,139,0.6)', lineWidth: 1, lineStyle: 2, title: 'BB top' });
     const botSeries = chart.addSeries(LineSeries, { color: 'rgba(100,116,139,0.6)', lineWidth: 1, lineStyle: 2, title: 'BB bot' });
     priceSeries.setData(prepared.price as any);
@@ -119,7 +120,7 @@ export function QQQStrategyChart({ runId }: { runId: string | null }) {
     const markers: any[] = trades.map(t=>({
       time: (t.datetime||'').split('T')[0],
       position: t.side==='BUY' ? 'belowBar' : 'aboveBar',
-      color: t.side==='BUY' ? '#10b981' : '#ef4444',
+      color: t.side==='BUY' ? TOKENS.favorable : TOKENS.risk,
       shape: t.side==='BUY' ? 'arrowUp' : 'arrowDown',
       text: `${t.side} ${Math.abs(Math.round(Number(t.size)))}`,
     })).filter(m=> m.time);
@@ -189,21 +190,21 @@ export function QQQStrategyChart({ runId }: { runId: string | null }) {
         <h3 className="font-semibold text-slate-100">QQQ + Medias Mallik (SMA20/250, BB 20±2) — Buy/Sell TQQQ — {rangeLabel}</h3>
         <div className="flex gap-1">
           {(['1Y','5Y','ALL'] as const).map(r=>(
-            <button key={r} onClick={()=>setTimeRange(r)} className={`px-2.5 py-1 rounded text-xs font-medium border transition-colors ${timeRange===r ? 'bg-teal-600 text-white border-teal-600' : 'bg-slate-800 text-slate-400 border-slate-700 hover:border-slate-600'}`}>{r}</button>
+            <button key={r} onClick={()=>setTimeRange(r)} className={`px-2.5 py-1 rounded text-xs font-medium border transition-colors ${timeRange===r ? 'bg-accent-600 text-white border-accent-600' : 'bg-slate-800 text-slate-400 border-slate-700 hover:border-slate-600'}`}>{r}</button>
           ))}
         </div>
       </div>
       <div className="relative w-full h-[420px] overflow-visible">
         <div ref={containerRef} className="w-full h-full" />
         {tooltip && (
-          <div className="absolute z-50 pointer-events-none bg-slate-900 border border-teal-500/60 rounded-lg px-3 py-2 text-xs shadow-xl ring-1 ring-teal-500/20 min-w-[320px] max-w-[340px]" style={{ left: tooltip.x, top: tooltip.y }}>
+          <div className="absolute z-50 pointer-events-none bg-slate-900 border border-accent-500/60 rounded-lg px-3 py-2 text-xs shadow-xl ring-1 ring-accent-500/20 min-w-[320px] max-w-[340px]" style={{ left: tooltip.x, top: tooltip.y }}>
             <div className="font-semibold text-slate-100 mb-1">{new Date(tooltip.date).toLocaleDateString('es-ES', { day:'2-digit', month:'short', year:'numeric' })} — QQQ {tooltip.qClose ? fmtMoney(tooltip.qClose) : '—'}</div>
             <div className="grid grid-cols-2 gap-x-3 text-[11px] leading-4">
-              <span className="text-slate-400">SMA20</span><span className="text-teal-400 font-mono">{tooltip.s20 ? tooltip.s20.toFixed(2) : '—'}</span>
-              <span className="text-slate-400">SMA250</span><span className="text-amber-400 font-mono">{tooltip.s250 ? tooltip.s250.toFixed(2) : '—'}</span>
+              <span className="text-slate-400">SMA20</span><span className="text-accent-400 font-mono">{tooltip.s20 ? tooltip.s20.toFixed(2) : '—'}</span>
+              <span className="text-slate-400">SMA250</span><span className="text-caution-400 font-mono">{tooltip.s250 ? tooltip.s250.toFixed(2) : '—'}</span>
               {tooltip.alloc && (<>
                 <span className="text-slate-400">{tb('portfolio')}</span><span className="font-mono text-white">{fmtMoney(tooltip.alloc.portfolioValue)} · TQQQ {fmtPct(tooltip.alloc.tqqqPct)} / Cash {fmtPct(tooltip.alloc.cashPct)}</span>
-                <span className="text-slate-400">{tb('target')}</span><span className="font-mono text-teal-400">{tooltip.alloc.targetPct!==null?fmtPct(tooltip.alloc.targetPct):'—'}</span>
+                <span className="text-slate-400">{tb('target')}</span><span className="font-mono text-accent-400">{tooltip.alloc.targetPct!==null?fmtPct(tooltip.alloc.targetPct):'—'}</span>
                 <span className="text-slate-400 col-span-2 mt-1 text-slate-300">QQQ dist {tooltip.alloc.indicators?.dist_pct}% · ddQ {tooltip.alloc.indicators?.dd_qqq_pct}% · {tooltip.alloc.indicators?.bull_trend?'bull':'bear'} {tooltip.alloc.indicators?.breakout_up?'BO↑':''}{tooltip.alloc.indicators?.breakout_down?'BO↓':''}</span>
               </>)}
             </div>
@@ -211,7 +212,7 @@ export function QQQStrategyChart({ runId }: { runId: string | null }) {
               <div className="mt-2 pt-2 border-t border-slate-800 space-y-1">
                 {tooltip.trades.map((t:any,i:number)=>(
                   <div key={i} className="flex justify-between items-center">
-                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold border ${t.side==='BUY'?'bg-emerald-500/10 text-emerald-400 border-emerald-500/20':'bg-rose-500/10 text-rose-400 border-rose-500/20'}`}>{t.side} {Math.abs(Math.round(Number(t.size)))} @ {fmtMoney(Number(t.price))}</span>
+                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold border ${t.side==='BUY'?'bg-favorable-500/10 text-favorable-400 border-favorable-500/20':'bg-risk-500/10 text-risk-400 border-risk-500/20'}`}>{t.side} {Math.abs(Math.round(Number(t.size)))} @ {fmtMoney(Number(t.price))}</span>
                     <span className="font-mono text-white text-[11px]">{fmtMoney(Number(t.value))} → {fmtPct(Number(t.targetPct))}</span>
                   </div>
                 ))}
@@ -225,11 +226,11 @@ export function QQQStrategyChart({ runId }: { runId: string | null }) {
       </div>
       <div className="flex flex-wrap gap-3 mt-2 text-xs">
         <span className="flex items-center gap-1.5"><span className="w-3 h-0.5 rounded bg-slate-200"/>QQQ</span>
-        <span className="flex items-center gap-1.5"><span className="w-3 h-0.5 rounded bg-teal-500"/>SMA20</span>
-        <span className="flex items-center gap-1.5"><span className="w-3 h-0.5 rounded bg-amber-500"/>SMA250</span>
+        <span className="flex items-center gap-1.5"><span className="w-3 h-0.5 rounded bg-accent-500"/>SMA20</span>
+        <span className="flex items-center gap-1.5"><span className="w-3 h-0.5 rounded bg-caution-500"/>SMA250</span>
         <span className="flex items-center gap-1.5"><span className="w-3 h-0.5 rounded bg-slate-600 border border-dashed border-slate-500"/>BB 20±2</span>
-        <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-500"/>BUY</span>
-        <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-rose-500"/>SELL</span>
+        <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-favorable-500"/>BUY</span>
+        <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-risk-500"/>SELL</span>
         <span className="ml-auto text-slate-500">{tb('qqqZoomHint')}</span>
       </div>
     </div>

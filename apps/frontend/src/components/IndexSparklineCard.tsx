@@ -29,11 +29,11 @@ export const IndexSparklineCard: React.FC<IndexSparklineCardProps> = ({
   const getBadgeClass = () => {
     switch (badgeType) {
       case 'success':
-        return 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20';
+        return 'bg-favorable-500/10 text-favorable-400 border-favorable-500/20';
       case 'warning':
-        return 'bg-amber-500/10 text-amber-400 border-amber-500/20';
+        return 'bg-caution-500/10 text-caution-400 border-caution-500/20';
       case 'error':
-        return 'bg-rose-500/10 text-rose-400 border-rose-500/20';
+        return 'bg-risk-500/10 text-risk-400 border-risk-500/20';
       case 'info':
       default:
         return 'bg-blue-500/10 text-blue-400 border-blue-500/20';

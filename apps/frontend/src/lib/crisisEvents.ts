@@ -1,3 +1,4 @@
+import { TOKENS } from './designTokens';
 // Grandes crisis 1990→hoy calculadas de nuestra serie ^GSPC (cierres, caídas >20%).
 // Pico/suelo verificados contra btMarketData el 2026-09-09. No editar a mano:
 // si se recalculan, regenerar con el script de drawdowns sobre ^GSPC + ^IXIC.
@@ -35,7 +36,7 @@ export const CRISIS_EVENTS: CrisisEvent[] = [
     id: 'gfc',
     name: 'Crisis financiera 2008',
     icon: '🏦',
-    color: '#ef4444',
+    color: TOKENS.risk,
     peakDate: '2007-10-09',
     peakSpx: 1565.15,
     peakNdx: 2804,
@@ -49,7 +50,7 @@ export const CRISIS_EVENTS: CrisisEvent[] = [
     id: 'covid',
     name: 'Crash COVID-19',
     icon: '🦠',
-    color: '#f59e0b',
+    color: TOKENS.caution,
     peakDate: '2020-02-19',
     peakSpx: 3386.15,
     peakNdx: 9817,

@@ -53,7 +53,7 @@ function GroupedMetricsTable({ grouped, selectedStartDate, selected, onRunAndSee
     if(sortKey===k) setSortDir(d=> d==='asc'?'desc':'asc');
     else { setSortKey(k); setSortDir(k==='strategy'?'asc':'desc'); }
   };
-  const Arrow=({active,dir}:{active:boolean,dir:'asc'|'desc'})=> <span className={`ml-1 text-[10px] ${active?'text-teal-400':'text-slate-600'}`}>{active ? (dir==='asc'?'▲':'▼') : '↕'}</span>;
+  const Arrow=({active,dir}:{active:boolean,dir:'asc'|'desc'})=> <span className={`ml-1 text-[10px] ${active?'text-accent-400':'text-slate-600'}`}>{active ? (dir==='asc'?'▲':'▼') : '↕'}</span>;
   const thClass='p-2 font-medium cursor-pointer select-none hover:text-slate-200 transition-colors';
   const filtered = grouped.filter((g:any)=> selected.includes(g.strategy.code));
   const baseDisplay = filtered.length ? filtered : grouped.filter((g:any)=> selected.includes(g.strategy.code));
@@ -117,14 +117,14 @@ function GroupedMetricsTable({ grouped, selectedStartDate, selected, onRunAndSee
                 <td className="p-2 text-right text-slate-200">{na? 'NA' : fmtPct(m?.totalReturn)}</td>
                 <td className="p-2 text-right text-slate-200">{na? 'NA' : (m?.sharpe?.toFixed(2) ?? 'NA')}</td>
                 <td className="p-2 text-right text-slate-200">{na? 'NA' : fmtPct(m?.maxDrawdown)}</td>
-                <td className="p-2 text-right font-mono text-emerald-300">{na? 'NA' : ((g.run as any)?.tradesCount ?? m?.numTrades ?? 'NA')}</td>
-                <td className="p-2 text-right font-mono text-emerald-300">{na? 'NA' : (()=>{ const c=(g.run as any)?.tradesCount ?? m?.numTrades ?? 0; const days=g.run?.startDate && g.run?.endDate ? Math.max(1, Math.round((new Date(g.run.endDate).getTime()-new Date(g.run.startDate).getTime())/86400000)) : 0; const y=days/365.25; return y>0 ? (c/y).toFixed(2) : '—'; })()}</td>
+                <td className="p-2 text-right font-mono text-favorable-300">{na? 'NA' : ((g.run as any)?.tradesCount ?? m?.numTrades ?? 'NA')}</td>
+                <td className="p-2 text-right font-mono text-favorable-300">{na? 'NA' : (()=>{ const c=(g.run as any)?.tradesCount ?? m?.numTrades ?? 0; const days=g.run?.startDate && g.run?.endDate ? Math.max(1, Math.round((new Date(g.run.endDate).getTime()-new Date(g.run.startDate).getTime())/86400000)) : 0; const y=days/365.25; return y>0 ? (c/y).toFixed(2) : '—'; })()}</td>
                 <td className="p-2 text-right font-mono text-slate-100">{na? 'NA' : fmtMoney(m?.finalValue)}</td>
                 <td className="p-2 text-right">
-                  {unable ? <span className="px-3 py-1 rounded-full bg-orange-500/20 text-orange-400 border border-orange-500/30 text-xs">{tb('notAvailable')}</span>
+                  {unable ? <span className="px-3 py-1 rounded-full bg-elevated-500/20 text-elevated-400 border border-elevated-500/30 text-xs">{tb('notAvailable')}</span>
                    : na && !isAdmin ? <span className="text-xs text-slate-500">—</span>
-                   : na ? <button onClick={()=>handle(g.strategy.code)} disabled={!!seeding} className="px-3 py-1 rounded-lg bg-teal-600 hover:bg-teal-500 text-white text-xs disabled:opacity-50">{seeding===g.strategy.code?'Seeding...':'Run & Seed'}</button>
-                   : <span className="text-xs text-teal-400">✓ {fmtMoney(m?.finalValue)}</span>}
+                   : na ? <button onClick={()=>handle(g.strategy.code)} disabled={!!seeding} className="px-3 py-1 rounded-lg bg-accent-600 hover:bg-accent-500 text-white text-xs disabled:opacity-50">{seeding===g.strategy.code?'Seeding...':'Run & Seed'}</button>
+                   : <span className="text-xs text-accent-400">✓ {fmtMoney(m?.finalValue)}</span>}
                 </td>
               </tr>
             )
@@ -216,7 +216,7 @@ function SingleStrategyHistoryTable({ strategies, startDates, onCodeChange, exte
     return Math.max(0, Math.round((e.getTime()-s.getTime())/86400000));
   };
   const toggle=(k: typeof sortKey)=>{ if(sortKey===k) setSortDir(d=> d==='asc'?'desc':'asc'); else { setSortKey(k); setSortDir(k==='startDate'?'asc':'desc'); } };
-  const Arrow=({active,dir}:{active:boolean,dir:'asc'|'desc'})=> <span className={`ml-1 text-[10px] ${active?'text-teal-400':'text-slate-600'}`}>{active ? (dir==='asc'?'▲':'▼') : '↕'}</span>;
+  const Arrow=({active,dir}:{active:boolean,dir:'asc'|'desc'})=> <span className={`ml-1 text-[10px] ${active?'text-accent-400':'text-slate-600'}`}>{active ? (dir==='asc'?'▲':'▼') : '↕'}</span>;
   const thClass='p-2 font-medium cursor-pointer select-none hover:text-slate-200 transition-colors';
   const sorted=[...runs].sort((a:any,b:any)=>{
     const get=(r:any)=>{
@@ -261,12 +261,12 @@ function SingleStrategyHistoryTable({ strategies, startDates, onCodeChange, exte
       </div>
       <div className="bg-slate-800/60 border border-slate-700 rounded-lg px-3 py-2 mb-3 flex flex-wrap gap-x-6 gap-y-1 text-xs">
         <span className="text-slate-400">{tb('current')} <span className="text-slate-500">{tb('mostRecent')}</span>:</span>
-        <span className="font-mono font-semibold text-emerald-400">CAPE {latest.cape!=null? latest.cape.toFixed(2):'—'}</span>
-        <span className="font-mono font-semibold text-emerald-400">Ratio {latest.ratio!=null? latest.ratio.toFixed(3):'—'}</span>
-        <span className="font-mono font-semibold text-emerald-400">TQQQ {latest.tqqq!=null? `$${latest.tqqq.toFixed(2)}`:'—'} <span className="text-slate-500 font-normal">{latest.tqqqDate||''}</span></span>
+        <span className="font-mono font-semibold text-favorable-400">CAPE {latest.cape!=null? latest.cape.toFixed(2):'—'}</span>
+        <span className="font-mono font-semibold text-favorable-400">Ratio {latest.ratio!=null? latest.ratio.toFixed(3):'—'}</span>
+        <span className="font-mono font-semibold text-favorable-400">TQQQ {latest.tqqq!=null? `$${latest.tqqq.toFixed(2)}`:'—'} <span className="text-slate-500 font-normal">{latest.tqqqDate||''}</span></span>
         <span className="text-slate-600">|</span>
         <span className="text-slate-400">{tb('athColon')} <span className="text-slate-200 font-mono">{maxInfo? `$${maxInfo.price.toFixed(2)} @ ${maxInfo.date}`:'—'}</span></span>
-        <span className={`font-mono font-semibold ${maxInfo?.pct!=null && maxInfo.pct<0? 'text-amber-400':'text-emerald-400'}`}>{maxInfo?.pct!=null? tb('fromAth', { pct: `${maxInfo.pct>=0?'+':''}${maxInfo.pct.toFixed(2)}` }):'—'}</span>
+        <span className={`font-mono font-semibold ${maxInfo?.pct!=null && maxInfo.pct<0? 'text-caution-400':'text-favorable-400'}`}>{maxInfo?.pct!=null? tb('fromAth', { pct: `${maxInfo.pct>=0?'+':''}${maxInfo.pct.toFixed(2)}` }):'—'}</span>
       </div>
       <p className="text-xs text-slate-500 mb-3">{tb('historyHint')}</p>
       {loading? <div className="text-xs text-slate-500 py-6 text-center">{tb('loadingRuns')}</div> :
@@ -316,8 +316,8 @@ function SingleStrategyHistoryTable({ strategies, startDates, onCodeChange, exte
                 <td className="p-2 text-right text-slate-200">{fmtPct(m?.maxDrawdown)}</td>
                 <td className="p-2 text-right text-slate-200">{m?.numTrades ?? '—'}</td>
                 <td className="p-2 text-right font-mono text-slate-100">{fmtMoney(m?.finalValue)}</td>
-                <td className="p-2 text-right font-mono text-emerald-300">{ordenesTot}</td>
-                <td className="p-2 text-right font-mono text-emerald-300">{ordenesTot? ordenesAnio.toFixed(2):'—'}</td>
+                <td className="p-2 text-right font-mono text-favorable-300">{ordenesTot}</td>
+                <td className="p-2 text-right font-mono text-favorable-300">{ordenesTot? ordenesAnio.toFixed(2):'—'}</td>
               </tr>
             )
           })}
@@ -602,10 +602,10 @@ export function BacktestingClient({ initialStrategies, initialRuns }: { initialS
         <RiskDisclaimer variant="backtest" className="mt-1" />
       </div>
       <div className="flex gap-1 p-1 bg-slate-900 border border-slate-800 rounded-xl w-fit">
-        <button onClick={()=>setActiveTab('estrategias')} className={`px-5 py-2 rounded-lg text-sm font-medium transition ${activeTab==='estrategias' ? 'bg-slate-800 text-teal-400 border border-slate-700' : 'text-slate-400 hover:text-slate-200'}`}>{t('tabs.estrategias')}</button>
-        <button onClick={()=>setActiveTab('indicadores')} className={`px-5 py-2 rounded-lg text-sm font-medium transition ${activeTab==='indicadores' ? 'bg-slate-800 text-teal-400 border border-slate-700' : 'text-slate-400 hover:text-slate-200'}`}>{t('tabs.indicadores')}</button>
-        <button onClick={()=>setActiveTab('regimes')} className={`px-5 py-2 rounded-lg text-sm font-medium transition ${activeTab==='regimes' ? 'bg-slate-800 text-teal-400 border border-slate-700' : 'text-slate-400 hover:text-slate-200'}`}>{t('tabs.regimes')}</button>
-        <button onClick={()=>setActiveTab('calculadora')} className={`px-5 py-2 rounded-lg text-sm font-medium transition ${activeTab==='calculadora' ? 'bg-slate-800 text-teal-400 border border-slate-700' : 'text-slate-400 hover:text-slate-200'}`}>{t('tabs.calculadora')}</button>
+        <button onClick={()=>setActiveTab('estrategias')} className={`px-5 py-2 rounded-lg text-sm font-medium transition ${activeTab==='estrategias' ? 'bg-slate-800 text-accent-400 border border-slate-700' : 'text-slate-400 hover:text-slate-200'}`}>{t('tabs.estrategias')}</button>
+        <button onClick={()=>setActiveTab('indicadores')} className={`px-5 py-2 rounded-lg text-sm font-medium transition ${activeTab==='indicadores' ? 'bg-slate-800 text-accent-400 border border-slate-700' : 'text-slate-400 hover:text-slate-200'}`}>{t('tabs.indicadores')}</button>
+        <button onClick={()=>setActiveTab('regimes')} className={`px-5 py-2 rounded-lg text-sm font-medium transition ${activeTab==='regimes' ? 'bg-slate-800 text-accent-400 border border-slate-700' : 'text-slate-400 hover:text-slate-200'}`}>{t('tabs.regimes')}</button>
+        <button onClick={()=>setActiveTab('calculadora')} className={`px-5 py-2 rounded-lg text-sm font-medium transition ${activeTab==='calculadora' ? 'bg-slate-800 text-accent-400 border border-slate-700' : 'text-slate-400 hover:text-slate-200'}`}>{t('tabs.calculadora')}</button>
       </div>
       {activeTab==='estrategias' && (
         <>

@@ -23,7 +23,7 @@ export function DataOpsCard() {
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
           <h2 className="flex items-center gap-2 text-base font-bold text-white">
-            <DatabaseZap size={18} className="text-teal-400" /> Operaciones de datos
+            <DatabaseZap size={18} className="text-accent-400" /> Operaciones de datos
           </h2>
           <p className="mt-1 max-w-3xl text-xs leading-relaxed text-slate-400">
             Sincroniza precios, series FRED, CAPE Shiller, termómetro (BHT) y BHT forward. Corre solo cada día
@@ -34,7 +34,7 @@ export function DataOpsCard() {
         <button
           onClick={() => sync.start(getApiBase())}
           disabled={sync.refreshing}
-          className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-teal-600 px-4 py-2 text-xs font-bold text-white transition hover:bg-teal-500 disabled:bg-slate-700 disabled:text-slate-400"
+          className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-accent-600 px-4 py-2 text-xs font-bold text-white transition hover:bg-accent-500 disabled:bg-slate-700 disabled:text-slate-400"
         >
           <span className={sync.refreshing ? 'inline-block h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white' : ''}>{sync.refreshing ? '' : '↻'}</span>
           {sync.refreshing ? 'Sincronizando…' : 'Sincronizar mercado'}

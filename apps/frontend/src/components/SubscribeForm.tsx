@@ -31,7 +31,7 @@ export const SubscribeForm: React.FC = () => {
 
   if (success) {
     return (
-      <div className="flex flex-col items-center gap-3 text-emerald-400 p-6 rounded-2xl bg-emerald-500/5 border border-emerald-500/10 w-full max-w-lg transition duration-300">
+      <div className="flex flex-col items-center gap-3 text-favorable-400 p-6 rounded-2xl bg-favorable-500/5 border border-favorable-500/10 w-full max-w-lg transition duration-300">
         <CheckCircle2 size={44} className="stroke-[1.5]" />
         <h3 className="text-lg font-bold">{t('subscribeSuccess')}</h3>
         <p className="text-sm text-slate-400 text-center">
@@ -44,7 +44,7 @@ export const SubscribeForm: React.FC = () => {
   return (
     <div className="w-full max-w-lg bg-slate-900/40 border border-slate-900 rounded-3xl p-6 sm:p-10 shadow-2xl relative overflow-hidden backdrop-blur-sm">
       <div className="flex flex-col items-center gap-6 text-center">
-        <div className="bg-teal-500/10 p-4 rounded-full text-teal-400">
+        <div className="bg-accent-500/10 p-4 rounded-full text-accent-400">
           <Mail size={32} className="stroke-[1.5]" />
         </div>
         
@@ -64,7 +64,7 @@ export const SubscribeForm: React.FC = () => {
               onChange={(e) => setName(e.target.value)}
               required
               disabled={loading}
-              className="px-4 py-3 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 placeholder-slate-500 focus:outline-none focus:border-teal-500 transition-colors disabled:opacity-50 text-sm"
+              className="px-4 py-3 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 placeholder-slate-500 focus:outline-none focus:border-accent-500 transition-colors disabled:opacity-50 text-sm"
             />
             <input
               type="email"
@@ -73,12 +73,12 @@ export const SubscribeForm: React.FC = () => {
               onChange={(e) => setEmail(e.target.value)}
               required
               disabled={loading}
-              className="px-4 py-3 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 placeholder-slate-500 focus:outline-none focus:border-teal-500 transition-colors disabled:opacity-50 text-sm"
+              className="px-4 py-3 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 placeholder-slate-500 focus:outline-none focus:border-accent-500 transition-colors disabled:opacity-50 text-sm"
             />
           </div>
 
           {error && (
-            <p className="text-xs font-semibold text-rose-400 text-left px-1">
+            <p className="text-xs font-semibold text-risk-400 text-left px-1">
               ⚠️ {error}
             </p>
           )}
@@ -86,7 +86,7 @@ export const SubscribeForm: React.FC = () => {
           <button 
             type="submit" 
             disabled={loading}
-            className="flex items-center justify-center gap-2 h-12 rounded-xl text-sm font-bold text-slate-950 bg-teal-400 hover:bg-teal-300 active:scale-[0.98] transition disabled:opacity-50 cursor-pointer"
+            className="flex items-center justify-center gap-2 h-12 rounded-xl text-sm font-bold text-slate-950 bg-accent-400 hover:bg-accent-300 active:scale-[0.98] transition disabled:opacity-50 cursor-pointer"
           >
             {loading ? (
               <Loader2 size={18} className="animate-spin text-slate-950" />

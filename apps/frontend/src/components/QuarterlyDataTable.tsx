@@ -279,7 +279,7 @@ export const QuarterlyDataTable: React.FC<QuarterlyDataTableProps> = ({ ticker, 
       <div className="flex justify-between items-center flex-wrap gap-4 border-b border-slate-900/60 pb-4">
         <div>
           <h3 className="text-base font-bold text-white flex items-center gap-2">
-            <Layers size={18} className="text-teal-400" />
+            <Layers size={18} className="text-accent-400" />
             {isFund 
               ? (locale === 'es' ? 'Historial de Dividendos y Valuación Trimestral' : 'Quarterly Dividend History & Valuation')
               : (locale === 'es' ? 'Detalle de Estados Trimestrales (BD)' : 'Quarterly Financial Statements Details (DB)')}
@@ -301,7 +301,7 @@ export const QuarterlyDataTable: React.FC<QuarterlyDataTableProps> = ({ ticker, 
             <button
               onClick={() => handleFilterChange('all')}
               className={`px-3 py-1.5 rounded-md transition cursor-pointer ${
-                filterSource === 'all' ? 'bg-slate-800 text-teal-400' : 'text-slate-400 hover:text-slate-200'
+                filterSource === 'all' ? 'bg-slate-800 text-accent-400' : 'text-slate-400 hover:text-slate-200'
               }`}
             >
               {locale === 'es' ? 'Todos' : 'All'} ({activeQuarters.length})
@@ -318,10 +318,10 @@ export const QuarterlyDataTable: React.FC<QuarterlyDataTableProps> = ({ ticker, 
             <button
               onClick={() => handleFilterChange('estimated')}
               className={`px-3 py-1.5 rounded-md transition cursor-pointer flex items-center gap-1 ${
-                filterSource === 'estimated' ? 'bg-slate-800 text-amber-400' : 'text-slate-400 hover:text-slate-200'
+                filterSource === 'estimated' ? 'bg-slate-800 text-caution-400' : 'text-slate-400 hover:text-slate-200'
               }`}
             >
-              <span className="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
+              <span className="w-1.5 h-1.5 rounded-full bg-caution-400"></span>
               {locale === 'es' ? 'Estimados' : 'Estimated'} ({activeQuarters.filter(q => !isRealSource(q)).length})
             </button>
           </div>
@@ -371,7 +371,7 @@ export const QuarterlyDataTable: React.FC<QuarterlyDataTableProps> = ({ ticker, 
                       {formatDate(q.date)}
                     </td>
                     <td className="p-4 text-slate-300 font-sans font-semibold">
-                      <span className="bg-slate-900 border border-slate-800 rounded px-1.5 py-0.5 mr-1 text-[10px] text-teal-400 uppercase">
+                      <span className="bg-slate-900 border border-slate-800 rounded px-1.5 py-0.5 mr-1 text-[10px] text-accent-400 uppercase">
                         {q.period}
                       </span>
                       {q.fiscalYear}
@@ -379,19 +379,19 @@ export const QuarterlyDataTable: React.FC<QuarterlyDataTableProps> = ({ ticker, 
                     <td className="p-4 text-right text-slate-100 font-bold">
                       {q.quarterPrice ? `$${q.quarterPrice.toFixed(2)}` : 'N/A'}
                     </td>
-                    <td className="p-4 text-right text-teal-400 font-bold">
+                    <td className="p-4 text-right text-accent-400 font-bold">
                       {q.dividendPaid > 0 ? `$${q.dividendPaid.toFixed(4)}` : '$0.0000'}
                     </td>
                     <td className="p-4 text-right text-slate-200">
                       {q.ttmDividend > 0 ? `$${q.ttmDividend.toFixed(4)}` : '$0.0000'}
                     </td>
-                    <td className="p-4 text-right text-emerald-400 font-bold">
+                    <td className="p-4 text-right text-favorable-400 font-bold">
                       {q.divYield > 0 ? `${q.divYield.toFixed(2)}%` : '0.00%'}
                     </td>
                     <td className="p-4 text-right text-slate-300">
                       {q.estEps !== undefined && q.estEps !== null ? `$${q.estEps.toFixed(2)}` : 'N/A'}
                     </td>
-                    <td className="p-4 text-right text-amber-400 font-bold">
+                    <td className="p-4 text-right text-caution-400 font-bold">
                       {q.peRatio > 0 ? `${q.peRatio.toFixed(1)}x` : 'N/A'}
                     </td>
                     <td className="p-4 text-center">
@@ -400,7 +400,7 @@ export const QuarterlyDataTable: React.FC<QuarterlyDataTableProps> = ({ ticker, 
                           <Database size={8} /> {locale === 'es' ? 'DATO REAL' : 'REAL DATA'}
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 text-[9px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded px-2 py-0.5">
+                        <span className="inline-flex items-center gap-1 text-[9px] font-bold bg-caution-500/10 text-caution-400 border border-caution-500/20 rounded px-2 py-0.5">
                           <Activity size={8} /> {locale === 'es' ? 'FONDO / ESTIMADO' : 'FUND / ESTIMATED'}
                         </span>
                       )}
@@ -424,11 +424,11 @@ export const QuarterlyDataTable: React.FC<QuarterlyDataTableProps> = ({ ticker, 
                   <td className="p-4 font-sans font-bold text-white whitespace-nowrap">
                     {formatDate(q.date)}
                   </td>
-                  <td className="p-4 font-sans text-xs text-teal-400 font-semibold whitespace-nowrap">
+                  <td className="p-4 font-sans text-xs text-accent-400 font-semibold whitespace-nowrap">
                     {q.filedDate ? formatDate(q.filedDate) : 'N/A'}
                   </td>
                   <td className="p-4 text-slate-300 font-sans font-semibold">
-                    <span className="bg-slate-900 border border-slate-800 rounded px-1.5 py-0.5 mr-1 text-[10px] text-teal-400 uppercase">
+                    <span className="bg-slate-900 border border-slate-800 rounded px-1.5 py-0.5 mr-1 text-[10px] text-accent-400 uppercase">
                       {q.period}
                     </span>
                     {q.fiscalYear}
@@ -445,10 +445,10 @@ export const QuarterlyDataTable: React.FC<QuarterlyDataTableProps> = ({ ticker, 
                   <td className="p-4 text-right text-slate-300 font-bold">
                     {formatCurrency(q.netIncome)}
                   </td>
-                  <td className="p-4 text-right text-emerald-400/90">
+                  <td className="p-4 text-right text-favorable-400/90">
                     {netMargin > 0 ? `${netMargin.toFixed(1)}%` : '0.0%'}
                   </td>
-                  <td className="p-4 text-right text-teal-400 font-bold">
+                  <td className="p-4 text-right text-accent-400 font-bold">
                     {q.eps !== undefined && q.eps !== null ? `$${q.eps.toFixed(2)}` : 'N/A'}
                   </td>
                   <td className="p-4 text-right text-slate-200 font-semibold">
@@ -464,14 +464,14 @@ export const QuarterlyDataTable: React.FC<QuarterlyDataTableProps> = ({ ticker, 
                         target="_blank"
                         rel="noopener noreferrer"
                         title={locale === 'es' ? 'Abrir reporte oficial en SEC EDGAR (Pestaña nueva)' : 'Open official SEC EDGAR filing (New tab)'}
-                        className="inline-flex items-center gap-1 text-[9px] font-extrabold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30 hover:border-emerald-400 hover:text-emerald-300 transition-all rounded px-2 py-0.5 group cursor-pointer shadow-sm"
+                        className="inline-flex items-center gap-1 text-[9px] font-extrabold bg-favorable-500/15 text-favorable-400 border border-favorable-500/30 hover:bg-favorable-500/30 hover:border-favorable-400 hover:text-favorable-300 transition-all rounded px-2 py-0.5 group cursor-pointer shadow-sm"
                       >
                         <Database size={8} className="group-hover:scale-110 transition-transform" />
                         {locale === 'es' ? 'SEC EDGAR' : 'SEC EDGAR'}
                         <ExternalLink size={7} className="ml-0.5 opacity-70 group-hover:opacity-100 transition-opacity" />
                       </a>
                     ) : (
-                      <span className="inline-flex items-center gap-1 text-[9px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded px-2 py-0.5">
+                      <span className="inline-flex items-center gap-1 text-[9px] font-bold bg-caution-500/10 text-caution-400 border border-caution-500/20 rounded px-2 py-0.5">
                         <BarChart3 size={8} /> {locale === 'es' ? 'ESTIMADO' : 'ESTIMATED'}
                       </span>
                     )}

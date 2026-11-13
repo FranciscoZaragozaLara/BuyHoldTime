@@ -29,8 +29,8 @@ export type RegimeLive = { date: string; r1: RegimeLiveR1; r2: RegimeLiveR2; r3:
 
 const fmt = (v: any, d = 2) => v != null && isFinite(Number(v)) ? Number(v).toFixed(d) : '—';
 // Resaltado de valores vivos: actual verde (seguro) / rojo (disparado), umbral naranja, diferencial azul.
-const vAct = (hit: boolean|null) => `font-mono font-semibold ${hit == null ? 'text-slate-400' : hit ? 'text-red-400' : 'text-emerald-400'}`;
-const vThr = 'font-mono font-semibold text-amber-300';
+const vAct = (hit: boolean|null) => `font-mono font-semibold ${hit == null ? 'text-slate-400' : hit ? 'text-risk-400' : 'text-favorable-400'}`;
+const vThr = 'font-mono font-semibold text-caution-300';
 const vGap = 'font-mono font-semibold text-sky-300';
 // Diferencial en lenguaje natural: cuánto falta (+) o cuánto sobra (−) respecto al umbral.
 const gapTxt = (v: number|null, thr: number|null, unit = '') => {
@@ -41,9 +41,9 @@ const gapTxt = (v: number|null, thr: number|null, unit = '') => {
 };
 
 function LiveLine({ tone, icon, children }: { tone: 'ok'|'warn'|'bad'|'idle'|'lock'; icon: string; children: ReactNode }) {
-  const cls = tone === 'ok' ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200'
-    : tone === 'warn' ? 'border-amber-500/30 bg-amber-500/10 text-amber-200'
-    : tone === 'bad' ? 'border-red-500/30 bg-red-500/10 text-red-200'
+  const cls = tone === 'ok' ? 'border-favorable-500/30 bg-favorable-500/10 text-favorable-200'
+    : tone === 'warn' ? 'border-caution-500/30 bg-caution-500/10 text-caution-200'
+    : tone === 'bad' ? 'border-risk-500/30 bg-risk-500/10 text-risk-200'
     : 'border-slate-700 bg-slate-800/60 text-slate-300';
   return <div className={`mt-2 rounded-lg border px-2 py-1.5 text-[11px] leading-relaxed ${cls}`}><span className="mr-1">{icon}</span>{children}</div>;
 }
@@ -97,8 +97,8 @@ const rows: Row[] = [
     indicador: 'CAPE · CPILFESL · DFEDTARU · DGS10 · SMA50',
     umbral: 'F0 CAPE>1.20 & CPI>1.15 · G1 Fed>0/10Y>1.10 (30%) · G2 Fed≥0.50 & CPI>1.30 (70%) · G3 3M↓/Pausa2M (35%) · G4 CPI<1.05/Fed<0+SMA50 (65%) · Sanación',
     icon: '📈',
-    color: 'from-amber-500/20 to-orange-500/20',
-    border: 'border-amber-500/30',
+    color: 'from-caution-500/20 to-elevated-500/20',
+    border: 'border-caution-500/30',
   },
   {
     regimen: 'Alta Deuda/PIB',
@@ -108,8 +108,8 @@ const rows: Row[] = [
     indicador: 'FINRA_DEBIT/GDP · ROC3M · SMA50 · σ24M',
     umbral: 'F1 Z>2.0 en 6M (armado con memoria) · G1 ROC<0&SMA50 · G2 ROC<−σ · F3/F4 sanación Z<0',
     icon: '🏦',
-    color: 'from-red-500/20 to-rose-500/20',
-    border: 'border-red-500/30',
+    color: 'from-risk-500/20 to-risk-500/20',
+    border: 'border-risk-500/30',
   },
   {
     regimen: 'Complacencia Crediticia HY OAS',
@@ -135,7 +135,7 @@ export function RegimesDocsTable({ live }: { live?: RegimeLive }) {
       <div className="flex items-center gap-1.5 pb-1.5 mb-1.5 border-b border-slate-700">
         <span>{icon}</span>
         <span className="font-semibold text-slate-100">{title}</span>
-        <span className={`ml-auto text-[10px] px-1.5 py-0.5 rounded-full border ${ok==null ? 'bg-slate-800 text-slate-400 border-slate-700' : ok ? 'bg-red-500/20 text-red-300 border-red-500/30' : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'}`}>{ok==null ? L('sin dato', 'no data') : ok ? L('ACTIVO', 'ACTIVE') : L('apagado', 'off')}</span>
+        <span className={`ml-auto text-[10px] px-1.5 py-0.5 rounded-full border ${ok==null ? 'bg-slate-800 text-slate-400 border-slate-700' : ok ? 'bg-risk-500/20 text-risk-300 border-risk-500/30' : 'bg-favorable-500/20 text-favorable-300 border-favorable-500/30'}`}>{ok==null ? L('sin dato', 'no data') : ok ? L('ACTIVO', 'ACTIVE') : L('apagado', 'off')}</span>
       </div>
     );
     const li = (ok: boolean|null, text: ReactNode) => (
@@ -177,7 +177,7 @@ export function RegimesDocsTable({ live }: { live?: RegimeLive }) {
       <div className="flex items-start justify-between gap-4">
         <div>
           <h3 className="text-lg font-semibold text-slate-100">{L("Documentación de Regímenes", "Regime documentation")}</h3>
-          <p className="text-sm text-slate-400 mt-1">{L("Matriz de escaneo de bosque seco — combustible, chispa y crisis. ", "Dry-forest scan matrix — fuel, spark and crisis. ")}<span className="text-amber-400">{L("Activo en backtesting", "Active in backtesting")}</span>{L(" — `SPY_REGIMEN3` + `TQQQ_EXCLUSIVE_V2` `G2 1.00%`. Click para ver regla.", " — click a regime to see its rule.")}</p>
+          <p className="text-sm text-slate-400 mt-1">{L("Matriz de escaneo de bosque seco — combustible, chispa y crisis. ", "Dry-forest scan matrix — fuel, spark and crisis. ")}<span className="text-caution-400">{L("Activo en backtesting", "Active in backtesting")}</span>{L(" — `SPY_REGIMEN3` + `TQQQ_EXCLUSIVE_V2` `G2 1.00%`. Click para ver regla.", " — click a regime to see its rule.")}</p>
         </div>
         <span className="shrink-0 px-2.5 py-1 rounded-full bg-slate-800 border border-slate-700 text-xs text-slate-400">v2 · 2026-08-26 · 5.0%/1.5σ/1.00% · mutex</span>
       </div>
@@ -210,7 +210,7 @@ export function RegimesDocsTable({ live }: { live?: RegimeLive }) {
                     {open === r.regimen && (
                       <div className="mt-2 text-xs text-slate-400 space-y-1">
                         <div><span className="text-slate-500">{L("Indicador:", "Indicator:")}</span> <span className="font-mono text-slate-300">{L(r.indicador, ROWS_EN[r.regimen].indicador)}</span></div>
-                        <div><span className="text-slate-500">{L("Umbral:", "Threshold:")}</span> <span className="font-mono text-amber-300">{L(r.umbral, ROWS_EN[r.regimen].umbral)}</span></div>
+                        <div><span className="text-slate-500">{L("Umbral:", "Threshold:")}</span> <span className="font-mono text-caution-300">{L(r.umbral, ROWS_EN[r.regimen].umbral)}</span></div>
                       </div>
                     )}
                   </td>
@@ -219,7 +219,7 @@ export function RegimesDocsTable({ live }: { live?: RegimeLive }) {
                     <span className="inline-flex px-2.5 py-1 rounded-full bg-slate-800 border border-slate-700 text-slate-200 text-xs font-medium">{L(r.gatillo, ROWS_EN[r.regimen].gatillo)}</span>
                   </td>
                   <td className="p-3">
-                    <span className={`inline-flex px-2.5 py-1 rounded-full border text-xs font-medium ${r.regimen==='Múltiplos Altos' ? 'bg-amber-500/10 text-amber-300 border-amber-500/20' : r.regimen==='Alta Deuda/PIB' ? 'bg-red-500/10 text-red-300 border-red-500/20' : 'bg-violet-500/10 text-violet-300 border-violet-500/20'}`}>{L(r.crisis, ROWS_EN[r.regimen].crisis)}</span>
+                    <span className={`inline-flex px-2.5 py-1 rounded-full border text-xs font-medium ${r.regimen==='Múltiplos Altos' ? 'bg-caution-500/10 text-caution-300 border-caution-500/20' : r.regimen==='Alta Deuda/PIB' ? 'bg-risk-500/10 text-risk-300 border-risk-500/20' : 'bg-violet-500/10 text-violet-300 border-violet-500/20'}`}>{L(r.crisis, ROWS_EN[r.regimen].crisis)}</span>
                   </td>
                 </tr>
               ))}
@@ -237,17 +237,17 @@ export function RegimesDocsTable({ live }: { live?: RegimeLive }) {
         <div className="mt-4 rounded-xl bg-slate-800/50 border border-slate-700 p-4">
           {open === 'Múltiplos Altos' && (
             <div className="text-sm text-slate-300 space-y-3">
-              <div className="font-semibold text-amber-300">{L("1. Bosque Seco por Múltiplos Altos — 4 Fases + Sanación — Riesgo de Duración y Tasas", "1. Dry Forest from High Multiples — 4 Phases + Healing — Duration and Rate Risk")}</div>
-              <p className="text-slate-400 text-xs leading-relaxed">{L("Detecta sobrevaloración + inflación amenazando liquidez. ", "Detects overvaluation + inflation threatening liquidity. ")}<b className="text-amber-300">{L("Scaling In/Out por tranches", "Scaling in/out in tranches")}</b>{L(" calibrado contra choques de inflación y tasas.", " calibrated against inflation and rate shocks.")}</p>
+              <div className="font-semibold text-caution-300">{L("1. Bosque Seco por Múltiplos Altos — 4 Fases + Sanación — Riesgo de Duración y Tasas", "1. Dry Forest from High Multiples — 4 Phases + Healing — Duration and Rate Risk")}</div>
+              <p className="text-slate-400 text-xs leading-relaxed">{L("Detecta sobrevaloración + inflación amenazando liquidez. ", "Detects overvaluation + inflation threatening liquidity. ")}<b className="text-caution-300">{L("Scaling In/Out por tranches", "Scaling in/out in tranches")}</b>{L(" calibrado contra choques de inflación y tasas.", " calibrated against inflation and rate shocks.")}</p>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
                 <div className="bg-slate-900 rounded-lg p-3 border border-slate-700"><span className="text-slate-500 block">{L("El Combustible", "The Fuel")}</span><span className="text-slate-200">{L("Sobrevaloración + Core CPI acelerado", "Overvaluation + accelerating Core CPI")}</span></div>
-                <div className="bg-slate-900 rounded-lg p-3 border border-slate-700"><span className="text-slate-500 block">{L("La Chispa", "The Spark")}</span><span className="text-amber-300">{L("Fed y Bono 10Y comprimen múltiplos", "Fed and 10Y bond compress multiples")}</span></div>
+                <div className="bg-slate-900 rounded-lg p-3 border border-slate-700"><span className="text-slate-500 block">{L("La Chispa", "The Spark")}</span><span className="text-caution-300">{L("Fed y Bono 10Y comprimen múltiplos", "Fed and 10Y bond compress multiples")}</span></div>
               </div>
               <div className="space-y-2">
-                <div className="bg-amber-950/30 rounded-lg p-3 border border-amber-800/50">
-                  <div className="text-[11px] font-semibold text-amber-200">{L("F0 — Condición Estructural (Bosque Seco)", "F0 — Structural Condition (Dry Forest)")}</div>
-                  <div className="text-xs text-amber-200 font-mono mt-1">CAPE &gt; SMA<sub>36M</sub>×1.18 AND Core CPI YoY ≥4.0 &amp; &gt; SMA<sub>12M</sub>×1.20</div>
-                  <div className="text-[11px] text-amber-300/70 mt-1">{L("+20% sobre media 3a y +15% sobre media 12M Core CPI (CPILFESL) → alerta, detiene compras", "+20% over 3y mean and +15% over 12M mean Core CPI (CPILFESL) → alert, stops buying")}</div>
+                <div className="bg-caution-950/30 rounded-lg p-3 border border-caution-800/50">
+                  <div className="text-[11px] font-semibold text-caution-200">{L("F0 — Condición Estructural (Bosque Seco)", "F0 — Structural Condition (Dry Forest)")}</div>
+                  <div className="text-xs text-caution-200 font-mono mt-1">CAPE &gt; SMA<sub>36M</sub>×1.18 AND Core CPI YoY ≥4.0 &amp; &gt; SMA<sub>12M</sub>×1.20</div>
+                  <div className="text-[11px] text-caution-300/70 mt-1">{L("+20% sobre media 3a y +15% sobre media 12M Core CPI (CPILFESL) → alerta, detiene compras", "+20% over 3y mean and +15% over 12M mean Core CPI (CPILFESL) → alert, stops buying")}</div>
                   {live && (()=>{ const r=live.r1; const thr120=r.cpiSma!=null?r.cpiSma*1.20:null;
                     const head = r.active
                       ? <div><b>{L("🔴 Armado.", "🔴 Armed.")}</b>{L(" El mercado está caro y la inflación amenaza — se detienen compras.", " The market is expensive and inflation is a threat — buying stops.")}</div>
@@ -258,20 +258,20 @@ export function RegimesDocsTable({ live }: { live?: RegimeLive }) {
                     </LiveLine>; })()}
                 </div>
                 <div className="bg-slate-900 rounded-lg p-3 border border-slate-700">
-                  <div className="text-[11px] font-semibold text-orange-300">{L("Fase Defensiva — Scaling Out", "Defensive Phase — Scaling Out")}</div>
+                  <div className="text-[11px] font-semibold text-elevated-300">{L("Fase Defensiva — Scaling Out", "Defensive Phase — Scaling Out")}</div>
                   <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-2">
-                    <div className="bg-orange-950/20 rounded p-2 border border-orange-800/30">
-                      <div className="text-[11px] font-semibold text-orange-200">{L("Gatillo 1 — Alerta Temprana (30%)", "Trigger 1 — Early Warning (30%)")}</div>
-                      <div className="text-[11px] font-mono text-orange-100 mt-1">Δ FED &gt;0 OR 10Y &gt; SMA<sub>200</sub>×1.10</div>
+                    <div className="bg-elevated-950/20 rounded p-2 border border-elevated-800/30">
+                      <div className="text-[11px] font-semibold text-elevated-200">{L("Gatillo 1 — Alerta Temprana (30%)", "Trigger 1 — Early Warning (30%)")}</div>
+                      <div className="text-[11px] font-mono text-elevated-100 mt-1">Δ FED &gt;0 OR 10Y &gt; SMA<sub>200</sub>×1.10</div>
                       <div className="text-[10px] text-slate-400 mt-1">{L("1ª subida Fed o 10Y +10% → vende 30% a SGOV · 70/30", "1st Fed hike or 10Y +10% → sells 30% into SGOV · 70/30")}</div>
                       {live && (()=>{ const r=live.r1; if(!r.active) return <LiveLine tone="lock" icon="🔒">{L("Bloqueado: primero debe armarse F0 (hoy apagado).", "Blocked: F0 must arm first (off today).")}</LiveLine>;
                         const fed=r.dFed!=null&&r.dFed>0, y10=r.dgs10!=null&&r.sma200x110!=null&&r.dgs10>r.sma200x110;
                         if(fed||y10) return <LiveLine tone="bad" icon="🔴"><b>{L("Dispara → vende 30%.", "Triggers → sells 30%.")}</b><br/><Leg name={L("Pata FED", "Fed leg")} actual={r.dFed} target={0} unit="pp" strict/><Leg name={L("Pata 10Y", "10Y leg")} actual={r.dgs10} target={r.sma200x110} unit="%"/></LiveLine>;
                         return <LiveLine tone="idle" icon="⚪"><b>{L("No dispara.", "Does not trigger.")}</b><br/><Leg name={L("Pata FED", "Fed leg")} actual={r.dFed} target={0} unit="pp" strict/><Leg name={L("Pata 10Y", "10Y leg")} actual={r.dgs10} target={r.sma200x110} unit="%"/></LiveLine>; })()}
                     </div>
-                    <div className="bg-red-950/30 rounded p-2 border border-red-800/30">
-                      <div className="text-[11px] font-semibold text-red-200">{L("Gatillo 2 — Venta Total (70%)", "Trigger 2 — Full Sale (70%)")}</div>
-                      <div className="text-[11px] font-mono text-red-100 mt-1">{L("Δ FED ≥+0.50% en 1 junta AND Core CPI > SMA", "Δ FED ≥+0.50% in 1 meeting AND Core CPI > SMA")}<sub>36M</sub>×1.30</div>
+                    <div className="bg-risk-950/30 rounded p-2 border border-risk-800/30">
+                      <div className="text-[11px] font-semibold text-risk-200">{L("Gatillo 2 — Venta Total (70%)", "Trigger 2 — Full Sale (70%)")}</div>
+                      <div className="text-[11px] font-mono text-risk-100 mt-1">{L("Δ FED ≥+0.50% en 1 junta AND Core CPI > SMA", "Δ FED ≥+0.50% in 1 meeting AND Core CPI > SMA")}<sub>36M</sub>×1.30</div>
                       <div className="text-[10px] text-slate-400 mt-1">{L("Jumbo Hike + inflación +30% 3a → vende 70% restante · 0/100", "Jumbo hike + inflation +30% 3y → sells remaining 70% · 0/100")}</div>
                       {live && (()=>{ const r=live.r1; const spyOk=r.spy!=null&&r.sma50!=null&&r.spy<r.sma50;
                         return <LiveLine tone="lock" icon="🔒">{L("Requiere G1 previo (cadena). Patas hoy: Core CPI ", "Requires prior G1 (chain). Legs today: Core CPI ")}<span className={vAct(r.cpi != null && r.cpi >= 4)}>{fmt(r.cpi)}%</span> {L('y SPX', 'and SPX')} {spyOk?L('bajo', 'below'):L('sobre', 'above')} {L('la SMA50', 'the SMA50')} (<span className={vAct(spyOk)}>{fmt(r.spy)}</span> vs <span className={vThr}>{fmt(r.sma50)}</span>).</LiveLine>; })()}
@@ -287,9 +287,9 @@ export function RegimesDocsTable({ live }: { live?: RegimeLive }) {
                       <div className="text-[10px] text-slate-400 mt-1">{L("Desaceleración 3M o Pausa 2M → compra 35% a activo subyacente (SPY/QQQ/TQQQ) · 35/65", "3M slowdown or 2M pause → buys 35% of the underlying asset (SPY/QQQ/TQQQ) · 35/65")}</div>
                       {live && <LiveLine tone="lock" icon="🔒">{L("Requiere G2 previo (cadena). Contexto: Core CPI ", "Requires prior G2 (chain). Context: Core CPI ")}<span className={vAct(live.r1.cpi != null && live.r1.cpi >= 4)}>{fmt(live.r1.cpi)}%</span>{L(" con la Fed en ", " with the Fed at ")}<span className={vAct(live.r1.dFed != null && live.r1.dFed > 0)}>{fmt(live.r1.dFed,2)}pp</span>{L(" de cambio.", " change.")}</LiveLine>}
                     </div>
-                    <div className="bg-emerald-950/20 rounded p-2 border border-emerald-800/30">
-                      <div className="text-[11px] font-semibold text-emerald-200">{L("Gatillo 4 — Compra Total (65%)", "Trigger 4 — Full Buy (65%)")}</div>
-                      <div className="text-[11px] font-mono text-emerald-100 mt-1">(Core CPI &lt; SMA<sub>12M</sub>×1.05 OR Δ FED&lt;0){L(" AND Precio > SMA", " AND Price > SMA")}<sub>50</sub></div>
+                    <div className="bg-favorable-950/20 rounded p-2 border border-favorable-800/30">
+                      <div className="text-[11px] font-semibold text-favorable-200">{L("Gatillo 4 — Compra Total (65%)", "Trigger 4 — Full Buy (65%)")}</div>
+                      <div className="text-[11px] font-mono text-favorable-100 mt-1">(Core CPI &lt; SMA<sub>12M</sub>×1.05 OR Δ FED&lt;0){L(" AND Precio > SMA", " AND Price > SMA")}<sub>50</sub></div>
                       <div className="text-[10px] text-slate-400 mt-1">{L("Doble Llave Macro+Técnica → inyecta 65% final · 100% riesgo", "Macro+technical double key → injects final 65% · 100% risk")}</div>
                       {live && (()=>{ const r=live.r1; const cpiOk=r.cpi!=null&&r.cpiSma!=null&&r.cpi<r.cpiSma*1.05; const fedOk=r.dFed!=null&&r.dFed<0; const pxOk=r.spy!=null&&r.sma50!=null&&r.spy>r.sma50;
                         return <LiveLine tone="lock" icon="🔒">{L("Requiere G3 previo (cadena). Llaves hoy: CPI bajo su media×1.05 (", "Requires prior G3 (chain). Keys today: CPI below its mean×1.05 (")}<span className={vAct(cpiOk)}>{fmt(r.cpi)}%</span> vs <span className={vThr}>{fmt(r.cpiSma!=null?r.cpiSma*1.05:null)}%</span>) {cpiOk?'✅':'▫️'} · {L('Fed recortando', 'Fed cutting')} {fedOk?'✅':'▫️'} · {L('precio sobre SMA50', 'price above SMA50')} {pxOk?'✅':<>▫️ (SPY <span className={vGap}>{gapTxt(r.spy,r.sma50)}</span>{L(" para estar arriba)", " to be above)")}</>}.</LiveLine>; })()}
@@ -303,41 +303,41 @@ export function RegimesDocsTable({ live }: { live?: RegimeLive }) {
                   {live && <LiveLine tone="lock" icon="🔒">{L("Solo aplica tras un G1 sin G2 (hoy no hay G1 activo).", "Only applies after a G1 without G2 (no active G1 today).")}</LiveLine>}
                 </div>
               </div>
-              <p className="bg-slate-800 rounded p-2 border-l-2 border-amber-500 text-xs"><span className="text-slate-400">{L("Ejemplo 2022:", "2022 example:")}</span>{L(" Nasdaq -35% — habría hecho Scaling Out en G1 (10Y>SMA200×1.10) y reingreso en G3/G4 tras pausa Fed y CPI<SMA12M×1.05+SMA50.", " Nasdaq −35% — it would have scaled out at G1 (10Y>SMA200×1.10) and re-entered at G3/G4 after the Fed pause and CPI<SMA12M×1.05+SMA50.")}</p>
+              <p className="bg-slate-800 rounded p-2 border-l-2 border-caution-500 text-xs"><span className="text-slate-400">{L("Ejemplo 2022:", "2022 example:")}</span>{L(" Nasdaq -35% — habría hecho Scaling Out en G1 (10Y>SMA200×1.10) y reingreso en G3/G4 tras pausa Fed y CPI<SMA12M×1.05+SMA50.", " Nasdaq −35% — it would have scaled out at G1 (10Y>SMA200×1.10) and re-entered at G3/G4 after the Fed pause and CPI<SMA12M×1.05+SMA50.")}</p>
             </div>
           )}
           {open === 'Alta Deuda/PIB' && (
             <div className="text-sm text-slate-300 space-y-3">
-              <div className="font-semibold text-red-300">{L("2. Bosque Seco por Alta Deuda / PIB — 4 Fases — Riesgo de Liquidación Forzosa", "2. Dry Forest from High Debt / GDP — 4 Phases — Forced Liquidation Risk")}</div>
-              <p className="text-slate-400 text-xs leading-relaxed">{L("Mide apalancamiento sistémico. Estado ", "Measures systemic leverage. State ")}<b className="text-red-300">{L("armado con memoria", "armed with memory")}</b>{L(": persiste aunque Z baje, hasta sanación o Z<0.", ": it persists even if Z falls, until healing or Z<0.")}</p>
+              <div className="font-semibold text-risk-300">{L("2. Bosque Seco por Alta Deuda / PIB — 4 Fases — Riesgo de Liquidación Forzosa", "2. Dry Forest from High Debt / GDP — 4 Phases — Forced Liquidation Risk")}</div>
+              <p className="text-slate-400 text-xs leading-relaxed">{L("Mide apalancamiento sistémico. Estado ", "Measures systemic leverage. State ")}<b className="text-risk-300">{L("armado con memoria", "armed with memory")}</b>{L(": persiste aunque Z baje, hasta sanación o Z<0.", ": it persists even if Z falls, until healing or Z<0.")}</p>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
                 <div className="bg-slate-900 rounded-lg p-3 border border-slate-700"><span className="text-slate-500 block">{L("El Combustible", "The Fuel")}</span><span className="text-slate-200">{L("Dinero prestado (Margin Debt)", "Borrowed money (margin debt)")}</span></div>
-                <div className="bg-slate-900 rounded-lg p-3 border border-slate-700"><span className="text-slate-500 block">{L("Estado", "State")}</span><span className="text-red-300">{L("Armado si Z>2.0 en 6M — detiene compras", "Armed if Z>2.0 in 6M — stops buying")}</span></div>
+                <div className="bg-slate-900 rounded-lg p-3 border border-slate-700"><span className="text-slate-500 block">{L("Estado", "State")}</span><span className="text-risk-300">{L("Armado si Z>2.0 en 6M — detiene compras", "Armed if Z>2.0 in 6M — stops buying")}</span></div>
               </div>
               <div className="space-y-2">
-                <div className="bg-red-950/30 rounded-lg p-3 border border-red-800/50">
-                  <div className="text-[11px] font-semibold text-red-200">{L("Fase 1 — El Armado (Peligro Sistémico)", "Phase 1 — Arming (Systemic Danger)")}</div>
-                  <div className="text-xs text-red-200 font-mono mt-1">{L("Z(Margin/GDP) > +2.0 en cualquier momento de últimos 6 meses", "Z(Margin/GDP) > +2.0 at any time in the last 6 months")}</div>
-                  <div className="text-[11px] text-red-300/70 mt-1">Z=(Margin/GDP−SMA36M)/σ36M · Margin/GDP=FINRA_DEBIT/GDP×100 · <b>{L("con memoria", "with memory")}</b>{L(": no se desarma aunque Z baje", ": does not disarm even if Z falls")}</div>
+                <div className="bg-risk-950/30 rounded-lg p-3 border border-risk-800/50">
+                  <div className="text-[11px] font-semibold text-risk-200">{L("Fase 1 — El Armado (Peligro Sistémico)", "Phase 1 — Arming (Systemic Danger)")}</div>
+                  <div className="text-xs text-risk-200 font-mono mt-1">{L("Z(Margin/GDP) > +2.0 en cualquier momento de últimos 6 meses", "Z(Margin/GDP) > +2.0 at any time in the last 6 months")}</div>
+                  <div className="text-[11px] text-risk-300/70 mt-1">Z=(Margin/GDP−SMA36M)/σ36M · Margin/GDP=FINRA_DEBIT/GDP×100 · <b>{L("con memoria", "with memory")}</b>{L(": no se desarma aunque Z baje", ": does not disarm even if Z falls")}</div>
                   {live && (()=>{ const r=live.r2;
                     if(r.armed) return <LiveLine tone="bad" icon="🔴"><b>{L("Armado", "Armed")}</b>{L(" (memoria 6M): el apalancamiento explotó y el régimen sigue activo aunque el Z actual baje.", " (6M memory): leverage exploded and the regime stays active even if the current Z falls.")}<br/><Leg name={L("Z actual", "Current Z")} actual={r.z} target={0} dir="down" unit="σ"/></LiveLine>;
                     return <LiveLine tone="idle" icon="⚪"><b>{L("No armado.", "Not armed.")}</b>{L(" Nada en 6M — sin armado se detiene la cadena (no hay G1/G2).", " Nothing in 6M — without arming the chain stops (no G1/G2).")}<br/><Leg name={L("Pata Z", "Z leg")} actual={r.z} target={2} unit="σ"/></LiveLine>; })()}
                 </div>
                 <div className="bg-slate-900 rounded-lg p-3 border border-slate-700">
-                  <div className="text-[11px] font-semibold text-amber-300">{L("Fase 2 — Scaling Out — Venta Defensiva", "Phase 2 — Scaling Out — Defensive Selling")}</div>
+                  <div className="text-[11px] font-semibold text-caution-300">{L("Fase 2 — Scaling Out — Venta Defensiva", "Phase 2 — Scaling Out — Defensive Selling")}</div>
                   <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-2">
-                    <div className="bg-amber-950/20 rounded p-2 border border-amber-800/30">
-                      <div className="text-[11px] font-semibold text-amber-200">{L("Gatillo 1 — Alerta Temprana (30%)", "Trigger 1 — Early Warning (30%)")}</div>
-                      <div className="text-[11px] font-mono text-amber-100 mt-1">{L("ROC₃M(Margin/GDP) < 0  AND  Cierre < SMA₅₀d", "ROC₃M(Margin/GDP) < 0  AND  Close < SMA₅₀d")}</div>
+                    <div className="bg-caution-950/20 rounded p-2 border border-caution-800/30">
+                      <div className="text-[11px] font-semibold text-caution-200">{L("Gatillo 1 — Alerta Temprana (30%)", "Trigger 1 — Early Warning (30%)")}</div>
+                      <div className="text-[11px] font-mono text-caution-100 mt-1">{L("ROC₃M(Margin/GDP) < 0  AND  Cierre < SMA₅₀d", "ROC₃M(Margin/GDP) < 0  AND  Close < SMA₅₀d")}</div>
                       <div className="text-[10px] text-slate-400 mt-1">{L("Deuda trimestral deja de crecer + ruptura SMA50 → vende 30% · 70/30", "Quarterly debt stops growing + SMA50 break → sells 30% · 70/30")}</div>
                       {live && (()=>{ const r=live.r2; if(!r.armed) return <LiveLine tone="lock" icon="🔒">{L("Bloqueado: primero debe armarse Fase 1 (hoy apagada).", "Blocked: Phase 1 must arm first (off today).")}</LiveLine>;
                         const roc=r.roc3m!=null&&r.roc3m<0, px=r.spy!=null&&r.sma50!=null&&r.spy<r.sma50;
                         if(roc&&px) return <LiveLine tone="bad" icon="🔴"><b>{L("Dispara → vende 30%.", "Triggers → sells 30%.")}</b><br/><Leg name={L("Pata ROC3M", "ROC3M leg")} actual={r.roc3m} target={0} dir="down" unit="pp"/><Leg name={L("Pata precio", "Price leg")} actual={r.spy} target={r.sma50} dir="down"/></LiveLine>;
                         return <LiveLine tone="idle" icon="⚪"><b>{L("No dispara.", "Does not trigger.")}</b><br/><Leg name={L("Pata ROC3M", "ROC3M leg")} actual={r.roc3m} target={0} dir="down" unit="pp"/><Leg name={L("Pata precio", "Price leg")} actual={r.spy} target={r.sma50} dir="down"/></LiveLine>; })()}
                     </div>
-                    <div className="bg-red-950/30 rounded p-2 border border-red-800/30">
-                      <div className="text-[11px] font-semibold text-red-200">{L("Gatillo 2 — Pánico Margin Call (70%)", "Trigger 2 — Margin Call Panic (70%)")}</div>
-                      <div className="text-[11px] font-mono text-red-100 mt-1">ROC₃M &lt; −1×σ₂₄M(ROC₃M)</div>
+                    <div className="bg-risk-950/30 rounded p-2 border border-risk-800/30">
+                      <div className="text-[11px] font-semibold text-risk-200">{L("Gatillo 2 — Pánico Margin Call (70%)", "Trigger 2 — Margin Call Panic (70%)")}</div>
+                      <div className="text-[11px] font-mono text-risk-100 mt-1">ROC₃M &lt; −1×σ₂₄M(ROC₃M)</div>
                       <div className="text-[10px] text-slate-400 mt-1">{L("Caída supera volatilidad 2años → vende 70% restante · 0/100", "Drop exceeds 2-year volatility → sells remaining 70% · 0/100")}</div>
                       {live && (()=>{ const r=live.r2; const thr=r.sigma24!=null?-r.sigma24:null; const hit=r.roc3m!=null&&thr!=null&&r.roc3m<thr;
                         if(!r.armed) return <LiveLine tone="lock" icon="🔒">{L("Bloqueado: requiere Fase 1 armada.", "Blocked: requires Phase 1 armed.")}<br/><Leg name={L("Pata ROC3M", "ROC3M leg")} actual={r.roc3m} target={thr} dir="down" unit="pp"/></LiveLine>;
@@ -347,9 +347,9 @@ export function RegimesDocsTable({ live }: { live?: RegimeLive }) {
                   </div>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                  <div className="bg-emerald-950/20 rounded-lg p-3 border border-emerald-800/30">
-                    <div className="text-[11px] font-semibold text-emerald-200">{L("Fase 3 — Sanación (Falsa Alarma)", "Phase 3 — Healing (False Alarm)")}</div>
-                    <div className="text-[11px] font-mono text-emerald-100 mt-1">{L("Cierre > SMA₅₀  AND  ROC₃M > 0", "Close > SMA₅₀  AND  ROC₃M > 0")}</div>
+                  <div className="bg-favorable-950/20 rounded-lg p-3 border border-favorable-800/30">
+                    <div className="text-[11px] font-semibold text-favorable-200">{L("Fase 3 — Sanación (Falsa Alarma)", "Phase 3 — Healing (False Alarm)")}</div>
+                    <div className="text-[11px] font-mono text-favorable-100 mt-1">{L("Cierre > SMA₅₀  AND  ROC₃M > 0", "Close > SMA₅₀  AND  ROC₃M > 0")}</div>
                     <div className="text-[10px] text-slate-400 mt-1">{L("Tras G1 sin G2 y precio recupera → recompra 30% → 100% exposición", "After G1 without G2 and price recovers → buys back 30% → 100% exposure")}</div>
                     {live && <LiveLine tone="lock" icon="🔒">{L("Solo aplica tras un G1 sin G2 (hoy no hay G1 activo).", "Only applies after a G1 without G2 (no active G1 today).")}</LiveLine>}
                   </div>
@@ -363,32 +363,32 @@ export function RegimesDocsTable({ live }: { live?: RegimeLive }) {
                   </div>
                 </div>
               </div>
-              <p className="bg-slate-800 rounded p-2 border-l-2 border-red-500 text-xs"><span className="text-slate-400">{L("Ejemplo 1929 y 2000:", "1929 and 2000 example:")}</span>{L(" Margen extremo + desapalancamiento aniquiló mercado. Nuevo modelo escalona salida por ROC y SMA50.", " Extreme margin + deleveraging wiped out the market. The new model stages the exit by ROC and SMA50.")}</p>
+              <p className="bg-slate-800 rounded p-2 border-l-2 border-risk-500 text-xs"><span className="text-slate-400">{L("Ejemplo 1929 y 2000:", "1929 and 2000 example:")}</span>{L(" Margen extremo + desapalancamiento aniquiló mercado. Nuevo modelo escalona salida por ROC y SMA50.", " Extreme margin + deleveraging wiped out the market. The new model stages the exit by ROC and SMA50.")}</p>
             </div>
           )}
           {open === 'Complacencia Crediticia HY OAS' && (
             <div className="text-sm text-slate-300 space-y-3">
-              <div className="font-semibold text-violet-300">{L("3. Complacencia Crediticia & Riesgo Sistémico (HY OAS) — 4 Fases + Sanación ", "3. Credit Complacency & Systemic Risk (HY OAS) — 4 Phases + Healing ")}<span className="text-amber-300 text-xs">{L("· Activo — SPY_REGIMEN3", "· Active")}</span></div>
+              <div className="font-semibold text-violet-300">{L("3. Complacencia Crediticia & Riesgo Sistémico (HY OAS) — 4 Fases + Sanación ", "3. Credit Complacency & Systemic Risk (HY OAS) — 4 Phases + Healing ")}<span className="text-caution-300 text-xs">{L("· Activo — SPY_REGIMEN3", "· Active")}</span></div>
               <p className="text-slate-400 text-xs leading-relaxed">{L("Protege contra ", "Protects against ")}<b className="text-violet-300">{L("congelamiento del crédito, crisis de liquidez y quiebras sistémicas", "credit freezes, liquidity crises and systemic bankruptcies")}</b>{L(" vía ", " via ")}<b>HY OAS (BAMLH0A0HYM2)</b>{L(" + confirmación técnica ", " + technical confirmation ")}<b>SMA 50/30/100</b>{L(". Escala independiente de R1 y R2.", ". Scales independently of R1 and R2.")}</p>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
                 <div className="bg-slate-900 rounded-lg p-3 border border-slate-700"><span className="text-slate-500 block">{L("El Combustible", "The Fuel")}</span><span className="text-slate-200">{L("Ceguera al riesgo — OAS muy bajo (Default Risk ignorado)", "Risk blindness — very low OAS (default risk ignored)")}</span></div>
                 <div className="bg-slate-900 rounded-lg p-3 border border-slate-700"><span className="text-slate-500 block">{L("La Chispa", "The Spark")}</span><span className="text-violet-300">{L("Congelamiento crédito / quiebra que dispara spreads", "Credit freeze / bankruptcy that spikes spreads")}</span></div>
               </div>
               <div className="space-y-2">
-                <div className="bg-amber-950/30 rounded-lg p-3 border border-amber-800/50">
-                  <div className="text-[11px] font-semibold text-amber-200">{L("F0 — Estado de Armado (Fase Vigilancia · 6M)", "F0 — Armed State (Watch Phase · 6M)")}</div>
-                  <div className="text-xs text-amber-200 font-mono mt-1">{L("HY OAS < Percentil", "HY OAS < Percentile")}<sub>20,36M</sub>{L(" en algún momento últimos 6 meses", " at some point in the last 6 months")}</div>
-                  <div className="text-[11px] text-amber-300/70 mt-1">{L("BAMLH0A0HYM2 < P20_36M → complacencia extrema previa a burbuja. Sin armado no hay G1/G2.", "BAMLH0A0HYM2 < P20_36M → extreme complacency before a bubble. Without arming there is no G1/G2.")}</div>
+                <div className="bg-caution-950/30 rounded-lg p-3 border border-caution-800/50">
+                  <div className="text-[11px] font-semibold text-caution-200">{L("F0 — Estado de Armado (Fase Vigilancia · 6M)", "F0 — Armed State (Watch Phase · 6M)")}</div>
+                  <div className="text-xs text-caution-200 font-mono mt-1">{L("HY OAS < Percentil", "HY OAS < Percentile")}<sub>20,36M</sub>{L(" en algún momento últimos 6 meses", " at some point in the last 6 months")}</div>
+                  <div className="text-[11px] text-caution-300/70 mt-1">{L("BAMLH0A0HYM2 < P20_36M → complacencia extrema previa a burbuja. Sin armado no hay G1/G2.", "BAMLH0A0HYM2 < P20_36M → extreme complacency before a bubble. Without arming there is no G1/G2.")}</div>
                   {live && (()=>{ const r=live.r3;
                     if(r.armed) return <LiveLine tone="bad" icon="🔴"><b>{L("Armado.", "Armed.")}</b>{L(" El spread estuvo anormalmente barato en 6M — el crédito duerme, vigilando el salto.", " The spread was abnormally cheap within 6M — credit is asleep, watching for the jump.")}</LiveLine>;
                     return <LiveLine tone="idle" icon="⚪"><b>{L("No armado.", "Not armed.")}</b>{L(" Sin armado no hay G1/G2.", " Without arming there is no G1/G2.")}<br/><Leg name={L("Pata HY", "HY leg")} actual={r.hy} target={r.p20} dir="down" unit="%"/></LiveLine>; })()}
                 </div>
                 <div className="bg-slate-900 rounded-lg p-3 border border-slate-700">
-                  <div className="text-[11px] font-semibold text-orange-300">{L("Fase Defensiva — Scaling Out", "Defensive Phase — Scaling Out")}</div>
+                  <div className="text-[11px] font-semibold text-elevated-300">{L("Fase Defensiva — Scaling Out", "Defensive Phase — Scaling Out")}</div>
                   <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-2">
-                    <div className="bg-orange-950/20 rounded p-2 border border-orange-800/30">
-                      <div className="text-[11px] font-semibold text-orange-200">{L("Gatillo 1 — Alerta Temprana (30%)", "Trigger 1 — Early Warning (30%)")}</div>
-                      <div className="text-[11px] font-mono text-orange-100 mt-1">Δ3M &gt;1.5×σ24M AND &gt;5.0% AND &lt;SMA50</div>
+                    <div className="bg-elevated-950/20 rounded p-2 border border-elevated-800/30">
+                      <div className="text-[11px] font-semibold text-elevated-200">{L("Gatillo 1 — Alerta Temprana (30%)", "Trigger 1 — Early Warning (30%)")}</div>
+                      <div className="text-[11px] font-mono text-elevated-100 mt-1">Δ3M &gt;1.5×σ24M AND &gt;5.0% AND &lt;SMA50</div>
                       <div className="text-[10px] text-slate-400 mt-1">{L("Doble llave estricta: spread +1.5σ en 3M y nivel >5.0% + <SMA50 → vende 30% · 70/30", "Strict double key: spread +1.5σ in 3M and level >5.0% + <SMA50 → sells 30% · 70/30")}</div>
                       {live && (()=>{ const r=live.r3; if(!r.armed) return <LiveLine tone="lock" icon="🔒">{L("Bloqueado: primero debe armarse (hoy apagado).", "Blocked: it must arm first (off today).")}</LiveLine>;
                         const ace=r.d3m!=null&&r.sig!=null&&r.d3m>1.5*r.sig, lvl=r.hy!=null&&r.hy>5.0, px=r.spy!=null&&r.sma50!=null&&r.spy<r.sma50;
@@ -396,9 +396,9 @@ export function RegimesDocsTable({ live }: { live?: RegimeLive }) {
                         if(ace&&lvl&&px) return <LiveLine tone="bad" icon="🔴"><b>{L("Dispara → vende 30%.", "Triggers → sells 30%.")}</b><br/><Leg name={L("Pata aceleración", "Acceleration leg")} actual={r.d3m} target={thr15} unit="pp"/><Leg name={L("Pata nivel", "Level leg")} actual={r.hy} target={5.0} unit="%"/><Leg name={L("Pata precio", "Price leg")} actual={r.spy} target={r.sma50} dir="down"/></LiveLine>;
                         return <LiveLine tone="idle" icon="⚪"><b>{L("No dispara.", "Does not trigger.")}</b><br/><Leg name={L("Pata aceleración", "Acceleration leg")} actual={r.d3m} target={thr15} unit="pp"/><Leg name={L("Pata nivel", "Level leg")} actual={r.hy} target={5.0} unit="%"/><Leg name={L("Pata precio", "Price leg")} actual={r.spy} target={r.sma50} dir="down"/></LiveLine>; })()}
                     </div>
-                    <div className="bg-red-950/30 rounded p-2 border border-red-800/30">
-                      <div className="text-[11px] font-semibold text-red-200">{L("Gatillo 2 — Pánico Sistémico (70%)", "Trigger 2 — Systemic Panic (70%)")}</div>
-                      <div className="text-[11px] font-mono text-red-100 mt-1">Δ1M ≥+1.00% OR &gt;SMA36M×1.30 AND &lt;SMA50</div>
+                    <div className="bg-risk-950/30 rounded p-2 border border-risk-800/30">
+                      <div className="text-[11px] font-semibold text-risk-200">{L("Gatillo 2 — Pánico Sistémico (70%)", "Trigger 2 — Systemic Panic (70%)")}</div>
+                      <div className="text-[11px] font-mono text-risk-100 mt-1">Δ1M ≥+1.00% OR &gt;SMA36M×1.30 AND &lt;SMA50</div>
                       <div className="text-[10px] text-slate-400 mt-1">{L("V2 +1.00% (TQQQ `bear -19%` falso → SAN) — SPY legacy 0.75% → evacua 70% · 0/100", "V2 +1.00% (TQQQ false `bear −19%` → healing) — SPY legacy 0.75% → evacuates 70% · 0/100")}</div>
                       {live && (()=>{ const r=live.r3; const thr36=r.sma36!=null?r.sma36*1.30:null; const legA=r.d1m!=null&&r.d1m>=1.00, legB=r.hy!=null&&thr36!=null&&r.hy>thr36; const px=r.spy!=null&&r.sma50!=null&&r.spy<r.sma50;
                         if(!r.armed) return <LiveLine tone="lock" icon="🔒">{L("Bloqueado: requiere armado.", "Blocked: requires arming.")}<br/><Leg name={L("Pata salto mensual", "Monthly jump leg")} actual={r.d1m} target={1.00} unit="pp"/><Leg name={L("Pata nivel vs media", "Level vs mean leg")} actual={r.hy} target={thr36} unit="%"/></LiveLine>;
@@ -423,9 +423,9 @@ export function RegimesDocsTable({ live }: { live?: RegimeLive }) {
                       {live && (()=>{ const r=live.r3; const hyOk=r.hy!=null&&r.sma3m!=null&&r.hy<r.sma3m;
                         return <LiveLine tone="lock" icon="🔒">{L('Requiere evacuación previa (cadena). Hoy: spread', 'Requires prior evacuation (chain). Today: spread')} {hyOk?L('bajo su SMA3M ✅', 'below its SMA3M ✅'):<>{L('sobre su SMA3M', 'above its SMA3M')} (<span className={vAct(false)}>{fmt(r.hy)}%</span> vs <span className={vThr}>{fmt(r.sma3m)}%</span>) ▫️</>}.</LiveLine>; })()}
                     </div>
-                    <div className="bg-emerald-950/20 rounded p-2 border border-emerald-800/30">
-                      <div className="text-[11px] font-semibold text-emerald-200">{L("Gatillo 4 — Reingreso Masivo (70%)", "Trigger 4 — Massive Re-entry (70%)")}</div>
-                      <div className="text-[11px] font-mono text-emerald-100 mt-1">HY &lt; SMA12M AND &gt;SMA100</div>
+                    <div className="bg-favorable-950/20 rounded p-2 border border-favorable-800/30">
+                      <div className="text-[11px] font-semibold text-favorable-200">{L("Gatillo 4 — Reingreso Masivo (70%)", "Trigger 4 — Massive Re-entry (70%)")}</div>
+                      <div className="text-[11px] font-mono text-favorable-100 mt-1">HY &lt; SMA12M AND &gt;SMA100</div>
                       <div className="text-[10px] text-slate-400 mt-1">{L("Normalización: <SMA12M + >SMA100 (alternativa SMA200) → recompra 70% → 100%", "Normalization: <SMA12M + >SMA100 (SMA200 alternative) → buys back 70% → 100%")}</div>
                       {live && (()=>{ const r=live.r3; const hyOk=r.hy!=null&&r.sma12m!=null&&r.hy<r.sma12m;
                         return <LiveLine tone="lock" icon="🔒">{L('Requiere G3 previo (cadena). Hoy: spread', 'Requires prior G3 (chain). Today: spread')} {hyOk?L('bajo su SMA12M ✅', 'below its SMA12M ✅'):<>{L('sobre su SMA12M', 'above its SMA12M')} (<span className={vAct(false)}>{fmt(r.hy)}%</span> vs <span className={vThr}>{fmt(r.sma12m)}%</span>) ▫️</>}.</LiveLine>; })()}

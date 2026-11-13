@@ -4,6 +4,7 @@ import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { createChart, ColorType, IChartApi, LineSeries, AreaSeries } from 'lightweight-charts';
 import { Layers, Calendar, TrendingUp } from 'lucide-react';
 import { useTranslations } from 'next-intl';
+import { TOKENS } from '@/lib/designTokens';
 
 const fmtMoney = (v: number) => `$${Number(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const fmtPct = (v: number) => `${(v * 100).toFixed(1)}%`;
@@ -11,10 +12,10 @@ const fmtNum = (v: number|null|undefined) => v==null||isNaN(Number(v)) ? '—' :
 function capeRatioColor(r: number | null | undefined){
   if(r==null || isNaN(Number(r))) return 'text-slate-400';
   const v=Number(r);
-  if(v < 1.0) return 'text-emerald-400';
-  if(v < 1.15) return 'text-yellow-400';
-  if(v < 1.30) return 'text-orange-400';
-  return 'text-red-400';
+  if(v < 1.0) return 'text-favorable-400';
+  if(v < 1.15) return 'text-caution-400';
+  if(v < 1.30) return 'text-elevated-400';
+  return 'text-risk-400';
 }
 
 interface Allocation { date: string; tqqqPct: number; qqqPct?: number; cashPct: number; tqqqValue: number; qqqValue?: number; cashValue: number; portfolioValue: number; targetPct: number|null; indicators: any; }
@@ -182,7 +183,7 @@ export function StrategyExplorer({ strategyCode, runs: initialRuns, startDates, 
     const w=allocChartRef.current.clientWidth||600; const h=allocChartRef.current.clientHeight||220;
     const chart=createChart(allocChartRef.current, { width:w, height:h, layout:{background:{type:ColorType.Solid,color:'#020617'}, textColor:'#94a3b8', fontSize:11}, grid:{vertLines:{color:'rgba(30,41,59,0.3)'}, horzLines:{color:'rgba(30,41,59,0.3)'}}, rightPriceScale:{borderColor:'rgba(30,41,59,0.5)', scaleMargins:{top:0.05,bottom:0.05}}, timeScale:{borderColor:'rgba(30,41,59,0.5)', rightOffset:2, barSpacing:6, fixLeftEdge:false, fixRightEdge:false, lockVisibleTimeRangeOnResize:false}, handleScroll:{mouseWheel:true, pressedMouseMove:true, horzTouchDrag:true, vertTouchDrag:true}, handleScale:{mouseWheel:true, pinch:true, axisPressedMouseMove:true, horzTouchDrag:true, vertTouchDrag:true}} as any);
     allocChartApi.current=chart;
-    const cashSeries=chart.addSeries(AreaSeries, { lineColor: '#f59e0b', topColor:'rgba(245,158,11,0.45)', bottomColor:'rgba(245,158,11,0.05)', lineWidth:1, title:`${labels.cash} %`});
+    const cashSeries=chart.addSeries(AreaSeries, { lineColor: TOKENS.caution, topColor:'rgba(245,158,11,0.45)', bottomColor:'rgba(245,158,11,0.05)', lineWidth:1, title:`${labels.cash} %`});
     const qqqSeries= labels.secondary ? chart.addSeries(AreaSeries, { lineColor: allocColors.qqq, topColor:'rgba(167,139,250,0.5)', bottomColor:'rgba(167,139,250,0.15)', lineWidth:1, title:`${labels.secondary} %`}) : null as any;
     const tqqqSeries=chart.addSeries(AreaSeries, { lineColor: allocColors.tqqq, topColor:'rgba(45,212,191,0.55)', bottomColor:'rgba(45,212,191,0.15)', lineWidth:2, title:`${labels.primary} %`});
     // Capas: Cash 0->cash%, QQQ cash%->cash%+qqq% (stacked) solo si secondary existe, primary 0->primary% (overlay). Evitar NaN si qqqPct undefined (Mallik/VOO/SPY)
@@ -348,17 +349,17 @@ export function StrategyExplorer({ strategyCode, runs: initialRuns, startDates, 
         {selectedRun && (
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3 mt-4 text-xs">
             <div className="rounded-lg bg-slate-800/60 border border-slate-700 p-3"><div className="text-slate-400">Final</div><div className="font-mono font-semibold text-white">{fmtMoney(selectedRun.metrics.finalValue)}</div></div>
-            <div className="rounded-lg bg-slate-800/60 border border-slate-700 p-3"><div className="text-slate-400">CAGR</div><div className="font-mono font-semibold text-emerald-400">{fmtPct(selectedRun.metrics.cagr)}</div></div>
-            <div className="rounded-lg bg-slate-800/60 border border-slate-700 p-3"><div className="text-slate-400">{tb('totalReturn')}</div><div className={`font-mono font-semibold ${headerStats.totalReturn>=0?'text-emerald-400':'text-rose-400'}`}>{(headerStats.totalReturn*100).toFixed(2)}%</div></div>
+            <div className="rounded-lg bg-slate-800/60 border border-slate-700 p-3"><div className="text-slate-400">CAGR</div><div className="font-mono font-semibold text-favorable-400">{fmtPct(selectedRun.metrics.cagr)}</div></div>
+            <div className="rounded-lg bg-slate-800/60 border border-slate-700 p-3"><div className="text-slate-400">{tb('totalReturn')}</div><div className={`font-mono font-semibold ${headerStats.totalReturn>=0?'text-favorable-400':'text-risk-400'}`}>{(headerStats.totalReturn*100).toFixed(2)}%</div></div>
             <div className="rounded-lg bg-slate-800/60 border border-slate-700 p-3"><div className="text-slate-400">×</div><div className="font-mono font-semibold text-white">{headerStats.mult.toFixed(2)}×</div></div>
             <div className="rounded-lg bg-slate-800/60 border border-slate-700 p-3"><div className="text-slate-400">Sharpe</div><div className="font-mono font-semibold text-white">{fmtNum(selectedRun.metrics.sharpe)}</div></div>
-            <div className="rounded-lg bg-slate-800/60 border border-slate-700 p-3"><div className="text-slate-400">MaxDD</div><div className="font-mono font-semibold text-rose-400">{fmtPct(selectedRun.metrics.maxDrawdown)}</div></div>
+            <div className="rounded-lg bg-slate-800/60 border border-slate-700 p-3"><div className="text-slate-400">MaxDD</div><div className="font-mono font-semibold text-risk-400">{fmtPct(selectedRun.metrics.maxDrawdown)}</div></div>
             <div className="rounded-lg bg-slate-800/60 border border-slate-700 p-3"><div className="text-slate-400">{tb('months')}</div><div className="font-mono font-semibold text-white">{headerStats.monthsDisplay} meses{loading?' · cargando...':''}</div></div>
           </div>
         )}
         {/* Allocation chart */}
         <div className="mt-6">
-          <h4 className="text-xs font-semibold text-slate-300 mb-2 flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-teal-400"/>Asignación % — {labels.primary} {labels.secondary ? `vs ${labels.secondary}/${labels.cash}` : `vs ${labels.cash}`} (mensual)</h4>
+          <h4 className="text-xs font-semibold text-slate-300 mb-2 flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-accent-400"/>Asignación % — {labels.primary} {labels.secondary ? `vs ${labels.secondary}/${labels.cash}` : `vs ${labels.cash}`} (mensual)</h4>
           <div className="relative w-full h-[220px] rounded-lg border border-slate-800 overflow-visible">
             <div ref={allocChartRef} className="w-full h-full rounded-lg overflow-hidden" />
             <div ref={allocTooltipRef} className="absolute z-20 pointer-events-none bg-slate-800 border border-slate-600 rounded-lg px-3 py-2.5 text-xs shadow-2xl ring-1 ring-white/10 min-w-[260px] will-change-transform" style={{opacity: allocTooltip ? 1 : 0, visibility: allocTooltip ? 'visible' as const : 'hidden' as const, left: 0, top: 0, transition:'opacity 0.08s ease'}}>
@@ -372,23 +373,23 @@ export function StrategyExplorer({ strategyCode, runs: initialRuns, startDates, 
                     const qSafe = isFinite(q) ? Math.max(0, q) : 0;
                     const cSafe = isFinite(c) ? Math.max(0, c) : 0;
                     return (<>
-                      <div className="flex justify-between gap-4"><span className="flex items-center gap-2 text-slate-400"><span className="w-2.5 h-2.5 rounded-full" style={{background: allocColors.tqqq}}/>{labels.primary} %</span><span className="font-mono font-semibold text-teal-300">{fmtPct(t)}</span></div>
+                      <div className="flex justify-between gap-4"><span className="flex items-center gap-2 text-slate-400"><span className="w-2.5 h-2.5 rounded-full" style={{background: allocColors.tqqq}}/>{labels.primary} %</span><span className="font-mono font-semibold text-accent-300">{fmtPct(t)}</span></div>
                       {labels.secondary && <div className="flex justify-between gap-4"><span className="flex items-center gap-2 text-slate-400"><span className="w-2.5 h-2.5 rounded-full" style={{background: allocColors.qqq}}/>{labels.secondary} %</span><span className="font-mono font-semibold text-violet-300">{fmtPct(qSafe)}</span></div>}
-                      <div className="flex justify-between gap-4"><span className="flex items-center gap-2 text-slate-400"><span className="w-2.5 h-2.5 rounded-full" style={{background: allocColors.cash}}/>{labels.cash} %</span><span className="font-mono font-semibold text-amber-300">{fmtPct(cSafe)}</span></div>
+                      <div className="flex justify-between gap-4"><span className="flex items-center gap-2 text-slate-400"><span className="w-2.5 h-2.5 rounded-full" style={{background: allocColors.cash}}/>{labels.cash} %</span><span className="font-mono font-semibold text-caution-300">{fmtPct(cSafe)}</span></div>
                     </>);
                   })()}
                   <div className="flex justify-between gap-4"><span className="text-slate-400">{tb('portfolio')}</span><span className="font-mono font-semibold text-white">{fmtMoney(allocTooltip.row.portfolioValue)}</span></div>
                   <div className="border-t border-slate-700 my-1.5"/>
                   <div className="flex justify-between gap-4"><span className="text-slate-400">{labels.pricePrimary}</span><span className="font-mono text-slate-100">{allocTooltip.row._qClose ? fmtMoney(Number(allocTooltip.row._qClose)) : '—'}</span></div>
-                  {labels.priceSecondary && <div className="flex justify-between gap-4"><span className="text-slate-400">{labels.priceSecondary}</span><span className="font-mono text-amber-300">{allocTooltip.row._tClose ? fmtMoney(Number(allocTooltip.row._tClose)) : '—'}</span></div>}
+                  {labels.priceSecondary && <div className="flex justify-between gap-4"><span className="text-slate-400">{labels.priceSecondary}</span><span className="font-mono text-caution-300">{allocTooltip.row._tClose ? fmtMoney(Number(allocTooltip.row._tClose)) : '—'}</span></div>}
                   <div className="flex justify-between gap-4"><span className="text-slate-400">CAPE</span><span className="font-mono text-pink-300">{allocTooltip.row._cape ? fmtNum(Number(allocTooltip.row._cape)) : '—'} {allocTooltip.row._mean ? <span className="text-violet-300">/ Mean {fmtNum(Number(allocTooltip.row._mean))}</span> : null}</span></div>
                   {allocTooltip.row._ratio && <div className="flex justify-between gap-4"><span className="text-slate-400">Ratio</span><span className="font-mono text-slate-200">{Number(allocTooltip.row._ratio).toFixed(2)}×</span></div>}
-                  <div className="flex justify-between gap-4"><span className="text-slate-400">{tb('target')}</span><span className="font-mono text-teal-400">{allocTooltip.row.targetPct!=null?fmtPct(allocTooltip.row.targetPct):'—'}</span></div>
+                  <div className="flex justify-between gap-4"><span className="text-slate-400">{tb('target')}</span><span className="font-mono text-accent-400">{allocTooltip.row.targetPct!=null?fmtPct(allocTooltip.row.targetPct):'—'}</span></div>
                 </div>
               </>)}
               </div>
           </div>
-          <div className="flex gap-4 mt-2 text-[11px] text-slate-400"><span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-teal-400"/>{labels.primary}</span>{labels.secondary && <span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-violet-400"/>{labels.secondary}</span>}<span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-amber-500"/>{labels.cash}</span><span className="ml-auto">100% {labels.secondary ? `${labels.primary}+${labels.secondary}+${labels.cash}` : `${labels.primary}+${labels.cash}`} — {headerStats.monthsDisplay} meses</span></div>
+          <div className="flex gap-4 mt-2 text-[11px] text-slate-400"><span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-accent-400"/>{labels.primary}</span>{labels.secondary && <span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-violet-400"/>{labels.secondary}</span>}<span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-caution-500"/>{labels.cash}</span><span className="ml-auto">100% {labels.secondary ? `${labels.primary}+${labels.secondary}+${labels.cash}` : `${labels.primary}+${labels.cash}`} — {headerStats.monthsDisplay} meses</span></div>
         </div>
         {/* Price + Schiller chart */}
         <div className="mt-6">
@@ -400,7 +401,7 @@ export function StrategyExplorer({ strategyCode, runs: initialRuns, startDates, 
                 <div className="font-semibold text-slate-100 mb-2 border-b border-slate-700 pb-1.5">{new Date(priceTooltip.date).toLocaleDateString('es-ES',{day:'2-digit', month:'short', year:'numeric'})}</div>
                 <div className="space-y-1">
                   <div className="flex justify-between gap-4"><span className="text-slate-400">{labels.pricePrimary}</span><span className="font-mono text-slate-100">{priceTooltip.row._qClose ? fmtMoney(Number(priceTooltip.row._qClose)) : '—'}</span></div>
-                  {labels.priceSecondary && <div className="flex justify-between gap-4"><span className="text-slate-400">{labels.priceSecondary}</span><span className="font-mono text-amber-300">{priceTooltip.row._tClose ? fmtMoney(Number(priceTooltip.row._tClose)) : '—'}</span></div>}
+                  {labels.priceSecondary && <div className="flex justify-between gap-4"><span className="text-slate-400">{labels.priceSecondary}</span><span className="font-mono text-caution-300">{priceTooltip.row._tClose ? fmtMoney(Number(priceTooltip.row._tClose)) : '—'}</span></div>}
                   <div className="flex justify-between gap-4"><span className="text-slate-400">CAPE</span><span className="font-mono text-pink-300">{priceTooltip.row._cape ? fmtNum(Number(priceTooltip.row._cape)) : '—'} {priceTooltip.row._mean ? <span className="text-violet-300">/ Mean {fmtNum(Number(priceTooltip.row._mean))}</span> : null}</span></div>
                   {priceTooltip.row._ratio && <div className="flex justify-between gap-4"><span className="text-slate-400">Ratio</span><span className="font-mono text-slate-200">{Number(priceTooltip.row._ratio).toFixed(2)}×</span></div>}
                   {(() => {
@@ -408,16 +409,16 @@ export function StrategyExplorer({ strategyCode, runs: initialRuns, startDates, 
                     const c = Number((priceTooltip.row as any).cashPct ?? priceTooltip.row.cashPct ?? 0);
                     const q = Number((priceTooltip.row as any).qqqPct ?? (1 - t - (isFinite(c) ? c : 0)));
                     return (<>
-                      <div className="flex justify-between gap-4"><span className="flex items-center gap-2 text-slate-400"><span className="w-2 h-2 rounded-full" style={{background: allocColors.tqqq}}/>{labels.primary}</span><span className="font-mono text-teal-300">{fmtPct(t)}</span></div>
+                      <div className="flex justify-between gap-4"><span className="flex items-center gap-2 text-slate-400"><span className="w-2 h-2 rounded-full" style={{background: allocColors.tqqq}}/>{labels.primary}</span><span className="font-mono text-accent-300">{fmtPct(t)}</span></div>
                       {labels.secondary && <div className="flex justify-between gap-4"><span className="flex items-center gap-2 text-slate-400"><span className="w-2 h-2 rounded-full" style={{background: allocColors.qqq}}/>{labels.secondary}</span><span className="font-mono text-violet-300">{fmtPct(Math.max(0, isFinite(q)?q:0))}</span></div>}
-                      <div className="flex justify-between gap-4"><span className="flex items-center gap-2 text-slate-400"><span className="w-2 h-2 rounded-full" style={{background: allocColors.cash}}/>{labels.cash}</span><span className="font-mono text-amber-300">{fmtPct(Math.max(0, isFinite(c)?c:0))}</span></div>
+                      <div className="flex justify-between gap-4"><span className="flex items-center gap-2 text-slate-400"><span className="w-2 h-2 rounded-full" style={{background: allocColors.cash}}/>{labels.cash}</span><span className="font-mono text-caution-300">{fmtPct(Math.max(0, isFinite(c)?c:0))}</span></div>
                     </>);
                   })()}
                 </div>
               </>)}
               </div>
           </div>
-          <div className="flex flex-wrap gap-4 mt-2 text-[11px] text-slate-400"><span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-slate-200"/>{labels.pricePrimary}</span>{labels.priceSecondary && <span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-amber-400"/>{labels.priceSecondary}</span>}<span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-pink-400"/>CAPE×10</span><span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-violet-400 border border-dashed"/>{tb('mean')}</span><span className="ml-auto">CAPE multiplicado ×10 para comparar con {labels.pricePrimary}</span></div>
+          <div className="flex flex-wrap gap-4 mt-2 text-[11px] text-slate-400"><span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-slate-200"/>{labels.pricePrimary}</span>{labels.priceSecondary && <span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-caution-400"/>{labels.priceSecondary}</span>}<span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-pink-400"/>CAPE×10</span><span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-violet-400 border border-dashed"/>{tb('mean')}</span><span className="ml-auto">CAPE multiplicado ×10 para comparar con {labels.pricePrimary}</span></div>
         </div>
       </div>
 
@@ -451,19 +452,19 @@ export function StrategyExplorer({ strategyCode, runs: initialRuns, startDates, 
                 <tr key={r._d} className="hover:bg-slate-900/40">
                   <td className="p-2 text-slate-200 font-semibold whitespace-nowrap">{r._d.substring(0,7)}</td>
                   <td className="p-2 text-right text-white font-semibold">{fmtMoney(r.portfolioValue)}</td>
-                  <td className="p-2 text-right"><span className="inline-flex items-center gap-2 justify-end"><span className="w-12 h-1.5 bg-slate-800 rounded-full overflow-hidden hidden md:inline-block"><span className="h-full bg-teal-500 block" style={{width:`${r.tqqqPct*100}%`}}/></span><span className="text-slate-100">{fmtPct(r.tqqqPct)}</span></span></td>
+                  <td className="p-2 text-right"><span className="inline-flex items-center gap-2 justify-end"><span className="w-12 h-1.5 bg-slate-800 rounded-full overflow-hidden hidden md:inline-block"><span className="h-full bg-accent-500 block" style={{width:`${r.tqqqPct*100}%`}}/></span><span className="text-slate-100">{fmtPct(r.tqqqPct)}</span></span></td>
                   {labels.secondary ? <td className="p-2 text-right text-violet-300">{fmtPct(((r as any).qqqPct ?? (1 - r.tqqqPct - (r.cashPct ?? 0))))}</td> : null}
                   <td className="p-2 text-right text-slate-400">{fmtPct(r.cashPct ?? 0)}</td>
-                  <td className="p-2 text-right text-teal-400">{r.targetPct!=null?fmtPct(r.targetPct):'—'}</td>
+                  <td className="p-2 text-right text-accent-400">{r.targetPct!=null?fmtPct(r.targetPct):'—'}</td>
                   <td className="p-2 text-right text-slate-200">{r._qClose ? fmtMoney(Number(r._qClose)) : '—'}</td>
-                  {labels.priceSecondary ? <td className="p-2 text-right text-amber-300">{r._tClose ? fmtMoney(Number(r._tClose)) : '—'}</td> : null}
+                  {labels.priceSecondary ? <td className="p-2 text-right text-caution-300">{r._tClose ? fmtMoney(Number(r._tClose)) : '—'}</td> : null}
                   <td className="p-2 text-right text-pink-300">{r._cape ? fmtNum(Number(r._cape)) : '—'}</td>
-                  <td className="p-2 text-right text-orange-300">{(r as any)._maxHist ?? r._ind?.max_hist ? fmtNum(Number((r as any)._maxHist ?? r._ind.max_hist)) : '—'}</td>
+                  <td className="p-2 text-right text-elevated-300">{(r as any)._maxHist ?? r._ind?.max_hist ? fmtNum(Number((r as any)._maxHist ?? r._ind.max_hist)) : '—'}</td>
                   <td className="p-2 text-right text-violet-300">{r._mean ? fmtNum(Number(r._mean)) : '—'}</td>
                   <td className="p-2 text-right text-slate-300">{r._ratio ? Number(r._ratio).toFixed(2) : '—'}</td>
                   <td className="p-2 text-[10px] leading-3 text-slate-400">
                     <div className="flex gap-1 flex-wrap items-center">
-                      <span className={`px-1 py-0.5 rounded border text-[10px] ${String(regime).includes('accum')||r.tqqqPct>0.5 ? 'bg-teal-500/10 text-teal-400 border-teal-500/20' : 'bg-slate-800 text-slate-400 border-slate-700'}`}>{ind.bull_trend ? 'bull' : ind.regime || regime}</span>
+                      <span className={`px-1 py-0.5 rounded border text-[10px] ${String(regime).includes('accum')||r.tqqqPct>0.5 ? 'bg-accent-500/10 text-accent-400 border-accent-500/20' : 'bg-slate-800 text-slate-400 border-slate-700'}`}>{ind.bull_trend ? 'bull' : ind.regime || regime}</span>
                       {(() => {
                         const ratio = ind.cape_ratio ?? r._ratio ?? null;
                         const cape = ind.cape ?? r._cape ?? null;
@@ -472,7 +473,7 @@ export function StrategyExplorer({ strategyCode, runs: initialRuns, startDates, 
                       })()}
                       {ind.dist_pct!=null && <span>dist {ind.dist_pct}%</span>}
                       {ind.dd_qqq_pct!=null && <span>ddQ {ind.dd_qqq_pct}%</span>}
-                      {ind.death_cross && <span className="text-rose-400">death</span>}
+                      {ind.death_cross && <span className="text-risk-400">death</span>}
                     </div>
                   </td>
                 </tr>

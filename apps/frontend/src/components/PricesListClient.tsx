@@ -6,6 +6,7 @@ import { useLocale, useTranslations } from 'next-intl';
 import { Search, ArrowUpDown, SlidersHorizontal, Star, Activity, Sparkles, Filter, LayoutGrid, List } from 'lucide-react';
 import { Ticker } from '@/services/api';
 import precalculatedPerformance from '../data/precalculated_performance.json';
+import { TOKENS } from '@/lib/designTokens';
 
 interface PricesListClientProps {
   initialTickers: Ticker[];
@@ -108,38 +109,38 @@ export const PricesListClient: React.FC<PricesListClientProps> = ({ initialTicke
     const normRec = rec.toLowerCase();
     if (index >= 85 || normRec.includes('strong buy')) {
       return {
-        badge: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 shadow-[0_0_15px_rgba(16,185,129,0.1)]',
-        text: 'text-emerald-400',
-        bar: 'bg-emerald-500',
-        ring: 'stroke-emerald-500',
+        badge: 'bg-favorable-500/10 text-favorable-400 border-favorable-500/30 shadow-[0_0_15px_rgba(16,185,129,0.1)]',
+        text: 'text-favorable-400',
+        bar: 'bg-favorable-500',
+        ring: 'stroke-favorable-500',
       };
     } else if (index >= 75 || normRec.includes('buy')) {
       return {
-        badge: 'bg-teal-500/10 text-teal-400 border-teal-500/20',
-        text: 'text-teal-400',
-        bar: 'bg-teal-500',
-        ring: 'stroke-teal-500',
+        badge: 'bg-accent-500/10 text-accent-400 border-accent-500/20',
+        text: 'text-accent-400',
+        bar: 'bg-accent-500',
+        ring: 'stroke-accent-500',
       };
     } else if (index >= 45 || normRec.includes('hold') || normRec.includes('neutral')) {
       return {
-        badge: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
-        text: 'text-amber-400',
-        bar: 'bg-amber-500',
-        ring: 'stroke-amber-500',
+        badge: 'bg-caution-500/10 text-caution-400 border-caution-500/20',
+        text: 'text-caution-400',
+        bar: 'bg-caution-500',
+        ring: 'stroke-caution-500',
       };
     } else if (index >= 30 || normRec.includes('sell')) {
       return {
-        badge: 'bg-rose-500/10 text-rose-400 border-rose-500/20',
-        text: 'text-rose-400',
-        bar: 'bg-rose-500',
-        ring: 'stroke-rose-500',
+        badge: 'bg-risk-500/10 text-risk-400 border-risk-500/20',
+        text: 'text-risk-400',
+        bar: 'bg-risk-500',
+        ring: 'stroke-risk-500',
       };
     } else {
       return {
-        badge: 'bg-red-500/10 text-red-400 border-red-500/30 shadow-[0_0_15px_rgba(239,68,68,0.1)]',
-        text: 'text-red-400',
-        bar: 'bg-red-500',
-        ring: 'stroke-red-500',
+        badge: 'bg-risk-500/10 text-risk-400 border-risk-500/30 shadow-[0_0_15px_rgba(239,68,68,0.1)]',
+        text: 'text-risk-400',
+        bar: 'bg-risk-500',
+        ring: 'stroke-risk-500',
       };
     }
   };
@@ -148,7 +149,7 @@ export const PricesListClient: React.FC<PricesListClientProps> = ({ initialTicke
     const data = (precalculatedPerformance as any)[symbol];
     const val = data ? data[key] : null;
     if (val === null || val === undefined) return <td className="p-4 text-right text-slate-500 font-mono">-</td>;
-    const color = val >= 0 ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold';
+    const color = val >= 0 ? 'text-favorable-400 font-bold' : 'text-risk-400 font-bold';
     return (
       <td className={`p-4 text-right font-mono ${color}`}>
         {val >= 0 ? '+' : ''}{val.toFixed(2)}%
@@ -181,7 +182,7 @@ export const PricesListClient: React.FC<PricesListClientProps> = ({ initialTicke
     }
 
     const isAtHigh = Math.abs(fromHighVal) < 0.01;
-    const textColor = isAtHigh ? 'text-teal-400 font-bold' : 'text-rose-400 font-bold';
+    const textColor = isAtHigh ? 'text-accent-400 font-bold' : 'text-risk-400 font-bold';
 
     const formattedDate = highestDate
       ? new Date(highestDate + 'T00:00:00').toLocaleDateString(locale === 'es' ? 'es-ES' : 'en-US', {
@@ -199,14 +200,14 @@ export const PricesListClient: React.FC<PricesListClientProps> = ({ initialTicke
           <span className={textColor}>
             {fromHighVal > 0 ? '+' : ''}{fromHighVal.toFixed(2)}%
           </span>
-          <span className="text-[10px] text-slate-500 group-hover/ath:text-teal-400 transition-colors ml-0.5">ℹ</span>
+          <span className="text-[10px] text-slate-500 group-hover/ath:text-accent-400 transition-colors ml-0.5">ℹ</span>
         </div>
 
         {/* Hover Popover Tooltip (Smart positioning: opens UP if near bottom, DOWN if near top) */}
         <div className={`pointer-events-none absolute right-2 ${isNearBottom ? 'bottom-full mb-2.5' : 'top-full mt-2.5'} hidden group-hover/ath:flex flex-col gap-2 w-64 p-3.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-200 text-xs shadow-[0_10px_25px_-5px_rgba(0,0,0,0.8)] z-50 text-left font-sans animate-in fade-in zoom-in-95 duration-150`}>
           <div className={`absolute ${isNearBottom ? '-bottom-1.5 border-b border-r' : '-top-1.5 border-t border-l'} right-4 w-3 h-3 bg-slate-950 border-slate-800 rotate-45`}></div>
           
-          <div className="flex items-center justify-between border-b border-slate-900 pb-2 font-extrabold text-teal-400 relative z-10">
+          <div className="flex items-center justify-between border-b border-slate-900 pb-2 font-extrabold text-accent-400 relative z-10">
             <span>{locale === 'es' ? 'Caída desde Máximo' : 'From High Calculation'}</span>
             <span className="text-[10px] font-bold text-slate-400 bg-slate-900 px-1.5 py-0.5 rounded border border-slate-800">{stock.symbol}</span>
           </div>
@@ -214,7 +215,7 @@ export const PricesListClient: React.FC<PricesListClientProps> = ({ initialTicke
           <div className="flex flex-col gap-1 text-[11px] font-mono text-slate-300 relative z-10">
             <div className="flex justify-between">
               <span className="text-slate-400">{locale === 'es' ? 'Máx. Histórico' : 'Highest Price'}:</span>
-              <strong className="text-emerald-400">${highestPrice ? highestPrice.toFixed(2) : 'N/A'}</strong>
+              <strong className="text-favorable-400">${highestPrice ? highestPrice.toFixed(2) : 'N/A'}</strong>
             </div>
             <div className="flex justify-between">
               <span className="text-slate-400">{locale === 'es' ? 'Precio Actual' : 'Actual Price'}:</span>
@@ -237,7 +238,7 @@ export const PricesListClient: React.FC<PricesListClientProps> = ({ initialTicke
 
           <div className="text-[10px] pt-1 border-t border-slate-900 flex items-center justify-between relative z-10">
             <span className="text-slate-400">{locale === 'es' ? 'Fecha del Máximo' : 'Reached On'}:</span>
-            <strong className="font-bold text-teal-300">{formattedDate}</strong>
+            <strong className="font-bold text-accent-300">{formattedDate}</strong>
           </div>
         </div>
       </td>
@@ -272,7 +273,7 @@ export const PricesListClient: React.FC<PricesListClientProps> = ({ initialTicke
               placeholder={tCommon('searchPlaceholder')}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 bg-slate-900/60 border border-slate-800 rounded-xl text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-teal-500/60 focus:ring-1 focus:ring-teal-500/30 transition-all"
+              className="w-full pl-10 pr-4 py-2.5 bg-slate-900/60 border border-slate-800 rounded-xl text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-accent-500/60 focus:ring-1 focus:ring-accent-500/30 transition-all"
             />
           </div>
 
@@ -286,7 +287,7 @@ export const PricesListClient: React.FC<PricesListClientProps> = ({ initialTicke
               id="ticker-sort"
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as SortOption)}
-              className="bg-slate-900 border border-slate-800 text-xs font-semibold text-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:border-teal-500 cursor-pointer"
+              className="bg-slate-900 border border-slate-800 text-xs font-semibold text-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:border-accent-500 cursor-pointer"
             >
               <option value="score-desc">{tCommon('buyHoldIndex')} (↑)</option>
               <option value="score-asc">{tCommon('buyHoldIndex')} (↓)</option>
@@ -303,7 +304,7 @@ export const PricesListClient: React.FC<PricesListClientProps> = ({ initialTicke
                 onClick={() => setViewMode('grid')}
                 className={`p-2 rounded-lg transition-all cursor-pointer ${
                   viewMode === 'grid'
-                    ? 'bg-slate-800 text-teal-400'
+                    ? 'bg-slate-800 text-accent-400'
                     : 'text-slate-500 hover:text-slate-300'
                 }`}
                 title={locale === 'es' ? 'Vista Cuadrícula' : 'Grid View'}
@@ -315,7 +316,7 @@ export const PricesListClient: React.FC<PricesListClientProps> = ({ initialTicke
                 onClick={() => setViewMode('table')}
                 className={`p-2 rounded-lg transition-all cursor-pointer ${
                   viewMode === 'table'
-                    ? 'bg-slate-800 text-teal-400'
+                    ? 'bg-slate-800 text-accent-400'
                     : 'text-slate-500 hover:text-slate-300'
                 }`}
                 title={locale === 'es' ? 'Vista Tabla' : 'Table View'}
@@ -342,7 +343,7 @@ export const PricesListClient: React.FC<PricesListClientProps> = ({ initialTicke
                   onClick={() => setSelectedSector(sector)}
                   className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition cursor-pointer border ${
                     isActive
-                      ? 'bg-teal-500/10 text-teal-400 border-teal-500/30'
+                      ? 'bg-accent-500/10 text-accent-400 border-accent-500/30'
                       : 'bg-slate-900/40 text-slate-400 border-slate-900 hover:bg-slate-900/80 hover:text-slate-200'
                   }`}
                 >
@@ -375,15 +376,15 @@ export const PricesListClient: React.FC<PricesListClientProps> = ({ initialTicke
           {/* ETFs Grid */}
           {filteredEtfs.length > 0 && (
             <div className="flex flex-col gap-5">
-              <h3 className="text-sm font-extrabold uppercase tracking-widest text-teal-400 border-b border-slate-900 pb-2 flex items-center gap-2">
-                <Sparkles size={14} className="text-teal-400 animate-pulse" />
+              <h3 className="text-sm font-extrabold uppercase tracking-widest text-accent-400 border-b border-slate-900 pb-2 flex items-center gap-2">
+                <Sparkles size={14} className="text-accent-400 animate-pulse" />
                 ETFs & Fondos Indexados ({filteredEtfs.length})
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {filteredEtfs.map((stock) => {
                   const styles = getRecommendationStyle(stock.recommendation, stock.buyHoldIndex);
                   const isBuy = stock.buyHoldIndex >= 75;
-                  const changeColor = stock.changePercent >= 0 ? 'text-emerald-400' : 'text-rose-400';
+                  const changeColor = stock.changePercent >= 0 ? 'text-favorable-400' : 'text-risk-400';
                   
                   const radius = 24;
                   const strokeWidth = 4;
@@ -396,11 +397,11 @@ export const PricesListClient: React.FC<PricesListClientProps> = ({ initialTicke
                       href={`/${locale}/prices/${stock.symbol}`}
                       className="group flex flex-col justify-between p-6 rounded-2xl border border-slate-900 bg-slate-950/40 backdrop-blur-sm relative overflow-hidden transition-all duration-300 hover:border-slate-800 hover:bg-slate-900/20 hover:-translate-y-1 shadow-lg hover:shadow-2xl"
                     >
-                      <div className={`absolute top-0 left-0 w-full h-1 transition-all duration-300 group-hover:h-1.5 ${isBuy ? 'bg-teal-500' : 'bg-amber-500'}`} />
+                      <div className={`absolute top-0 left-0 w-full h-1 transition-all duration-300 group-hover:h-1.5 ${isBuy ? 'bg-accent-500' : 'bg-caution-500'}`} />
                       <div className="flex justify-between items-start gap-4">
                         <div>
                           <div className="flex items-center gap-2">
-                            <span className="inline-flex items-center gap-1 px-3 py-1 rounded-lg text-sm font-black tracking-wider uppercase bg-teal-500/15 text-teal-300 border border-teal-500/30 group-hover:bg-teal-500 group-hover:text-slate-950 group-hover:border-teal-400 shadow-[0_0_12px_rgba(20,184,166,0.15)] group-hover:shadow-[0_0_16px_rgba(20,184,166,0.4)] transition-all duration-200">
+                            <span className="inline-flex items-center gap-1 px-3 py-1 rounded-lg text-sm font-black tracking-wider uppercase bg-accent-500/15 text-accent-300 border border-accent-500/30 group-hover:bg-accent-500 group-hover:text-slate-950 group-hover:border-accent-400 shadow-[0_0_12px_rgba(20,184,166,0.15)] group-hover:shadow-[0_0_16px_rgba(20,184,166,0.4)] transition-all duration-200">
                               {stock.symbol}
                               <span className="text-xs opacity-70 group-hover:opacity-100 font-normal">→</span>
                             </span>
@@ -428,7 +429,7 @@ export const PricesListClient: React.FC<PricesListClientProps> = ({ initialTicke
                           <div className="relative w-14 h-14">
                             <svg className="w-full h-full transform -rotate-90">
                               <circle cx="28" cy="28" r={radius} fill="transparent" stroke="#1e293b" strokeWidth={strokeWidth} />
-                              <circle cx="28" cy="28" r={radius} fill="transparent" className="transition-all duration-500 ease-out" stroke={isBuy ? '#14b8a6' : '#f59e0b'} strokeWidth={strokeWidth} strokeDasharray={circumference} strokeDashoffset={strokeDashoffset} strokeLinecap="round" />
+                              <circle cx="28" cy="28" r={radius} fill="transparent" className="transition-all duration-500 ease-out" stroke={isBuy ? TOKENS.accent : TOKENS.caution} strokeWidth={strokeWidth} strokeDasharray={circumference} strokeDashoffset={strokeDashoffset} strokeLinecap="round" />
                             </svg>
                             <div className="absolute inset-0 flex items-center justify-center">
                               <span className="text-xs font-extrabold text-white">{stock.buyHoldIndex}</span>
@@ -457,15 +458,15 @@ export const PricesListClient: React.FC<PricesListClientProps> = ({ initialTicke
           {/* Companies Grid */}
           {filteredCompanies.length > 0 && (
             <div className="flex flex-col gap-5">
-              <h3 className="text-sm font-extrabold uppercase tracking-widest text-teal-400 border-b border-slate-900 pb-2 flex items-center gap-2">
-                <Sparkles size={14} className="text-teal-400 animate-pulse" />
+              <h3 className="text-sm font-extrabold uppercase tracking-widest text-accent-400 border-b border-slate-900 pb-2 flex items-center gap-2">
+                <Sparkles size={14} className="text-accent-400 animate-pulse" />
                 {locale === 'es' ? 'Empresas' : 'Companies'} ({filteredCompanies.length})
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {filteredCompanies.map((stock) => {
                   const styles = getRecommendationStyle(stock.recommendation, stock.buyHoldIndex);
                   const isBuy = stock.buyHoldIndex >= 75;
-                  const changeColor = stock.changePercent >= 0 ? 'text-emerald-400' : 'text-rose-400';
+                  const changeColor = stock.changePercent >= 0 ? 'text-favorable-400' : 'text-risk-400';
                   
                   const radius = 24;
                   const strokeWidth = 4;
@@ -478,11 +479,11 @@ export const PricesListClient: React.FC<PricesListClientProps> = ({ initialTicke
                       href={`/${locale}/prices/${stock.symbol}`}
                       className="group flex flex-col justify-between p-6 rounded-2xl border border-slate-900 bg-slate-950/40 backdrop-blur-sm relative overflow-hidden transition-all duration-300 hover:border-slate-800 hover:bg-slate-900/20 hover:-translate-y-1 shadow-lg hover:shadow-2xl"
                     >
-                      <div className={`absolute top-0 left-0 w-full h-1 transition-all duration-300 group-hover:h-1.5 ${isBuy ? 'bg-teal-500' : 'bg-amber-500'}`} />
+                      <div className={`absolute top-0 left-0 w-full h-1 transition-all duration-300 group-hover:h-1.5 ${isBuy ? 'bg-accent-500' : 'bg-caution-500'}`} />
                       <div className="flex justify-between items-start gap-4">
                         <div>
                           <div className="flex items-center gap-2">
-                            <span className="inline-flex items-center gap-1 px-3 py-1 rounded-lg text-sm font-black tracking-wider uppercase bg-teal-500/15 text-teal-300 border border-teal-500/30 group-hover:bg-teal-500 group-hover:text-slate-950 group-hover:border-teal-400 shadow-[0_0_12px_rgba(20,184,166,0.15)] group-hover:shadow-[0_0_16px_rgba(20,184,166,0.4)] transition-all duration-200">
+                            <span className="inline-flex items-center gap-1 px-3 py-1 rounded-lg text-sm font-black tracking-wider uppercase bg-accent-500/15 text-accent-300 border border-accent-500/30 group-hover:bg-accent-500 group-hover:text-slate-950 group-hover:border-accent-400 shadow-[0_0_12px_rgba(20,184,166,0.15)] group-hover:shadow-[0_0_16px_rgba(20,184,166,0.4)] transition-all duration-200">
                               {stock.symbol}
                               <span className="text-xs opacity-70 group-hover:opacity-100 font-normal">→</span>
                             </span>
@@ -510,7 +511,7 @@ export const PricesListClient: React.FC<PricesListClientProps> = ({ initialTicke
                           <div className="relative w-14 h-14">
                             <svg className="w-full h-full transform -rotate-90">
                               <circle cx="28" cy="28" r={radius} fill="transparent" stroke="#1e293b" strokeWidth={strokeWidth} />
-                              <circle cx="28" cy="28" r={radius} fill="transparent" className="transition-all duration-500 ease-out" stroke={isBuy ? '#14b8a6' : '#f59e0b'} strokeWidth={strokeWidth} strokeDasharray={circumference} strokeDashoffset={strokeDashoffset} strokeLinecap="round" />
+                              <circle cx="28" cy="28" r={radius} fill="transparent" className="transition-all duration-500 ease-out" stroke={isBuy ? TOKENS.accent : TOKENS.caution} strokeWidth={strokeWidth} strokeDasharray={circumference} strokeDashoffset={strokeDashoffset} strokeLinecap="round" />
                             </svg>
                             <div className="absolute inset-0 flex items-center justify-center">
                               <span className="text-xs font-extrabold text-white">{stock.buyHoldIndex}</span>
@@ -541,8 +542,8 @@ export const PricesListClient: React.FC<PricesListClientProps> = ({ initialTicke
           {/* ETFs Table */}
           {filteredEtfs.length > 0 && (
             <div className="flex flex-col gap-4">
-              <h3 className="text-sm font-extrabold uppercase tracking-widest text-teal-400 border-b border-slate-900 pb-2 flex items-center gap-2">
-                <Sparkles size={14} className="text-teal-400 animate-pulse" />
+              <h3 className="text-sm font-extrabold uppercase tracking-widest text-accent-400 border-b border-slate-900 pb-2 flex items-center gap-2">
+                <Sparkles size={14} className="text-accent-400 animate-pulse" />
                 ETFs & Fondos Indexados ({filteredEtfs.length})
               </h3>
               <div className="max-h-[650px] overflow-auto border border-slate-900 rounded-xl bg-slate-950 shadow-xl">
@@ -572,13 +573,13 @@ export const PricesListClient: React.FC<PricesListClientProps> = ({ initialTicke
                     {filteredEtfs.map((stock, index) => {
                       const styles = getRecommendationStyle(stock.recommendation, stock.buyHoldIndex);
                       const isBuy = stock.buyHoldIndex >= 75;
-                      const changeColor = stock.changePercent >= 0 ? 'text-emerald-400' : 'text-rose-400';
+                      const changeColor = stock.changePercent >= 0 ? 'text-favorable-400' : 'text-risk-400';
                       
                       return (
                         <tr key={stock.symbol} className="hover:bg-slate-900/20 transition-colors">
                           <td className="sticky left-0 z-20 bg-slate-950 p-4 font-sans font-bold text-white whitespace-nowrap border-r border-slate-900 shadow-[4px_0_8px_-2px_rgba(0,0,0,0.5)]">
                             <Link href={`/${locale}/prices/${stock.symbol}`} className="group/ticker inline-flex flex-col items-start gap-1">
-                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-black tracking-wider uppercase bg-teal-500/15 text-teal-300 border border-teal-500/30 group-hover/ticker:bg-teal-500 group-hover/ticker:text-slate-950 group-hover/ticker:border-teal-400 shadow-[0_0_12px_rgba(20,184,166,0.15)] group-hover/ticker:shadow-[0_0_16px_rgba(20,184,166,0.4)] group-hover/ticker:scale-105 transition-all duration-200 cursor-pointer">
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-black tracking-wider uppercase bg-accent-500/15 text-accent-300 border border-accent-500/30 group-hover/ticker:bg-accent-500 group-hover/ticker:text-slate-950 group-hover/ticker:border-accent-400 shadow-[0_0_12px_rgba(20,184,166,0.15)] group-hover/ticker:shadow-[0_0_16px_rgba(20,184,166,0.4)] group-hover/ticker:scale-105 transition-all duration-200 cursor-pointer">
                                 {stock.symbol}
                                 <span className="text-[10px] opacity-70 group-hover/ticker:opacity-100 font-normal">→</span>
                               </span>
@@ -605,9 +606,9 @@ export const PricesListClient: React.FC<PricesListClientProps> = ({ initialTicke
                           <td className="p-4 text-right text-slate-400 font-mono">{stock.forwardPe ? `${stock.forwardPe.toFixed(2)}x` : 'N/A'}</td>
                           <td className="p-4 text-right text-slate-300 font-mono">{stock.eps ? `$${stock.eps.toFixed(2)}` : 'N/A'}</td>
                           <td className="p-4 text-right text-slate-400 font-mono">{stock.dividendRate ? `$${stock.dividendRate.toFixed(2)}` : '$0.00'}</td>
-                          <td className="p-4 text-right text-emerald-400/90 font-bold font-mono">{stock.dy ? `${stock.dy.toFixed(2)}%` : '0.00%'}</td>
+                          <td className="p-4 text-right text-favorable-400/90 font-bold font-mono">{stock.dy ? `${stock.dy.toFixed(2)}%` : '0.00%'}</td>
                           <td className="p-4 text-center font-extrabold text-sm">
-                            <span className={`${isBuy ? 'text-teal-400' : 'text-amber-400'}`}>
+                            <span className={`${isBuy ? 'text-accent-400' : 'text-caution-400'}`}>
                               {stock.buyHoldIndex}
                             </span>
                           </td>
@@ -630,8 +631,8 @@ export const PricesListClient: React.FC<PricesListClientProps> = ({ initialTicke
           {/* Companies Table */}
           {filteredCompanies.length > 0 && (
             <div className="flex flex-col gap-4">
-              <h3 className="text-sm font-extrabold uppercase tracking-widest text-teal-400 border-b border-slate-900 pb-2 flex items-center gap-2">
-                <Sparkles size={14} className="text-teal-400 animate-pulse" />
+              <h3 className="text-sm font-extrabold uppercase tracking-widest text-accent-400 border-b border-slate-900 pb-2 flex items-center gap-2">
+                <Sparkles size={14} className="text-accent-400 animate-pulse" />
                 {locale === 'es' ? 'Empresas' : 'Companies'} ({filteredCompanies.length})
               </h3>
               <div className="max-h-[650px] overflow-auto border border-slate-900 rounded-xl bg-slate-950 shadow-xl">
@@ -661,13 +662,13 @@ export const PricesListClient: React.FC<PricesListClientProps> = ({ initialTicke
                     {filteredCompanies.map((stock, index) => {
                       const styles = getRecommendationStyle(stock.recommendation, stock.buyHoldIndex);
                       const isBuy = stock.buyHoldIndex >= 75;
-                      const changeColor = stock.changePercent >= 0 ? 'text-emerald-400' : 'text-rose-400';
+                      const changeColor = stock.changePercent >= 0 ? 'text-favorable-400' : 'text-risk-400';
                       
                       return (
                         <tr key={stock.symbol} className="hover:bg-slate-900/20 transition-colors">
                           <td className="sticky left-0 z-20 bg-slate-950 p-4 font-sans font-bold text-white whitespace-nowrap border-r border-slate-900 shadow-[4px_0_8px_-2px_rgba(0,0,0,0.5)]">
                             <Link href={`/${locale}/prices/${stock.symbol}`} className="group/ticker inline-flex flex-col items-start gap-1">
-                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-black tracking-wider uppercase bg-teal-500/15 text-teal-300 border border-teal-500/30 group-hover/ticker:bg-teal-500 group-hover/ticker:text-slate-950 group-hover/ticker:border-teal-400 shadow-[0_0_12px_rgba(20,184,166,0.15)] group-hover/ticker:shadow-[0_0_16px_rgba(20,184,166,0.4)] group-hover/ticker:scale-105 transition-all duration-200 cursor-pointer">
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-black tracking-wider uppercase bg-accent-500/15 text-accent-300 border border-accent-500/30 group-hover/ticker:bg-accent-500 group-hover/ticker:text-slate-950 group-hover/ticker:border-accent-400 shadow-[0_0_12px_rgba(20,184,166,0.15)] group-hover/ticker:shadow-[0_0_16px_rgba(20,184,166,0.4)] group-hover/ticker:scale-105 transition-all duration-200 cursor-pointer">
                                 {stock.symbol}
                                 <span className="text-[10px] opacity-70 group-hover/ticker:opacity-100 font-normal">→</span>
                               </span>
@@ -694,9 +695,9 @@ export const PricesListClient: React.FC<PricesListClientProps> = ({ initialTicke
                           <td className="p-4 text-right text-slate-400 font-mono">{stock.forwardPe ? `${stock.forwardPe.toFixed(2)}x` : 'N/A'}</td>
                           <td className="p-4 text-right text-slate-300 font-mono">{stock.eps ? `$${stock.eps.toFixed(2)}` : 'N/A'}</td>
                           <td className="p-4 text-right text-slate-400 font-mono">{stock.dividendRate ? `$${stock.dividendRate.toFixed(2)}` : '$0.00'}</td>
-                          <td className="p-4 text-right text-emerald-400/90 font-bold font-mono">{stock.dy ? `${stock.dy.toFixed(2)}%` : '0.00%'}</td>
+                          <td className="p-4 text-right text-favorable-400/90 font-bold font-mono">{stock.dy ? `${stock.dy.toFixed(2)}%` : '0.00%'}</td>
                           <td className="p-4 text-center font-extrabold text-sm">
-                            <span className={`${isBuy ? 'text-teal-400' : 'text-amber-400'}`}>
+                            <span className={`${isBuy ? 'text-accent-400' : 'text-caution-400'}`}>
                               {stock.buyHoldIndex}
                             </span>
                           </td>

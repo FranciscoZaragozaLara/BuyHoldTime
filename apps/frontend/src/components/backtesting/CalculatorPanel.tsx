@@ -97,22 +97,22 @@ export function CalculatorPanel() {
 
           <label className="block">
             <span className="text-xs text-slate-400">{t('calculator.initialAmount')}</span>
-            <input type="number" value={amount} onChange={e => setAmount(e.target.value)} className="mt-1 w-full px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-slate-100 text-sm focus:outline-none focus:border-teal-500" />
+            <input type="number" value={amount} onChange={e => setAmount(e.target.value)} className="mt-1 w-full px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-slate-100 text-sm focus:outline-none focus:border-accent-500" />
           </label>
 
           <label className="block">
             <span className="text-xs text-slate-400">{t('calculator.monthlyContribution')}</span>
-            <input type="number" value={monthly} onChange={e => setMonthly(e.target.value)} className="mt-1 w-full px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-slate-100 text-sm focus:outline-none focus:border-teal-500" />
+            <input type="number" value={monthly} onChange={e => setMonthly(e.target.value)} className="mt-1 w-full px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-slate-100 text-sm focus:outline-none focus:border-accent-500" />
           </label>
 
           <div className="grid grid-cols-2 gap-4">
             <label className="block">
               <span className="text-xs text-slate-400">{t('calculator.years')}</span>
-              <input type="number" value={years} onChange={e => setYears(e.target.value)} className="mt-1 w-full px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-slate-100 text-sm focus:outline-none focus:border-teal-500" />
+              <input type="number" value={years} onChange={e => setYears(e.target.value)} className="mt-1 w-full px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-slate-100 text-sm focus:outline-none focus:border-accent-500" />
             </label>
             <label className="block">
               <span className="text-xs text-slate-400">{t('calculator.cagr')}</span>
-              <input type="number" step="0.1" value={cagr} onChange={e => setCagr(e.target.value)} className="mt-1 w-full px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-slate-100 text-sm focus:outline-none focus:border-teal-500" />
+              <input type="number" step="0.1" value={cagr} onChange={e => setCagr(e.target.value)} className="mt-1 w-full px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-slate-100 text-sm focus:outline-none focus:border-accent-500" />
             </label>
           </div>
 
@@ -127,22 +127,22 @@ export function CalculatorPanel() {
               <div className="text-xs text-slate-500">{t('calculator.totalInvested')}</div>
               <div className="text-lg font-mono font-bold text-slate-100">{fmt(result.totalInvested)}</div>
             </div>
-            <div className="bg-teal-500/10 border border-teal-500/30 rounded-lg p-4">
-              <div className="text-xs text-teal-400">{t('calculator.finalValue')}</div>
-              <div className="text-xl font-mono font-bold text-teal-300">{fmt(result.final)}</div>
+            <div className="bg-accent-500/10 border border-accent-500/30 rounded-lg p-4">
+              <div className="text-xs text-accent-400">{t('calculator.finalValue')}</div>
+              <div className="text-xl font-mono font-bold text-accent-300">{fmt(result.final)}</div>
             </div>
-            <div className={`border rounded-lg p-4 ${result.gain >= 0 ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-red-500/10 border-red-500/30'}`}>
+            <div className={`border rounded-lg p-4 ${result.gain >= 0 ? 'bg-favorable-500/10 border-favorable-500/30' : 'bg-risk-500/10 border-risk-500/30'}`}>
               <div className="text-xs text-slate-400">{t('calculator.gain')}</div>
-              <div className={`text-lg font-mono font-bold ${result.gain >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{result.gain >= 0 ? '+' : ''}{fmt(result.gain)}</div>
+              <div className={`text-lg font-mono font-bold ${result.gain >= 0 ? 'text-favorable-400' : 'text-risk-400'}`}>{result.gain >= 0 ? '+' : ''}{fmt(result.gain)}</div>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <div className={`border rounded-lg p-4 ${result.perf >= 0 ? 'bg-sky-500/10 border-sky-500/30' : 'bg-red-500/10 border-red-500/30'}`}>
+              <div className={`border rounded-lg p-4 ${result.perf >= 0 ? 'bg-sky-500/10 border-sky-500/30' : 'bg-risk-500/10 border-risk-500/30'}`}>
                 <div className="text-xs text-slate-400">{t('calculator.performance')}</div>
-                <div className={`text-lg font-mono font-bold ${result.perf >= 0 ? 'text-sky-400' : 'text-red-400'}`}>{result.perf >= 0 ? '+' : ''}{result.perf.toFixed(2)}%</div>
+                <div className={`text-lg font-mono font-bold ${result.perf >= 0 ? 'text-sky-400' : 'text-risk-400'}`}>{result.perf >= 0 ? '+' : ''}{result.perf.toFixed(2)}%</div>
               </div>
-              <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-4">
-                <div className="text-xs text-amber-400">{t('calculator.multiple')}</div>
-                <div className="text-lg font-mono font-bold text-amber-300">{result.multiple.toFixed(2)}x</div>
+              <div className="bg-caution-500/10 border border-caution-500/30 rounded-lg p-4">
+                <div className="text-xs text-caution-400">{t('calculator.multiple')}</div>
+                <div className="text-lg font-mono font-bold text-caution-300">{result.multiple.toFixed(2)}x</div>
               </div>
             </div>
           </div>
@@ -162,13 +162,13 @@ export function CalculatorPanel() {
               <tr>
                 <th className="p-2 text-left whitespace-nowrap">{t('calculator.colYear')}</th>
                 <th className="p-2 text-right whitespace-nowrap">{t('calculator.colInvested')}</th>
-                <th className="p-2 text-right text-teal-300 whitespace-nowrap">{t('calculator.colFinal')} {baseCagr.toFixed(1)}%</th>
-                <th className="p-2 text-right text-emerald-300 whitespace-nowrap">{t('calculator.colGain')}</th>
+                <th className="p-2 text-right text-accent-300 whitespace-nowrap">{t('calculator.colFinal')} {baseCagr.toFixed(1)}%</th>
+                <th className="p-2 text-right text-favorable-300 whitespace-nowrap">{t('calculator.colGain')}</th>
                 <th className="p-2 text-right text-sky-300 whitespace-nowrap">{t('calculator.colPerf')}</th>
-                <th className="p-2 text-right text-amber-300 whitespace-nowrap">{t('calculator.colMultiple')}</th>
+                <th className="p-2 text-right text-caution-300 whitespace-nowrap">{t('calculator.colMultiple')}</th>
                 {altRates.map((ar, idx) => {
                   const isLow = idx < 3;
-                  const cls = isLow ? (idx===2?'text-orange-400': idx===1?'text-orange-300':'text-orange-200') : (idx===3?'text-green-400': idx===4?'text-green-500':'text-green-600');
+                  const cls = isLow ? (idx===2?'text-elevated-400': idx===1?'text-elevated-300':'text-elevated-200') : (idx===3?'text-green-400': idx===4?'text-green-500':'text-green-600');
                   return <th key={idx} className={`p-2 text-right whitespace-nowrap ${cls}`}>{ar.toFixed(1)}%</th>;
                 })}
               </tr>
@@ -180,14 +180,14 @@ export function CalculatorPanel() {
                 <tr key={r.y} className="hover:bg-slate-900/40">
                   <td className="p-2 text-slate-200 font-bold">{r.y}</td>
                   <td className="p-2 text-right text-slate-300">{fmt(r.invested)}</td>
-                  <td className="p-2 text-right text-teal-300 font-bold">{fmt(r.final)}</td>
-                  <td className={`p-2 text-right font-semibold ${r.gain >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{fmt(r.gain)}</td>
-                  <td className={`p-2 text-right font-semibold ${r.perf >= 0 ? 'text-sky-400' : 'text-red-400'}`}>{fmtPct(r.perf)}</td>
-                  <td className="p-2 text-right text-amber-300">{r.multiple.toFixed(2)}x</td>
+                  <td className="p-2 text-right text-accent-300 font-bold">{fmt(r.final)}</td>
+                  <td className={`p-2 text-right font-semibold ${r.gain >= 0 ? 'text-favorable-400' : 'text-risk-400'}`}>{fmt(r.gain)}</td>
+                  <td className={`p-2 text-right font-semibold ${r.perf >= 0 ? 'text-sky-400' : 'text-risk-400'}`}>{fmtPct(r.perf)}</td>
+                  <td className="p-2 text-right text-caution-300">{r.multiple.toFixed(2)}x</td>
                   {altRates.map((_, idx) => {
                     const v = r[`alt${idx}`];
                     const isLow = idx < 3;
-                    const cls = isLow ? (idx===2?'text-orange-400': idx===1?'text-orange-300':'text-orange-200') : (idx===3?'text-green-400': idx===4?'text-green-500':'text-green-600');
+                    const cls = isLow ? (idx===2?'text-elevated-400': idx===1?'text-elevated-300':'text-elevated-200') : (idx===3?'text-green-400': idx===4?'text-green-500':'text-green-600');
                     return <td key={idx} className={`p-2 text-right ${cls}`}>{fmt(v)}</td>;
                   })}
                 </tr>

@@ -40,8 +40,8 @@ export default async function TermsPage({ params }: { params: Promise<{ locale: 
         <p className="mt-1 text-xs text-slate-500">{t('updated', { date: updated })}</p>
         <p className="mt-6 text-sm leading-relaxed">{t('intro')}</p>
 
-        <section className="mt-6 rounded-xl border border-amber-500/30 bg-amber-500/5 p-4">
-          <h2 className="text-sm font-bold text-amber-300">{t('summaryTitle')}</h2>
+        <section className="mt-6 rounded-xl border border-caution-500/30 bg-caution-500/5 p-4">
+          <h2 className="text-sm font-bold text-caution-300">{t('summaryTitle')}</h2>
           <ul className="mt-2 list-disc space-y-1 pl-5 text-sm leading-relaxed">
             {summary.map((s) => <li key={s}>{s}</li>)}
           </ul>
@@ -57,7 +57,7 @@ export default async function TermsPage({ params }: { params: Promise<{ locale: 
         ))}
 
         <p className="mt-10">
-          <Link href={`/${locale}`} className="text-sm text-teal-400 hover:underline">← {t('back')}</Link>
+          <Link href={`/${locale}`} className="text-sm text-accent-400 hover:underline">← {t('back')}</Link>
         </p>
       </article>
     </Layout>

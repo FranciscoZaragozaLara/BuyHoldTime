@@ -500,7 +500,7 @@ export const FundamentalTablesTab: React.FC<FundamentalTablesTabProps> = ({ snap
 
     return (
       <div key={title} className="flex flex-col gap-3">
-        <h4 className="text-sm font-black uppercase tracking-wider text-emerald-400 flex items-center gap-2 border-l-4 border-emerald-400 pl-2.5 py-0.5">
+        <h4 className="text-sm font-black uppercase tracking-wider text-favorable-400 flex items-center gap-2 border-l-4 border-favorable-400 pl-2.5 py-0.5">
           {title}
         </h4>
 
@@ -532,28 +532,28 @@ export const FundamentalTablesTab: React.FC<FundamentalTablesTabProps> = ({ snap
                 return (
                   <tr key={rowKey} className="hover:bg-slate-900/30 transition-colors group">
                     <td className="p-3.5 pl-4 font-semibold text-slate-200 flex items-center gap-1.5">
-                      <ChevronRight size={12} className="text-slate-600 group-hover:text-emerald-400 transition-colors shrink-0" />
+                      <ChevronRight size={12} className="text-slate-600 group-hover:text-favorable-400 transition-colors shrink-0" />
                       <span>{row.name}</span>
                       
                       {/* Tooltip interactivo con explicación para inversores novatos */}
                       <div className="relative group/tooltip inline-block ml-1">
-                        <Info size={14} className="text-slate-500 hover:text-teal-400 cursor-pointer transition-colors shrink-0" />
+                        <Info size={14} className="text-slate-500 hover:text-accent-400 cursor-pointer transition-colors shrink-0" />
                         <div className="pointer-events-none absolute left-6 top-1/2 -translate-y-1/2 hidden w-72 sm:w-80 group-hover/tooltip:block z-[999] rounded-xl border border-slate-700 bg-slate-950 p-3.5 shadow-2xl backdrop-blur-2xl transition-all">
                           <div className="flex items-center gap-2 border-b border-slate-800 pb-2 mb-2">
-                            <HelpCircle size={14} className="text-teal-400 shrink-0" />
+                            <HelpCircle size={14} className="text-accent-400 shrink-0" />
                             <span className="font-bold text-xs text-white uppercase tracking-wider">{row.name}</span>
                           </div>
                           <p className="text-[11px] text-slate-300 leading-relaxed mb-2.5 whitespace-normal">
                             {desc}
                           </p>
                           <div className="flex flex-col gap-1.5 text-[10px] bg-slate-900/90 p-2.5 rounded-lg border border-slate-800 font-sans whitespace-normal">
-                            <div className="text-emerald-300 leading-snug">{pos}</div>
-                            <div className="text-rose-300 leading-snug">{neg}</div>
+                            <div className="text-favorable-300 leading-snug">{pos}</div>
+                            <div className="text-risk-300 leading-snug">{neg}</div>
                           </div>
                           {row.current && (
                             <div className="mt-2 pt-2 border-t border-slate-800 flex justify-between items-center text-[10px]">
                               <span className="text-slate-400">{locale === 'es' ? 'Valor Actual del Stock:' : 'Stock Current Value:'}</span>
-                              <span className="font-mono font-bold text-teal-300">{formatNumberWithCommas(row.current)}</span>
+                              <span className="font-mono font-bold text-accent-300">{formatNumberWithCommas(row.current)}</span>
                             </div>
                           )}
                         </div>
@@ -569,7 +569,7 @@ export const FundamentalTablesTab: React.FC<FundamentalTablesTabProps> = ({ snap
                             <div className="flex items-center gap-2">
                               <div className="flex-1 h-2 bg-slate-900 rounded-full overflow-hidden border border-slate-800">
                                 <div
-                                  className="h-full bg-emerald-400 rounded-full transition-all duration-500"
+                                  className="h-full bg-favorable-400 rounded-full transition-all duration-500"
                                   style={{ width: `${Math.min(100, Math.max(0, vsIndNum))}%` }}
                                 />
                               </div>
@@ -624,7 +624,7 @@ export const FundamentalTablesTab: React.FC<FundamentalTablesTabProps> = ({ snap
 
     return (
       <div className="flex flex-col gap-3">
-        <h4 className="text-sm font-black uppercase tracking-wider text-emerald-400 flex items-center gap-2 border-l-4 border-emerald-400 pl-2.5 py-0.5">
+        <h4 className="text-sm font-black uppercase tracking-wider text-favorable-400 flex items-center gap-2 border-l-4 border-favorable-400 pl-2.5 py-0.5">
           {locale === 'es' ? 'Proyecciones Futuras de Wall Street (Multi-Year Forecasts)' : 'Wall Street Multi-Year Financial Forecasts'}
         </h4>
         <div className="overflow-x-auto border border-slate-900 rounded-xl bg-slate-950/40 shadow-xl">
@@ -633,7 +633,7 @@ export const FundamentalTablesTab: React.FC<FundamentalTablesTabProps> = ({ snap
               <tr>
                 <th className="p-3.5 pl-4 min-w-[180px]">{locale === 'es' ? 'Métrica Promedio' : 'Forecast Metric'}</th>
                 {years.map((y) => (
-                  <th key={y} className="p-3.5 text-right font-mono text-teal-300">{y}</th>
+                  <th key={y} className="p-3.5 text-right font-mono text-accent-300">{y}</th>
                 ))}
               </tr>
             </thead>
@@ -727,7 +727,7 @@ export const FundamentalTablesTab: React.FC<FundamentalTablesTabProps> = ({ snap
         <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
         <div className="relative overflow-hidden rounded-2xl border border-purple-500/30 bg-gradient-to-b from-slate-900/90 via-slate-950/95 to-slate-950 p-8 shadow-2xl backdrop-blur-xl">
           <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-purple-500/10 blur-3xl" />
-          <div className="pointer-events-none absolute -bottom-20 -left-20 h-64 w-64 rounded-full bg-teal-500/10 blur-3xl" />
+          <div className="pointer-events-none absolute -bottom-20 -left-20 h-64 w-64 rounded-full bg-accent-500/10 blur-3xl" />
 
           <div className="relative z-10 flex flex-col items-center text-center max-w-xl mx-auto py-6 gap-5">
             <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-purple-500/40 bg-purple-500/10 text-purple-400 shadow-lg shadow-purple-500/10">
@@ -751,7 +751,7 @@ export const FundamentalTablesTab: React.FC<FundamentalTablesTabProps> = ({ snap
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full my-2 text-left">
               <div className="p-3 rounded-xl border border-slate-800 bg-slate-900/50 flex flex-col gap-1">
                 <span className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
-                  <ShieldCheck size={14} className="text-teal-400" />
+                  <ShieldCheck size={14} className="text-accent-400" />
                   {locale === 'es' ? 'Fuerza & Solvencia' : 'Strength & Solvency'}
                 </span>
                 <span className="text-[10px] text-slate-400">
@@ -769,7 +769,7 @@ export const FundamentalTablesTab: React.FC<FundamentalTablesTabProps> = ({ snap
               </div>
               <div className="p-3 rounded-xl border border-slate-800 bg-slate-900/50 flex flex-col gap-1">
                 <span className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
-                  <Users size={14} className="text-emerald-400" />
+                  <Users size={14} className="text-favorable-400" />
                   {locale === 'es' ? 'Estimados Wall St.' : 'Wall St. Forecasts'}
                 </span>
                 <span className="text-[10px] text-slate-400">
@@ -782,7 +782,7 @@ export const FundamentalTablesTab: React.FC<FundamentalTablesTabProps> = ({ snap
               {!user ? (
                 <button
                   onClick={() => setIsAuthModalOpen(true)}
-                  className="w-full sm:w-auto px-6 py-3 rounded-xl bg-gradient-to-r from-purple-500 via-teal-400 to-emerald-400 text-slate-950 font-black text-xs uppercase tracking-wider hover:opacity-90 transition shadow-xl shadow-purple-500/10 flex items-center justify-center gap-2 cursor-pointer"
+                  className="w-full sm:w-auto px-6 py-3 rounded-xl bg-gradient-to-r from-purple-500 via-accent-400 to-favorable-400 text-slate-950 font-black text-xs uppercase tracking-wider hover:opacity-90 transition shadow-xl shadow-purple-500/10 flex items-center justify-center gap-2 cursor-pointer"
                 >
                   <LogIn size={16} />
                   <span>{locale === 'es' ? 'Iniciar Sesión para Obtener Premium' : 'Sign In to Access Premium'}</span>
@@ -821,15 +821,15 @@ export const FundamentalTablesTab: React.FC<FundamentalTablesTabProps> = ({ snap
                 onClick={() => setActiveTab(tab.id)}
                 className={`px-3.5 py-2 rounded-xl text-xs font-extrabold whitespace-nowrap transition-all cursor-pointer flex items-center gap-2 border ${
                   isActive
-                    ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/40 shadow-[0_0_12px_rgba(16,185,129,0.15)]'
+                    ? 'bg-favorable-500/10 text-favorable-400 border-favorable-500/40 shadow-[0_0_12px_rgba(16,185,129,0.15)]'
                     : 'bg-slate-900/40 text-slate-400 border-slate-900 hover:bg-slate-900 hover:text-slate-200'
                 }`}
               >
-                <Icon size={14} className={isActive ? 'text-emerald-400' : 'text-slate-500'} />
+                <Icon size={14} className={isActive ? 'text-favorable-400' : 'text-slate-500'} />
                 <span>{tab.label}</span>
                 {isAdmin && tab.score && (
                   <span className={`px-1.5 py-0.5 rounded text-[10px] font-black font-mono transition-colors ${
-                    isActive ? 'bg-emerald-500/20 text-emerald-300' : 'bg-slate-800 text-teal-400'
+                    isActive ? 'bg-favorable-500/20 text-favorable-300' : 'bg-slate-800 text-accent-400'
                   }`}>
                     {tab.score}
                   </span>

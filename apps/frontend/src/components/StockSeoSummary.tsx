@@ -98,7 +98,7 @@ export function StockSeoSummary({ ticker, locale }: Props) {
     >
       {/* ── Section Header ────────────────────────────────────────────────── */}
       <div className="flex items-center gap-2 border-b border-slate-900 pb-4">
-        <span className="w-1.5 h-5 rounded-full bg-teal-400" aria-hidden="true" />
+        <span className="w-1.5 h-5 rounded-full bg-accent-400" aria-hidden="true" />
         <h2 className="text-sm font-bold text-white">
           {isEs ? `Análisis Fundamental — ${ticker.symbol}` : `Fundamental Analysis — ${ticker.symbol}`}
         </h2>

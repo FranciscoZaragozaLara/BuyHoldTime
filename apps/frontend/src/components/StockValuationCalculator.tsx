@@ -230,7 +230,7 @@ export const StockValuationCalculator: React.FC<StockValuationCalculatorProps> =
   ) => {
     if (isBaseline) {
       return (
-        <td className={`p-3.5 text-right font-mono ${isRecommended ? 'bg-teal-500/5' : ''}`}>
+        <td className={`p-3.5 text-right font-mono ${isRecommended ? 'bg-accent-500/5' : ''}`}>
           <div className="flex flex-col items-end">
             <span className="font-extrabold text-slate-300 text-sm">${price.toFixed(2)}</span>
             <span className="text-[10px] font-bold text-slate-500">Base</span>
@@ -243,13 +243,13 @@ export const StockValuationCalculator: React.FC<StockValuationCalculatorProps> =
     const isSpeculativeWarning = cagrPe > 0 && cagrPe > cagrEps * 1.2;
 
     return (
-      <td className={`p-3.5 text-right font-mono relative group cursor-help ${isRecommended ? 'bg-teal-500/5' : ''}`}>
+      <td className={`p-3.5 text-right font-mono relative group cursor-help ${isRecommended ? 'bg-accent-500/5' : ''}`}>
         <div className="flex flex-col items-end">
           <div className="flex items-center gap-1">
             {(isHighReturnWarning || isSpeculativeWarning) && (
-              <AlertTriangle size={12} className="text-amber-400 animate-pulse" />
+              <AlertTriangle size={12} className="text-caution-400 animate-pulse" />
             )}
-            <span className={`font-black ${isRecommended ? 'text-emerald-400 text-sm' : 'text-white font-bold'}`}>
+            <span className={`font-black ${isRecommended ? 'text-favorable-400 text-sm' : 'text-white font-bold'}`}>
               ${price.toFixed(2)}
             </span>
           </div>
@@ -260,8 +260,8 @@ export const StockValuationCalculator: React.FC<StockValuationCalculatorProps> =
             </span>
             <span className={`text-[10px] font-extrabold px-1 py-0.5 rounded border ${
               returnPct >= 0 
-                ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' 
-                : 'bg-rose-500/10 text-rose-400 border-rose-500/20'
+                ? 'bg-favorable-500/10 text-favorable-400 border-favorable-500/20' 
+                : 'bg-risk-500/10 text-risk-400 border-risk-500/20'
             }`}>
               {returnPct >= 0 ? '+' : ''}{returnPct.toFixed(1)}%
             </span>
@@ -269,7 +269,7 @@ export const StockValuationCalculator: React.FC<StockValuationCalculatorProps> =
         </div>
 
         <div className="absolute bottom-full right-0 mb-2 w-72 p-4 rounded-xl border border-slate-800 bg-slate-900/95 backdrop-blur-md shadow-2xl z-30 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none text-left">
-          <div className="text-[10px] font-extrabold text-teal-400 uppercase border-b border-slate-800 pb-1 mb-2.5 flex justify-between items-center">
+          <div className="text-[10px] font-extrabold text-accent-400 uppercase border-b border-slate-800 pb-1 mb-2.5 flex justify-between items-center">
             <span>{locale === 'es' ? 'Desglose Proyección' : 'Forecast Breakdown'}</span>
             <span className="text-slate-300 font-sans">{year}</span>
           </div>
@@ -277,14 +277,14 @@ export const StockValuationCalculator: React.FC<StockValuationCalculatorProps> =
           <div className="flex flex-col gap-2.5 text-xs font-sans">
             <div className="flex justify-between items-center">
               <span className="text-slate-400 text-[11px]">{locale === 'es' ? 'Cambio Nominal USD:' : 'Nominal USD Change:'}</span>
-              <span className={`font-mono font-extrabold ${usdChange >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+              <span className={`font-mono font-extrabold ${usdChange >= 0 ? 'text-favorable-400' : 'text-risk-400'}`}>
                 {usdChange >= 0 ? `+$${usdChange.toFixed(2)}` : `-$${Math.abs(usdChange).toFixed(2)}`} USD
               </span>
             </div>
 
             <div className="flex justify-between items-center">
               <span className="text-slate-400 text-[11px]">{locale === 'es' ? 'Rend. Acumulado %:' : 'Cumulative Return %:'}</span>
-              <span className={`font-mono font-extrabold ${returnPct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+              <span className={`font-mono font-extrabold ${returnPct >= 0 ? 'text-favorable-400' : 'text-risk-400'}`}>
                 {returnPct >= 0 ? `+${returnPct.toFixed(1)}%` : `${returnPct.toFixed(1)}%`}
               </span>
             </div>
@@ -292,10 +292,10 @@ export const StockValuationCalculator: React.FC<StockValuationCalculatorProps> =
             <div className="pt-2 border-t border-slate-800/80 flex flex-col gap-1.5">
               <div className="flex justify-between items-center">
                 <span className="text-slate-300 font-bold text-[11px] flex items-center gap-1">
-                  <TrendingUp size={11} className="text-emerald-400" />
+                  <TrendingUp size={11} className="text-favorable-400" />
                   {locale === 'es' ? 'CAGR por EPS (Fundamentales):' : 'CAGR from EPS (Fundamentals):'}
                 </span>
-                <span className={`font-mono font-bold ${cagrEps >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                <span className={`font-mono font-bold ${cagrEps >= 0 ? 'text-favorable-400' : 'text-risk-400'}`}>
                   {cagrEps >= 0 ? `+${cagrEps.toFixed(2)}%` : `${cagrEps.toFixed(2)}%`}/año
                 </span>
               </div>
@@ -305,22 +305,22 @@ export const StockValuationCalculator: React.FC<StockValuationCalculatorProps> =
                   <ArrowRightLeft size={11} className="text-purple-400" />
                   {locale === 'es' ? 'CAGR por Múltiplo (Re-Rating):' : 'CAGR from P/E (Re-Rating):'}
                 </span>
-                <span className={`font-mono font-bold ${cagrPe >= 0 ? 'text-purple-400' : 'text-rose-400'}`}>
+                <span className={`font-mono font-bold ${cagrPe >= 0 ? 'text-purple-400' : 'text-risk-400'}`}>
                   {cagrPe >= 0 ? `+${cagrPe.toFixed(2)}%` : `${cagrPe.toFixed(2)}%`}/año
                 </span>
               </div>
 
               <div className="flex justify-between items-center pt-1 border-t border-slate-800/60">
-                <span className="text-teal-300 font-extrabold text-[11px]">{locale === 'es' ? 'CAGR Total Proyectado:' : 'Total Projected CAGR:'}</span>
-                <span className={`font-mono font-black text-sm ${cagrTotal >= 0 ? 'text-teal-300' : 'text-rose-400'}`}>
+                <span className="text-accent-300 font-extrabold text-[11px]">{locale === 'es' ? 'CAGR Total Proyectado:' : 'Total Projected CAGR:'}</span>
+                <span className={`font-mono font-black text-sm ${cagrTotal >= 0 ? 'text-accent-300' : 'text-risk-400'}`}>
                   {cagrTotal >= 0 ? `+${cagrTotal.toFixed(2)}%` : `${cagrTotal.toFixed(2)}%`}/año
                 </span>
               </div>
             </div>
 
             {(isHighReturnWarning || isSpeculativeWarning) && (
-              <div className="mt-1 p-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-[10px] text-amber-300 flex items-start gap-1.5 leading-tight">
-                <AlertTriangle size={12} className="text-amber-400 shrink-0 mt-0.5" />
+              <div className="mt-1 p-2 rounded-lg bg-caution-500/10 border border-caution-500/30 text-[10px] text-caution-300 flex items-start gap-1.5 leading-tight">
+                <AlertTriangle size={12} className="text-caution-400 shrink-0 mt-0.5" />
                 <div>
                   <span className="font-extrabold block">
                     {tt('sanityWarning')}
@@ -353,19 +353,19 @@ export const StockValuationCalculator: React.FC<StockValuationCalculatorProps> =
     return (
       <>
         <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
-        <div className="relative overflow-hidden rounded-2xl border border-amber-500/30 bg-gradient-to-b from-slate-900/90 via-slate-950/95 to-slate-950 p-8 shadow-2xl backdrop-blur-xl">
+        <div className="relative overflow-hidden rounded-2xl border border-caution-500/30 bg-gradient-to-b from-slate-900/90 via-slate-950/95 to-slate-950 p-8 shadow-2xl backdrop-blur-xl">
           {/* Background Glow Effects */}
-          <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-amber-500/10 blur-3xl" />
-          <div className="pointer-events-none absolute -bottom-20 -left-20 h-64 w-64 rounded-full bg-teal-500/10 blur-3xl" />
+          <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-caution-500/10 blur-3xl" />
+          <div className="pointer-events-none absolute -bottom-20 -left-20 h-64 w-64 rounded-full bg-accent-500/10 blur-3xl" />
 
           <div className="relative z-10 flex flex-col items-center text-center max-w-xl mx-auto py-6 gap-5">
             {/* Lock Badge */}
-            <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-amber-500/40 bg-amber-500/10 text-amber-400 shadow-lg shadow-amber-500/10">
+            <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-caution-500/40 bg-caution-500/10 text-caution-400 shadow-lg shadow-caution-500/10">
               <Crown size={32} />
             </div>
 
             <div className="flex flex-col gap-2">
-              <span className="text-xs font-black uppercase tracking-widest text-amber-400">
+              <span className="text-xs font-black uppercase tracking-widest text-caution-400">
                 {locale === 'es' ? 'Característica Exclusiva Premium' : 'Exclusive Premium Feature'}
               </span>
               <h3 className="text-2xl font-extrabold text-white tracking-tight">
@@ -382,7 +382,7 @@ export const StockValuationCalculator: React.FC<StockValuationCalculatorProps> =
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full my-2 text-left">
               <div className="p-3 rounded-xl border border-slate-800 bg-slate-900/50 flex flex-col gap-1">
                 <span className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
-                  <Sliders size={14} className="text-teal-400" />
+                  <Sliders size={14} className="text-accent-400" />
                   {locale === 'es' ? 'Sliders Interactivos' : 'Interactive Sliders'}
                 </span>
                 <span className="text-[10px] text-slate-400">
@@ -391,7 +391,7 @@ export const StockValuationCalculator: React.FC<StockValuationCalculatorProps> =
               </div>
               <div className="p-3 rounded-xl border border-slate-800 bg-slate-900/50 flex flex-col gap-1">
                 <span className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
-                  <TrendingDown size={14} className="text-amber-400" />
+                  <TrendingDown size={14} className="text-caution-400" />
                   {locale === 'es' ? 'Modelo Glide Path' : 'Glide Path Model'}
                 </span>
                 <span className="text-[10px] text-slate-400">
@@ -414,7 +414,7 @@ export const StockValuationCalculator: React.FC<StockValuationCalculatorProps> =
               {!user ? (
                 <button
                   onClick={() => setIsAuthModalOpen(true)}
-                  className="w-full sm:w-auto px-6 py-3 rounded-xl bg-gradient-to-r from-amber-400 via-teal-400 to-emerald-400 text-slate-950 font-black text-xs uppercase tracking-wider hover:opacity-90 transition shadow-xl shadow-amber-500/10 flex items-center justify-center gap-2 cursor-pointer"
+                  className="w-full sm:w-auto px-6 py-3 rounded-xl bg-gradient-to-r from-caution-400 via-accent-400 to-favorable-400 text-slate-950 font-black text-xs uppercase tracking-wider hover:opacity-90 transition shadow-xl shadow-caution-500/10 flex items-center justify-center gap-2 cursor-pointer"
                 >
                   <LogIn size={16} />
                   <span>{locale === 'es' ? 'Iniciar Sesión para Obtener Premium' : 'Sign In to Access Premium'}</span>
@@ -422,7 +422,7 @@ export const StockValuationCalculator: React.FC<StockValuationCalculatorProps> =
               ) : (
                 <button
                   onClick={() => alert(locale === 'es' ? 'Ponte en contacto con administración o actualiza a plan Premium para habilitar acceso.' : 'Contact admin or upgrade your account to Premium.')}
-                  className="w-full sm:w-auto px-8 py-3.5 rounded-xl bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-400 text-slate-950 font-black text-xs uppercase tracking-widest hover:brightness-110 transition shadow-xl shadow-amber-500/20 flex items-center justify-center gap-2 cursor-pointer"
+                  className="w-full sm:w-auto px-8 py-3.5 rounded-xl bg-gradient-to-r from-caution-500 via-caution-400 to-caution-400 text-slate-950 font-black text-xs uppercase tracking-widest hover:brightness-110 transition shadow-xl shadow-caution-500/20 flex items-center justify-center gap-2 cursor-pointer"
                 >
                   <Crown size={16} />
                   <span>{locale === 'es' ? 'UPGRADE A PREMIUM USER' : 'UPGRADE TO PREMIUM USER'}</span>
@@ -440,7 +440,7 @@ export const StockValuationCalculator: React.FC<StockValuationCalculatorProps> =
     <div className="flex flex-col gap-6 p-6 rounded-2xl border border-slate-900 bg-slate-950/60 backdrop-blur-xl shadow-2xl">
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 pb-4 border-b border-slate-900">
         <div className="flex items-center gap-3">
-          <div className="p-2.5 rounded-xl bg-teal-500/10 border border-teal-500/30 text-teal-400">
+          <div className="p-2.5 rounded-xl bg-accent-500/10 border border-accent-500/30 text-accent-400">
             <Calculator size={20} />
           </div>
           <div>
@@ -460,7 +460,7 @@ export const StockValuationCalculator: React.FC<StockValuationCalculatorProps> =
             onClick={() => setModelMode('convergent')}
             className={`px-3 py-1.5 rounded-lg text-xs font-extrabold transition cursor-pointer flex items-center gap-1.5 ${
               modelMode === 'convergent'
-                ? 'bg-teal-500 text-slate-950 shadow-md'
+                ? 'bg-accent-500 text-slate-950 shadow-md'
                 : 'text-slate-400 hover:text-white'
             }`}
           >
@@ -471,7 +471,7 @@ export const StockValuationCalculator: React.FC<StockValuationCalculatorProps> =
             onClick={() => setModelMode('standard')}
             className={`px-3 py-1.5 rounded-lg text-xs font-extrabold transition cursor-pointer flex items-center gap-1.5 ${
               modelMode === 'standard'
-                ? 'bg-teal-500 text-slate-950 shadow-md'
+                ? 'bg-accent-500 text-slate-950 shadow-md'
                 : 'text-slate-400 hover:text-white'
             }`}
           >
@@ -492,21 +492,21 @@ export const StockValuationCalculator: React.FC<StockValuationCalculatorProps> =
                 onClick={() => applyPreset(-15, -20)}
                 className="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-slate-900/60 text-slate-300 border border-slate-800 hover:border-slate-700 hover:text-white transition cursor-pointer flex items-center gap-1"
               >
-                <ShieldAlert size={12} className="text-amber-400" />
+                <ShieldAlert size={12} className="text-caution-400" />
                 {locale === 'es' ? 'Estrés Moderado' : 'Moderate Stress'}
               </button>
               <button
                 onClick={() => applyPreset(-30, -35)}
-                className="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-rose-500/10 text-rose-300 border border-rose-500/20 hover:bg-rose-500/20 transition cursor-pointer flex items-center gap-1"
+                className="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-risk-500/10 text-risk-300 border border-risk-500/20 hover:bg-risk-500/20 transition cursor-pointer flex items-center gap-1"
               >
-                <TrendingDown size={12} className="text-rose-400" />
+                <TrendingDown size={12} className="text-risk-400" />
                 {locale === 'es' ? 'Crash / Bajista' : 'Bear Crash'}
               </button>
               <button
                 onClick={() => applyPreset(15, 15)}
-                className="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 hover:bg-emerald-500/20 transition cursor-pointer flex items-center gap-1"
+                className="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-favorable-500/10 text-favorable-300 border border-favorable-500/20 hover:bg-favorable-500/20 transition cursor-pointer flex items-center gap-1"
               >
-                <TrendingUp size={12} className="text-emerald-400" />
+                <TrendingUp size={12} className="text-favorable-400" />
                 {tt('bullish')}
               </button>
               <button
@@ -522,10 +522,10 @@ export const StockValuationCalculator: React.FC<StockValuationCalculatorProps> =
           <div className="flex flex-col gap-1.5">
             <div className="flex justify-between items-center text-xs">
               <span className="font-bold text-slate-300 flex items-center gap-1.5">
-                <Sliders size={13} className="text-teal-400" />
+                <Sliders size={13} className="text-accent-400" />
                 {locale === 'es' ? 'Varianza en Utlidades / EPS:' : 'EPS Variance:'}
               </span>
-              <span className={`font-mono font-black ${epsVariancePct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+              <span className={`font-mono font-black ${epsVariancePct >= 0 ? 'text-favorable-400' : 'text-risk-400'}`}>
                 {epsVariancePct >= 0 ? `+${epsVariancePct}%` : `${epsVariancePct}%`}
               </span>
             </div>
@@ -536,17 +536,17 @@ export const StockValuationCalculator: React.FC<StockValuationCalculatorProps> =
               step="1"
               value={epsVariancePct}
               onChange={(e) => setEpsVariancePct(Number(e.target.value))}
-              className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-teal-400"
+              className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-accent-400"
             />
           </div>
 
           <div className="flex flex-col gap-1.5">
             <div className="flex justify-between items-center text-xs">
               <span className="font-bold text-slate-300 flex items-center gap-1.5">
-                <Sliders size={13} className="text-teal-400" />
+                <Sliders size={13} className="text-accent-400" />
                 {locale === 'es' ? 'Varianza en Múltiplo P/E Base:' : 'Base P/E Variance:'}
               </span>
-              <span className={`font-mono font-black ${peVariancePct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+              <span className={`font-mono font-black ${peVariancePct >= 0 ? 'text-favorable-400' : 'text-risk-400'}`}>
                 {peVariancePct >= 0 ? `+${peVariancePct}%` : `${peVariancePct}%`}
               </span>
             </div>
@@ -557,7 +557,7 @@ export const StockValuationCalculator: React.FC<StockValuationCalculatorProps> =
               step="1"
               value={peVariancePct}
               onChange={(e) => setPeVariancePct(Number(e.target.value))}
-              className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-teal-400"
+              className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-accent-400"
             />
           </div>
         </div>
@@ -566,19 +566,19 @@ export const StockValuationCalculator: React.FC<StockValuationCalculatorProps> =
           <div className="p-2.5 rounded-lg border border-slate-900 bg-slate-950/40 flex flex-col justify-center">
             <span className="text-[9px] text-slate-500 uppercase font-bold">P/E TTM</span>
             <span className="text-xs font-black text-white font-mono mt-0.5">{peTtm.toFixed(1)}x</span>
-            <span className="text-[10px] text-teal-400 font-mono font-semibold">{adjPeTtm.toFixed(1)}x</span>
+            <span className="text-[10px] text-accent-400 font-mono font-semibold">{adjPeTtm.toFixed(1)}x</span>
           </div>
 
           <div className="p-2.5 rounded-lg border border-slate-900 bg-slate-950/40 flex flex-col justify-center">
             <span className="text-[9px] text-slate-500 uppercase font-bold">P/E FWD</span>
             <span className="text-xs font-black text-white font-mono mt-0.5">{peFwd.toFixed(1)}x</span>
-            <span className="text-[10px] text-teal-400 font-mono font-semibold">{adjPeFwd.toFixed(1)}x</span>
+            <span className="text-[10px] text-accent-400 font-mono font-semibold">{adjPeFwd.toFixed(1)}x</span>
           </div>
 
-          <div className="p-2.5 rounded-lg border border-teal-500/20 bg-teal-500/5 flex flex-col justify-center">
-            <span className="text-[9px] text-teal-400 uppercase font-extrabold">P/E MIX</span>
+          <div className="p-2.5 rounded-lg border border-accent-500/20 bg-accent-500/5 flex flex-col justify-center">
+            <span className="text-[9px] text-accent-400 uppercase font-extrabold">P/E MIX</span>
             <span className="text-xs font-black text-white font-mono mt-0.5">{peMix.toFixed(1)}x</span>
-            <span className="text-[10px] text-emerald-400 font-mono font-bold">{adjPeMix.toFixed(1)}x</span>
+            <span className="text-[10px] text-favorable-400 font-mono font-bold">{adjPeMix.toFixed(1)}x</span>
           </div>
 
           <div className="p-2 rounded-lg border border-purple-500/30 bg-purple-500/10 flex flex-col justify-center items-center">
@@ -612,7 +612,7 @@ export const StockValuationCalculator: React.FC<StockValuationCalculatorProps> =
               <th className="p-3.5 text-right w-28">{locale === 'es' ? 'EPS Ajustado' : 'Adj. EPS'}</th>
               <th className="p-3.5 text-right">{locale === 'es' ? 'Escenario TTM' : 'TTM Scenario'}</th>
               <th className="p-3.5 text-right">{locale === 'es' ? 'Escenario Forward' : 'Forward Scenario'}</th>
-              <th className="p-3.5 text-right font-black text-teal-300">{locale === 'es' ? 'Escenario Mix (Recomendado)' : 'Mix Scenario (Recommended)'}</th>
+              <th className="p-3.5 text-right font-black text-accent-300">{locale === 'es' ? 'Escenario Mix (Recomendado)' : 'Mix Scenario (Recommended)'}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-900/60 font-mono">
@@ -626,9 +626,9 @@ export const StockValuationCalculator: React.FC<StockValuationCalculatorProps> =
                 }`}
               >
                 <td className="p-3.5 pl-4 font-sans font-extrabold text-white flex items-center gap-1.5">
-                  <span className={sc.isBaseline ? 'text-teal-400 font-black' : ''}>{sc.year}</span>
+                  <span className={sc.isBaseline ? 'text-accent-400 font-black' : ''}>{sc.year}</span>
                   {sc.isBaseline && (
-                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-teal-500/10 text-teal-300 border border-teal-500/20 font-mono uppercase">
+                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-accent-500/10 text-accent-300 border border-accent-500/20 font-mono uppercase">
                       {locale === 'es' ? 'Base' : 'Baseline'}
                     </span>
                   )}

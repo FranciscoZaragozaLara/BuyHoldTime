@@ -64,22 +64,22 @@ export const StockHistoryTable: React.FC<StockHistoryTableProps> = ({ prices, ti
     const score = Math.max(15, Math.min(98, Math.round(baseIndex + deviation)));
     
     let recommendation = 'Hold';
-    let badgeClass = 'bg-amber-500/10 text-amber-400 border-amber-500/20';
+    let badgeClass = 'bg-caution-500/10 text-caution-400 border-caution-500/20';
     if (score >= 85) {
       recommendation = locale === 'es' ? 'Compra Fuerte' : 'Strong Buy';
-      badgeClass = 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30';
+      badgeClass = 'bg-favorable-500/10 text-favorable-400 border-favorable-500/30';
     } else if (score >= 75) {
       recommendation = locale === 'es' ? 'Comprar' : 'Buy';
-      badgeClass = 'bg-teal-500/10 text-teal-400 border-teal-500/20';
+      badgeClass = 'bg-accent-500/10 text-accent-400 border-accent-500/20';
     } else if (score >= 45) {
       recommendation = locale === 'es' ? 'Mantener' : 'Hold';
-      badgeClass = 'bg-amber-500/10 text-amber-400 border-amber-500/20';
+      badgeClass = 'bg-caution-500/10 text-caution-400 border-caution-500/20';
     } else if (score >= 30) {
       recommendation = locale === 'es' ? 'Vender' : 'Sell';
-      badgeClass = 'bg-orange-500/10 text-orange-400 border-orange-500/20';
+      badgeClass = 'bg-elevated-500/10 text-elevated-400 border-elevated-500/20';
     } else {
       recommendation = locale === 'es' ? 'Venta Fuerte' : 'Strong Sell';
-      badgeClass = 'bg-red-500/10 text-red-400 border-red-500/30';
+      badgeClass = 'bg-risk-500/10 text-risk-400 border-risk-500/30';
     }
 
     return { score, recommendation, badgeClass };
@@ -241,7 +241,7 @@ export const StockHistoryTable: React.FC<StockHistoryTableProps> = ({ prices, ti
       <div className="flex justify-between items-center flex-wrap gap-4 border-b border-slate-900/60 pb-4">
         <div>
           <h3 className="text-base font-bold text-white flex items-center gap-2">
-            <Layers size={18} className="text-teal-400" />
+            <Layers size={18} className="text-accent-400" />
             {locale === 'es' ? 'Historial y Ratios de Valuación' : 'Historical Data & Valuation Ratios'}
           </h3>
           <p className="text-xs text-slate-400 mt-0.5">
@@ -262,7 +262,7 @@ export const StockHistoryTable: React.FC<StockHistoryTableProps> = ({ prices, ti
             onClick={() => handleTabChange('annual')}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition cursor-pointer ${
               activeTab === 'annual'
-                ? 'bg-slate-800 text-teal-400'
+                ? 'bg-slate-800 text-accent-400'
                 : 'text-slate-400 hover:text-slate-200'
             }`}
           >
@@ -273,7 +273,7 @@ export const StockHistoryTable: React.FC<StockHistoryTableProps> = ({ prices, ti
             onClick={() => handleTabChange('monthly')}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition cursor-pointer ${
               activeTab === 'monthly'
-                ? 'bg-slate-800 text-teal-400'
+                ? 'bg-slate-800 text-accent-400'
                 : 'text-slate-400 hover:text-slate-200'
             }`}
           >
@@ -284,7 +284,7 @@ export const StockHistoryTable: React.FC<StockHistoryTableProps> = ({ prices, ti
             onClick={() => handleTabChange('daily')}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition cursor-pointer ${
               activeTab === 'daily'
-                ? 'bg-slate-800 text-teal-400'
+                ? 'bg-slate-800 text-accent-400'
                 : 'text-slate-400 hover:text-slate-200'
             }`}
           >
@@ -315,7 +315,7 @@ export const StockHistoryTable: React.FC<StockHistoryTableProps> = ({ prices, ti
                     <span className="inline-flex items-center gap-0.5 text-[9px] font-bold bg-sky-500/10 text-sky-400 border border-sky-500/20 rounded px-1 py-0.5">
                       <Database size={8} /> R
                     </span>
-                    <span className="inline-flex items-center gap-0.5 text-[9px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded px-1 py-0.5">
+                    <span className="inline-flex items-center gap-0.5 text-[9px] font-bold bg-caution-500/10 text-caution-400 border border-caution-500/20 rounded px-1 py-0.5">
                       <TrendingUp size={8} /> E
                     </span>
                   </div>
@@ -351,9 +351,9 @@ export const StockHistoryTable: React.FC<StockHistoryTableProps> = ({ prices, ti
 
               // Color classes based on positive/negative change
               const changeColor = priceChange > 0 
-                ? 'text-emerald-400 font-semibold' 
+                ? 'text-favorable-400 font-semibold' 
                 : priceChange < 0 
-                  ? 'text-rose-400 font-semibold' 
+                  ? 'text-risk-400 font-semibold' 
                   : 'text-slate-400';
               
               const changeSign = priceChange > 0 ? '+' : '';
@@ -512,20 +512,20 @@ export const StockHistoryTable: React.FC<StockHistoryTableProps> = ({ prices, ti
 
               let cellVal = 0;
               let cellMode: 'growth' | 'ath' | 'pullback' = 'ath';
-              let cellColor = 'text-teal-400 font-bold';
+              let cellColor = 'text-accent-400 font-bold';
 
               if (isATHDate || (overallATHInfo.maxPrice > 0 && Math.abs(row.close - overallATHInfo.maxPrice) / overallATHInfo.maxPrice < 0.005)) {
                 cellVal = 0;
                 cellMode = 'ath';
-                cellColor = 'text-teal-400 font-bold';
+                cellColor = 'text-accent-400 font-bold';
               } else if (isBeforeATH) {
                 cellVal = row.close > 0 ? ((ticker.price - row.close) / row.close) * 100 : 0;
                 cellMode = 'growth';
-                cellColor = cellVal >= 0 ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold';
+                cellColor = cellVal >= 0 ? 'text-favorable-400 font-bold' : 'text-risk-400 font-bold';
               } else {
                 cellVal = overallATHInfo.maxPrice > 0 ? Math.min(0, ((row.close - overallATHInfo.maxPrice) / overallATHInfo.maxPrice) * 100) : 0;
                 cellMode = 'pullback';
-                cellColor = 'text-rose-400 font-bold';
+                cellColor = 'text-risk-400 font-bold';
               }
 
               // Calculate CAGR (Compound Annual Growth Rate) from rowDate to today
@@ -542,7 +542,7 @@ export const StockHistoryTable: React.FC<StockHistoryTableProps> = ({ prices, ti
                 if (diffYears < 1) {
                   const absReturn = ((ticker.price - row.close) / row.close) * 100;
                   cagrFormatted = `${absReturn >= 0 ? '+' : ''}${absReturn.toFixed(2)}% (Abs.)`;
-                  cagrColor = absReturn >= 0 ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold';
+                  cagrColor = absReturn >= 0 ? 'text-favorable-400 font-bold' : 'text-risk-400 font-bold';
                   cagrNote = locale === 'es' 
                     ? '< 1 año: Rendimiento absoluto sin anualizar (evita distorsión por volatilidad).'
                     : '< 1 year: Absolute non-annualized return (prevents short-term skew).';
@@ -551,7 +551,7 @@ export const StockHistoryTable: React.FC<StockHistoryTableProps> = ({ prices, ti
                   if (ratio > 0) {
                     const cagrVal = (Math.pow(ratio, 1 / diffYears) - 1) * 100;
                     cagrFormatted = `${cagrVal >= 0 ? '+' : ''}${cagrVal.toFixed(2)}% / año`;
-                    cagrColor = cagrVal >= 0 ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold';
+                    cagrColor = cagrVal >= 0 ? 'text-favorable-400 font-bold' : 'text-risk-400 font-bold';
                     cagrNote = locale === 'es'
                       ? `CAGR Compuesto Anualizado en ${diffYears.toFixed(1)} años.`
                       : `Annualized CAGR over ${diffYears.toFixed(1)} years.`;
@@ -599,11 +599,11 @@ export const StockHistoryTable: React.FC<StockHistoryTableProps> = ({ prices, ti
               }
 
               return (
-                <tr key={`${activeTab}-${label}-${idx}`} className={`hover:bg-slate-900/10 transition-colors ${row.id === 'temp-today' ? 'bg-teal-500/5 border-l-2 border-teal-500' : ''}`}>
+                <tr key={`${activeTab}-${label}-${idx}`} className={`hover:bg-slate-900/10 transition-colors ${row.id === 'temp-today' ? 'bg-accent-500/5 border-l-2 border-accent-500' : ''}`}>
                   <td className="p-4 font-sans font-bold text-white whitespace-nowrap flex items-center gap-2">
                     {formatDate(label)}
                     {row.id === 'temp-today' && (
-                      <span className="inline-flex items-center text-[9px] font-extrabold bg-teal-500/10 text-teal-400 border border-teal-500/20 rounded px-1.5 py-0.5 animate-pulse uppercase tracking-wider">
+                      <span className="inline-flex items-center text-[9px] font-extrabold bg-accent-500/10 text-accent-400 border border-accent-500/20 rounded px-1.5 py-0.5 animate-pulse uppercase tracking-wider">
                         {locale === 'es' ? 'EN VIVO' : 'LIVE'}
                       </span>
                     )}
@@ -620,7 +620,7 @@ export const StockHistoryTable: React.FC<StockHistoryTableProps> = ({ prices, ti
                       <span className={cellColor}>
                         {cellVal > 0 ? '+' : ''}{cellVal.toFixed(2)}%
                       </span>
-                      <span className="text-[10px] text-slate-500 group-hover/ath:text-teal-400 transition-colors ml-0.5">ℹ</span>
+                      <span className="text-[10px] text-slate-500 group-hover/ath:text-accent-400 transition-colors ml-0.5">ℹ</span>
                     </div>
 
                     {/* Hover Popover Tooltip (Se despliega hacia abajo si es de las primeras filas para no cortarse) */}
@@ -632,7 +632,7 @@ export const StockHistoryTable: React.FC<StockHistoryTableProps> = ({ prices, ti
                       }`}></div>
 
                       
-                      <div className="flex items-center justify-between border-b border-slate-900 pb-2 font-extrabold text-teal-400 relative z-10">
+                      <div className="flex items-center justify-between border-b border-slate-900 pb-2 font-extrabold text-accent-400 relative z-10">
                         <span>
                           {cellMode === 'growth' 
                             ? (locale === 'es' ? 'Crecimiento a Hoy' : 'Growth to Today')
@@ -651,12 +651,12 @@ export const StockHistoryTable: React.FC<StockHistoryTableProps> = ({ prices, ti
                         {cellMode === 'growth' ? (
                           <div className="flex justify-between">
                             <span className="text-slate-400">{locale === 'es' ? 'Precio Actual' : 'Current Price'}:</span>
-                            <strong className="text-emerald-400">${ticker.price.toFixed(2)}</strong>
+                            <strong className="text-favorable-400">${ticker.price.toFixed(2)}</strong>
                           </div>
                         ) : (
                           <div className="flex justify-between">
                             <span className="text-slate-400">{locale === 'es' ? 'Máx. Histórico' : 'Highest Price'}:</span>
-                            <strong className="text-emerald-400">${overallATHInfo.maxPrice ? overallATHInfo.maxPrice.toFixed(2) : 'N/A'}</strong>
+                            <strong className="text-favorable-400">${overallATHInfo.maxPrice ? overallATHInfo.maxPrice.toFixed(2) : 'N/A'}</strong>
                           </div>
                         )}
                         <div className="flex justify-between pt-1 border-t border-slate-900">
@@ -673,7 +673,7 @@ export const StockHistoryTable: React.FC<StockHistoryTableProps> = ({ prices, ti
                         {/* CAGR (Compound Annual Growth Rate) display */}
                         <div className="flex justify-between items-center pt-1 border-t border-slate-900">
                           <span className="text-slate-400 font-sans flex items-center gap-1">
-                            <TrendingUp size={11} className="text-teal-400 shrink-0" />
+                            <TrendingUp size={11} className="text-accent-400 shrink-0" />
                             {locale === 'es' ? 'CAGR (Anualizado):' : 'CAGR (Annualized):'}
                           </span>
                           <strong className={cagrColor}>{cagrFormatted}</strong>
@@ -690,8 +690,8 @@ export const StockHistoryTable: React.FC<StockHistoryTableProps> = ({ prices, ti
                       </div>
 
                       {cagrNote && (
-                        <div className="text-[9.5px] text-teal-300/90 bg-teal-500/10 rounded px-2 py-1 border border-teal-500/20 flex flex-col gap-0.5 relative z-10">
-                          <span className="font-semibold text-teal-400">{locale === 'es' ? 'Nota sobre CAGR:' : 'CAGR Note:'}</span>
+                        <div className="text-[9.5px] text-accent-300/90 bg-accent-500/10 rounded px-2 py-1 border border-accent-500/20 flex flex-col gap-0.5 relative z-10">
+                          <span className="font-semibold text-accent-400">{locale === 'es' ? 'Nota sobre CAGR:' : 'CAGR Note:'}</span>
                           <span>{cagrNote}</span>
                         </div>
                       )}
@@ -699,7 +699,7 @@ export const StockHistoryTable: React.FC<StockHistoryTableProps> = ({ prices, ti
                       {cellMode !== 'growth' && (
                         <div className="text-[10px] pt-1 border-t border-slate-900 flex items-center justify-between relative z-10">
                           <span className="text-slate-400">{locale === 'es' ? 'Fecha del Máximo' : 'Reached On'}:</span>
-                          <strong className="font-bold text-teal-300">{formattedATHDate}</strong>
+                          <strong className="font-bold text-accent-300">{formattedATHDate}</strong>
                         </div>
                       )}
                     </div>
@@ -710,13 +710,13 @@ export const StockHistoryTable: React.FC<StockHistoryTableProps> = ({ prices, ti
                     {estimatedEps !== null && estimatedEps !== undefined ? (
                       <div className="inline-flex items-center gap-1.5">
                         <span className={`font-mono ${
-                          epsSource === 'real' ? 'text-sky-300' : epsSource === 'mixed' ? 'text-purple-300' : 'text-amber-300/80'
+                          epsSource === 'real' ? 'text-sky-300' : epsSource === 'mixed' ? 'text-purple-300' : 'text-caution-300/80'
                         }`}>
                           ${estimatedEps.toFixed(2)}
                         </span>
                         {(epsSource as string) === 'EDGAR' ? (
                           <span
-                            className="inline-flex items-center gap-0.5 text-[8.5px] font-extrabold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 rounded px-1 py-0.5"
+                            className="inline-flex items-center gap-0.5 text-[8.5px] font-extrabold bg-favorable-500/15 text-favorable-400 border border-favorable-500/30 rounded px-1 py-0.5"
                           >
                             <Database size={7.5} /> E
                           </span>
@@ -734,7 +734,7 @@ export const StockHistoryTable: React.FC<StockHistoryTableProps> = ({ prices, ti
                           </span>
                         ) : (
                           <span
-                            className="inline-flex items-center gap-0.5 text-[8px] font-bold bg-amber-500/10 text-amber-400/90 border border-amber-500/20 rounded px-1 py-0.5"
+                            className="inline-flex items-center gap-0.5 text-[8px] font-bold bg-caution-500/10 text-caution-400/90 border border-caution-500/20 rounded px-1 py-0.5"
                           >
                             Est
                           </span>
@@ -769,7 +769,7 @@ export const StockHistoryTable: React.FC<StockHistoryTableProps> = ({ prices, ti
                               <div className="flex items-center gap-1.5">
                                 <strong className="text-sky-300">${(q.epsDiluted || q.eps || 0).toFixed(2)}</strong>
                                 <span className={`text-[8px] font-extrabold px-1 rounded border ${
-                                  q.source === 'EDGAR' ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30' : 'bg-blue-500/15 text-blue-400 border-blue-500/30'
+                                  q.source === 'EDGAR' ? 'bg-favorable-500/15 text-favorable-400 border-favorable-500/30' : 'bg-blue-500/15 text-blue-400 border-blue-500/30'
                                 }`}>
                                   {q.source || 'EDGAR'}
                                 </span>
@@ -826,7 +826,7 @@ export const StockHistoryTable: React.FC<StockHistoryTableProps> = ({ prices, ti
                                   <div className="flex items-center gap-1.5">
                                     <strong className="text-purple-300">${(q.epsDiluted || q.eps || 0).toFixed(2)}</strong>
                                     <span className={`text-[8px] font-extrabold px-1 rounded border ${
-                                      q.source === 'EDGAR' ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30' : 'bg-blue-500/15 text-blue-400 border-blue-500/30'
+                                      q.source === 'EDGAR' ? 'bg-favorable-500/15 text-favorable-400 border-favorable-500/30' : 'bg-blue-500/15 text-blue-400 border-blue-500/30'
                                     }`}>
                                       {q.source || 'EDGAR'}
                                     </span>
@@ -848,9 +848,9 @@ export const StockHistoryTable: React.FC<StockHistoryTableProps> = ({ prices, ti
                   )}
 
                   <td className="p-4 text-slate-400">{finalDivRate > 0 ? `$${finalDivRate.toFixed(2)}` : '$0.00'}</td>
-                  <td className="p-4 text-emerald-400/90 font-bold">{divYield > 0 ? `${divYield.toFixed(2)}%` : '0.00%'}</td>
+                  <td className="p-4 text-favorable-400/90 font-bold">{divYield > 0 ? `${divYield.toFixed(2)}%` : '0.00%'}</td>
                   <td className="p-4 text-slate-400">{row.volume ? row.volume.toLocaleString('en-US') : 'N/A'}</td>
-                  <td className={`p-4 font-extrabold text-sm ${rating.score >= 75 ? 'text-teal-400' : 'text-amber-400'}`}>
+                  <td className={`p-4 font-extrabold text-sm ${rating.score >= 75 ? 'text-accent-400' : 'text-caution-400'}`}>
                     {rating.score}
                   </td>
                   <td className="p-4 text-right font-sans">

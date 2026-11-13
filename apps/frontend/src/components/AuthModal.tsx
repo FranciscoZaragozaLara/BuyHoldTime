@@ -136,7 +136,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
 
         {/* Error Alert */}
         {error && (
-          <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs flex items-center gap-2">
+          <div className="p-3 rounded-xl bg-risk-500/10 border border-risk-500/30 text-risk-400 text-xs flex items-center gap-2">
             <AlertCircle size={14} className="shrink-0" />
             <span>{error}</span>
           </div>
@@ -146,7 +146,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
         <form onSubmit={handleEmailSubmit} className="flex flex-col gap-3.5">
           <div className="flex flex-col gap-1 text-left">
             <label className="text-[11px] font-bold text-slate-300 flex items-center gap-1.5">
-              <Mail size={12} className="text-teal-400" />
+              <Mail size={12} className="text-accent-400" />
               {locale === 'es' ? 'Correo Electrónico' : 'Email Address'}
             </label>
             <input
@@ -155,13 +155,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="tu@email.com"
-              className="w-full py-2 px-3 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs placeholder:text-slate-600 focus:outline-none focus:border-teal-400 transition"
+              className="w-full py-2 px-3 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs placeholder:text-slate-600 focus:outline-none focus:border-accent-400 transition"
             />
           </div>
 
           <div className="flex flex-col gap-1 text-left">
             <label className="text-[11px] font-bold text-slate-300 flex items-center gap-1.5">
-              <Lock size={12} className="text-teal-400" />
+              <Lock size={12} className="text-accent-400" />
               {locale === 'es' ? 'Contraseña' : 'Password'}
             </label>
             <input
@@ -171,14 +171,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
-              className="w-full py-2 px-3 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs placeholder:text-slate-600 focus:outline-none focus:border-teal-400 transition"
+              className="w-full py-2 px-3 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs placeholder:text-slate-600 focus:outline-none focus:border-accent-400 transition"
             />
           </div>
 
           <button
             type="submit"
             disabled={isSubmitting}
-            className="w-full py-2.5 px-4 rounded-xl bg-teal-500 hover:bg-teal-400 text-slate-950 font-black text-xs transition cursor-pointer flex items-center justify-center gap-2 mt-1 disabled:opacity-50 shadow-md"
+            className="w-full py-2.5 px-4 rounded-xl bg-accent-500 hover:bg-accent-400 text-slate-950 font-black text-xs transition cursor-pointer flex items-center justify-center gap-2 mt-1 disabled:opacity-50 shadow-md"
           >
             {isSubmitting ? (
               <Loader2 size={16} className="animate-spin text-slate-950" />
@@ -207,7 +207,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                   setMode('signup');
                   setError(null);
                 }}
-                className="font-bold text-teal-400 hover:underline cursor-pointer ml-1"
+                className="font-bold text-accent-400 hover:underline cursor-pointer ml-1"
               >
                 {locale === 'es' ? 'Regístrate aquí' : 'Sign up here'}
               </button>
@@ -221,7 +221,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                   setMode('login');
                   setError(null);
                 }}
-                className="font-bold text-teal-400 hover:underline cursor-pointer ml-1"
+                className="font-bold text-accent-400 hover:underline cursor-pointer ml-1"
               >
                 {locale === 'es' ? 'Inicia sesión' : 'Sign in'}
               </button>

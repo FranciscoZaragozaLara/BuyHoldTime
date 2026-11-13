@@ -103,7 +103,7 @@ function RiskScoreTooltip({ row, idx, getRiskBadgeColor, formatDate }: { row: Ma
             </div>
             <div className="flex justify-between items-center text-slate-300">
               <span>2. Crecimiento YoY (25%):</span>
-              <span className="font-bold text-amber-400">{Math.round(c2Score)} pts (+{p2})</span>
+              <span className="font-bold text-caution-400">{Math.round(c2Score)} pts (+{p2})</span>
             </div>
             <div className="flex justify-between items-center text-slate-300">
               <span>3. Divergencia (20%):</span>
@@ -111,15 +111,15 @@ function RiskScoreTooltip({ row, idx, getRiskBadgeColor, formatDate }: { row: Ma
             </div>
             <div className="flex justify-between items-center text-slate-300">
               <span>4. Saldo Neto (15%):</span>
-              <span className="font-bold text-red-400">{Math.round(c4Score)} pts (+{p4})</span>
+              <span className="font-bold text-risk-400">{Math.round(c4Score)} pts (+{p4})</span>
             </div>
             <div className="flex justify-between items-center text-slate-300" title={`Tasa de margen est. ${marginRate.toFixed(1)}%`}>
               <span>5. Costo Apalancamiento ({marginRate.toFixed(1)}% / 10%):</span>
-              <span className="font-bold text-teal-400">{Math.round(c5Score)} pts (+{p5})</span>
+              <span className="font-bold text-accent-400">{Math.round(c5Score)} pts (+{p5})</span>
             </div>
             <div className="pt-1.5 mt-1 border-t border-slate-800 flex justify-between font-bold text-white text-[11px]">
               <span>Score Ponderado Total:</span>
-              <span className="text-amber-400">{row.riskScore} pts</span>
+              <span className="text-caution-400">{row.riskScore} pts</span>
             </div>
           </div>
         </div>
@@ -358,13 +358,13 @@ export function MarginDebtPanel({ summary: initialSummary, history: initialHisto
   const getRiskBadgeColor = (level?: string) => {
     switch (level) {
       case 'CRITICAL':
-        return 'bg-red-500/10 text-red-400 border-red-500/30';
+        return 'bg-risk-500/10 text-risk-400 border-risk-500/30';
       case 'HIGH':
-        return 'bg-amber-500/10 text-amber-400 border-amber-500/30';
+        return 'bg-caution-500/10 text-caution-400 border-caution-500/30';
       case 'MODERATE':
-        return 'bg-yellow-500/10 text-yellow-400 border-yellow-500/30';
+        return 'bg-caution-500/10 text-caution-400 border-caution-500/30';
       default:
-        return 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30';
+        return 'bg-favorable-500/10 text-favorable-400 border-favorable-500/30';
     }
   };
 
@@ -386,7 +386,7 @@ export function MarginDebtPanel({ summary: initialSummary, history: initialHisto
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-800">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <ShieldAlert size={20} className="text-amber-400" />
+            <ShieldAlert size={20} className="text-caution-400" />
             <h2 className="text-xl font-bold text-white tracking-tight">
               {locale === 'es' ? 'FINRA Margin Debt & Modelo de Riesgo Macro' : 'FINRA Margin Debt & Macro Risk Model'}
             </h2>
@@ -425,9 +425,9 @@ export function MarginDebtPanel({ summary: initialSummary, history: initialHisto
           <span className="text-xl font-bold text-white">{formatMoney(summary.debitBalances)}</span>
           <span className="text-[11px] text-slate-400 flex items-center gap-1">
             {summary.debitChangeMoM && summary.debitChangeMoM >= 0 ? (
-              <span className="text-amber-400 flex items-center gap-0.5"><TrendingUp size={12} />+{summary.debitChangeMoM}% MoM</span>
+              <span className="text-caution-400 flex items-center gap-0.5"><TrendingUp size={12} />+{summary.debitChangeMoM}% MoM</span>
             ) : (
-              <span className="text-emerald-400 flex items-center gap-0.5"><TrendingDown size={12} />{summary.debitChangeMoM}% MoM</span>
+              <span className="text-favorable-400 flex items-center gap-0.5"><TrendingDown size={12} />{summary.debitChangeMoM}% MoM</span>
             )}
           </span>
         </div>
@@ -437,7 +437,7 @@ export function MarginDebtPanel({ summary: initialSummary, history: initialHisto
             <Activity size={12} />
             Crecimiento YoY
           </span>
-          <span className={`text-xl font-bold ${summary.marginDebtYoY && summary.marginDebtYoY > 20 ? 'text-amber-400' : 'text-white'}`}>
+          <span className={`text-xl font-bold ${summary.marginDebtYoY && summary.marginDebtYoY > 20 ? 'text-caution-400' : 'text-white'}`}>
             {summary.marginDebtYoY !== null && summary.marginDebtYoY !== undefined ? `${summary.marginDebtYoY > 0 ? '+' : ''}${summary.marginDebtYoY}%` : 'N/A'}
           </span>
           <span className="text-[11px] text-slate-400">vs SP500 YoY ({summary.sp500YoY}% )</span>
@@ -448,7 +448,7 @@ export function MarginDebtPanel({ summary: initialSummary, history: initialHisto
             <Info size={12} />
             Net Credit Balance
           </span>
-          <span className={`text-xl font-bold ${summary.netCreditBalance && summary.netCreditBalance < 0 ? 'text-red-400' : 'text-emerald-400'}`}>
+          <span className={`text-xl font-bold ${summary.netCreditBalance && summary.netCreditBalance < 0 ? 'text-risk-400' : 'text-favorable-400'}`}>
             {formatMoney(summary.netCreditBalance)}
           </span>
           <span className="text-[11px] text-slate-400">Cash + Margin - Debit</span>
@@ -459,7 +459,7 @@ export function MarginDebtPanel({ summary: initialSummary, history: initialHisto
             <TrendingUp size={12} />
             Divergencia Speculativa
           </span>
-          <span className={`text-xl font-bold ${summary.divergence && summary.divergence > 15 ? 'text-red-400' : 'text-teal-400'}`}>
+          <span className={`text-xl font-bold ${summary.divergence && summary.divergence > 15 ? 'text-risk-400' : 'text-accent-400'}`}>
             {summary.divergence !== null && summary.divergence !== undefined ? `${summary.divergence > 0 ? '+' : ''}${summary.divergence}%` : 'N/A'}
           </span>
           <span className="text-[11px] text-slate-400">Apalancamiento excesivo vs mercado</span>
@@ -471,7 +471,7 @@ export function MarginDebtPanel({ summary: initialSummary, history: initialHisto
       <div className="bg-slate-950/60 border border-slate-800 rounded-xl p-4 flex flex-col gap-4">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 border-b border-slate-800/80">
           <div className="flex items-center gap-2">
-            <ChartIcon size={16} className="text-teal-400" />
+            <ChartIcon size={16} className="text-accent-400" />
             <span className="text-sm font-semibold text-white">
               {locale === 'es' ? 'Evolución Histórica de Margin Rate & Apalancamiento' : 'Historical Evolution of Margin Rate & Leverage'}
             </span>
@@ -503,7 +503,7 @@ export function MarginDebtPanel({ summary: initialSummary, history: initialHisto
             <button
               onClick={() => setShowMarginCurrencyRatio(!showMarginCurrencyRatio)}
               className={`px-2.5 py-1 rounded-lg border text-[11px] font-medium flex items-center gap-1.5 transition-colors ${
-                showMarginCurrencyRatio ? 'bg-teal-500/10 text-teal-400 border-teal-500/30' : 'bg-slate-900 text-slate-500 border-slate-800 opacity-60'
+                showMarginCurrencyRatio ? 'bg-accent-500/10 text-accent-400 border-accent-500/30' : 'bg-slate-900 text-slate-500 border-slate-800 opacity-60'
               }`}
             >
               {showMarginCurrencyRatio ? <Eye size={12} /> : <EyeOff size={12} />}
@@ -513,7 +513,7 @@ export function MarginDebtPanel({ summary: initialSummary, history: initialHisto
             <button
               onClick={() => setShowMarginDebtRatio(!showMarginDebtRatio)}
               className={`px-2.5 py-1 rounded-lg border text-[11px] font-medium flex items-center gap-1.5 transition-colors ${
-                showMarginDebtRatio ? 'bg-rose-500/10 text-rose-400 border-rose-500/30' : 'bg-slate-900 text-slate-500 border-slate-800 opacity-60'
+                showMarginDebtRatio ? 'bg-risk-500/10 text-risk-400 border-risk-500/30' : 'bg-slate-900 text-slate-500 border-slate-800 opacity-60'
               }`}
             >
               {showMarginDebtRatio ? <Eye size={12} /> : <EyeOff size={12} />}
@@ -523,7 +523,7 @@ export function MarginDebtPanel({ summary: initialSummary, history: initialHisto
             <button
               onClick={() => setShowRiskScore(!showRiskScore)}
               className={`px-2.5 py-1 rounded-lg border text-[11px] font-medium flex items-center gap-1.5 transition-colors ${
-                showRiskScore ? 'bg-amber-500/10 text-amber-400 border-amber-500/30' : 'bg-slate-900 text-slate-500 border-slate-800 opacity-60'
+                showRiskScore ? 'bg-caution-500/10 text-caution-400 border-caution-500/30' : 'bg-slate-900 text-slate-500 border-slate-800 opacity-60'
               }`}
             >
               {showRiskScore ? <Eye size={12} /> : <EyeOff size={12} />}
@@ -539,7 +539,7 @@ export function MarginDebtPanel({ summary: initialSummary, history: initialHisto
                   onClick={() => setSelectedRange(m)}
                   className={`px-2.5 py-1 rounded-lg border text-[11px] font-medium transition-colors ${
                     selectedRange === m
-                      ? 'bg-teal-500/20 text-teal-300 border-teal-500/40'
+                      ? 'bg-accent-500/20 text-accent-300 border-accent-500/40'
                       : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-white'
                   }`}
                 >
@@ -567,13 +567,13 @@ export function MarginDebtPanel({ summary: initialSummary, history: initialHisto
               <th className="py-2.5 px-3">Fecha</th>
               <th className="py-2.5 px-3">Margin Debt ($M)</th>
               <th className="py-2.5 px-3">Net Credit ($M)</th>
-              <th className="py-2.5 px-3 text-teal-400" title="Margin Debt como % del dinero en circulación (Currency in Circulation — FRED MBCURRCIR en billones USD)">
+              <th className="py-2.5 px-3 text-accent-400" title="Margin Debt como % del dinero en circulación (Currency in Circulation — FRED MBCURRCIR en billones USD)">
                 % del Dinero
               </th>
               <th className="py-2.5 px-3 text-purple-400" title="Nivel del índice S&P 500 (~puntos)">
                 S&P 500 Index
               </th>
-              <th className="py-2.5 px-3 text-rose-400" title="Margin Debt como % de la capitalización de mercado del S&P 500. Normal: <2% | Elevado: 2-2.5% | Crítico: >2.5%">
+              <th className="py-2.5 px-3 text-risk-400" title="Margin Debt como % de la capitalización de mercado del S&P 500. Normal: <2% | Elevado: 2-2.5% | Crítico: >2.5%">
                 % del SP500
               </th>
               <th className="py-2.5 px-3">Margin YoY</th>
@@ -600,24 +600,24 @@ export function MarginDebtPanel({ summary: initialSummary, history: initialHisto
                 <tr key={row.id || row.date} className="hover:bg-slate-800/40 transition-colors group relative">
                   <td className="py-2 px-3 font-semibold text-white">{formatDate(row.date)}</td>
                   <td className="py-2 px-3">${row.debitBalances.toLocaleString()}M</td>
-                  <td className={`py-2 px-3 ${row.netCreditBalance < 0 ? 'text-red-400' : 'text-emerald-400'}`}>
+                  <td className={`py-2 px-3 ${row.netCreditBalance < 0 ? 'text-risk-400' : 'text-favorable-400'}`}>
                     ${row.netCreditBalance.toLocaleString()}M
                   </td>
-                  <td className="py-2 px-3 text-teal-300 font-medium">
+                  <td className="py-2 px-3 text-accent-300 font-medium">
                     {(row as any).marginCurrencyRatio != null ? `${(row as any).marginCurrencyRatio}%` : '-'}
                   </td>
                   <td className="py-2 px-3 text-purple-300 font-semibold">
                     {row.sp500Price ? `${Math.round(row.sp500Price * 10).toLocaleString()} pts` : '-'}
                   </td>
                   <td className={`py-2 px-3 font-medium ${
-                    row.marginDebtRatio != null && row.marginDebtRatio > 2.5 ? 'text-red-400 font-bold' :
-                    row.marginDebtRatio != null && row.marginDebtRatio > 2.0 ? 'text-amber-400' : 'text-sky-300'
+                    row.marginDebtRatio != null && row.marginDebtRatio > 2.5 ? 'text-risk-400 font-bold' :
+                    row.marginDebtRatio != null && row.marginDebtRatio > 2.0 ? 'text-caution-400' : 'text-sky-300'
                   }`}>
                     {row.marginDebtRatio != null ? `${row.marginDebtRatio}%` : '-'}
                   </td>
                   <td className="py-2 px-3">{row.marginDebtYoY !== null ? `${row.marginDebtYoY > 0 ? '+' : ''}${row.marginDebtYoY}%` : '-'}</td>
                   <td className="py-2 px-3">{row.sp500YoY !== null ? `${row.sp500YoY > 0 ? '+' : ''}${row.sp500YoY}%` : '-'}</td>
-                  <td className={`py-2 px-3 ${row.divergence && row.divergence > 15 ? 'text-amber-400 font-bold' : ''}`}>
+                  <td className={`py-2 px-3 ${row.divergence && row.divergence > 15 ? 'text-caution-400 font-bold' : ''}`}>
                     {row.divergence !== null ? `${row.divergence > 0 ? '+' : ''}${row.divergence}%` : '-'}
                   </td>
                   <td className="py-2 px-3 text-right">
