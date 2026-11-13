@@ -1,7 +1,8 @@
 'use client';
 import { getApiBase } from '@/lib/apiBase';
 import { useCallback, useEffect, useState, useRef, useMemo } from 'react';
-import { useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
+import { levelLabel } from '@/lib/levelLabels';
 import { useMarketSyncStream } from './useMarketSyncStream';
 import MarketSyncModal from './MarketSyncModal';
 import { MarginGdpChart } from './MarginGdpChart';
@@ -192,7 +193,7 @@ const partDesc: Record<string, string> = {
   HY: 'Crédito HY', MG: 'Apalancamiento', VIX: 'Volatilidad', FG: 'Sentimiento',
   MS: 'Vivienda', PIB: 'Crecimiento',
 };
-const partLabel = (k: string) => partDesc[k] ? `${partName(k)} - (${partDesc[k]})` : partName(k);
+const partLabel = (k: string, loc = 'es') => partDesc[k] ? `${partName(k)} - (${levelLabel(partDesc[k], loc)})` : partName(k);
 const capeBandLabel = (cape: number) => cape < 29 ? 'Barato' : cape < 35 ? 'Justo' : cape < 40 ? 'Caro' : cape < 43 ? 'Elevado' : 'Extremo';
 const fwdBandLabel = (pe: number) => pe < 15 ? 'Barato' : pe < 19 ? 'Justo' : pe < 22 ? 'Caro' : pe < 24 ? 'Elevado' : 'Extremo';
 // Bandas para el popover del orbe: [lo, hi, display, puntos, nivel]
@@ -277,6 +278,7 @@ function momBlend(lvlSegs: [number, number, number, number][], trdSegs: [number,
 }
 function ScoreOrb({ name, value, dec = 2, weight, score, bands, blend = null, small = false }: { name: string; value: number; dec?: number; weight: number; score: number; bands: [number, number, string, string, string][]; blend?: MomBlend; small?: boolean }) {
   const ti = useTranslations('Backtesting.indicators');
+  const loc = useLocale();
   const [open, setOpen] = useState(false);
   const c = capeScoreColor(score);
   return (
@@ -302,7 +304,7 @@ function ScoreOrb({ name, value, dec = 2, weight, score, bands, blend = null, sm
             <tbody>
               {bands.map(([lo, hi, disp, pts, lvl]) => {
                 const on = value >= lo && value < hi;
-                return <tr key={disp} className={on ? 'bg-slate-700/60 text-slate-100' : 'text-slate-400'}><td className="py-0.5">{disp}</td><td className="text-right">{pts}</td><td className="text-right">{lvl}</td></tr>;
+                return <tr key={disp} className={on ? 'bg-slate-700/60 text-slate-100' : 'text-slate-400'}><td className="py-0.5">{disp}</td><td className="text-right">{pts}</td><td className="text-right">{levelLabel(lvl, loc)}</td></tr>;
               })}
             </tbody>
           </table>
@@ -343,6 +345,7 @@ export const bhtLeaveGuard = (e: any, det: { scheduleClear: () => void; cancelCl
 
 export function BhtDetailPopover({ hover, detail, forward, onLeave, onHold, liveValue }: { hover: { d: string; x: number; y: number }; detail: any; forward?: any; onLeave: () => void; onHold?: () => void; liveValue?: number | null }) {
   const ti = useTranslations('Backtesting.indicators');
+  const loc = useLocale();
   const left = Math.min(Math.max(8, hover.x + 12), (typeof window !== 'undefined' ? window.innerWidth - 540 : 1000));
   // A la derecha y debajo del cursor para no tapar el punto observado; si no cabe
   // abajo, se voltea arriba del cursor.
@@ -364,8 +367,8 @@ export function BhtDetailPopover({ hover, detail, forward, onLeave, onHold, live
       )}</div>
       {showStrat && bd && (
         <div className="mt-1 mb-1.5 p-2 rounded-lg border" style={{ borderColor: `${bd.color}66`, backgroundColor: `${bd.color}14` }}>
-          <div className="font-bold mb-0.5" style={{ color: bd.color }}>Estrategia · {bd.label}</div>
-          <div className="text-slate-200 font-normal leading-snug">{bd.advice}</div>
+          <div className="font-bold mb-0.5" style={{ color: bd.color }}>{ti('strategyBand', { label: ti(`bht.b${BHT_BANDS.indexOf(bd)}.label`) })}</div>
+          <div className="text-slate-200 font-normal leading-snug">{ti(`bht.b${BHT_BANDS.indexOf(bd)}.advice`)}</div>
         </div>
       )}
       {detail == null ? <div className="text-slate-500 font-mono">{loadMsg}</div> : (
@@ -377,13 +380,13 @@ export function BhtDetailPopover({ hover, detail, forward, onLeave, onHold, live
                 <tbody>
                   {detail.parts.slice(col * half, (col + 1) * half).map((p: any) => {
                     const dec = p.key === 'RATIO' ? 3 : p.key === 'FG' ? 0 : p.key === 'MS' ? 1 : 2;
-                    return <tr key={p.key} className="border-t border-slate-800/60"><td className="py-px pr-1 text-slate-300 text-[10px] whitespace-nowrap">{partLabel(p.key)}</td><td className="text-right">{Number(p.value).toFixed(dec)}</td><td className="text-right" style={{ color: capeScoreColor(p.score) }}>{Math.round(p.score)}</td><td className="text-right text-slate-100">{Number(p.aporte).toFixed(1)}</td></tr>;
+                    return <tr key={p.key} className="border-t border-slate-800/60"><td className="py-px pr-1 text-slate-300 text-[10px] whitespace-nowrap">{partLabel(p.key, loc)}</td><td className="text-right">{Number(p.value).toFixed(dec)}</td><td className="text-right" style={{ color: capeScoreColor(p.score) }}>{Math.round(p.score)}</td><td className="text-right text-slate-100">{Number(p.aporte).toFixed(1)}</td></tr>;
                   })}
                 </tbody>
               </table>
             ))}
           </div>
-          {(detail.bonus ?? 0) > 0 && <div className="font-mono text-[11px] mt-1.5 text-orange-300">Bonus HY - (Régimen 3 {detail.bonusLabel ?? ''}): +{Number(detail.bonus).toFixed(0)} (fuera del promedio)</div>}
+          {(detail.bonus ?? 0) > 0 && <div className="font-mono text-[11px] mt-1.5 text-orange-300">{ti('hyBonusDetail', { label: detail.bonusLabel ?? '', n: Number(detail.bonus).toFixed(0) })}</div>}
           {(detail.liqBonus ?? 0) !== 0 && <div className={`font-mono text-[11px] mt-1 ${Number(detail.liqBonus) > 0 ? 'text-orange-300' : 'text-emerald-300'}`}>Bonus liquidez M2/M0 ({detail.liqBonusLabel ?? ''}): {Number(detail.liqBonus) > 0 ? '+' : ''}{Number(detail.liqBonus).toFixed(0)} (fuera del promedio){detail.liqYoy != null && <> · M2 +{Number(detail.liqYoy).toFixed(1)}%{detail.liqM0d3 != null && <> · M0 Δ3M {Number(detail.liqM0d3) >= 0 ? '+' : ''}{Number(detail.liqM0d3).toFixed(1)}%</>}{detail.liqDrop != null && Number(detail.liqDrop) >= 50 && <> · −{Number(detail.liqDrop).toFixed(0)}% del pico</>}</>}</div>}
           {(detail.oilBonus ?? 0) !== 0 && <div className={`font-mono text-[11px] mt-1 ${Number(detail.oilBonus) > 0 ? 'text-orange-300' : 'text-emerald-300'}`}>Bonus petróleo WTI ({detail.oilBonusLabel ?? ''}): {Number(detail.oilBonus) > 0 ? '+' : ''}{Number(detail.oilBonus).toFixed(0)} (fuera del promedio){detail.oilPrice != null && <> · ${Number(detail.oilPrice).toFixed(2)}{detail.oilRatio != null && <> · ×{Number(detail.oilRatio).toFixed(2)} SMA36M</>}</>}</div>}
           {(detail.bonus ?? 0) > 0 && detail.bonusHy != null && (
@@ -440,6 +443,7 @@ export function BhtDetailPopover({ hover, detail, forward, onLeave, onHold, live
 // Solo pinta horizontes con fecha objetivo ya cumplida (el resto es '—').
 function BhtForwardTable({ live }: { live: { current: { v: number | null; d: string | null } } }) {
   const ti = useTranslations('Backtesting.indicators');
+  const loc = useLocale();
   const liveBht = live.current.v;
   const [rows, setRows] = useState<any[]>([]);
   const [view, setView] = useState<'daily' | 'monthly' | 'yearly'>('daily');
@@ -543,17 +547,18 @@ function BhtForwardTable({ live }: { live: { current: { v: number | null; d: str
           </tbody>
         </table>
       </div>
-      <p className="text-[11px] text-slate-500 mt-2">BHT Index al cierre + retornos forward solo con horizonte cumplido · '—' = aún no madura · {Math.min(visibleCount, sorted.length)} de {sorted.length} en vista ({rows.length} días){visibleCount < sorted.length ? ' — desplázate para más' : ''}</p>
+      <p className="text-[11px] text-slate-500 mt-2">{ti('fwdFoot', { shown: Math.min(visibleCount, sorted.length), total: sorted.length, days: rows.length })}{visibleCount < sorted.length ? ti('fwdMore') : ''}</p>
       {bhtDet.hover && <BhtDetailPopover hover={bhtDet.hover} detail={bhtDet.cache[bhtDet.hover.d]} forward={rows.find((r) => r.date === bhtDet.hover!.d)} onLeave={() => bhtDet.scheduleClear()} onHold={() => bhtDet.cancelClear()} liveValue={(sortCol === 'date' && sortDir === 'desc' && bhtDet.hover.d === maxDate && liveBht != null) ? liveBht : null} />}
     </div>
   );
 }
 
-const NAME_KEYS = ["DGS2", "DGS10", "DGS30", "BAMLH0A0HYM2", "BAMLH0A0HYM2EY", "DFEDTARU", "CPIAUCSL", "CPILFESL", "M2SL", "BOGMBASE", "DCOILWTICO", "GDP", "GDPC1", "FINRA_DEBIT", "MARGIN_GDP", "MSACSR", "VIXCLS", "FEAR_GREED", "^GSPC", "^IXIC", "TQQQ", "QQQ", "SPY", "VOO", "SCHD", "JEPQ", "SQQQ", "SPX_ADV_VOL", "SPX_DEC_VOL", "NYSE_ADV_VOL", "NYSE_DEC_VOL", "NSDQ_ADV_VOL", "NSDQ_DEC_VOL"];
+const NAME_KEYS = ["fed_rate", "DGS2", "DGS10", "DGS30", "BAMLH0A0HYM2", "BAMLH0A0HYM2EY", "DFEDTARU", "CPIAUCSL", "CPILFESL", "M2SL", "BOGMBASE", "DCOILWTICO", "GDP", "GDPC1", "FINRA_DEBIT", "MARGIN_GDP", "MSACSR", "VIXCLS", "FEAR_GREED", "^GSPC", "^IXIC", "TQQQ", "QQQ", "SPY", "VOO", "SCHD", "JEPQ", "SQQQ", "SPX_ADV_VOL", "SPX_DEC_VOL", "NYSE_ADV_VOL", "NYSE_DEC_VOL", "NSDQ_ADV_VOL", "NSDQ_DEC_VOL"];
 const TIP_KEYS = ["schiller_pe", "pe_ratio", "fwd_pe_ratio", "inflation", "core_inflation", "fed_rate", "treasury_30y", "vix", "fear_greed", "^GSPC", "^IXIC", "TQQQ", "QQQ", "SPY", "VOO", "SCHD", "JEPQ", "SQQQ", "DFEDTARU", "DGS2", "DGS10", "DGS30", "CPIAUCSL", "M2SL", "BOGMBASE", "DCOILWTICO", "CPILFESL", "BAMLH0A0HYM2", "BAMLH0A0HYM2EY", "GDP", "GDPC1", "FINRA_DEBIT", "MARGIN_GDP", "MSACSR", "VIXCLS", "FEAR_GREED", "NYSE_ADV_VOL", "NYSE_DEC_VOL", "NSDQ_ADV_VOL", "NSDQ_DEC_VOL", "SPX_ADV_VOL", "SPX_DEC_VOL"];
 
 export function IndicatorsPanel() {
   const ti = useTranslations('Backtesting.indicators');
+  const loc = useLocale();
   const [indicators, setIndicators] = useState<any[]>([]);
   const [cape, setCape] = useState<any[]>([]);
   const [capeView, setCapeView] = useState<'daily'|'monthly'|'yearly'>('daily');
@@ -1108,7 +1113,7 @@ export function IndicatorsPanel() {
         </div>
         <p className="text-xs text-slate-500">
           {isAdmin && <>Cron <code className="text-teal-400">L-V 22:05 America/New_York</code> → <code>daily_update.py</code> (yfinance <code>auto_adjust</code> + <code>verify_splits</code>) + <code>build_shiller_daily()</code>.{' '}</>}
-          Último CAPE: <span className="text-emerald-400 font-mono">{capeLast?.cape?.toFixed(2) ?? '—'}</span> ratio {capeLast?.capeRatio?.toFixed(3) ?? '—'} @ {capeLast?.date?.slice(0,10) ?? '—'}
+          {ti('lastCape')} <span className="text-emerald-400 font-mono">{capeLast?.cape?.toFixed(2) ?? '—'}</span> ratio {capeLast?.capeRatio?.toFixed(3) ?? '—'} @ {capeLast?.date?.slice(0,10) ?? '—'}
           {isAdmin && <span className="ml-2 text-[11px] text-slate-500">· Precios/Bonos live vía API con caché (mercado 5 min / FRED 1h), CAPE diario desde DB</span>}
 
         </p>
@@ -1168,7 +1173,7 @@ export function IndicatorsPanel() {
           {thermoView === 'stats' && <BhtStats />}
           {thermoView === 'overview' && (
           <div className="flex flex-col lg:flex-row items-center gap-6">
-            <svg viewBox="0 0 200 118" className="w-full max-w-[440px] flex-[1.2] shrink" role="img" aria-label={`Riesgo ${riskScore} de 100: ${riskLabel}`}>
+            <svg viewBox="0 0 200 118" className="w-full max-w-[440px] flex-[1.2] shrink" role="img" aria-label={ti('riskAria', { score: riskScore, label: ti(`bht.b${BHT_BANDS.indexOf(band)}.label`) })}>
               {segs.map(([v0,v1,c]) => <path key={v0} d={arc(v0 + 0.8, v1 - 0.8)} fill="none" stroke={c} strokeWidth="16" strokeLinecap="butt" opacity="0.85" />)}
               <line x1={CX} y1={CY} x2={nx} y2={ny} stroke="#e2e8f0" strokeWidth="3" strokeLinecap="round" />
               <circle cx={CX} cy={CY} r="6" fill="#e2e8f0" />
@@ -1178,7 +1183,7 @@ export function IndicatorsPanel() {
             </svg>
             <div className="flex-1 w-full text-center lg:text-left">
               <div className="font-mono text-5xl font-bold text-slate-100">{riskScore}<span className="text-lg text-slate-500">/100</span></div>
-              <div className={`text-base font-semibold mt-1 ${riskColor}`}>{riskLabel}</div>
+              <div className={`text-base font-semibold mt-1 ${riskColor}`}>{ti(`bht.b${BHT_BANDS.indexOf(band)}.label`)}</div>
             </div>
             <ul className="flex-[1.4] w-full space-y-1">
               {BHT_BANDS.map((b) => {
@@ -1186,19 +1191,19 @@ export function IndicatorsPanel() {
                 return <li key={b.label} className={`px-3 py-1.5 rounded-lg text-xs ${on ? 'bg-slate-800 text-slate-100' : 'text-slate-500'}`}>
                   <div className="flex items-center gap-2.5">
                     <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{background:b.color}} />
-                    <span className={`flex-1 ${on ? 'font-semibold' : ''}`}>{b.label}</span>
+                    <span className={`flex-1 ${on ? 'font-semibold' : ''}`}>{ti(`bht.b${BHT_BANDS.indexOf(b)}.label`)}</span>
                     <span className="font-mono">{b.range}</span>
                   </div>
-                  <p className={`mt-0.5 pl-5 text-[11px] leading-snug ${on ? 'text-slate-300' : 'text-slate-500'}`}>{b.advice}</p>
+                  <p className={`mt-0.5 pl-5 text-[11px] leading-snug ${on ? 'text-slate-300' : 'text-slate-500'}`}>{ti(`bht.b${BHT_BANDS.indexOf(b)}.advice`)}</p>
                 </li>;
               })}
             </ul>
           </div>
           )}
-          <p className="text-[11px] text-slate-500 mt-2">Riesgo del mercado general · 0 = riesgo mínimo · 100 = riesgo máximo. Ponderado base 100: {parts.length ? parts.map(p => `${partName(p.key)} ${p.score.toFixed(0)}×${p.weight}`).join(' + ') + ` ÷ ${wTotal}` : 'sin indicadores'}{hyB.bonus > 0 ? ` + bonus HY ${hyB.label} (+${hyB.bonus})` : ''}{liqB.bonus !== 0 ? ` + bonus liquidez ${liqB.label} (${liqB.bonus > 0 ? '+' : ''}${liqB.bonus})` : ''}{oilB.bonus !== 0 ? ` + bonus petróleo ${oilB.label} (${oilB.bonus > 0 ? '+' : ''}${oilB.bonus})` : ''} · {parts.length} indicadores + bonus crédito, liquidez y petróleo.</p>
+          <p className="text-[11px] text-slate-500 mt-2">{ti('thermoFootA')} {parts.length ? parts.map(p => `${partName(p.key)} ${p.score.toFixed(0)}×${p.weight}`).join(' + ') + ` ÷ ${wTotal}` : ti('noIndicators')}{hyB.bonus > 0 ? ` + ${ti('bonusHy')} ${hyB.label} (+${hyB.bonus})` : ''}{liqB.bonus !== 0 ? ` + ${ti('bonusLiq')} ${liqB.label} (${liqB.bonus > 0 ? '+' : ''}${liqB.bonus})` : ''}{oilB.bonus !== 0 ? ` + ${ti('bonusOil')} ${oilB.label} (${oilB.bonus > 0 ? '+' : ''}${oilB.bonus})` : ''} · {ti('thermoFootB', { n: parts.length })}</p>
           <RiskDisclaimer variant="signal" className="mt-2" />
           <button type="button" onClick={() => setRiskDetailOpen(o => !o)} className="mt-2 text-xs px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800 text-slate-200 hover:text-teal-300 hover:border-slate-600 transition">
-            {riskDetailOpen ? '▾ Ocultar detalle' : '▸ Ver detalle del cálculo'}
+            {riskDetailOpen ? ti('hideDetail') : ti('showDetail')}
           </button>
           {riskDetailOpen && (
             <div className="mt-2 overflow-x-auto rounded-lg border border-slate-800">
@@ -1209,7 +1214,7 @@ export function IndicatorsPanel() {
                 <tbody>
                   {parts.map(p => (
                     <tr key={p.key} className="border-b border-slate-800/60 text-slate-300">
-                      <td className="px-3 py-1.5">{partLabel(p.key)}</td>
+                      <td className="px-3 py-1.5">{partLabel(p.key, loc)}</td>
                       <td className="text-right px-3 py-1.5">{p.value.toFixed(p.dec)}</td>
                       <td className="text-right px-3 py-1.5" style={{ color: capeScoreColor(p.score) }}>{p.score.toFixed(0)}</td>
                       <td className="text-right px-3 py-1.5 text-slate-400">{p.weight}</td>
@@ -1217,28 +1222,28 @@ export function IndicatorsPanel() {
                     </tr>
                   ))}
                   <tr className="border-b border-slate-800/60 text-slate-300">
-                    <td className="px-3 py-1.5">HY Bonus - (Régimen 3 {hyB.label})</td>
+                    <td className="px-3 py-1.5">{ti('hyBonusRow', { label: hyB.label })}</td>
                     <td className="text-right px-3 py-1.5">{hyB.hy != null ? hyB.hy.toFixed(2) : '—'}</td>
                     <td className="text-right px-3 py-1.5" style={{ color: hyB.bonus > 0 ? '#f97316' : '#64748b' }}>{hyB.bonus > 0 ? `+${hyB.bonus}` : '0'}</td>
                     <td className="text-right px-3 py-1.5 text-slate-400">—</td>
                     <td className="text-right px-3 py-1.5 text-sky-300">+{hyB.bonus.toFixed(1)}</td>
                   </tr>
                   <tr className="border-b border-slate-800/60 text-slate-300">
-                    <td className="px-3 py-1.5">Bonus liquidez M2/M0 ({liqB.label})</td>
+                    <td className="px-3 py-1.5">{ti('liqBonusRow', { label: liqB.label })}</td>
                     <td className="text-right px-3 py-1.5">{liqB.yoy != null ? `M2 +${liqB.yoy.toFixed(1)}%` : '—'}{liqB.m0d3 != null ? ` · M0 ${liqB.m0d3 >= 0 ? '+' : ''}${liqB.m0d3.toFixed(1)}%` : ''}</td>
                     <td className="text-right px-3 py-1.5" style={{ color: liqB.bonus > 0 ? '#f97316' : liqB.bonus < 0 ? '#34d399' : '#64748b' }}>{liqB.bonus !== 0 ? `${liqB.bonus > 0 ? '+' : ''}${liqB.bonus}` : '0'}</td>
                     <td className="text-right px-3 py-1.5 text-slate-400">—</td>
                     <td className="text-right px-3 py-1.5 text-sky-300">{liqB.bonus !== 0 ? `${liqB.bonus > 0 ? '+' : ''}${liqB.bonus.toFixed(1)}` : '0.0'}</td>
                   </tr>
                   <tr className="border-b border-slate-800/60 text-slate-300">
-                    <td className="px-3 py-1.5">Bonus petróleo WTI ({oilB.label})</td>
+                    <td className="px-3 py-1.5">{ti('oilBonusRow', { label: oilB.label })}</td>
                     <td className="text-right px-3 py-1.5">{oilB.price != null ? `$${oilB.price.toFixed(2)}` : '—'}{oilB.ratio != null ? ` · ×${oilB.ratio.toFixed(2)}` : ''}</td>
                     <td className="text-right px-3 py-1.5" style={{ color: oilB.bonus > 0 ? '#f97316' : oilB.bonus < 0 ? '#34d399' : '#64748b' }}>{oilB.bonus !== 0 ? `${oilB.bonus > 0 ? '+' : ''}${oilB.bonus}` : '0'}</td>
                     <td className="text-right px-3 py-1.5 text-slate-400">—</td>
                     <td className="text-right px-3 py-1.5 text-sky-300">{oilB.bonus !== 0 ? `${oilB.bonus > 0 ? '+' : ''}${oilB.bonus.toFixed(1)}` : '0.0'}</td>
                   </tr>
                   <tr className="text-slate-100 font-semibold">
-                    <td className="px-3 py-1.5" colSpan={4}>Puntaje final = Σ ÷ {wTotal}{hyB.bonus > 0 ? ` + bonus ${hyB.bonus}` : ''}{liqB.bonus !== 0 ? ` ${liqB.bonus > 0 ? '+' : ''}${liqB.bonus} liq` : ''}{oilB.bonus !== 0 ? ` ${oilB.bonus > 0 ? '+' : ''}${oilB.bonus} oil` : ''}</td>
+                    <td className="px-3 py-1.5" colSpan={4}>{ti('finalScore')} = Σ ÷ {wTotal}{hyB.bonus > 0 ? ` + bonus ${hyB.bonus}` : ''}{liqB.bonus !== 0 ? ` ${liqB.bonus > 0 ? '+' : ''}${liqB.bonus} liq` : ''}{oilB.bonus !== 0 ? ` ${oilB.bonus > 0 ? '+' : ''}${oilB.bonus} oil` : ''}</td>
                     <td className="text-right px-3 py-1.5">{riskScore.toFixed(1)}</td>
                   </tr>
                 </tbody>
@@ -1302,20 +1307,20 @@ export function IndicatorsPanel() {
             : null;
           return (
             <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 group/card">
-              <div className="text-xs text-slate-500 flex items-center">{ind.key} {isSchiller && <span className="text-teal-400 ml-1">(diario)</span>} {tip && renderTooltip(tip + (isSchiller && capeLast?.cape!=null ? ` Sincronizado: ${capeLast.cape.toFixed(2)} @ ${(capeLast.date||'').slice(0,10)}` : ''))}</div>
-              <div className="font-semibold text-slate-100 truncate">{ind.name}</div>
+              <div className="text-xs text-slate-500 flex items-center">{ind.key} {isSchiller && <span className="text-teal-400 ml-1">{ti('daily')}</span>} {tip && renderTooltip(tip + (isSchiller && capeLast?.cape!=null ? ` ${ti('synced', { v: capeLast.cape.toFixed(2), d: (capeLast.date||'').slice(0,10) })}` : ''))}</div>
+              <div className="font-semibold text-slate-100 truncate">{loc === 'es' ? ind.name : (marketName[ind.key] ?? ind.name)}</div>
               <div className="mt-2 flex items-center gap-2">
                 <span className="text-xl font-mono text-emerald-400">{displayValue != null ? Number(displayValue).toFixed(2) : '—'}{ind.unit}{isInflation && inflationYoY!=null ? <span className="text-[10px] text-slate-500 ml-1">YoY</span> : null}</span>
                 {sg ? (
                   <span className="ml-auto inline-flex items-center gap-1.5 rounded-full border border-slate-700/70 bg-slate-800/50 py-0.5 pl-2.5 pr-1">
-                    {(()=>{ const c = capeScoreColor(sg.score); return <span className="text-xs font-semibold" style={{ color: c }}>{sg.label}</span>; })()}
+                    {(()=>{ const c = capeScoreColor(sg.score); return <span className="text-xs font-semibold" style={{ color: c }}>{levelLabel(sg.label, loc)}</span>; })()}
                     <ScoreOrb name={sg.name} value={sg.value} dec={sg.dec} weight={sg.weight} score={sg.score} bands={sg.bands} blend={sg.blend} small />
                   </span>
                 )
                 : <span className={`text-xs px-2 py-0.5 rounded-full border ${displayStatus==='High'?'bg-orange-500/20 text-orange-400 border-orange-500/30':displayStatus==='Greed'?'bg-emerald-500/20 text-emerald-400 border-emerald-500/30':'bg-slate-800 text-slate-400 border-slate-700'}`}>{displayStatus}</span>}
               </div>
-              {isInflation && liveVal!=null && <div className="text-[10px] font-mono text-slate-500">Índice {Number(liveVal).toFixed(2)}</div>}
-              <div className="text-xs text-slate-500 mt-2 line-clamp-2">{ind.description}</div>
+              {isInflation && liveVal!=null && <div className="text-[10px] font-mono text-slate-500">{ti('index')} {Number(liveVal).toFixed(2)}</div>}
+              <div className="text-xs text-slate-500 mt-2 line-clamp-2">{loc === 'es' ? ind.description : (tooltipMap[ind.key] ?? ind.description)}</div>
             </div>
           );
         };
@@ -1384,8 +1389,8 @@ export function IndicatorsPanel() {
                 <div className="text-xs text-slate-500 flex items-center gap-1.5">{t} {tip && renderTooltip(tip)} {showLive && <span className="text-[10px] px-1.5 py-0.5 rounded bg-teal-500 text-white font-bold">Actual</span>}</div>
                 <div className="font-semibold text-slate-100 truncate">{marketName[t] ?? t}</div>
                 <div className="font-mono text-slate-100 flex items-center gap-2">{cpiYoYForCard!=null ? `${cpiYoYForCard.toFixed(2)}%` : '—'} <span className="text-[10px] text-slate-500">YoY</span>{cpiMForCard!=null && <span className="ml-auto"><ScoreOrb name={t==='CPIAUCSL'?'CPI':'Core'} value={cpiMForCard.yoy} dec={2} weight={10} score={cpiMForCard.score} bands={CPI_BANDS} blend={{ level: cpiMForCard.yoy, levelScore: cpiMForCard.levelScore, delta: cpiMForCard.d, ma: cpiMForCard.ma, maLabel: 'MA6M', trendScore: cpiMForCard.trendScore }} small /></span>}</div>
-                {idxVal!=null && <div className="text-[10px] font-mono text-slate-500">Índice {idxVal.toFixed(2)}</div>}
-                {cpiMForCard!=null && <div className="text-[11px] font-mono font-semibold text-slate-400">Δ {cpiMForCard.d>=0?'+':''}{cpiMForCard.d.toFixed(2)}pp vs MA6M {cpiMForCard.ma.toFixed(2)}% · <span style={{color: capeScoreColor(cpiMForCard.score)}}>{cpiBandLabel(cpiMForCard.score)}</span></div>}
+                {idxVal!=null && <div className="text-[10px] font-mono text-slate-500">{ti('index')} {idxVal.toFixed(2)}</div>}
+                {cpiMForCard!=null && <div className="text-[11px] font-mono font-semibold text-slate-400">Δ {cpiMForCard.d>=0?'+':''}{cpiMForCard.d.toFixed(2)}pp vs MA6M {cpiMForCard.ma.toFixed(2)}% · <span style={{color: capeScoreColor(cpiMForCard.score)}}>{levelLabel(cpiBandLabel(cpiMForCard.score), loc)}</span></div>}
                 {fresh && <div className="text-[11px] text-slate-500">{fresh} · {src}</div>}
                 {tip && <div className="text-xs text-slate-500 mt-2 line-clamp-2">{tip}</div>}
               </div>
@@ -1406,11 +1411,11 @@ export function IndicatorsPanel() {
                 if (t==='DGS30' && y30mForCard!=null) return <span className="ml-auto"><ScoreOrb name="30Y Mom" value={y30mForCard.cur} dec={2} weight={10} score={y30mForCard.score} bands={Y30_BANDS} blend={{ level: y30mForCard.cur, levelScore: y30mForCard.levelScore, delta: y30mForCard.d, ma: y30mForCard.ma, maLabel: 'MA6M', trendScore: y30mForCard.trendScore }} small /></span>;
                 if (isGDP && gdpc1YoY != null) return <span className="ml-auto"><ScoreOrb name="PIB real" value={gdpc1YoY} weight={5} score={Math.round(gdpRiskScore(gdpc1YoY))} bands={GDP_BANDS} small /></span>;
                 return null; })()}</div>
-              {t==='DGS2' && y2mForCard!=null && <div className="text-[11px] font-mono font-semibold text-slate-400">Δ {y2mForCard.d>=0?'+':''}{y2mForCard.d.toFixed(2)}pp vs MA6M {y2mForCard.ma.toFixed(2)}% · <span style={{color: capeScoreColor(y2mForCard.score)}}>{y2mBandLabel(y2mForCard.score)}</span></div>}
-              {isHyOas && hyCardB != null && hyCardB.hy != null && <div className="text-[11px] font-mono font-semibold text-slate-400">{hyBandLabel(hyCardB.hy)} · <span className={hyCardB.bonus > 0 ? 'text-orange-300' : 'text-slate-500'}>Régimen 3 {hyCardB.bonus > 0 ? `${hyCardB.label} (+${hyCardB.bonus})` : 'inactivo — solo suma, nunca resta'}</span></div>}
-              {(isM2||isM0) && liqCardB != null && liqCardB.yoy != null && <div className="text-[11px] font-mono font-semibold text-slate-400">M2 YoY +{liqCardB.yoy.toFixed(1)}% · M0 Δ3M {liqCardB.m0d3 != null ? `${liqCardB.m0d3 >= 0 ? '+' : ''}${liqCardB.m0d3.toFixed(1)}%` : '—'} · <span className={liqCardB.bonus > 0 ? 'text-orange-300' : liqCardB.bonus < 0 ? 'text-emerald-300' : 'text-slate-500'}>{liqCardB.bonus !== 0 ? `${liqCardB.label} (${liqCardB.bonus > 0 ? '+' : ''}${liqCardB.bonus})` : 'sin bonus'}</span></div>}
-              {isOil && oilCardB != null && oilCardB.ratio != null && <div className="text-[11px] font-mono font-semibold text-slate-400">×{oilCardB.ratio.toFixed(2)} SMA36M · <span className={oilCardB.bonus > 0 ? 'text-orange-300' : oilCardB.bonus < 0 ? 'text-emerald-300' : 'text-slate-500'}>{oilCardB.bonus !== 0 ? `${oilCardB.label} (${oilCardB.bonus > 0 ? '+' : ''}${oilCardB.bonus})` : 'neutral'}</span></div>}
-              {t==='DGS30' && y30mForCard!=null && <div className="text-[11px] font-mono font-semibold text-slate-400">Δ {y30mForCard.d>=0?'+':''}{y30mForCard.d.toFixed(2)}pp vs MA6M {y30mForCard.ma.toFixed(2)}% · <span style={{color: capeScoreColor(y30mForCard.score)}}>{y30mBandLabel(y30mForCard.score)}</span></div>}
+              {t==='DGS2' && y2mForCard!=null && <div className="text-[11px] font-mono font-semibold text-slate-400">Δ {y2mForCard.d>=0?'+':''}{y2mForCard.d.toFixed(2)}pp vs MA6M {y2mForCard.ma.toFixed(2)}% · <span style={{color: capeScoreColor(y2mForCard.score)}}>{levelLabel(y2mBandLabel(y2mForCard.score), loc)}</span></div>}
+              {isHyOas && hyCardB != null && hyCardB.hy != null && <div className="text-[11px] font-mono font-semibold text-slate-400">{levelLabel(hyBandLabel(hyCardB.hy), loc)} · <span className={hyCardB.bonus > 0 ? 'text-orange-300' : 'text-slate-500'}>{ti('regime3')} {hyCardB.bonus > 0 ? `${hyCardB.label} (+${hyCardB.bonus})` : ti('regime3Inactive')}</span></div>}
+              {(isM2||isM0) && liqCardB != null && liqCardB.yoy != null && <div className="text-[11px] font-mono font-semibold text-slate-400">M2 YoY +{liqCardB.yoy.toFixed(1)}% · M0 Δ3M {liqCardB.m0d3 != null ? `${liqCardB.m0d3 >= 0 ? '+' : ''}${liqCardB.m0d3.toFixed(1)}%` : '—'} · <span className={liqCardB.bonus > 0 ? 'text-orange-300' : liqCardB.bonus < 0 ? 'text-emerald-300' : 'text-slate-500'}>{liqCardB.bonus !== 0 ? `${liqCardB.label} (${liqCardB.bonus > 0 ? '+' : ''}${liqCardB.bonus})` : ti('noBonus')}</span></div>}
+              {isOil && oilCardB != null && oilCardB.ratio != null && <div className="text-[11px] font-mono font-semibold text-slate-400">×{oilCardB.ratio.toFixed(2)} SMA36M · <span className={oilCardB.bonus > 0 ? 'text-orange-300' : oilCardB.bonus < 0 ? 'text-emerald-300' : 'text-slate-500'}>{oilCardB.bonus !== 0 ? `${oilCardB.label} (${oilCardB.bonus > 0 ? '+' : ''}${oilCardB.bonus})` : ti('neutral')}</span></div>}
+              {t==='DGS30' && y30mForCard!=null && <div className="text-[11px] font-mono font-semibold text-slate-400">Δ {y30mForCard.d>=0?'+':''}{y30mForCard.d.toFixed(2)}pp vs MA6M {y30mForCard.ma.toFixed(2)}% · <span style={{color: capeScoreColor(y30mForCard.score)}}>{levelLabel(y30mBandLabel(y30mForCard.score), loc)}</span></div>}
               {isGDP && (gdpYoY!=null || gdpc1YoY!=null) && <div className="flex gap-2 text-[11px] font-mono font-semibold"><span className={gdpYoY!=null && gdpYoY>=0?'text-emerald-400':'text-red-400'}>{gdpYoY!=null? `${gdpYoY>=0?'▲':'▼'} ${Math.abs(gdpYoY).toFixed(2)}% Nom`:'— Nom'}</span><span className="text-slate-600">·</span><span className={gdpc1YoY!=null && gdpc1YoY>=0?'text-sky-400':'text-orange-400'}>{gdpc1YoY!=null? `${gdpc1YoY>=0?'▲':'▼'} ${Math.abs(gdpc1YoY).toFixed(2)}% Real`:'— Real'}</span></div>}
               {fresh && <div className="text-[11px] text-slate-500">{fresh} · {src}</div>}
               {tip && <div className="text-xs text-slate-500 mt-2 line-clamp-2">{tip}</div>}
@@ -1439,11 +1444,11 @@ export function IndicatorsPanel() {
                         <div className="mt-2 flex items-center gap-2">
                           <span className="text-xl font-mono" style={{ color: c }}>{ratio.toFixed(3)}X</span>
                           <span className="ml-auto inline-flex items-center gap-1.5 rounded-full border border-slate-700/70 bg-slate-800/50 py-0.5 pl-2.5 pr-1">
-                            <span className="text-xs font-semibold" style={{ color: c }}>{ratioBandLabel(ratio)}</span>
+                            <span className="text-xs font-semibold" style={{ color: c }}>{levelLabel(ratioBandLabel(ratio), loc)}</span>
                             <ScoreOrb name="CAPE Ratio" value={ratio} dec={3} weight={15} score={s} bands={RATIO_BANDS} small />
                           </span>
                         </div>
-                        <div className="text-xs text-slate-500 mt-2 line-clamp-2">Valuación relativa a su media de 3 años. {`Sincronizado: ${ratio.toFixed(3)} @ ${(capeLast.date||'').slice(0,10)}`}</div>
+                        <div className="text-xs text-slate-500 mt-2 line-clamp-2">{ti('ratioDesc')} {ti('synced', { v: ratio.toFixed(3), d: (capeLast.date||'').slice(0,10) })}</div>
                       </div>
                       );
                     })()}
@@ -1594,7 +1599,7 @@ export function IndicatorsPanel() {
           </div>
           </div>
         </div>
-        <p className="text-xs text-slate-500 mb-3">CAPE diario (reconstruido) — 6 suavizados diarios. Ratio = CAPE / mean3y SMA. Vista {capeView} (default daily). Click en headers para ordenar. Perf 1Y con ~ = parcial anualizado (mes no maduro, menos de 12m transcurridos).</p>
+        <p className="text-xs text-slate-500 mb-3">{ti('capeTableHint', { view: capeView })}</p>
         <div ref={scrollContainerRef} onScroll={(e)=>{
             const el = e.currentTarget as HTMLDivElement;
             if(el.scrollTop + el.clientHeight >= el.scrollHeight - 80){
@@ -1891,7 +1896,7 @@ export function IndicatorsPanel() {
             </tbody>
           </table>
         </div>
-        <p className="text-[11px] text-slate-500 mt-2">Scroll para cargar más · {capeRows.length} días (1990→hoy, sin fines de semana){!cape.length && capeRows.length > 0 && <span className="text-amber-400"> · sin serie CAPE: columnas CAPE vacías</span>} · SP500/Nasdaq/TQQQ cierre diario · SMA/EMA 3/5/10 sobre CAPE diario · Ratio semaforizado</p>
+        <p className="text-[11px] text-slate-500 mt-2">{ti('capeFootA', { n: capeRows.length })}{!cape.length && capeRows.length > 0 && <span className="text-amber-400"> · {ti('capeNoSeries')}</span>} · {ti('capeFootB')}</p>
       </div>
       <BhtForwardTable live={liveBhtRef} />
       {capeBhtDet.hover && <BhtDetailPopover hover={capeBhtDet.hover} detail={capeBhtDet.cache[capeBhtDet.hover.d]} forward={capeFwdCache[capeBhtDet.hover.d]} onLeave={() => capeBhtDet.scheduleClear()} onHold={() => capeBhtDet.cancelClear()} liveValue={(capeBhtDet.hover.d === liveBhtRef.current.d && liveBhtRef.current.v != null) ? liveBhtRef.current.v : null} />}

@@ -225,7 +225,8 @@
       "loadingMallik": "Loading QQQ and Mallik...",
       "noTradeDay": "No trade this day — position held per the month's TQQQ/cash %",
       "qqqZoomHint": "Scroll/drag to zoom • 5Y by default • Hover the arrows: TQQQ/cash detail and trigger",
-      "loading": "Loading…"
+      "loading": "Loading…",
+      "timelineHint": "BHT Index at close over time{assets} · line 50 = neutral · hover for detail · scroll/drag to zoom and pan."
     },
     "bhtStats": {
       "loading": "Loading stats…",
@@ -295,7 +296,8 @@
       "leverageGdp": "Leverage/GDP",
       "scaled": "{name} scaled",
       "current": "Current {pct}% @ {month}",
-      "hint": "Scroll/drag to zoom • 5Y by default • Left axis: Margin/GDP (%) and scaled CAPE • Right axis: S&P 500/SMA ($)"
+      "hint": "Scroll/drag to zoom • 5Y by default • Left axis: Margin/GDP (%) and scaled CAPE • Right axis: S&P 500/SMA ($)",
+      "title": "Leverage over time: margin debt to GDP ratio — {range}"
     },
     "indicators": {
       "loading": "Loading indicators...",
@@ -364,7 +366,8 @@
         "NYSE_ADV_VOL": "NYSE up volume",
         "NYSE_DEC_VOL": "NYSE down volume",
         "NSDQ_ADV_VOL": "Nasdaq up volume",
-        "NSDQ_DEC_VOL": "Nasdaq down volume"
+        "NSDQ_DEC_VOL": "Nasdaq down volume",
+        "fed_rate": "Fed interest rate"
       },
       "tips": {
         "schiller_pe": "CAPE = Price / 10-year average of real earnings. >30 overvalued, 20-30 normal, <20 cheap. Ratio = CAPE/mean3y.",
@@ -409,7 +412,59 @@
         "NSDQ_DEC_VOL": "Volume of Nasdaq stocks that fell (WSJ, shares/day).",
         "SPX_ADV_VOL": "Volume of S&P 500 constituents that rose (shares/day, 1993→today). Base of Net Advancing Volume.",
         "SPX_DEC_VOL": "Volume of S&P 500 constituents that fell (shares/day, 1993→today)."
-      }
+      },
+      "strategyBand": "Strategy · {label}",
+      "riskAria": "Risk {score} of 100: {label}",
+      "thermoFootA": "Overall market risk · 0 = minimum risk · 100 = maximum risk. Weighted base 100:",
+      "noIndicators": "no indicators",
+      "bonusHy": "HY bonus",
+      "bonusLiq": "liquidity bonus",
+      "bonusOil": "oil bonus",
+      "thermoFootB": "{n} indicators + credit, liquidity and oil bonuses.",
+      "finalScore": "Final score",
+      "hyBonusRow": "HY Bonus - (Regime 3 {label})",
+      "liqBonusRow": "M2/M0 liquidity bonus ({label})",
+      "oilBonusRow": "WTI oil bonus ({label})",
+      "bht": {
+        "b0": {
+          "label": "Extreme Fear (High Opportunity)",
+          "advice": "The greater the fear, the better the opportunity: assess bottoms and oversold conditions with CAPE and RSI to enter strongly into QQQ, TQQQ, SOXX — even with margin."
+        },
+        "b1": {
+          "label": "Fear (Opportunity)",
+          "advice": "You can use margin and leveraged ETFs, without extreme margin; confirm a reversal to an uptrend before buying QQQ, TQQQ and undervalued quality."
+        },
+        "b2": {
+          "label": "Neutral",
+          "advice": "Do not buy or increase leveraged ETFs or high margin (TQQQ, SOXL). Base strategy: hold your positions and build up cash and defensives."
+        },
+        "b3": {
+          "label": "Greed (Risk)",
+          "advice": "Reduce QQQ/TQQQ/SOXX and lower margin; keep at least 10% in cash/SGOV for opportunities."
+        },
+        "b4": {
+          "label": "Extreme Greed (High Risk)",
+          "advice": "Zero margin and leveraged ETFs below 20%; move 20–40% to defensives (SGOV/IB01 or SCHD depending on your profile), build CASH for drawdowns and trim expensive stocks/ETFs incrementally as the CAPE Ratio rises."
+        }
+      },
+      "ratioDesc": "Valuation relative to its 3-year mean.",
+      "synced": "Synced: {v} @ {d}",
+      "daily": "(daily)",
+      "lastCape": "Latest CAPE:",
+      "hideDetail": "▾ Hide detail",
+      "showDetail": "▸ Show calculation detail",
+      "index": "Index",
+      "regime3": "Regime 3",
+      "regime3Inactive": "inactive — only adds, never subtracts",
+      "noBonus": "no bonus",
+      "neutral": "neutral",
+      "capeTableHint": "Daily CAPE — 6 daily smoothings. Ratio = CAPE / 3-year mean (SMA). View {view}. Click headers to sort. 1Y perf with ~ = annualized partial (less than 12 months elapsed).",
+      "capeFootA": "Scroll to load more · {n} days (1990→today, no weekends)",
+      "capeNoSeries": "no CAPE series: CAPE columns empty",
+      "capeFootB": "S&P 500/Nasdaq/TQQQ daily close · SMA/EMA 3/5/10 on daily CAPE · Color-coded ratio",
+      "hyBonusDetail": "HY Bonus - (Regime 3 {label}): +{n} (outside the average)",
+      "fwdFoot": "BHT Index at close + forward returns only with elapsed horizon · '—' = not yet mature · {shown} of {total} in view ({days} days)",
+      "fwdMore": " — scroll for more"
     }
   },
   "Heatmap": {

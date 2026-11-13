@@ -225,7 +225,8 @@
       "loadingMallik": "Cargando QQQ y Mallik…",
       "noTradeDay": "Sin operación este día — la posición se mantiene según el % TQQQ/efectivo del mes",
       "qqqZoomHint": "Desplázate o arrastra para hacer zoom • 5 años por defecto • Pasa el cursor sobre las flechas: detalle TQQQ/efectivo y disparador",
-      "loading": "Cargando…"
+      "loading": "Cargando…",
+      "timelineHint": "Evolución del BHT Index al cierre{assets} · línea 50 = neutral · pasa el cursor para ver el detalle · desplázate o arrastra para hacer zoom y moverte."
     },
     "bhtStats": {
       "loading": "Cargando estadísticas…",
@@ -295,7 +296,8 @@
       "leverageGdp": "Apalancamiento/PIB",
       "scaled": "{name} escalado",
       "current": "Actual {pct}% @ {month}",
-      "hint": "Desplázate o arrastra para hacer zoom • 5 años por defecto • Eje izq.: Margen/PIB (%) y CAPE escalado • Eje der.: S&P 500/SMA ($)"
+      "hint": "Desplázate o arrastra para hacer zoom • 5 años por defecto • Eje izq.: Margen/PIB (%) y CAPE escalado • Eje der.: S&P 500/SMA ($)",
+      "title": "Evolución del apalancamiento: deuda de margen / PIB — {range}"
     },
     "indicators": {
       "loading": "Cargando indicadores…",
@@ -364,7 +366,8 @@
         "NYSE_ADV_VOL": "Vol. al alza NYSE",
         "NYSE_DEC_VOL": "Vol. a la baja NYSE",
         "NSDQ_ADV_VOL": "Vol. al alza Nasdaq",
-        "NSDQ_DEC_VOL": "Vol. a la baja Nasdaq"
+        "NSDQ_DEC_VOL": "Vol. a la baja Nasdaq",
+        "fed_rate": "Tasa de interés de la Fed"
       },
       "tips": {
         "schiller_pe": "CAPE = Precio / promedio 10a ganancias reales. >30 sobrevalorado, 20-30 normal, <20 barato. Ratio = CAPE/mean3y.",
@@ -409,7 +412,59 @@
         "NSDQ_DEC_VOL": "Volumen de acciones Nasdaq que bajaron (WSJ, acciones/día).",
         "SPX_ADV_VOL": "Volumen de constituyentes S&P 500 que subieron (acciones/día, 1993→hoy). Base del Net Advancing Volume.",
         "SPX_DEC_VOL": "Volumen de constituyentes S&P 500 que bajaron (acciones/día, 1993→hoy)."
-      }
+      },
+      "strategyBand": "Estrategia · {label}",
+      "riskAria": "Riesgo {score} de 100: {label}",
+      "thermoFootA": "Riesgo del mercado general · 0 = riesgo mínimo · 100 = riesgo máximo. Ponderado base 100:",
+      "noIndicators": "sin indicadores",
+      "bonusHy": "bonus HY",
+      "bonusLiq": "bonus liquidez",
+      "bonusOil": "bonus petróleo",
+      "thermoFootB": "{n} indicadores + bonus de crédito, liquidez y petróleo.",
+      "finalScore": "Puntaje final",
+      "hyBonusRow": "Bonus HY - (Régimen 3 {label})",
+      "liqBonusRow": "Bonus liquidez M2/M0 ({label})",
+      "oilBonusRow": "Bonus petróleo WTI ({label})",
+      "bht": {
+        "b0": {
+          "label": "Miedo Extremo (Alta Oportunidad)",
+          "advice": "A mayor miedo, mejor oportunidad: evalúa pisos y sobreventa con CAPE y RSI para entrar fuerte en QQQ, TQQQ, SOXX — incluso con margin."
+        },
+        "b1": {
+          "label": "Miedo (Oportunidad)",
+          "advice": "Puedes usar margen y apalancados, sin margen extremo; confirma reversión a tendencia alcista para comprar QQQ, TQQQ y calidad undervalued."
+        },
+        "b2": {
+          "label": "Neutral",
+          "advice": "No compres ni incrementes apalancados o alto margen (TQQQ, SOXL). Estrategia base: Hold de tus posiciones y acumula liquidez y defensivas."
+        },
+        "b3": {
+          "label": "Codicia (Riesgo)",
+          "advice": "Reduce QQQ/TQQQ/SOXX y baja el margen; mantén al menos 10% en Cash/SGOV para oportunidades."
+        },
+        "b4": {
+          "label": "Codicia Extrema (Alto Riesgo)",
+          "advice": "Cero margen y apalancados a menos del 20%; lleva 20–40% a defensivas (SGOV/IB01 o SCHD según tu perfil), acumula CASH para caídas y reduce acciones/ETFs caros de forma incremental según suba el CAPE Ratio."
+        }
+      },
+      "ratioDesc": "Valuación relativa a su media de 3 años.",
+      "synced": "Sincronizado: {v} @ {d}",
+      "daily": "(diario)",
+      "lastCape": "Último CAPE:",
+      "hideDetail": "▾ Ocultar detalle",
+      "showDetail": "▸ Ver detalle del cálculo",
+      "index": "Índice",
+      "regime3": "Régimen 3",
+      "regime3Inactive": "inactivo — solo suma, nunca resta",
+      "noBonus": "sin bonus",
+      "neutral": "neutral",
+      "capeTableHint": "CAPE diario — 6 suavizados diarios. Ratio = CAPE / media 3 años (SMA). Vista {view}. Clic en las cabeceras para ordenar. Rend. 1A con ~ = parcial anualizado (menos de 12 meses transcurridos).",
+      "capeFootA": "Desplázate para cargar más · {n} días (1990→hoy, sin fines de semana)",
+      "capeNoSeries": "sin serie CAPE: columnas CAPE vacías",
+      "capeFootB": "S&P 500/Nasdaq/TQQQ cierre diario · SMA/EMA 3/5/10 sobre CAPE diario · Ratio con semáforo",
+      "hyBonusDetail": "Bonus HY - (Régimen 3 {label}): +{n} (fuera del promedio)",
+      "fwdFoot": "BHT Index al cierre + retornos forward solo con horizonte cumplido · '—' = aún no madura · {shown} de {total} en vista ({days} días)",
+      "fwdMore": " — desplázate para ver más"
     }
   },
   "Heatmap": {

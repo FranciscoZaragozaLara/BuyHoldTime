@@ -283,7 +283,7 @@ export function BhtTimeline() {
         {loading && <span className="text-[11px] text-slate-500 font-mono">{tb('loading')}</span>}
       </div>
       <div ref={containerRef} className="w-full h-[300px]" />
-      <p className="text-[11px] text-slate-500 mt-1">Evolución del BHT Index al cierre{shownAssets ? ` + ${shownAssets}` : ''} · línea 50 = neutral · pasa el mouse para el detalle · scroll/arrastra para zoom y moverte.</p>
+      <p className="text-[11px] text-slate-500 mt-1">{tb('timelineHint', { assets: shownAssets ? ` + ${shownAssets}` : '' })}</p>
       {bhtDet.hover && (
         <BhtDetailPopover
           hover={bhtDet.hover}

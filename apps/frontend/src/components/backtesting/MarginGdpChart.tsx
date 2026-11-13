@@ -391,7 +391,7 @@ export function MarginGdpChart({ marketHistory, cape = [], volHistory = {} }: Pr
   return (
     <div className="w-full bg-slate-900 border border-slate-800 rounded-xl p-4">
       <div className="flex items-center justify-between mb-2">
-        <h3 className="font-semibold text-slate-100">Evolución del Apalancamiento: Margin Debt to GDP Ratio — {rangeLabel}</h3>
+        <h3 className="font-semibold text-slate-100">{tm('title', { range: rangeLabel })}</h3>
         <div className="flex gap-1">
           {(['1Y','5Y','10Y','20Y','30Y','ALL'] as const).map(r=>(
             <button key={r} onClick={()=>setRange(r)} className={`px-2.5 py-1 rounded text-xs font-medium border transition-colors ${range===r ? 'bg-teal-600 text-white border-teal-600' : 'bg-slate-800 text-slate-400 border-slate-700 hover:border-slate-600'}`}>{r}</button>
