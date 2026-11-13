@@ -373,7 +373,7 @@
         "schiller_pe": "CAPE = Precio / promedio 10a ganancias reales. >30 sobrevalorado, 20-30 normal, <20 barato. Ratio = CAPE/mean3y.",
         "pe_ratio": "S&P 500 PE = Precio / EPS 12m. Alto = mercado caro vs beneficios. Complementa CAPE (corto plazo).",
         "fwd_pe_ratio": "Forward PE = Precio / EPS estimado 12m (operating, consenso S&P). >22 caro, 17-22 normal, <17 barato. Mira expectativas, no pasado. Debajo del promedio 10a (~19) = razonable.",
-        "inflation": "CPI YoY = (CPI_t / CPI_{t-12} -1)*100. >3% presiona Fed a subir tasas. Dato mensual FRED CPIAUCSL.",
+        "inflation": "CPI YoY = (CPI_t / CPI_(t−12) -1)*100. >3% presiona Fed a subir tasas. Dato mensual FRED CPIAUCSL.",
         "core_inflation": "Core CPI sin alimentos/energía. Más estable, la Fed lo mira para decidir tasas.",
         "fed_rate": "FED Target Upper (DFEDTARU). 0.25% 2008-2015 ZIRP, hoy ~3.75%. Sube para frenar inflación.",
         "treasury_30y": "30Y Momentum: nivel del Treasury 30Y + delta vs MA6M. Se acelera al alza = freno a economía y liquidez (riesgo); cae = alivio. Base para valorar acciones vs bonos.",
@@ -392,7 +392,7 @@
         "DGS2": "2Y Momentum: nivel del Treasury 2Y + delta vs MA6M. Sube acelerado = endurecimiento descontado (riesgo); cae desde alto = alivio (oportunidad). Anticipa a la Fed. 2Y > 10Y = curva invertida.",
         "DGS10": "Treasury 10Y = risk-free. Base para HY 10Y+OAS.",
         "DGS30": "Treasury 30Y = bono del Tesoro a 30 años. Nivel + delta vs MA6M: al alza frena economía y liquidez (riesgo); a la baja alivia. Base para valorar acciones vs bonos.",
-        "CPIAUCSL": "CPI YoY = (CPI_t / CPI_{t-12} -1)*100, inflación total. >3% presiona a la Fed a subir tasas. Dato mensual FRED.",
+        "CPIAUCSL": "CPI YoY = (CPI_t / CPI_(t−12) -1)*100, inflación total. >3% presiona a la Fed a subir tasas. Dato mensual FRED.",
         "M2SL": "M2 = oferta monetaria amplia (efectivo + depósitos + money-market, billones $, FRED mensual). YoY >4% y acelerando + M0 expandiendo = viento a favor: bonus −10 al semáforo (oportunidad).",
         "BOGMBASE": "M0 = base monetaria (efectivo + reservas bancarias, FRED mensual). Δ3M >+5% con M2 >8% = bazuca Fed −20; >+30% = megabazuca −25. Si Δ3M ≤ 0 veta el tailwind.",
         "DCOILWTICO": "WTI = petróleo $/barril (FRED diario). Ratio vs SMA36M: shock ≥1.45 → +10, caro ≥1.20 → +5, barato <0.90 → −5, alivio <0.70 → −10 al semáforo. El +10 exige mes previo ya caro (guarda anti-spike).",
@@ -473,9 +473,10 @@
       "historyEmpty": "Sin historia disponible.",
       "historyMonth": "Mes",
       "historyScore": "Puntaje",
-      "historyNote": "Cierre del último día hábil de cada mes · puntaje base 100 que aporta al termómetro · rendimiento desde ese cierre hasta el último disponible. Resultados históricos; no garantizan rendimientos futuros.",
+      "historyNote": "Cierre del último día hábil de cada mes · puntaje base 100 que aporta al termómetro · rendimiento desde ese cierre hasta el último disponible · pico = máximo cierre posterior y su fecha. Resultados históricos; no garantizan rendimientos futuros.",
       "historyPerfToday": "Rendimiento a hoy",
-      "historyYearsAgo": "hace {n} años"
+      "historyYearsAgo": "hace {n} años",
+      "historyPeak": "Pico desde ese mes (% y fecha)"
     },
     "regimesPanel": {
       "loadingDates": "Cargando fechas…",
@@ -530,7 +531,7 @@
       "view_monthly": "Mensual",
       "view_yearly": "Anual",
       "rows": "{n} filas",
-      "virtFoot": "{shown} filas visibles de {total} · {rendered} renderizadas · 📈 CAPE>1.18 & CPI anual ≥4.0 & >1.20 · 🏦 Z>2.0 (6M) · 😴 HY<P20 — usa el filtro de año para saltar rápido.",
+      "virtFoot": "{shown} filas visibles de {total} · {rendered} renderizadas · 📈 CAPE>1.18 & CPI anual ≥4.0 & >1.20 · 🏦 Z>2.0 (6M) · 😴 HY bajo su P20 — usa el filtro de año para saltar rápido.",
       "nextTriggers": "Disparadores: cruce de medias, inversión de curva, etc. — se agregarán como nuevas estrategias a partir de esta base."
     }
   },

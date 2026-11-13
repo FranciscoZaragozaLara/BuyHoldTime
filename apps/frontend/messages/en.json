@@ -373,7 +373,7 @@
         "schiller_pe": "CAPE = Price / 10-year average of real earnings. >30 overvalued, 20-30 normal, <20 cheap. Ratio = CAPE/mean3y.",
         "pe_ratio": "S&P 500 PE = Price / trailing 12m EPS. High = market expensive vs earnings. Complements CAPE (short term).",
         "fwd_pe_ratio": "Forward PE = Price / estimated 12m EPS (operating, S&P consensus). >22 expensive, 17-22 normal, <17 cheap. Looks at expectations, not the past. Below the 10y average (~19) = reasonable.",
-        "inflation": "CPI YoY = (CPI_t / CPI_{t-12} -1)*100. >3% pressures the Fed to raise rates. Monthly FRED CPIAUCSL data.",
+        "inflation": "CPI YoY = (CPI_t / CPI_(t−12) -1)*100. >3% pressures the Fed to raise rates. Monthly FRED CPIAUCSL data.",
         "core_inflation": "Core CPI excluding food/energy. More stable; the Fed watches it to set rates.",
         "fed_rate": "Fed Target Upper (DFEDTARU). 0.25% in 2008-2015 ZIRP, today ~3.75%. Rises to curb inflation.",
         "treasury_30y": "30Y Momentum: 30Y Treasury level + delta vs 6M MA. Accelerating up = brake on the economy and liquidity (risk); falling = relief. Basis for valuing stocks vs bonds.",
@@ -392,7 +392,7 @@
         "DGS2": "2Y Momentum: 2Y Treasury level + delta vs 6M MA. Rising fast = tightening priced in (risk); falling from high = relief (opportunity). Anticipates the Fed. 2Y > 10Y = inverted curve.",
         "DGS10": "10Y Treasury = risk-free rate. Base for HY 10Y+OAS.",
         "DGS30": "30Y Treasury = 30-year US government bond. Level + delta vs 6M MA: rising slows the economy and liquidity (risk); falling brings relief. Basis for valuing stocks vs bonds.",
-        "CPIAUCSL": "CPI YoY = (CPI_t / CPI_{t-12} -1)*100, headline inflation. >3% pressures the Fed to raise rates. Monthly FRED data.",
+        "CPIAUCSL": "CPI YoY = (CPI_t / CPI_(t−12) -1)*100, headline inflation. >3% pressures the Fed to raise rates. Monthly FRED data.",
         "M2SL": "M2 = broad money supply (cash + deposits + money market, $ trillions, monthly FRED). YoY >4% and accelerating + M0 expanding = tailwind: −10 bonus to the gauge (opportunity).",
         "BOGMBASE": "M0 = monetary base (cash + bank reserves, monthly FRED). 3M Δ >+5% with M2 >8% = Fed bazooka −20; >+30% = mega-bazooka −25. If 3M Δ ≤ 0 it vetoes the tailwind.",
         "DCOILWTICO": "WTI = oil $/barrel (daily FRED). Ratio vs 36M SMA: shock ≥1.45 → +10, expensive ≥1.20 → +5, cheap <0.90 → −5, relief <0.70 → −10 to the gauge. The +10 requires the previous month already expensive (anti-spike guard).",
@@ -473,9 +473,10 @@
       "historyEmpty": "No history available.",
       "historyMonth": "Month",
       "historyScore": "Score",
-      "historyNote": "Close of the last trading day of each month · base-100 score contributed to the thermometer · performance from that close to the latest available. Historical results; they do not guarantee future returns.",
+      "historyNote": "Close of the last trading day of each month · base-100 score contributed to the thermometer · performance from that close to the latest available · peak = highest later close and its date. Historical results; they do not guarantee future returns.",
       "historyPerfToday": "Performance to today",
-      "historyYearsAgo": "{n} years ago"
+      "historyYearsAgo": "{n} years ago",
+      "historyPeak": "Peak since that month (% and date)"
     },
     "regimesPanel": {
       "loadingDates": "Loading dates…",
@@ -530,7 +531,7 @@
       "view_monthly": "Monthly",
       "view_yearly": "Yearly",
       "rows": "{n} rows",
-      "virtFoot": "{shown} visible rows of {total} · {rendered} rendered · 📈 CAPE>1.18 & CPI YoY ≥4.0 & >1.20 · 🏦 Z>2.0 (6M) · 😴 HY<P20 — use the year filter to jump quickly.",
+      "virtFoot": "{shown} visible rows of {total} · {rendered} rendered · 📈 CAPE>1.18 & CPI YoY ≥4.0 & >1.20 · 🏦 Z>2.0 (6M) · 😴 HY below its P20 — use the year filter to jump quickly.",
       "nextTriggers": "Triggers: moving-average crossovers, yield-curve inversion, etc. — they will be added as new strategies based on this baseline."
     }
   },

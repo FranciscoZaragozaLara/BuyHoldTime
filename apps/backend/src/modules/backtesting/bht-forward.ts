@@ -42,9 +42,13 @@ export type MonthlyParts = {
   month: string; date: string; parts: Record<string, PartPoint>;
   /** Rendimiento % desde el cierre de ese día hasta el último cierre disponible. */
   perf: IndexCloses;
+  /** Máximo cierre de cada índice desde ese día hasta hoy: % sobre el cierre del día y fecha del pico. */
+  peak: Record<keyof IndexCloses, PeakPoint | null>;
   /** Años atrás para las filas extra (2, 3); null en los 12 meses recientes. */
   yearsAgo: number | null;
 };
+export type PeakPoint = { pct: number; date: string };
+export type IndexDates = { spx: string | null; ndx: string | null; tqqq: string | null };
 type DailyRow = { date: string; parts: unknown; spx?: number | null; ndx?: number | null; tqqq?: number | null };
 
 const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
@@ -61,7 +65,25 @@ const shiftMonth = (month: string, delta: number) => {
  * y, después, una fila por cada valor de `extraYears` (mismo mes, N años atrás) si existe.
  * `latest` = últimos cierres para el rendimiento "a hoy".
  */
-export function monthlyPartsFromDaily(rows: DailyRow[], n = 12, latest: IndexCloses = { spx: null, ndx: null, tqqq: null }, extraYears: number[] = []): MonthlyParts[] {
+export function monthlyPartsFromDaily(
+  rows: DailyRow[], n = 12, latest: IndexCloses = { spx: null, ndx: null, tqqq: null }, extraYears: number[] = [],
+  latestDates: IndexDates = { spx: null, ndx: null, tqqq: null },
+): MonthlyParts[] {
+  const sorted = [...rows].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+  const IDX = ['spx', 'ndx', 'tqqq'] as const;
+  // Pico desde `date` (incluido) hasta el último cierre: máximo de la serie diaria + último cierre en vivo.
+  const peakFrom = (date: string, base: number | null, k: (typeof IDX)[number]): PeakPoint | null => {
+    if (base == null || base === 0) return null;
+    let best = base, bestDate = date;
+    for (const r of sorted) {
+      if (r.date < date) continue;
+      const v = num(r[k]);
+      if (v != null && v > best) { best = v; bestDate = r.date; }
+    }
+    const l = latest[k], ld = latestDates[k];
+    if (l != null && ld != null && ld >= date && l > best) { best = l; bestDate = ld; }
+    return { pct: (best / base - 1) * 100, date: bestDate };
+  };
   const byMonth = new Map<string, DailyRow>();
   for (const r of rows) {
     if (!Array.isArray(r.parts) || !r.parts.length) continue;
@@ -75,6 +97,7 @@ export function monthlyPartsFromDaily(rows: DailyRow[], n = 12, latest: IndexClo
     return {
       month, date: r.date, parts, yearsAgo,
       perf: { spx: perfTo(num(r.spx), latest.spx), ndx: perfTo(num(r.ndx), latest.ndx), tqqq: perfTo(num(r.tqqq), latest.tqqq) },
+      peak: { spx: peakFrom(r.date, num(r.spx), 'spx'), ndx: peakFrom(r.date, num(r.ndx), 'ndx'), tqqq: peakFrom(r.date, num(r.tqqq), 'tqqq') },
     };
   };
   const months = [...byMonth.keys()].sort((a, b) => (a < b ? 1 : -1));

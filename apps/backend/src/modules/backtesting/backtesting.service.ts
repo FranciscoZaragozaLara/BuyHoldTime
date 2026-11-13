@@ -650,11 +650,13 @@ export class BacktestingService {
       ...['^GSPC', '^IXIC', 'TQQQ'].map((t) => this.prisma.btMarketData.findFirst({ where: { ticker: t }, orderBy: { date: 'desc' } })),
     ]);
     const close = (r: any) => (r?.close != null ? Number(r.close) : null);
+    const day = (r: any) => (r?.date ? new Date(r.date).toISOString().slice(0, 10) : null);
     return monthlyPartsFromDaily(
       (rows as any[]).map((r) => ({ date: r.date.toISOString().slice(0, 10), parts: r.parts, spx: r.spx, ndx: r.ndx, tqqq: r.tqqq })),
       n,
       { spx: close(latest[0]), ndx: close(latest[1]), tqqq: close(latest[2]) },
       [2, 3],
+      { spx: day(latest[0]), ndx: day(latest[1]), tqqq: day(latest[2]) },
     );
   }
 

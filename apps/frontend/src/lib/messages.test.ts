@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'vitest';
+import { createTranslator } from 'next-intl';
 import es from '../../messages/es.json';
 import en from '../../messages/en.json';
 
@@ -27,4 +28,17 @@ describe('messages es/en', () => {
     const diff = [...esF.keys()].filter((k) => vars(esF.get(k)) !== vars(enF.get(k)));
     expect(diff).toEqual([]);
   });
+});
+
+describe('mensajes ICU válidos', () => {
+  // Llaves sueltas en un texto (p. ej. "CPI_{t-12}") rompen el formato ICU y next-intl muestra un error.
+  const leaves = (o: any, pre = ''): string[] => Object.entries(o).flatMap(([k, v]) => (v && typeof v === 'object' ? leaves(v, `${pre}${k}.`) : [`${pre}${k}`]));
+  for (const [locale, messages] of [['es', es], ['en', en]] as const) {
+    test(`${locale}: todos los mensajes se pueden interpretar`, () => {
+      const bad: string[] = [];
+      const t = createTranslator({ locale, messages: messages as any, onError: (e: any) => { if (e.code === 'INVALID_MESSAGE') bad.push(e.message.slice(0, 80)); }, getMessageFallback: ({ key }: any) => key });
+      for (const k of leaves(messages)) { try { (t as any).raw(k); (t as any)(k, new Proxy({}, { get: () => 'x' })); } catch { /* formato con argumentos: no aplica */ } }
+      expect(bad).toEqual([]);
+    });
+  }
 });

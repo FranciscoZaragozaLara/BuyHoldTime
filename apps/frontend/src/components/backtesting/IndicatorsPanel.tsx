@@ -1,9 +1,9 @@
 'use client';
 import { getApiBase } from '@/lib/apiBase';
-import { useCallback, useEffect, useState, useRef, useMemo } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useState, useRef, useMemo } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import { levelLabel } from '@/lib/levelLabels';
-import { monthLabel, orbHistoryRows, ORB_PART_KEY, type MonthlyParts } from '@/lib/orbHistory';
+import { monthLabel, orbHistoryRows, shortDate, ORB_PART_KEY, type MonthlyParts } from '@/lib/orbHistory';
 import { useMarketSyncStream } from './useMarketSyncStream';
 import MarketSyncModal from './MarketSyncModal';
 import { MarginGdpChart } from './MarginGdpChart';
@@ -281,20 +281,30 @@ function ScoreOrb({ name, value, dec = 2, weight, score, bands, blend = null, sm
   const ti = useTranslations('Backtesting.indicators');
   const loc = useLocale();
   const [open, setOpen] = useState(false);
-  const [alignLeft, setAlignLeft] = useState(false);
+  const [pos, setPos] = useState<{ left: number; top: number; maxH: number } | null>(null);
   const btnRef = useRef<HTMLButtonElement>(null);
   const c = capeScoreColor(score);
   const hasHistory = name in ORB_PART_KEY;
-  // El popover ancho se abre hacia la izquierda del orbe; si no cabe, hacia la derecha.
-  const show = () => {
+  const popRef = useRef<HTMLDivElement>(null);
+  // Popover en posición fija, acotado a la pantalla (con historia es muy ancho y alto).
+  // Horizontal: alineado al borde derecho del orbe. Vertical: abajo si cabe, arriba si cabe;
+  // si no cabe en ninguno, se recorre para entrar completo (puede tapar el orbe).
+  const place = () => {
     const r = btnRef.current?.getBoundingClientRect();
-    if (r) setAlignLeft(r.right < Math.min(window.innerWidth * 0.94, hasHistory ? 820 : 288) + 8);
-    setOpen(true);
+    if (!r) return;
+    const vw = window.innerWidth, vh = window.innerHeight;
+    const w = Math.min(vw * 0.96, hasHistory ? 1120 : 288);
+    const left = Math.max(8, Math.min(r.right - w, vw - w - 8));
+    const h = Math.min(popRef.current?.scrollHeight ?? 0, vh - 16);
+    let top = r.bottom + 6;
+    if (top + h > vh - 8) top = r.top - 6 - h >= 8 ? r.top - 6 - h : Math.max(8, vh - 8 - h);
+    setPos({ left, top, maxH: vh - 16 });
   };
+  const show = () => { setOpen(true); place(); };
   // Historia: una sola petición compartida por todos los orbes, al abrir el primero.
   const hist = useQuery({
-    // v2: respuesta con perf (rendimiento a hoy) y filas de 2/3 años; la versión evita reutilizar una caché con la forma anterior.
-    queryKey: ['thermo-parts-monthly', 12, 'v2'],
+    // v3: respuesta con perf, peak y filas de 2/3 años; la versión evita reutilizar una caché con la forma anterior.
+    queryKey: ['thermo-parts-monthly', 12, 'v3'],
     queryFn: async (): Promise<MonthlyParts[]> => {
       const r = await fetch(`${getApiBase()}/api/backtesting/thermo-parts-monthly?months=12`);
       if (!r.ok) throw new Error(`thermo-parts-monthly ${r.status}`);
@@ -305,15 +315,17 @@ function ScoreOrb({ name, value, dec = 2, weight, score, bands, blend = null, sm
     retry: false,
   });
   const histRows = orbHistoryRows(hist.data, name);
+  // Al abrir (o al llegar la historia) se mide la altura real y se recoloca.
+  useLayoutEffect(() => { if (open) place(); }, [open, hist.data, hist.isLoading]);
   return (
-    <span className="relative inline-flex">
-      <button ref={btnRef} type="button" onClick={() => (open ? setOpen(false) : show())} onMouseEnter={show} onMouseLeave={() => setOpen(false)} title={ti('orbTitle', { name, score })}
+    <span className="relative inline-flex" onMouseLeave={() => setOpen(false)}>
+      <button ref={btnRef} type="button" onClick={() => (open ? setOpen(false) : show())} onMouseEnter={() => { if (!open) show(); }} title={ti('orbTitle', { name, score })}
         className={`relative rounded-full cursor-pointer shrink-0 ${small ? 'w-7 h-7' : 'w-11 h-11'}`}
         style={{ background: `radial-gradient(circle at 30% 18%, rgba(255,255,255,.55), rgba(255,255,255,.08) 30%, transparent 48%), linear-gradient(145deg, ${c}dd, ${c}55)`, boxShadow: `0 0 14px ${c}77, inset 0 0 8px rgba(255,255,255,.3)`, border: `1px solid ${c}` }}>
         <span className={`absolute inset-0 flex items-center justify-center font-mono font-extrabold text-slate-950 ${small ? 'text-[10px]' : 'text-[13px]'}`} style={{ textShadow: '0 0 4px rgba(255,255,255,.95), 0 0 2px rgba(255,255,255,.9), 0 1px 1px rgba(255,255,255,.6)' }}>{score}</span>
       </button>
       {open && (
-        <div className={`absolute z-50 ${alignLeft ? 'left-0' : 'right-0'} top-12 p-3 rounded-xl bg-slate-800 border border-slate-700 shadow-2xl text-left normal-case flex flex-col md:flex-row gap-4 ${hasHistory ? 'w-[min(94vw,820px)]' : 'w-72'}`} onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)}>
+        <div ref={popRef} style={pos ? { left: pos.left, top: pos.top, maxHeight: pos.maxH } : { visibility: 'hidden' }} className={`fixed z-50 overflow-y-auto p-3 rounded-xl bg-slate-800 border border-slate-700 shadow-2xl text-left normal-case flex flex-col md:flex-row gap-4 ${hasHistory ? 'w-[min(96vw,1120px)]' : 'w-72'}`}>
           <div className="w-full md:w-64 shrink-0">
           <div className="text-xs font-semibold text-slate-100">{ti('orbRisk', { name })} <span className="font-mono" style={{ color: c }}>{score}/100</span></div>
           <div className="text-[11px] text-slate-400 mt-0.5 font-mono">{name} {value.toFixed(dec)} → <span className="text-sky-300 font-semibold">{score}/100</span> · {ti('orbWeight', { weight })}</div>
@@ -345,6 +357,8 @@ function ScoreOrb({ name, value, dec = 2, weight, score, bands, blend = null, sm
                       <tr className="text-slate-500">
                         <th colSpan={3} />
                         <th colSpan={3} className="text-center font-normal pb-0.5 border-b border-slate-700/70">{ti('historyPerfToday')}</th>
+                        <th className="w-3" />
+                        <th colSpan={3} className="text-center font-normal pb-0.5 border-b border-slate-700/70">{ti('historyPeak')}</th>
                       </tr>
                       <tr className="text-slate-500">
                         <th className="text-left font-normal py-0.5">{ti('historyMonth')}</th>
@@ -353,11 +367,23 @@ function ScoreOrb({ name, value, dec = 2, weight, score, bands, blend = null, sm
                         <th className="text-right font-normal text-sky-300/80">S&amp;P 500</th>
                         <th className="text-right font-normal text-violet-300/80">Nasdaq</th>
                         <th className="text-right font-normal text-pink-300/80">TQQQ</th>
+                        <th />
+                        <th className="text-right font-normal text-sky-300/80">S&amp;P 500</th>
+                        <th className="text-right font-normal text-violet-300/80">Nasdaq</th>
+                        <th className="text-right font-normal text-pink-300/80">TQQQ</th>
                       </tr>
                     </thead>
                     <tbody>
                       {histRows.map((r, i) => {
                         const first = r.yearsAgo != null && (i === 0 || histRows[i - 1].yearsAgo == null);
+                        const pk = (v: { pct: number; date: string } | null) => (
+                          <td className="text-right align-top py-0.5 whitespace-nowrap">
+                            {v == null ? <span className="text-slate-600">—</span> : <>
+                              <div className="text-emerald-300">+{v.pct.toFixed(1)}%</div>
+                              <div className="text-[9px] text-slate-500">{shortDate(v.date, loc)}</div>
+                            </>}
+                          </td>
+                        );
                         const pc = (v: number | null) => <td className={`text-right ${v == null ? 'text-slate-600' : v >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{v == null ? '—' : `${v >= 0 ? '+' : ''}${v.toFixed(1)}%`}</td>;
                         return (
                           <tr key={r.month} className={`text-slate-300 ${first ? 'border-t border-slate-600' : ''} ${i === 0 ? 'bg-slate-700/40' : ''}`} title={r.date}>
@@ -365,6 +391,8 @@ function ScoreOrb({ name, value, dec = 2, weight, score, bands, blend = null, sm
                             <td className="text-right">{r.value != null ? r.value.toFixed(dec) : '—'}</td>
                             <td className="text-right font-bold pr-2" style={{ color: r.score != null ? capeScoreColor(r.score) : undefined }}>{r.score != null ? Math.round(r.score) : '—'}</td>
                             {pc(r.perf.spx)}{pc(r.perf.ndx)}{pc(r.perf.tqqq)}
+                            <td />
+                            {pk(r.peak.spx)}{pk(r.peak.ndx)}{pk(r.peak.tqqq)}
                           </tr>
                         );
                       })}

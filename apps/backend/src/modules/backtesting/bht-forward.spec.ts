@@ -61,4 +61,18 @@ describe('monthlyPartsFromDaily', () => {
     expect(out[2].perf).toEqual({ spx: 50, ndx: null, tqqq: 300 });
     expect(out[3].perf.spx).toBeCloseTo(100);
   });
+  test('pico desde cada fila: máximo posterior (incluye el último cierre) y su fecha', () => {
+    const rows = [
+      { date: '2026-09-30', parts: p(60), spx: 100, ndx: 100, tqqq: 100 },
+      { date: '2026-10-15', parts: p(62), spx: 130, ndx: 90, tqqq: 150 },
+      { date: '2026-10-30', parts: p(65), spx: 110, ndx: 95, tqqq: 120 },
+    ];
+    const out = monthlyPartsFromDaily(rows, 2, { spx: 120, ndx: 99, tqqq: 200 }, [], { spx: '2026-11-13', ndx: '2026-11-13', tqqq: '2026-11-13' });
+    // fila oct (base 110): pico spx 120 en vivo; ndx 99; tqqq 200
+    expect(out[0].peak.spx).toEqual({ pct: expect.closeTo(9.09, 1), date: '2026-11-13' });
+    expect(out[0].peak.tqqq?.date).toBe('2026-11-13');
+    // fila sep (base 100): spx pico 130 el 15-oct; ndx nunca supera el cierre → 0% el mismo día
+    expect(out[1].peak.spx).toEqual({ pct: expect.closeTo(30, 5), date: '2026-10-15' });
+    expect(out[1].peak.ndx).toEqual({ pct: 0, date: '2026-09-30' });
+  });
 });
