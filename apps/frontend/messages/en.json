@@ -702,7 +702,16 @@
     "dailyChange": "Daily change",
     "indexScore": "Buy/Hold Index Score",
     "pe": "P/E:",
-    "divYield": "Div. yield:"
+    "divYield": "Div. yield:",
+    "cardSpyFooter": "S&P 500 benchmark",
+    "cardQqqFooter": "Tech sector barometer",
+    "cardFgFooter": "Market sentiment gauge",
+    "cardCapeFooter": "S&P 500 valuation (Shiller CAPE)",
+    "fg_extremeFear": "Extreme fear",
+    "fg_fear": "Fear",
+    "fg_neutral": "Neutral",
+    "fg_greed": "Greed",
+    "fg_extremeGreed": "Extreme greed"
   },
   "Footer": {
     "description": "An educational market analysis platform combining macroeconomic indicators, Shiller PE (CAPE), P/E ratios, EPS history, and algorithmic scoring to study the market with a long-term view.",

@@ -702,7 +702,16 @@
     "dailyChange": "Cambio diario",
     "indexScore": "Puntuación Buy/Hold",
     "pe": "P/E:",
-    "divYield": "Rend. dividendo:"
+    "divYield": "Rend. dividendo:",
+    "cardSpyFooter": "Referencia del S&P 500",
+    "cardQqqFooter": "Termómetro del sector tecnológico",
+    "cardFgFooter": "Medidor del sentimiento del mercado",
+    "cardCapeFooter": "Valuación del S&P 500 (CAPE de Shiller)",
+    "fg_extremeFear": "Miedo extremo",
+    "fg_fear": "Miedo",
+    "fg_neutral": "Neutral",
+    "fg_greed": "Codicia",
+    "fg_extremeGreed": "Codicia extrema"
   },
   "Footer": {
     "description": "Plataforma educativa de análisis bursátil que combina indicadores macroeconómicos, CAPE de Shiller, razones P/E, historial de EPS y puntuaciones algorítmicas para estudiar el mercado con visión de largo plazo.",

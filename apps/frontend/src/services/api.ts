@@ -115,6 +115,16 @@ export async function getTickerDetails(symbol: string, limit = 500, noStore = fa
   return res.json();
 }
 
+/** Último cierre de una serie diaria de bt_market_data (p. ej. FEAR_GREED), o null. */
+export async function getLatestMarketValue(ticker: string, lookbackDays = 14): Promise<{ date: string; value: number } | null> {
+  const from = new Date(Date.now() - lookbackDays * 86400000).toISOString().slice(0, 10);
+  const res = await fetch(`${getApiBaseUrl()}/api/backtesting/market-data?ticker=${encodeURIComponent(ticker)}&from=${from}`, { next: { revalidate: 3600 } });
+  if (!res.ok) return null;
+  const rows = (await res.json()) as { date: string; close: number | null }[];
+  const last = [...rows].reverse().find((r) => r.close != null && Number.isFinite(Number(r.close)));
+  return last ? { date: String(last.date).slice(0, 10), value: Number(last.close) } : null;
+}
+
 export async function getIndicators(): Promise<Indicator[]> {
   const res = await fetch(`${getApiBaseUrl()}/indicators`, {
     // Macro indicators change slowly — revalidate every hour

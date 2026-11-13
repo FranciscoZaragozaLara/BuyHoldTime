@@ -6,9 +6,10 @@ import { Layout } from '@/components/Layout';
 import { SubscribeForm } from '@/components/SubscribeForm';
 import { IndexSparklineCard } from '@/components/IndexSparklineCard';
 import { JsonLd } from '@/components/JsonLd';
-import { getTickers, getIndicators, Ticker, Indicator } from '@/services/api';
+import { getTickers, getIndicators, getLatestMarketValue, Ticker, Indicator } from '@/services/api';
 import { RiskDisclaimer } from '@/components/RiskDisclaimer';
 import { TOKENS } from '@/lib/designTokens';
+import { changeBadgeType, fearGreedLabel, formatChangePct } from '@/lib/formatChange';
 
 // ISR: revalidate home page every 60 seconds
 export const revalidate = 60;
@@ -62,20 +63,23 @@ export default async function HomePage({
     .slice(0, 5);
 
   const spyTicker = tickers.find((t) => t.symbol === 'SPY');
-  const spyPrice = spyTicker ? `$${spyTicker.price.toFixed(2)}` : '5,124.00';
-  const spyChange = spyTicker ? `${spyTicker.changePercent >= 0 ? '+' : ''}${spyTicker.changePercent}%` : '+0.52%';
+  const spyPrice = spyTicker ? `$${spyTicker.price.toFixed(2)}` : '—';
+  const spyChange = formatChangePct(spyTicker?.changePercent);
 
   const qqqTicker = tickers.find((t) => t.symbol === 'QQQ');
-  const qqqPrice = qqqTicker ? `$${qqqTicker.price.toFixed(2)}` : '16,420.50';
-  const qqqChange = qqqTicker ? `${qqqTicker.changePercent >= 0 ? '+' : ''}${qqqTicker.changePercent}%` : '+0.85%';
+  const qqqPrice = qqqTicker ? `$${qqqTicker.price.toFixed(2)}` : '—';
+  const qqqChange = formatChangePct(qqqTicker?.changePercent);
 
-  const fearIndex = indicators.find((i) => i.key === 'fear_greed');
-  const fearVal = fearIndex ? `${fearIndex.currentValue.toFixed(0)} / 100` : '62 / 100';
-  const fearStatus = fearIndex ? fearIndex.status : 'GREED';
+  // Fear & Greed real (serie diaria FEAR_GREED de CNN en bt_market_data, la misma del termómetro).
+  // La fila fear_greed de la tabla `indicators` viene del seed y no se actualiza.
+  const fg = await getLatestMarketValue('FEAR_GREED').catch(() => null);
+  const fgLabel = fg ? fearGreedLabel(fg.value) : null;
+  const fearVal = fg ? `${Math.round(fg.value)} / 100` : '—';
+  const fearStatus = fgLabel ? t(`fg_${fgLabel}`) : '—';
 
   const capeIndex = indicators.find((i) => i.key === 'schiller_pe');
-  const capeVal = capeIndex ? `${capeIndex.currentValue.toFixed(2)}x` : '34.25x';
-  const capeStatus = capeIndex ? capeIndex.status : 'HIGH';
+  const capeVal = capeIndex ? `${capeIndex.currentValue.toFixed(2)}x` : '—';
+  const capeStatus = capeIndex ? capeIndex.status : '—';
 
   return (
     <Layout>
@@ -146,28 +150,28 @@ export default async function HomePage({
               title="S&P 500 ETF (SPY)"
               valueStr={spyPrice}
               badgeText={spyChange}
-              badgeType="success"
+              badgeType={changeBadgeType(spyTicker?.changePercent)}
               sparklineData={spySpark}
               color={TOKENS.favorable}
-              footerText="Real-time S&P 500 benchmark"
+              footerText={t('cardSpyFooter')}
             />
             <IndexSparklineCard
               title="NASDAQ 100 ETF (QQQ)"
               valueStr={qqqPrice}
               badgeText={qqqChange}
-              badgeType="success"
+              badgeType={changeBadgeType(qqqTicker?.changePercent)}
               sparklineData={nasdaqSpark}
               color="#3b82f6"
-              footerText="Tech sector barometer"
+              footerText={t('cardQqqFooter')}
             />
             <IndexSparklineCard
               title="Fear & Greed Index"
               valueStr={fearVal}
               badgeText={fearStatus}
-              badgeType={fearStatus.toUpperCase() === 'FEAR' ? 'error' : 'warning'}
+              badgeType={fgLabel === 'fear' || fgLabel === 'extremeFear' ? 'error' : fgLabel ? 'warning' : 'info'}
               sparklineData={fearSpark}
               color="#fbbf24"
-              footerText="Market sentiment sentiment gauge"
+              footerText={t('cardFgFooter')}
             />
             <IndexSparklineCard
               title="Shiller PE Ratio (CAPE)"
@@ -176,7 +180,7 @@ export default async function HomePage({
               badgeType="error"
               sparklineData={schillerSpark}
               color="#f87171"
-              footerText="S&P 500 valuation ratio"
+              footerText={t('cardCapeFooter')}
             />
           </div>
         </section>
@@ -233,7 +237,7 @@ export default async function HomePage({
                     <div className="text-right">
                       <span className="text-[10px] text-slate-500 uppercase font-semibold">{t('dailyChange')}</span>
                       <p className={`text-base font-bold ${stock.changePercent >= 0 ? 'text-favorable-400' : 'text-risk-400'}`}>
-                        {stock.changePercent >= 0 ? '+' : ''}{stock.changePercent}%
+                        {formatChangePct(stock.changePercent)}
                       </p>
                     </div>
                   </div>
