@@ -2,9 +2,11 @@
 import { useState, useMemo } from 'react';
 import { getStrategyColor } from '@/lib/strategyColors';
 import { useStrategyLabel } from './StrategyLabels';
+import { useTranslations } from 'next-intl';
 interface Metrics { strategy: string; cagr: number; total_return: number; sharpe: number; max_drawdown: number; max_dd_length: number; num_trades: number; win_rate: number; sqn: number; final_value: number; }
 type SortKey = keyof Pick<Metrics, 'strategy' | 'cagr' | 'total_return' | 'sharpe' | 'max_drawdown' | 'num_trades' | 'win_rate' | 'final_value'>;
 export function MetricsTable({ data }: { data: Metrics[] }) {
+  const tb = useTranslations('Backtesting.strategies');
   const label = useStrategyLabel();
   const [sortKey, setSortKey] = useState<SortKey>('cagr');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
@@ -37,10 +39,10 @@ export function MetricsTable({ data }: { data: Metrics[] }) {
   const thClass = 'p-2 font-medium cursor-pointer select-none hover:text-slate-200 transition-colors';
   return (
     <div className="overflow-auto bg-slate-900 border border-slate-800 rounded-xl p-4">
-      <h3 className="font-semibold mb-3 text-slate-100">Comparativa Métricas</h3>
+      <h3 className="font-semibold mb-3 text-slate-100">{tb('metricsTitle')}</h3>
       <table className="w-full text-sm">
         <thead><tr className="border-b border-slate-800 text-slate-400">
-          <th className={`${thClass} text-left`} onClick={()=>toggle('strategy')}>Estrategia<Arrow active={sortKey==='strategy'} dir={sortDir}/></th>
+          <th className={`${thClass} text-left`} onClick={()=>toggle('strategy')}>{tb('strategy')}<Arrow active={sortKey==='strategy'} dir={sortDir}/></th>
           <th className={`${thClass} text-right`} onClick={()=>toggle('cagr')}>CAGR<Arrow active={sortKey==='cagr'} dir={sortDir}/></th>
           <th className={`${thClass} text-right`} onClick={()=>toggle('total_return')}>TotRet<Arrow active={sortKey==='total_return'} dir={sortDir}/></th>
           <th className={`${thClass} text-right`} onClick={()=>toggle('sharpe')}>Sharpe<Arrow active={sortKey==='sharpe'} dir={sortDir}/></th>

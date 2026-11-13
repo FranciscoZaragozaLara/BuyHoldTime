@@ -3,6 +3,7 @@ import { getApiBase } from '@/lib/apiBase';
 import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { createChart, ColorType, IChartApi, LineSeries, AreaSeries } from 'lightweight-charts';
 import { Layers, Calendar, TrendingUp } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 
 const fmtMoney = (v: number) => `$${Number(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const fmtPct = (v: number) => `${(v * 100).toFixed(1)}%`;
@@ -40,6 +41,7 @@ function getExplorerLabels(code:string){
 }
 
 export function StrategyExplorer({ strategyCode, runs: initialRuns, startDates, onSelectedRunChange }: { strategyCode: string; runs?: RunMeta[]; startDates?: any[]; onSelectedRunChange?: (runId: string | null, run: RunMeta | null) => void }) {
+  const tb = useTranslations('Backtesting.strategies');
   const [runs, setRuns] = useState<RunMeta[]>(initialRuns || []);
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
   const [startMap, setStartMap] = useState<Map<string,any>>(new Map());
@@ -319,7 +321,7 @@ export function StrategyExplorer({ strategyCode, runs: initialRuns, startDates, 
     return ()=>{ ro.disconnect(); pContainer?.removeEventListener('mouseleave', pOnLeave); try{ chart.unsubscribeCrosshairMove(priceHandler);}catch{}; chart.remove(); priceChartApi.current=null; setPriceTooltip(null); };
   }, [rows, selectedCode]);
 
-  if(!runs.length) return <div className="p-4 rounded-xl border border-slate-800 bg-slate-900 text-sm text-slate-400">Sin estrategias</div>;
+  if(!runs.length) return <div className="p-4 rounded-xl border border-slate-800 bg-slate-900 text-sm text-slate-400">{tb('noStrategies')}</div>;
 
   return (
     <div className="space-y-6">
@@ -330,7 +332,7 @@ export function StrategyExplorer({ strategyCode, runs: initialRuns, startDates, 
             <p className="text-xs text-slate-400 mt-1">Mes a mes · {labels.subtitle} · Fecha del run seleccionada desde Histórico</p>
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-xs text-slate-400">Fecha</span>
+            <span className="text-xs text-slate-400">{tb('date')}</span>
             <select value={selectedRunId || ''} onChange={e=>setSelectedRunId(e.target.value)} className="px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-sm text-slate-100 focus:outline-none focus:border-violet-500 min-w-[320px] max-w-[520px]">
               {runs.slice().sort((a:any,b:any)=> (b.startDate||'').localeCompare(a.startDate||'')).map(r=> {
                 const d=(r as any).startDate ? (r as any).startDate.slice(0,10) : r.id.slice(0,10);
@@ -347,11 +349,11 @@ export function StrategyExplorer({ strategyCode, runs: initialRuns, startDates, 
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3 mt-4 text-xs">
             <div className="rounded-lg bg-slate-800/60 border border-slate-700 p-3"><div className="text-slate-400">Final</div><div className="font-mono font-semibold text-white">{fmtMoney(selectedRun.metrics.finalValue)}</div></div>
             <div className="rounded-lg bg-slate-800/60 border border-slate-700 p-3"><div className="text-slate-400">CAGR</div><div className="font-mono font-semibold text-emerald-400">{fmtPct(selectedRun.metrics.cagr)}</div></div>
-            <div className="rounded-lg bg-slate-800/60 border border-slate-700 p-3"><div className="text-slate-400">Total Return</div><div className={`font-mono font-semibold ${headerStats.totalReturn>=0?'text-emerald-400':'text-rose-400'}`}>{(headerStats.totalReturn*100).toFixed(2)}%</div></div>
+            <div className="rounded-lg bg-slate-800/60 border border-slate-700 p-3"><div className="text-slate-400">{tb('totalReturn')}</div><div className={`font-mono font-semibold ${headerStats.totalReturn>=0?'text-emerald-400':'text-rose-400'}`}>{(headerStats.totalReturn*100).toFixed(2)}%</div></div>
             <div className="rounded-lg bg-slate-800/60 border border-slate-700 p-3"><div className="text-slate-400">×</div><div className="font-mono font-semibold text-white">{headerStats.mult.toFixed(2)}×</div></div>
             <div className="rounded-lg bg-slate-800/60 border border-slate-700 p-3"><div className="text-slate-400">Sharpe</div><div className="font-mono font-semibold text-white">{fmtNum(selectedRun.metrics.sharpe)}</div></div>
             <div className="rounded-lg bg-slate-800/60 border border-slate-700 p-3"><div className="text-slate-400">MaxDD</div><div className="font-mono font-semibold text-rose-400">{fmtPct(selectedRun.metrics.maxDrawdown)}</div></div>
-            <div className="rounded-lg bg-slate-800/60 border border-slate-700 p-3"><div className="text-slate-400">Meses</div><div className="font-mono font-semibold text-white">{headerStats.monthsDisplay} meses{loading?' · cargando...':''}</div></div>
+            <div className="rounded-lg bg-slate-800/60 border border-slate-700 p-3"><div className="text-slate-400">{tb('months')}</div><div className="font-mono font-semibold text-white">{headerStats.monthsDisplay} meses{loading?' · cargando...':''}</div></div>
           </div>
         )}
         {/* Allocation chart */}
@@ -375,13 +377,13 @@ export function StrategyExplorer({ strategyCode, runs: initialRuns, startDates, 
                       <div className="flex justify-between gap-4"><span className="flex items-center gap-2 text-slate-400"><span className="w-2.5 h-2.5 rounded-full" style={{background: allocColors.cash}}/>{labels.cash} %</span><span className="font-mono font-semibold text-amber-300">{fmtPct(cSafe)}</span></div>
                     </>);
                   })()}
-                  <div className="flex justify-between gap-4"><span className="text-slate-400">Cartera</span><span className="font-mono font-semibold text-white">{fmtMoney(allocTooltip.row.portfolioValue)}</span></div>
+                  <div className="flex justify-between gap-4"><span className="text-slate-400">{tb('portfolio')}</span><span className="font-mono font-semibold text-white">{fmtMoney(allocTooltip.row.portfolioValue)}</span></div>
                   <div className="border-t border-slate-700 my-1.5"/>
                   <div className="flex justify-between gap-4"><span className="text-slate-400">{labels.pricePrimary}</span><span className="font-mono text-slate-100">{allocTooltip.row._qClose ? fmtMoney(Number(allocTooltip.row._qClose)) : '—'}</span></div>
                   {labels.priceSecondary && <div className="flex justify-between gap-4"><span className="text-slate-400">{labels.priceSecondary}</span><span className="font-mono text-amber-300">{allocTooltip.row._tClose ? fmtMoney(Number(allocTooltip.row._tClose)) : '—'}</span></div>}
                   <div className="flex justify-between gap-4"><span className="text-slate-400">CAPE</span><span className="font-mono text-pink-300">{allocTooltip.row._cape ? fmtNum(Number(allocTooltip.row._cape)) : '—'} {allocTooltip.row._mean ? <span className="text-violet-300">/ Mean {fmtNum(Number(allocTooltip.row._mean))}</span> : null}</span></div>
                   {allocTooltip.row._ratio && <div className="flex justify-between gap-4"><span className="text-slate-400">Ratio</span><span className="font-mono text-slate-200">{Number(allocTooltip.row._ratio).toFixed(2)}×</span></div>}
-                  <div className="flex justify-between gap-4"><span className="text-slate-400">Target</span><span className="font-mono text-teal-400">{allocTooltip.row.targetPct!=null?fmtPct(allocTooltip.row.targetPct):'—'}</span></div>
+                  <div className="flex justify-between gap-4"><span className="text-slate-400">{tb('target')}</span><span className="font-mono text-teal-400">{allocTooltip.row.targetPct!=null?fmtPct(allocTooltip.row.targetPct):'—'}</span></div>
                 </div>
               </>)}
               </div>
@@ -390,7 +392,7 @@ export function StrategyExplorer({ strategyCode, runs: initialRuns, startDates, 
         </div>
         {/* Price + Schiller chart */}
         <div className="mt-6">
-          <h4 className="text-xs font-semibold text-slate-300 mb-2 flex items-center gap-2"><TrendingUp size={12} className="text-slate-400"/> Precios & CAPE (CAPE×10 para escala)</h4>
+          <h4 className="text-xs font-semibold text-slate-300 mb-2 flex items-center gap-2"><TrendingUp size={12} className="text-slate-400"/> {tb('pricesCape')}</h4>
           <div className="relative w-full h-[260px] rounded-lg border border-slate-800 overflow-visible">
             <div ref={priceChartRef} className="w-full h-full rounded-lg overflow-hidden" />
             <div ref={priceTooltipRef} className="absolute z-20 pointer-events-none bg-slate-800 border border-slate-600 rounded-lg px-3 py-2.5 text-xs shadow-2xl ring-1 ring-white/10 min-w-[260px] will-change-transform" style={{opacity: priceTooltip ? 1 : 0, visibility: priceTooltip ? 'visible' as const : 'hidden' as const, left:0, top:0, transition:'opacity 0.08s ease'}}>
@@ -415,7 +417,7 @@ export function StrategyExplorer({ strategyCode, runs: initialRuns, startDates, 
               </>)}
               </div>
           </div>
-          <div className="flex flex-wrap gap-4 mt-2 text-[11px] text-slate-400"><span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-slate-200"/>{labels.pricePrimary}</span>{labels.priceSecondary && <span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-amber-400"/>{labels.priceSecondary}</span>}<span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-pink-400"/>CAPE×10</span><span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-violet-400 border border-dashed"/>Mean</span><span className="ml-auto">CAPE multiplicado ×10 para comparar con {labels.pricePrimary}</span></div>
+          <div className="flex flex-wrap gap-4 mt-2 text-[11px] text-slate-400"><span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-slate-200"/>{labels.pricePrimary}</span>{labels.priceSecondary && <span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-amber-400"/>{labels.priceSecondary}</span>}<span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-pink-400"/>CAPE×10</span><span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-violet-400 border border-dashed"/>{tb('mean')}</span><span className="ml-auto">CAPE multiplicado ×10 para comparar con {labels.pricePrimary}</span></div>
         </div>
       </div>
 
@@ -426,19 +428,19 @@ export function StrategyExplorer({ strategyCode, runs: initialRuns, startDates, 
           <table className="w-full text-left text-xs">
             <thead className="bg-slate-900 text-slate-400 font-bold sticky top-0 z-10">
               <tr>
-                <th className="p-2 whitespace-nowrap">Mes</th>
-                <th className="p-2 text-right">Cartera</th>
+                <th className="p-2 whitespace-nowrap">{tb('month')}</th>
+                <th className="p-2 text-right">{tb('portfolio')}</th>
                 <th className="p-2 text-right">% {labels.primary}</th>
                 {labels.secondary ? <th className="p-2 text-right">% {labels.secondary}</th> : null}
                 <th className="p-2 text-right">% {labels.cash}</th>
-                <th className="p-2 text-right">Target</th>
+                <th className="p-2 text-right">{tb('target')}</th>
                 <th className="p-2 text-right">{labels.pricePrimary} $</th>
                 {labels.priceSecondary ? <th className="p-2 text-right">{labels.priceSecondary} $</th> : null}
                 <th className="p-2 text-right">CAPE</th>
-                <th className="p-2 text-right">MaxHist</th>
-                <th className="p-2 text-right">Mean</th>
+                <th className="p-2 text-right">{tb('maxHist')}</th>
+                <th className="p-2 text-right">{tb('mean')}</th>
                 <th className="p-2 text-right">Ratio</th>
-                <th className="p-2">Régimen / Señal</th>
+                <th className="p-2">{tb('regimeSignal')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-900/60 font-mono">

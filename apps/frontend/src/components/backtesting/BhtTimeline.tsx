@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { createChart, ColorType, IChartApi, LineSeries } from 'lightweight-charts';
 import { BhtDetailPopover, useBhtDetail, bhtLeaveGuard } from './IndicatorsPanel';
 import { BHT_CUTS, bhtBandColor } from './bhtBands';
+import { useTranslations } from 'next-intl';
 
 
 type RangeKey = '1A' | '3A' | '5A' | '10A';
@@ -24,6 +25,7 @@ const bandOf = (v: number): number => {
 };
 
 export function BhtTimeline() {
+  const tb = useTranslations('Backtesting.strategies');
   const [range, setRange] = useState<RangeKey>('3A');
   const [showSpx, setShowSpx] = useState(true);
   const [showNdx, setShowNdx] = useState(false);
@@ -278,7 +280,7 @@ export function BhtTimeline() {
             TQQQ
           </button>
         </div>
-        {loading && <span className="text-[11px] text-slate-500 font-mono">Cargando…</span>}
+        {loading && <span className="text-[11px] text-slate-500 font-mono">{tb('loading')}</span>}
       </div>
       <div ref={containerRef} className="w-full h-[300px]" />
       <p className="text-[11px] text-slate-500 mt-1">Evolución del BHT Index al cierre{shownAssets ? ` + ${shownAssets}` : ''} · línea 50 = neutral · pasa el mouse para el detalle · scroll/arrastra para zoom y moverte.</p>

@@ -5,6 +5,7 @@ import { useLocale } from 'next-intl';
 import { getStrategyColor } from '@/lib/strategyColors';
 import { exportToExcel } from '@/lib/exportExcel';
 import { useStrategyLabel } from './StrategyLabels';
+import { useTranslations } from 'next-intl';
 
 interface EquityPoint { date: string; value: number }
 interface CapePoint { date: string; cape: number | null; capeRatio: number | null }
@@ -22,6 +23,7 @@ const capeRatioColor = (r: number | null | undefined) => {
 };
 
 export const PerformanceTable: React.FC<Props> = ({ equity, startDate, capeData }) => {
+  const tb = useTranslations('Backtesting.strategies');
   const label = useStrategyLabel();
   const locale = useLocale();
   const [activeTab, setActiveTab] = useState<PeriodTab>('annual');
@@ -183,7 +185,7 @@ export const PerformanceTable: React.FC<Props> = ({ equity, startDate, capeData 
   if (strategies.length === 0) {
     return (
       <div className="p-6 rounded-2xl border border-slate-900 bg-slate-950/60 backdrop-blur-xl">
-        <p className="text-sm text-slate-400">Sin datos de equity para mostrar.</p>
+        <p className="text-sm text-slate-400">{tb('noEquity')}</p>
       </div>
     );
   }
@@ -256,7 +258,7 @@ export const PerformanceTable: React.FC<Props> = ({ equity, startDate, capeData 
               { name: 'Daily', headers, rows: dailyRows },
             ]);
           }} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-teal-600 hover:bg-teal-500 text-white text-xs font-semibold transition">
-            <Download size={14} /> Excel (3 pestañas)
+            <Download size={14} /> {tb('excel3')}
           </button>
           <select value={selectedYear} onChange={e=>{ setSelectedYear(e.target.value); setVisibleCount(15); }} className="px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-xs font-semibold text-slate-200 focus:outline-none focus:border-teal-500 cursor-pointer">
             <option value="all">{locale==='es' ? 'Todos los años' : 'All years'}</option>
@@ -345,7 +347,7 @@ export const PerformanceTable: React.FC<Props> = ({ equity, startDate, capeData 
           </tbody>
         </table>
       </div>
-      <p className="text-[11px] text-slate-500">Scroll para cargar más · Valores al cierre del periodo · Var. vs periodo anterior · Montos en $ con coma (en-US)</p>
+      <p className="text-[11px] text-slate-500">{tb('perfFooter')}</p>
     </div>
   );
 };

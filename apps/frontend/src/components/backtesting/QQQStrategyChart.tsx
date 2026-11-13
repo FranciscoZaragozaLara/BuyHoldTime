@@ -2,6 +2,7 @@
 import { getApiBase } from '@/lib/apiBase';
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { createChart, ColorType, IChartApi, ISeriesApi, LineSeries } from 'lightweight-charts';
+import { useTranslations } from 'next-intl';
 
 
 const fmtMoney = (v: number) => `$${Number(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -29,6 +30,7 @@ function std(values: number[], period: number): (number | null)[] {
 }
 
 export function QQQStrategyChart({ runId }: { runId: string | null }) {
+  const tb = useTranslations('Backtesting.strategies');
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRefs = useRef<Record<string, ISeriesApi<'Line'>>>({});
@@ -178,8 +180,8 @@ export function QQQStrategyChart({ runId }: { runId: string | null }) {
     return ()=>clearTimeout(t);
   }, [timeRange, prepared, isLoaded]);
 
-  if (!runId) return <div className="p-4 rounded-xl border border-slate-800 bg-slate-900 text-sm text-slate-400">Selecciona Mallik para ver QQQ + señales</div>;
-  if (!prepared) return <div className="p-4 rounded-xl border border-slate-800 bg-slate-900 text-sm text-slate-400">Cargando QQQ y Mallik...</div>;
+  if (!runId) return <div className="p-4 rounded-xl border border-slate-800 bg-slate-900 text-sm text-slate-400">{tb('selectMallik')}</div>;
+  if (!prepared) return <div className="p-4 rounded-xl border border-slate-800 bg-slate-900 text-sm text-slate-400">{tb('loadingMallik')}</div>;
 
   return (
     <div className="w-full bg-slate-900 border border-slate-800 rounded-xl p-4">
@@ -200,8 +202,8 @@ export function QQQStrategyChart({ runId }: { runId: string | null }) {
               <span className="text-slate-400">SMA20</span><span className="text-teal-400 font-mono">{tooltip.s20 ? tooltip.s20.toFixed(2) : '—'}</span>
               <span className="text-slate-400">SMA250</span><span className="text-amber-400 font-mono">{tooltip.s250 ? tooltip.s250.toFixed(2) : '—'}</span>
               {tooltip.alloc && (<>
-                <span className="text-slate-400">Portafolio</span><span className="font-mono text-white">{fmtMoney(tooltip.alloc.portfolioValue)} · TQQQ {fmtPct(tooltip.alloc.tqqqPct)} / Cash {fmtPct(tooltip.alloc.cashPct)}</span>
-                <span className="text-slate-400">Target</span><span className="font-mono text-teal-400">{tooltip.alloc.targetPct!==null?fmtPct(tooltip.alloc.targetPct):'—'}</span>
+                <span className="text-slate-400">{tb('portfolio')}</span><span className="font-mono text-white">{fmtMoney(tooltip.alloc.portfolioValue)} · TQQQ {fmtPct(tooltip.alloc.tqqqPct)} / Cash {fmtPct(tooltip.alloc.cashPct)}</span>
+                <span className="text-slate-400">{tb('target')}</span><span className="font-mono text-teal-400">{tooltip.alloc.targetPct!==null?fmtPct(tooltip.alloc.targetPct):'—'}</span>
                 <span className="text-slate-400 col-span-2 mt-1 text-slate-300">QQQ dist {tooltip.alloc.indicators?.dist_pct}% · ddQ {tooltip.alloc.indicators?.dd_qqq_pct}% · {tooltip.alloc.indicators?.bull_trend?'bull':'bear'} {tooltip.alloc.indicators?.breakout_up?'BO↑':''}{tooltip.alloc.indicators?.breakout_down?'BO↓':''}</span>
               </>)}
             </div>
@@ -216,7 +218,7 @@ export function QQQStrategyChart({ runId }: { runId: string | null }) {
                 <div className="text-[10px] text-slate-400">Reajuste: {tooltip.trades[0].side==='BUY' ? 'compra TQQQ, baja Cash' : 'venta TQQQ, sube Cash'} · comisión {fmtMoney(Number(tooltip.trades[0].commission||0))}</div>
               </div>
             ) : (
-              <div className="mt-2 pt-2 border-t border-slate-800 text-[11px] text-slate-500">Sin trade este día — posición se mantiene según % TQQQ/Cash del mes</div>
+              <div className="mt-2 pt-2 border-t border-slate-800 text-[11px] text-slate-500">{tb('noTradeDay')}</div>
             )}
           </div>
         )}
@@ -228,7 +230,7 @@ export function QQQStrategyChart({ runId }: { runId: string | null }) {
         <span className="flex items-center gap-1.5"><span className="w-3 h-0.5 rounded bg-slate-600 border border-dashed border-slate-500"/>BB 20±2</span>
         <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-500"/>BUY</span>
         <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-rose-500"/>SELL</span>
-        <span className="ml-auto text-slate-500">Scroll/arrastra para zoom • 5Y por defecto igual que BuyHoldTime • Hover sobre flechas: detalle TQQQ/Cash + trigger</span>
+        <span className="ml-auto text-slate-500">{tb('qqqZoomHint')}</span>
       </div>
     </div>
   );

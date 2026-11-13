@@ -2,6 +2,7 @@
 import { getApiBase } from '@/lib/apiBase';
 import React, { useEffect, useState, useMemo } from 'react';
 import { Layers, Calendar, TrendingUp, ArrowUpRight, ArrowDownRight, Wallet } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 
 
 const fmtMoney = (v: number) => `$${Number(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -64,6 +65,7 @@ interface Trade {
 }
 
 export function MallikDetails({ runId, strategyCode, strategyName, run, startDates }: { runId: string | null; strategyCode?: string | null; strategyName?: string | null; run?: any | null; startDates?: any[] }) {
+  const tb = useTranslations('Backtesting.strategies');
   const [allocs, setAllocs] = useState<Allocation[]>([]);
   const [trades, setTrades] = useState<Trade[]>([]);
   const [loading, setLoading] = useState(false);
@@ -116,7 +118,7 @@ export function MallikDetails({ runId, strategyCode, strategyName, run, startDat
   }, [allocs]);
 
   if (!runId) {
-    return <div className="p-6 rounded-2xl border border-slate-900 bg-slate-950/60 text-sm text-slate-400">Selecciona una estrategia para ver asignaciones y trades.</div>;
+    return <div className="p-6 rounded-2xl border border-slate-900 bg-slate-950/60 text-sm text-slate-400">{tb('selectStrategy')}</div>;
   }
   const displayCode = strategyCode || 'Estrategia';
   const displayName = strategyName || displayCode;
@@ -164,23 +166,23 @@ export function MallikDetails({ runId, strategyCode, strategyName, run, startDat
             </div>
           )})}
         </div>
-        <div className="flex gap-4 text-xs text-slate-400"><span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-teal-500 inline-block"/>{labels.primary}</span>{labels.secondary && <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-violet-500 inline-block"/>{labels.secondary}</span>}<span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-slate-700 inline-block"/>{labels.cash}</span><span className="ml-auto">Últimos 60 meses</span></div>
+        <div className="flex gap-4 text-xs text-slate-400"><span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-teal-500 inline-block"/>{labels.primary}</span>{labels.secondary && <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-violet-500 inline-block"/>{labels.secondary}</span>}<span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-slate-700 inline-block"/>{labels.cash}</span><span className="ml-auto">{tb('last60')}</span></div>
 
         <div className="overflow-x-auto overflow-y-auto max-h-[520px] border border-slate-900 rounded-xl custom-scrollbar">
           <table className="w-full text-left text-xs relative">
             <thead className="bg-slate-900 text-slate-400 font-bold border-b border-slate-900 sticky top-0 z-10">
               <tr>
-                <th className="p-3">Mes</th>
+                <th className="p-3">{tb('month')}</th>
                 <th className="p-3 text-right">% {labels.primary}</th>
                 {labels.secondary && <th className="p-3 text-right">% {labels.secondary}</th>}
                 <th className="p-3 text-right">% {labels.cash}</th>
                 <th className="p-3 text-right">{labels.primary} $</th>
                 {labels.secondary && <th className="p-3 text-right">{labels.secondary} $</th>}
                 <th className="p-3 text-right">{labels.cash} $</th>
-                <th className="p-3 text-right">Cartera</th>
-                <th className="p-3 text-right">Target</th>
-                <th className="p-3 text-center">Trades</th>
-                <th className="p-3">Indicadores</th>
+                <th className="p-3 text-right">{tb('portfolio')}</th>
+                <th className="p-3 text-right">{tb('target')}</th>
+                <th className="p-3 text-center">{tb('trades')}</th>
+                <th className="p-3">{tb('indicators')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-900/60 bg-slate-950/20 font-mono">
@@ -256,25 +258,25 @@ export function MallikDetails({ runId, strategyCode, strategyName, run, startDat
 
       {/* Trades timeline - generic for any strategy */}
       <div className="p-6 rounded-2xl border border-slate-900 bg-slate-950/60 backdrop-blur-xl shadow-2xl flex flex-col gap-4">
-        <h3 className="text-base font-bold text-white flex items-center gap-2"><TrendingUp size={18} className="text-teal-400"/> Buys / Sells — momentos con indicadores <span className="text-xs font-mono text-slate-400">· {displayName} — {startDetail || run?.startDate?.slice(0,10) || displayCode}</span></h3>
+        <h3 className="text-base font-bold text-white flex items-center gap-2"><TrendingUp size={18} className="text-teal-400"/> {tb('buysSells')} <span className="text-xs font-mono text-slate-400">· {displayName} — {startDetail || run?.startDate?.slice(0,10) || displayCode}</span></h3>
         <div ref={tradesContainerRef} onScroll={(e)=>{ const el=e.currentTarget; if(el.scrollTop+el.clientHeight >= el.scrollHeight - 120 && visibleCount < trades.length){ setVisibleCount(v=> Math.min(v+50, trades.length)); } }} className="overflow-x-auto overflow-y-auto max-h-[400px] border border-slate-900 rounded-xl">
           <table className="w-full text-left text-xs">
             <thead className="bg-slate-900 text-slate-400 font-bold sticky top-0">
               <tr>
-                <th className="p-3">Fecha</th>
-                <th className="p-3">Posición</th>
-                <th className="p-3">Lado</th>
-                <th className="p-3 text-right">Precio</th>
-                <th className="p-3 text-right">Cant.</th>
-                <th className="p-3 text-right">Valor trade</th>
-                <th className="p-3 text-right">Target</th>
+                <th className="p-3">{tb('date')}</th>
+                <th className="p-3">{tb('position')}</th>
+                <th className="p-3">{tb('side')}</th>
+                <th className="p-3 text-right">{tb('price')}</th>
+                <th className="p-3 text-right">{tb('qty')}</th>
+                <th className="p-3 text-right">{tb('tradeValue')}</th>
+                <th className="p-3 text-right">{tb('target')}</th>
                 <th className="p-3 text-right">{labels.primary} valor/%</th>
-                {labels.primary==='TQQQ' && <th className="p-3 text-right">QQQ valor/%</th>}
-                <th className="p-3 text-right">SGOV valor/%</th>
-                <th className="p-3 text-right">Cash libre valor/%</th>
-                <th className="p-3 text-right">Cartera</th>
+                {labels.primary==='TQQQ' && <th className="p-3 text-right">{tb('qqqValuePct')}</th>}
+                <th className="p-3 text-right">{tb('sgovValuePct')}</th>
+                <th className="p-3 text-right">{tb('freeCashPct')}</th>
+                <th className="p-3 text-right">{tb('portfolio')}</th>
                 <th className="p-3 text-right">CAPE</th>
-                <th className="p-3">Señal</th>
+                <th className="p-3">{tb('signal')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-900/60 font-mono">
@@ -344,7 +346,7 @@ export function MallikDetails({ runId, strategyCode, strategyName, run, startDat
             </tbody>
           </table>
         </div>
-        <p className="text-[11px] text-slate-500 flex justify-between items-center"><span>Cada fila es un `order_target_percent` ejecutado ({trades.length} en total) con snapshot de indicadores QQQ del día · Scroll para lazy load {visibleCount}/{trades.length}</span>{visibleCount < trades.length && <button onClick={()=>setVisibleCount(v=>Math.min(v+50, trades.length))} className="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-[11px]">Cargar 50 más</button>}</p>
+        <p className="text-[11px] text-slate-500 flex justify-between items-center"><span>Cada fila es un `order_target_percent` ejecutado ({trades.length} en total) con snapshot de indicadores QQQ del día · Scroll para lazy load {visibleCount}/{trades.length}</span>{visibleCount < trades.length && <button onClick={()=>setVisibleCount(v=>Math.min(v+50, trades.length))} className="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-[11px]">{tb('load50')}</button>}</p>
       </div>
     </div>
   );

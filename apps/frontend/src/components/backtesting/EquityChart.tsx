@@ -4,6 +4,7 @@ import { createChart, ColorType, IChartApi, ISeriesApi, LineSeries } from 'light
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as ReTooltip, Legend, ResponsiveContainer } from 'recharts';
 import { getStrategyColor } from '@/lib/strategyColors';
 import { useStrategyLabel } from './StrategyLabels';
+import { useTranslations } from 'next-intl';
 
 interface EquityPoint { date: string; value: number }
 interface MarketPoint { date: string; close: number }
@@ -15,6 +16,7 @@ const fmtPct = (v: number) => `${(v*100).toFixed(2)}%`;
 const colorFor = (k: string) => getStrategyColor(k);
 
 export function EquityChart({ data, startDate, marketQQQ, marketTQQQ, marketNasdaq, marketSP500, capeData }: Props) {
+  const tb = useTranslations('Backtesting.strategies');
   const label = useStrategyLabel();
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
@@ -225,15 +227,15 @@ export function EquityChart({ data, startDate, marketQQQ, marketTQQQ, marketNasd
                   <span className="font-mono font-semibold text-white tabular-nums">{fmtMoney(v)}</span>
                 </div>
                 <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-slate-400 mt-0.5 pl-4">
-                  <span>a) Incr: <span className="text-slate-200 font-mono">{inc!=null ? fmtPct(inc) : '—'}</span></span>
+                  <span>{tb('incr')} <span className="text-slate-200 font-mono">{inc!=null ? fmtPct(inc) : '—'}</span></span>
                   <span>c) CAGR: <span className="text-slate-200 font-mono">{cg!=null ? fmtPct(cg) : '—'}</span></span>
-                  <span>b) DD máx: <span className="text-amber-300 font-mono">{dd ? `${fmtPct(dd.pct)} @ ${new Date(dd.date).toLocaleDateString('es-ES',{day:'2-digit',month:'short',year:'2-digit'})}` : '—'}</span></span>
+                  <span>{tb('ddMax')} <span className="text-amber-300 font-mono">{dd ? `${fmtPct(dd.pct)} @ ${new Date(dd.date).toLocaleDateString('es-ES',{day:'2-digit',month:'short',year:'2-digit'})}` : '—'}</span></span>
                 </div>
               </div>
             )})}
             <div className="mt-2 pt-2 border-t border-slate-700 space-y-1">
-              <div className="text-[11px] text-slate-400">d) Índices: <span className="text-slate-200 font-mono">NASDAQ {tooltip.market.nasdaq!=null? fmtMoney(tooltip.market.nasdaq):'—'}</span> · <span className="text-slate-200 font-mono">S&P500 {tooltip.market.sp500!=null? fmtMoney(tooltip.market.sp500):'—'}</span></div>
-              <div className="text-[11px] text-slate-400">   ETFs: <span className="text-slate-200 font-mono">QQQ {tooltip.market.qqq!=null? `$${tooltip.market.qqq.toFixed(2)}`:'—'}</span> · <span className="text-slate-200 font-mono">TQQQ {tooltip.market.tqqq!=null? `$${tooltip.market.tqqq.toFixed(2)}`:'—'}</span></div>
+              <div className="text-[11px] text-slate-400">{tb('indices')} <span className="text-slate-200 font-mono">NASDAQ {tooltip.market.nasdaq!=null? fmtMoney(tooltip.market.nasdaq):'—'}</span> · <span className="text-slate-200 font-mono">S&P500 {tooltip.market.sp500!=null? fmtMoney(tooltip.market.sp500):'—'}</span></div>
+              <div className="text-[11px] text-slate-400">   {tb('etfs')} <span className="text-slate-200 font-mono">QQQ {tooltip.market.qqq!=null? `$${tooltip.market.qqq.toFixed(2)}`:'—'}</span> · <span className="text-slate-200 font-mono">TQQQ {tooltip.market.tqqq!=null? `$${tooltip.market.tqqq.toFixed(2)}`:'—'}</span></div>
               <div className="text-[11px] text-slate-400">e) CAPE: <span className="text-slate-200 font-mono">{tooltip.cape.cape!=null? tooltip.cape.cape.toFixed(2):'—'}</span> · Ratio: <span className="text-slate-200 font-mono">{tooltip.cape.ratio!=null? tooltip.cape.ratio.toFixed(3):'—'}</span></div>
             </div>
           </div>
@@ -243,13 +245,14 @@ export function EquityChart({ data, startDate, marketQQQ, marketTQQQ, marketNasd
         {Object.keys(data).map(k=>(
           <span key={k} className="flex items-center gap-2"><span className="w-3.5 h-0.5 rounded" style={{background: colorFor(k)}} /> <span className="font-medium tracking-tight" style={{color: colorFor(k)}}>{label(k)}</span></span>
         ))}
-        <span className="ml-auto text-slate-500">Scroll/arrastra para zoom • 5Y por defecto</span>
+        <span className="ml-auto text-slate-500">{tb('zoomHint')}</span>
       </div>
     </div>
   );
 }
 
 export function DrawdownChart({ data }: { data: Record<string, { date: string; drawdown: number }[]> }) {
+  const tb = useTranslations('Backtesting.strategies');
   // Mantener Recharts simple para drawdown
   const allDates = new Set<string>();
   Object.values(data).forEach(arr => arr.forEach(p => allDates.add(new Date(p.date).toISOString().split('T')[0])));
@@ -263,7 +266,7 @@ export function DrawdownChart({ data }: { data: Record<string, { date: string; d
   const fmtPct = (v:number)=>`${(Number(v)*100).toFixed(0)}%`;
   return (
     <div className="w-full h-[260px] bg-slate-900 border border-slate-800 rounded-xl p-4">
-      <h3 className="font-semibold mb-2 text-slate-100">Drawdown</h3>
+      <h3 className="font-semibold mb-2 text-slate-100">{tb('drawdown')}</h3>
       <ResponsiveContainer width="100%" height="90%">
         <AreaChart data={merged}>
           <CartesianGrid stroke="#1e293b" strokeDasharray="3 3" />

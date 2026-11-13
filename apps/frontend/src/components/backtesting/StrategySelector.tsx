@@ -1,8 +1,10 @@
 'use client';
 import { useIsAdmin } from '@/context/AuthContext';
 import { strategyLabel } from '@/lib/strategyLabel';
+import { useTranslations } from 'next-intl';
 interface Strategy { code: string; name: string; version: string; }
 export function StrategySelector({ strategies, selected, onChange }: { strategies: Strategy[]; selected: string[]; onChange: (v: string[]) => void }) {
+  const tb = useTranslations('Backtesting.strategies');
   const isAdmin = useIsAdmin();
   const toggle = (code: string) => {
     if (selected.includes(code)) onChange(selected.filter(c => c !== code));
@@ -10,7 +12,7 @@ export function StrategySelector({ strategies, selected, onChange }: { strategie
   };
   return (
     <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
-      <h3 className="font-semibold mb-2 text-slate-100">Estrategias</h3>
+      <h3 className="font-semibold mb-2 text-slate-100">{tb('strategies')}</h3>
       <div className="flex flex-wrap gap-2">
         {strategies.map(s => (
           <label key={s.code} className={`px-3 py-1.5 rounded-full border cursor-pointer text-sm transition-colors ${selected.includes(s.code) ? 'bg-teal-600 text-white border-teal-600' : 'bg-slate-800 text-slate-300 border-slate-700 hover:border-slate-600'}`}>

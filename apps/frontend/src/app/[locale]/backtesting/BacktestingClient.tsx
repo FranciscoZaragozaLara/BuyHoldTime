@@ -21,9 +21,10 @@ const CalculatorPanel = dynamic(() => import('@/components/backtesting/Calculato
 const RegimesPanel = dynamic(() => import('@/components/backtesting/RegimesPanel').then(m => ({ default: m.RegimesPanel })), { loading: () => <div className="h-[300px] bg-slate-900 border border-slate-800 rounded-xl animate-pulse" />, ssr: false });
 
 function StartDateSelector({ dates, selected, onChange }: { dates: any[]; selected: string; onChange: (v: string) => void }) {
+  const tb = useTranslations('Backtesting.strategies');
   return (
     <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
-      <h3 className="font-semibold mb-2 text-slate-100">Fecha de Inicio</h3>
+      <h3 className="font-semibold mb-2 text-slate-100">{tb('startDate')}</h3>
       <select value={selected} onChange={e=>onChange(e.target.value)} className="w-full px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-slate-200 text-sm">
         {dates.map(d=>{
           const ds=d.startDate?.slice(0,10) || d.startDate;
@@ -36,6 +37,7 @@ function StartDateSelector({ dates, selected, onChange }: { dates: any[]; select
 }
 
 function GroupedMetricsTable({ grouped, selectedStartDate, selected, onRunAndSeed }: { grouped: any[]; selectedStartDate: string; selected: string[]; onRunAndSeed: (code:string)=>void }) {
+  const tb = useTranslations('Backtesting.strategies');
   const isAdmin = useIsAdmin();
   const fmtPct=(v:any)=> v==null? 'NA' : `${(v*100).toFixed(2)}%`;
   const fmtMoney=(v:any)=> v==null? 'NA' : `$${Number(v).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}`;
@@ -90,18 +92,18 @@ function GroupedMetricsTable({ grouped, selectedStartDate, selected, onRunAndSee
   useEffect(()=>{ setSortKey('finalValue'); setSortDir('desc'); }, [selectedStartDate, grouped.length]);
   return (
     <div className="overflow-auto bg-slate-900 border border-slate-800 rounded-xl p-4">
-      <h3 className="font-semibold mb-3 text-slate-100">Comparativa Métricas — {selectedStartDate} · {selected.length} estrategias seleccionadas</h3>
+      <h3 className="font-semibold mb-3 text-slate-100">{tb('groupedTitle', { date: selectedStartDate, count: selected.length })}</h3>
       <table className="w-full text-sm">
         <thead><tr className="border-b border-slate-800 text-slate-400">
-          <th className={`${thClass} text-left`} onClick={()=>toggle('strategy')}>Estrategia<Arrow active={sortKey==='strategy'} dir={sortDir}/></th>
+          <th className={`${thClass} text-left`} onClick={()=>toggle('strategy')}>{tb('strategy')}<Arrow active={sortKey==='strategy'} dir={sortDir}/></th>
           <th className={`${thClass} text-right`} onClick={()=>toggle('cagr')}>CAGR<Arrow active={sortKey==='cagr'} dir={sortDir}/></th>
           <th className={`${thClass} text-right`} onClick={()=>toggle('totalReturn')}>TotRet<Arrow active={sortKey==='totalReturn'} dir={sortDir}/></th>
           <th className={`${thClass} text-right`} onClick={()=>toggle('sharpe')}>Sharpe<Arrow active={sortKey==='sharpe'} dir={sortDir}/></th>
           <th className={`${thClass} text-right`} onClick={()=>toggle('maxDrawdown')}>MaxDD<Arrow active={sortKey==='maxDrawdown'} dir={sortDir}/></th>
-          <th className={`${thClass} text-right`} onClick={()=>toggle('ordenesTot')}>Ordenes<Arrow active={sortKey==='ordenesTot'} dir={sortDir}/></th>
-          <th className={`${thClass} text-right`} onClick={()=>toggle('ordenesAnio')}>Ordenes/Año<Arrow active={sortKey==='ordenesAnio'} dir={sortDir}/></th>
+          <th className={`${thClass} text-right`} onClick={()=>toggle('ordenesTot')}>{tb('orders')}<Arrow active={sortKey==='ordenesTot'} dir={sortDir}/></th>
+          <th className={`${thClass} text-right`} onClick={()=>toggle('ordenesAnio')}>{tb('ordersPerYear')}<Arrow active={sortKey==='ordenesAnio'} dir={sortDir}/></th>
           <th className={`${thClass} text-right`} onClick={()=>toggle('finalValue')}>Final<Arrow active={sortKey==='finalValue'} dir={sortDir}/></th>
-          <th className="p-2 text-right">Acción</th>
+          <th className="p-2 text-right">{tb('action')}</th>
         </tr></thead>
         <tbody>
           {display.map((g:any)=>{
@@ -119,7 +121,7 @@ function GroupedMetricsTable({ grouped, selectedStartDate, selected, onRunAndSee
                 <td className="p-2 text-right font-mono text-emerald-300">{na? 'NA' : (()=>{ const c=(g.run as any)?.tradesCount ?? m?.numTrades ?? 0; const days=g.run?.startDate && g.run?.endDate ? Math.max(1, Math.round((new Date(g.run.endDate).getTime()-new Date(g.run.startDate).getTime())/86400000)) : 0; const y=days/365.25; return y>0 ? (c/y).toFixed(2) : '—'; })()}</td>
                 <td className="p-2 text-right font-mono text-slate-100">{na? 'NA' : fmtMoney(m?.finalValue)}</td>
                 <td className="p-2 text-right">
-                  {unable ? <span className="px-3 py-1 rounded-full bg-orange-500/20 text-orange-400 border border-orange-500/30 text-xs">Action not yet available</span>
+                  {unable ? <span className="px-3 py-1 rounded-full bg-orange-500/20 text-orange-400 border border-orange-500/30 text-xs">{tb('notAvailable')}</span>
                    : na && !isAdmin ? <span className="text-xs text-slate-500">—</span>
                    : na ? <button onClick={()=>handle(g.strategy.code)} disabled={!!seeding} className="px-3 py-1 rounded-lg bg-teal-600 hover:bg-teal-500 text-white text-xs disabled:opacity-50">{seeding===g.strategy.code?'Seeding...':'Run & Seed'}</button>
                    : <span className="text-xs text-teal-400">✓ {fmtMoney(m?.finalValue)}</span>}
@@ -129,12 +131,13 @@ function GroupedMetricsTable({ grouped, selectedStartDate, selected, onRunAndSee
           })}
         </tbody>
       </table>
-      <p className="text-xs text-slate-500 mt-2">Mostrando {display.length} de {grouped.length} estrategias para {selectedStartDate} — click en cabecera para ordenar (default Final ▼).</p>
+      <p className="text-xs text-slate-500 mt-2">{tb('groupedFooter', { shown: display.length, total: grouped.length, date: selectedStartDate })}</p>
     </div>
   );
 }
 
 function SingleStrategyHistoryTable({ strategies, startDates, onCodeChange, externalCode }: { strategies: any[]; startDates: any[]; onCodeChange?: (code:string)=>void; externalCode?: string }) {
+  const tb = useTranslations('Backtesting.strategies');
   const isAdmin = useIsAdmin();
   const [selectedCode, setSelectedCode] = useState<string>(externalCode || strategies[0]?.code || 'SCHILLER_TQQQ_3A_RISK_D_V8_ZILPH');
   useEffect(()=>{ if(externalCode && externalCode!==selectedCode) setSelectedCode(externalCode); }, [externalCode]);
@@ -248,42 +251,42 @@ function SingleStrategyHistoryTable({ strategies, startDates, onCodeChange, exte
   return (
     <div className="overflow-auto bg-slate-900 border border-slate-800 rounded-xl p-4">
       <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
-        <h3 className="font-semibold text-slate-100">Histórico por Estrategia — {stratName} <span className="text-xs font-normal text-slate-500">({runs.length} runs)</span></h3>
+        <h3 className="font-semibold text-slate-100">{tb('historyTitle', { name: stratName })} <span className="text-xs font-normal text-slate-500">{tb('runs', { count: runs.length })}</span></h3>
         <div className="flex items-center gap-2">
-          <label className="text-xs text-slate-400">Estrategia:</label>
+          <label className="text-xs text-slate-400">{tb('strategyColon')}</label>
           <select value={selectedCode} onChange={e=>setSelectedCode(e.target.value)} className="px-2 py-1.5 rounded-lg bg-slate-800 border border-slate-700 text-slate-200 text-xs min-w-[220px]">
             {strategies.map((s:any)=><option key={s.code} value={s.code}>{isAdmin ? `${s.code} — ${s.name}` : strategyLabel(s, false)}</option>)}
           </select>
         </div>
       </div>
       <div className="bg-slate-800/60 border border-slate-700 rounded-lg px-3 py-2 mb-3 flex flex-wrap gap-x-6 gap-y-1 text-xs">
-        <span className="text-slate-400">Actual <span className="text-slate-500">(más reciente)</span>:</span>
+        <span className="text-slate-400">{tb('current')} <span className="text-slate-500">{tb('mostRecent')}</span>:</span>
         <span className="font-mono font-semibold text-emerald-400">CAPE {latest.cape!=null? latest.cape.toFixed(2):'—'}</span>
         <span className="font-mono font-semibold text-emerald-400">Ratio {latest.ratio!=null? latest.ratio.toFixed(3):'—'}</span>
         <span className="font-mono font-semibold text-emerald-400">TQQQ {latest.tqqq!=null? `$${latest.tqqq.toFixed(2)}`:'—'} <span className="text-slate-500 font-normal">{latest.tqqqDate||''}</span></span>
         <span className="text-slate-600">|</span>
-        <span className="text-slate-400">Máximo histórico: <span className="text-slate-200 font-mono">{maxInfo? `$${maxInfo.price.toFixed(2)} @ ${maxInfo.date}`:'—'}</span></span>
-        <span className={`font-mono font-semibold ${maxInfo?.pct!=null && maxInfo.pct<0? 'text-amber-400':'text-emerald-400'}`}>{maxInfo?.pct!=null? `${maxInfo.pct>=0?'+':''}${maxInfo.pct.toFixed(2)}% desde máximo`:'—'}</span>
+        <span className="text-slate-400">{tb('athColon')} <span className="text-slate-200 font-mono">{maxInfo? `$${maxInfo.price.toFixed(2)} @ ${maxInfo.date}`:'—'}</span></span>
+        <span className={`font-mono font-semibold ${maxInfo?.pct!=null && maxInfo.pct<0? 'text-amber-400':'text-emerald-400'}`}>{maxInfo?.pct!=null? tb('fromAth', { pct: `${maxInfo.pct>=0?'+':''}${maxInfo.pct.toFixed(2)}` }):'—'}</span>
       </div>
-      <p className="text-xs text-slate-500 mb-3">Compara el mismo algoritmo en diferentes fechas de inicio. Ordena por cabecera (default Final ▼). Días = endDate - startDate.</p>
-      {loading? <div className="text-xs text-slate-500 py-6 text-center">Cargando runs...</div> :
-      runs.length===0? <div className="text-xs text-slate-500 py-6 text-center">Sin runs para {selectedCode}</div> :
+      <p className="text-xs text-slate-500 mb-3">{tb('historyHint')}</p>
+      {loading? <div className="text-xs text-slate-500 py-6 text-center">{tb('loadingRuns')}</div> :
+      runs.length===0? <div className="text-xs text-slate-500 py-6 text-center">{tb('noRuns', { name: stratName })}</div> :
       <table className="w-full text-sm">
         <thead><tr className="border-b border-slate-800 text-slate-400">
-          <th className={`${thClass} text-left`} onClick={()=>toggle('startDate')}>Inicio<Arrow active={sortKey==='startDate'} dir={sortDir}/></th>
-          <th className="p-2 text-left">Evento</th>
+          <th className={`${thClass} text-left`} onClick={()=>toggle('startDate')}>{tb('start')}<Arrow active={sortKey==='startDate'} dir={sortDir}/></th>
+          <th className="p-2 text-left">{tb('event')}</th>
           <th className={`${thClass} text-right`} onClick={()=>toggle('cape')}>CAPE<Arrow active={sortKey==='cape'} dir={sortDir}/></th>
           <th className={`${thClass} text-right`} onClick={()=>toggle('capeRatio')}>Ratio<Arrow active={sortKey==='capeRatio'} dir={sortDir}/></th>
-          <th className={`${thClass} text-right`} onClick={()=>toggle('tqqqPrice')}>TQQQ Inicio<Arrow active={sortKey==='tqqqPrice'} dir={sortDir}/></th>
-          <th className={`${thClass} text-right`} onClick={()=>toggle('days')}>Días<Arrow active={sortKey==='days'} dir={sortDir}/></th>
+          <th className={`${thClass} text-right`} onClick={()=>toggle('tqqqPrice')}>{tb('tqqqStart')}<Arrow active={sortKey==='tqqqPrice'} dir={sortDir}/></th>
+          <th className={`${thClass} text-right`} onClick={()=>toggle('days')}>{tb('days')}<Arrow active={sortKey==='days'} dir={sortDir}/></th>
           <th className={`${thClass} text-right`} onClick={()=>toggle('cagr')}>CAGR<Arrow active={sortKey==='cagr'} dir={sortDir}/></th>
           <th className={`${thClass} text-right`} onClick={()=>toggle('totalReturn')}>TotRet<Arrow active={sortKey==='totalReturn'} dir={sortDir}/></th>
           <th className={`${thClass} text-right`} onClick={()=>toggle('sharpe')}>Sharpe<Arrow active={sortKey==='sharpe'} dir={sortDir}/></th>
           <th className={`${thClass} text-right`} onClick={()=>toggle('maxDrawdown')}>MaxDD<Arrow active={sortKey==='maxDrawdown'} dir={sortDir}/></th>
           <th className={`${thClass} text-right`} onClick={()=>toggle('numTrades')}>Trades<Arrow active={sortKey==='numTrades'} dir={sortDir}/></th>
           <th className={`${thClass} text-right`} onClick={()=>toggle('finalValue')}>Final<Arrow active={sortKey==='finalValue'} dir={sortDir}/></th>
-          <th className={`${thClass} text-right`} onClick={()=>toggle('ordenesTot')}>OrdenesTot<Arrow active={sortKey==='ordenesTot'} dir={sortDir}/></th>
-          <th className={`${thClass} text-right`} onClick={()=>toggle('ordenesAnio')}>Ordenes/Año<Arrow active={sortKey==='ordenesAnio'} dir={sortDir}/></th>
+          <th className={`${thClass} text-right`} onClick={()=>toggle('ordenesTot')}>{tb('ordersTotal')}<Arrow active={sortKey==='ordenesTot'} dir={sortDir}/></th>
+          <th className={`${thClass} text-right`} onClick={()=>toggle('ordenesAnio')}>{tb('ordersPerYear')}<Arrow active={sortKey==='ordenesAnio'} dir={sortDir}/></th>
         </tr></thead>
         <tbody>
           {sorted.map((r:any)=>{
@@ -346,6 +349,7 @@ const fallbackEquity = {
 };
 
 export function BacktestingClient({ initialStrategies, initialRuns }: { initialStrategies: any[]; initialRuns: any }) {
+  const tb = useTranslations('Backtesting.strategies');
   const t = useTranslations('Backtesting');
   const [activeTab, setActiveTab] = useState<'estrategias' | 'indicadores' | 'calculadora' | 'regimes'>('estrategias');
   const [selected, setSelected] = useState<string[]>(['BH_QQQ', 'BH_TQQQ', 'SCHILLER_TQQQ_3A_RISK_D_V8', 'SCHILLER_TQQQ_3A_RISK_D_V8_ZILPH']);
@@ -593,8 +597,8 @@ export function BacktestingClient({ initialStrategies, initialRuns }: { initialS
     <div className="min-h-screen bg-slate-950">
       <div className="container mx-auto p-6 space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight text-slate-100">Backtesting — TQQQ / QQQ</h1>
-        <p className="text-sm text-slate-400">Comparativa filtrada por fecha inicio y estrategias seleccionadas. Datos en Postgres <code className="text-teal-400">buyholdtime</code>.</p>
+        <h1 className="text-2xl font-bold tracking-tight text-slate-100">{tb('pageTitle')}</h1>
+        <p className="text-sm text-slate-400">{tb('pageSubtitle')}</p>
         <RiskDisclaimer variant="backtest" className="mt-1" />
       </div>
       <div className="flex gap-1 p-1 bg-slate-900 border border-slate-800 rounded-xl w-fit">
