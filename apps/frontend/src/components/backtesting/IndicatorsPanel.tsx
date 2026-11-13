@@ -293,14 +293,15 @@ function ScoreOrb({ name, value, dec = 2, weight, score, bands, blend = null, sm
   };
   // Historia: una sola petición compartida por todos los orbes, al abrir el primero.
   const hist = useQuery({
-    queryKey: ['thermo-parts-monthly', 12],
+    // v2: respuesta con perf (rendimiento a hoy) y filas de 2/3 años; la versión evita reutilizar una caché con la forma anterior.
+    queryKey: ['thermo-parts-monthly', 12, 'v2'],
     queryFn: async (): Promise<MonthlyParts[]> => {
       const r = await fetch(`${getApiBase()}/api/backtesting/thermo-parts-monthly?months=12`);
       if (!r.ok) throw new Error(`thermo-parts-monthly ${r.status}`);
       return r.json();
     },
     enabled: open && hasHistory,
-    staleTime: 60 * 60 * 1000,
+    staleTime: 15 * 60 * 1000,
     retry: false,
   });
   const histRows = orbHistoryRows(hist.data, name);
