@@ -468,12 +468,14 @@
       "orbTitle": "Riesgo {name} {score}/100",
       "orbRisk": "Riesgo {name}",
       "orbWeight": "peso {weight} ÷ peso total",
-      "historyTitle": "Historia — últimos 12 meses",
+      "historyTitle": "Historia — últimos 12 meses + hace 2 y 3 años",
       "historyLoading": "Cargando historia…",
       "historyEmpty": "Sin historia disponible.",
       "historyMonth": "Mes",
       "historyScore": "Puntaje",
-      "historyNote": "Cierre del último día hábil de cada mes · puntaje base 100 que aporta al termómetro."
+      "historyNote": "Cierre del último día hábil de cada mes · puntaje base 100 que aporta al termómetro · rendimiento desde ese cierre hasta el último disponible. Resultados históricos; no garantizan rendimientos futuros.",
+      "historyPerfToday": "Rendimiento a hoy",
+      "historyYearsAgo": "hace {n} años"
     },
     "regimesPanel": {
       "loadingDates": "Cargando fechas…",

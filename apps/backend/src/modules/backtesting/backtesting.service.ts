@@ -638,12 +638,24 @@ export class BacktestingService {
     return rows.map((r) => ({ date: r.date.toISOString().slice(0, 10), value: r.value, numerator: r.numerator, denominator: r.denominator, coverage: r.coverage, bonus: r.bonus, bonusLabel: r.bonusLabel, liqBonus: (r as any).liqBonus ?? 0, liqBonusLabel: (r as any).liqBonusLabel ?? null, oilBonus: (r as any).oilBonus ?? 0, oilBonusLabel: (r as any).oilBonusLabel ?? null }));
   }
 
-  /** Últimos `months` meses del termómetro por componente (valor y puntaje base 100), para la "Historia" de cada card. */
+  /**
+   * Últimos `months` meses del termómetro por componente (valor y puntaje base 100), más el mismo
+   * mes de hace 2 y 3 años, con el rendimiento a hoy de S&P 500, Nasdaq y TQQQ desde cada fecha.
+   */
   async getThermoPartsMonthly(months = 12) {
-    const n = Math.min(Math.max(Math.trunc(months) || 12, 1), 120);
-    const since = new Date(); since.setUTCMonth(since.getUTCMonth() - n - 1);
-    const rows = await this.prisma.btBhtForward.findMany({ where: { date: { gte: since } }, select: { date: true, parts: true }, orderBy: { date: 'asc' } });
-    return monthlyPartsFromDaily(rows.map((r) => ({ date: r.date.toISOString().slice(0, 10), parts: r.parts })), n);
+    const n = Math.min(Math.max(Math.trunc(months) || 12, 1), 36);
+    const since = new Date(); since.setUTCMonth(since.getUTCMonth() - 37);
+    const [rows, ...latest] = await Promise.all([
+      this.prisma.btBhtForward.findMany({ where: { date: { gte: since } }, select: { date: true, parts: true, spx: true, ndx: true, tqqq: true }, orderBy: { date: 'asc' } }),
+      ...['^GSPC', '^IXIC', 'TQQQ'].map((t) => this.prisma.btMarketData.findFirst({ where: { ticker: t }, orderBy: { date: 'desc' } })),
+    ]);
+    const close = (r: any) => (r?.close != null ? Number(r.close) : null);
+    return monthlyPartsFromDaily(
+      (rows as any[]).map((r) => ({ date: r.date.toISOString().slice(0, 10), parts: r.parts, spx: r.spx, ndx: r.ndx, tqqq: r.tqqq })),
+      n,
+      { spx: close(latest[0]), ndx: close(latest[1]), tqqq: close(latest[2]) },
+      [2, 3],
+    );
   }
 
   async getBhtForward(from?: string, to?: string) {

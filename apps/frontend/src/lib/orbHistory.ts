@@ -2,8 +2,9 @@
 // Fuente: GET /api/backtesting/thermo-parts-monthly (último día hábil de cada mes, bt_bht_forward.parts).
 
 export type PartPoint = { value: number | null; score: number | null; weight: number | null };
-export type MonthlyParts = { month: string; date: string; parts: Record<string, PartPoint> };
-export type OrbHistoryRow = { month: string; date: string; value: number | null; score: number | null };
+export type IndexPerf = { spx: number | null; ndx: number | null; tqqq: number | null };
+export type MonthlyParts = { month: string; date: string; parts: Record<string, PartPoint>; perf?: IndexPerf; yearsAgo?: number | null };
+export type OrbHistoryRow = { month: string; date: string; value: number | null; score: number | null; perf: IndexPerf; yearsAgo: number | null };
 
 /** Nombre del orbe en la card → clave del componente en `parts`. WTI no es componente (es bonus). */
 export const ORB_PART_KEY: Record<string, string> = {
@@ -17,7 +18,10 @@ export function orbHistoryRows(data: MonthlyParts[] | undefined, orbName: string
   if (!key || !Array.isArray(data)) return [];
   return data
     .filter((m) => m.parts?.[key])
-    .map((m) => ({ month: m.month, date: m.date, value: m.parts[key].value, score: m.parts[key].score }));
+    .map((m) => ({
+      month: m.month, date: m.date, value: m.parts[key].value, score: m.parts[key].score,
+      perf: m.perf ?? { spx: null, ndx: null, tqqq: null }, yearsAgo: m.yearsAgo ?? null,
+    }));
 }
 
 /** 'YYYY-MM' → 'nov 2026' / 'Nov 2026'. */

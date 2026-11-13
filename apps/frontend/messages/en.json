@@ -468,12 +468,14 @@
       "orbTitle": "{name} risk {score}/100",
       "orbRisk": "{name} risk",
       "orbWeight": "weight {weight} ÷ total weight",
-      "historyTitle": "History — last 12 months",
+      "historyTitle": "History — last 12 months + 2 and 3 years ago",
       "historyLoading": "Loading history…",
       "historyEmpty": "No history available.",
       "historyMonth": "Month",
       "historyScore": "Score",
-      "historyNote": "Close of the last trading day of each month · base-100 score contributed to the thermometer."
+      "historyNote": "Close of the last trading day of each month · base-100 score contributed to the thermometer · performance from that close to the latest available. Historical results; they do not guarantee future returns.",
+      "historyPerfToday": "Performance to today",
+      "historyYearsAgo": "{n} years ago"
     },
     "regimesPanel": {
       "loadingDates": "Loading dates…",

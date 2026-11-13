@@ -281,8 +281,16 @@ function ScoreOrb({ name, value, dec = 2, weight, score, bands, blend = null, sm
   const ti = useTranslations('Backtesting.indicators');
   const loc = useLocale();
   const [open, setOpen] = useState(false);
+  const [alignLeft, setAlignLeft] = useState(false);
+  const btnRef = useRef<HTMLButtonElement>(null);
   const c = capeScoreColor(score);
   const hasHistory = name in ORB_PART_KEY;
+  // El popover ancho se abre hacia la izquierda del orbe; si no cabe, hacia la derecha.
+  const show = () => {
+    const r = btnRef.current?.getBoundingClientRect();
+    if (r) setAlignLeft(r.right < Math.min(window.innerWidth * 0.94, hasHistory ? 820 : 288) + 8);
+    setOpen(true);
+  };
   // Historia: una sola petición compartida por todos los orbes, al abrir el primero.
   const hist = useQuery({
     queryKey: ['thermo-parts-monthly', 12],
@@ -298,13 +306,14 @@ function ScoreOrb({ name, value, dec = 2, weight, score, bands, blend = null, sm
   const histRows = orbHistoryRows(hist.data, name);
   return (
     <span className="relative inline-flex">
-      <button type="button" onClick={() => setOpen(o => !o)} onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)} title={ti('orbTitle', { name, score })}
+      <button ref={btnRef} type="button" onClick={() => (open ? setOpen(false) : show())} onMouseEnter={show} onMouseLeave={() => setOpen(false)} title={ti('orbTitle', { name, score })}
         className={`relative rounded-full cursor-pointer shrink-0 ${small ? 'w-7 h-7' : 'w-11 h-11'}`}
         style={{ background: `radial-gradient(circle at 30% 18%, rgba(255,255,255,.55), rgba(255,255,255,.08) 30%, transparent 48%), linear-gradient(145deg, ${c}dd, ${c}55)`, boxShadow: `0 0 14px ${c}77, inset 0 0 8px rgba(255,255,255,.3)`, border: `1px solid ${c}` }}>
         <span className={`absolute inset-0 flex items-center justify-center font-mono font-extrabold text-slate-950 ${small ? 'text-[10px]' : 'text-[13px]'}`} style={{ textShadow: '0 0 4px rgba(255,255,255,.95), 0 0 2px rgba(255,255,255,.9), 0 1px 1px rgba(255,255,255,.6)' }}>{score}</span>
       </button>
       {open && (
-        <div className="absolute z-50 right-0 top-12 w-72 p-3 rounded-xl bg-slate-800 border border-slate-700 shadow-2xl text-left normal-case" onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)}>
+        <div className={`absolute z-50 ${alignLeft ? 'left-0' : 'right-0'} top-12 p-3 rounded-xl bg-slate-800 border border-slate-700 shadow-2xl text-left normal-case flex flex-col md:flex-row gap-4 ${hasHistory ? 'w-[min(94vw,820px)]' : 'w-72'}`} onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)}>
+          <div className="w-full md:w-64 shrink-0">
           <div className="text-xs font-semibold text-slate-100">{ti('orbRisk', { name })} <span className="font-mono" style={{ color: c }}>{score}/100</span></div>
           <div className="text-[11px] text-slate-400 mt-0.5 font-mono">{name} {value.toFixed(dec)} → <span className="text-sky-300 font-semibold">{score}/100</span> · {ti('orbWeight', { weight })}</div>
           {blend && (
@@ -323,26 +332,45 @@ function ScoreOrb({ name, value, dec = 2, weight, score, bands, blend = null, sm
               })}
             </tbody>
           </table>
+          </div>
           {hasHistory && (
-            <div className="mt-2.5 pt-2 border-t border-slate-700/70">
-              <div className="text-[11px] font-semibold text-slate-200 mb-1">{ti('historyTitle')}</div>
+            <div className="flex-1 min-w-0 md:border-l md:border-slate-700/70 md:pl-4 border-t md:border-t-0 border-slate-700/70 pt-2 md:pt-0">
+              <div className="text-xs font-semibold text-slate-100 mb-1.5">{ti('historyTitle')}</div>
               {hist.isLoading ? <div className="text-[10px] text-slate-500 font-mono">{ti('historyLoading')}</div>
                 : histRows.length === 0 ? <div className="text-[10px] text-slate-500 font-mono">{ti('historyEmpty')}</div>
                 : (
-                  <table className="w-full text-[10px] font-mono">
-                    <thead><tr className="text-slate-500"><th className="text-left font-normal py-0.5">{ti('historyMonth')}</th><th className="text-right font-normal">{name}</th><th className="text-right font-normal">{ti('historyScore')}</th></tr></thead>
+                  <table className="w-full text-[10px] font-mono tabular-nums">
+                    <thead>
+                      <tr className="text-slate-500">
+                        <th colSpan={3} />
+                        <th colSpan={3} className="text-center font-normal pb-0.5 border-b border-slate-700/70">{ti('historyPerfToday')}</th>
+                      </tr>
+                      <tr className="text-slate-500">
+                        <th className="text-left font-normal py-0.5">{ti('historyMonth')}</th>
+                        <th className="text-right font-normal">{name}</th>
+                        <th className="text-right font-normal pr-2">{ti('historyScore')}</th>
+                        <th className="text-right font-normal text-sky-300/80">S&amp;P 500</th>
+                        <th className="text-right font-normal text-violet-300/80">Nasdaq</th>
+                        <th className="text-right font-normal text-pink-300/80">TQQQ</th>
+                      </tr>
+                    </thead>
                     <tbody>
-                      {histRows.map((r) => (
-                        <tr key={r.month} className="text-slate-300" title={r.date}>
-                          <td className="py-0.5 capitalize">{monthLabel(r.month, loc)}</td>
-                          <td className="text-right">{r.value != null ? r.value.toFixed(dec) : '—'}</td>
-                          <td className="text-right font-bold" style={{ color: r.score != null ? capeScoreColor(r.score) : undefined }}>{r.score != null ? Math.round(r.score) : '—'}</td>
-                        </tr>
-                      ))}
+                      {histRows.map((r, i) => {
+                        const first = r.yearsAgo != null && (i === 0 || histRows[i - 1].yearsAgo == null);
+                        const pc = (v: number | null) => <td className={`text-right ${v == null ? 'text-slate-600' : v >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{v == null ? '—' : `${v >= 0 ? '+' : ''}${v.toFixed(1)}%`}</td>;
+                        return (
+                          <tr key={r.month} className={`text-slate-300 ${first ? 'border-t border-slate-600' : ''} ${i === 0 ? 'bg-slate-700/40' : ''}`} title={r.date}>
+                            <td className="py-0.5 whitespace-nowrap capitalize">{monthLabel(r.month, loc)}{r.yearsAgo != null && <span className="text-slate-500 normal-case"> · {ti('historyYearsAgo', { n: r.yearsAgo })}</span>}</td>
+                            <td className="text-right">{r.value != null ? r.value.toFixed(dec) : '—'}</td>
+                            <td className="text-right font-bold pr-2" style={{ color: r.score != null ? capeScoreColor(r.score) : undefined }}>{r.score != null ? Math.round(r.score) : '—'}</td>
+                            {pc(r.perf.spx)}{pc(r.perf.ndx)}{pc(r.perf.tqqq)}
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 )}
-              <div className="text-[9px] text-slate-500 mt-1">{ti('historyNote')}</div>
+              <div className="text-[9px] text-slate-500 mt-1.5">{ti('historyNote')}</div>
             </div>
           )}
         </div>
