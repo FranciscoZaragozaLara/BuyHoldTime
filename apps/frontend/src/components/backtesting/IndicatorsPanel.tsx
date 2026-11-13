@@ -276,6 +276,7 @@ function momBlend(lvlSegs: [number, number, number, number][], trdSegs: [number,
   return { level: y, levelScore, delta: y - ma, ma, maLabel, trendScore };
 }
 function ScoreOrb({ name, value, dec = 2, weight, score, bands, blend = null, small = false }: { name: string; value: number; dec?: number; weight: number; score: number; bands: [number, number, string, string, string][]; blend?: MomBlend; small?: boolean }) {
+  const ti = useTranslations('Backtesting.indicators');
   const [open, setOpen] = useState(false);
   const c = capeScoreColor(score);
   return (
@@ -293,11 +294,11 @@ function ScoreOrb({ name, value, dec = 2, weight, score, bands, blend = null, sm
             <div className="mt-1.5 rounded-lg bg-slate-900/70 border border-slate-700/60 px-2 py-1.5 font-mono text-[10px] leading-relaxed">
               <div className="text-slate-300">Nivel {blend.level.toFixed(2)} → {blend.levelScore.toFixed(1)} <span className="text-slate-500">×0.4</span></div>
               <div className="text-slate-300">Δ {blend.delta>=0?'+':''}{blend.delta.toFixed(2)}pp vs {blend.maLabel} {blend.ma.toFixed(2)} → {blend.trendScore.toFixed(1)} <span className="text-slate-500">×0.6</span>{(()=>{ const t = trendTag(blend.delta); return <span className="font-bold"> · <span style={{ color: t.color }}>{t.text}</span></span>; })()}</div>
-              <div className="text-slate-100">= <span className="font-bold" style={{ color: capeScoreColor(score) }}>{score}</span> <span className="text-slate-500">tendencia pesa más</span></div>
+              <div className="text-slate-100">= <span className="font-bold" style={{ color: capeScoreColor(score) }}>{score}</span> <span className="text-slate-500">{ti('trendWeighs')}</span></div>
             </div>
           )}
           <table className="w-full mt-2 text-[10px] font-mono">
-            <thead><tr className="text-slate-500"><th className="text-left font-normal py-0.5">{name}</th><th className="text-right font-normal">Pts</th><th className="text-right font-normal">Nivel</th></tr></thead>
+            <thead><tr className="text-slate-500"><th className="text-left font-normal py-0.5">{name}</th><th className="text-right font-normal">Pts</th><th className="text-right font-normal">{ti('colLevel')}</th></tr></thead>
             <tbody>
               {bands.map(([lo, hi, disp, pts, lvl]) => {
                 const on = value >= lo && value < hi;
@@ -341,6 +342,7 @@ export const bhtLeaveGuard = (e: any, det: { scheduleClear: () => void; cancelCl
 };
 
 export function BhtDetailPopover({ hover, detail, forward, onLeave, onHold, liveValue }: { hover: { d: string; x: number; y: number }; detail: any; forward?: any; onLeave: () => void; onHold?: () => void; liveValue?: number | null }) {
+  const ti = useTranslations('Backtesting.indicators');
   const left = Math.min(Math.max(8, hover.x + 12), (typeof window !== 'undefined' ? window.innerWidth - 540 : 1000));
   // A la derecha y debajo del cursor para no tapar el punto observado; si no cabe
   // abajo, se voltea arriba del cursor.
@@ -355,7 +357,7 @@ export function BhtDetailPopover({ hover, detail, forward, onLeave, onHold, live
   useEffect(() => { setShowStrat(false); }, [hover.d]);
   return (
     <div data-bht-pop className="fixed z-[9999] w-[520px] max-w-[calc(100vw-16px)] p-3 rounded-xl bg-slate-900 border border-slate-700 shadow-2xl text-xs leading-relaxed text-slate-200 text-left pointer-events-none" style={{ left, top }} onMouseEnter={() => onHold?.()} onMouseLeave={onLeave}>
-      <div className="font-bold mb-1.5"><span className="text-sky-300">{hover.d}</span> <span className="text-slate-100">· BHT</span> {headV != null && <span className="font-mono" style={{ color: capeScoreColor(headV) }}>{headV.toFixed(1)}/100</span>}{liveValue != null && <span className="ml-1.5 text-[10px] px-1.5 py-px rounded-full bg-teal-500/20 text-teal-300 font-bold" title="Valor en vivo, igual que el semáforo">en vivo</span>}{bd && (
+      <div className="font-bold mb-1.5"><span className="text-sky-300">{hover.d}</span> <span className="text-slate-100">· BHT</span> {headV != null && <span className="font-mono" style={{ color: capeScoreColor(headV) }}>{headV.toFixed(1)}/100</span>}{liveValue != null && <span className="ml-1.5 text-[10px] px-1.5 py-px rounded-full bg-teal-500/20 text-teal-300 font-bold" title={ti('liveTitle')}>{ti('live')}</span>}{bd && (
         <button type="button" onClick={(e) => { e.stopPropagation(); setShowStrat((v) => !v); }}
           className="ml-2 px-2 py-0.5 rounded-md text-[11px] font-bold text-slate-900 align-middle cursor-pointer pointer-events-auto"
           style={{ backgroundColor: bd.color }}>Estrategia {showStrat ? '▾' : '▸'}</button>
@@ -371,7 +373,7 @@ export function BhtDetailPopover({ hover, detail, forward, onLeave, onHold, live
           <div className="flex gap-3">
             {[0, 1].map((col) => (
               <table key={col} className="flex-1 font-mono text-[11px]">
-                <thead><tr className="text-slate-500"><th className="text-left font-normal py-0.5">Ind</th><th className="text-right font-normal">Valor</th><th className="text-right font-normal">Pts</th><th className="text-right font-normal">Aporte</th></tr></thead>
+                <thead><tr className="text-slate-500"><th className="text-left font-normal py-0.5">Ind</th><th className="text-right font-normal">{ti('colValue')}</th><th className="text-right font-normal">Pts</th><th className="text-right font-normal">{ti('colContribution')}</th></tr></thead>
                 <tbody>
                   {detail.parts.slice(col * half, (col + 1) * half).map((p: any) => {
                     const dec = p.key === 'RATIO' ? 3 : p.key === 'FG' ? 0 : p.key === 'MS' ? 1 : 2;
@@ -412,7 +414,7 @@ export function BhtDetailPopover({ hover, detail, forward, onLeave, onHold, live
                 };
                 return (
                   <table className="w-full font-mono text-[11px]">
-                    <thead><tr className="text-slate-500"><th className="text-left font-normal py-0.5"></th>{matureY.map((y) => <th key={y} className="text-right font-normal">{y}Y</th>)}{showHoy && <th className="text-right font-normal" title="Retorno parcial hasta hoy (horizontes aún no maduros)">~Hoy</th>}</tr></thead>
+                    <thead><tr className="text-slate-500"><th className="text-left font-normal py-0.5"></th>{matureY.map((y) => <th key={y} className="text-right font-normal">{y}Y</th>)}{showHoy && <th className="text-right font-normal" title={ti('partialTitle')}>{ti('today')}</th>}</tr></thead>
                     <tbody>
                       {([['SPX', 'spx'], ['NDX', 'ndx'], ['TQQQ', 'tqqq']] as const).map(([label, k]) => (
                         <tr key={k} className="border-t border-slate-800/60">
@@ -437,6 +439,7 @@ export function BhtDetailPopover({ hover, detail, forward, onLeave, onHold, live
 // Tabla BHT Forward: BHT Index + precios y retornos forward maduros 1/2/3/5Y.
 // Solo pinta horizontes con fecha objetivo ya cumplida (el resto es '—').
 function BhtForwardTable({ live }: { live: { current: { v: number | null; d: string | null } } }) {
+  const ti = useTranslations('Backtesting.indicators');
   const liveBht = live.current.v;
   const [rows, setRows] = useState<any[]>([]);
   const [view, setView] = useState<'daily' | 'monthly' | 'yearly'>('daily');
@@ -498,7 +501,7 @@ function BhtForwardTable({ live }: { live: { current: { v: number | null; d: str
   return (
     <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
       <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-        <h3 className="font-semibold text-slate-100">BHT Forward — retornos 1/2/3/5Y maduros</h3>
+        <h3 className="font-semibold text-slate-100">{ti('fwdTitle')}</h3>
         <div className="flex items-center gap-1">
           {(['daily', 'monthly', 'yearly'] as const).map((v) => (
             <button key={v} onClick={() => setView(v)} className={`px-3 py-1 text-xs rounded-md capitalize ${view === v ? 'bg-slate-700 text-teal-300 border border-slate-600' : 'text-slate-400 hover:text-slate-200'}`}>{v === 'daily' ? 'Daily' : v === 'monthly' ? 'Monthly' : 'Yearly'}</button>
@@ -546,7 +549,11 @@ function BhtForwardTable({ live }: { live: { current: { v: number | null; d: str
   );
 }
 
+const NAME_KEYS = ["DGS2", "DGS10", "DGS30", "BAMLH0A0HYM2", "BAMLH0A0HYM2EY", "DFEDTARU", "CPIAUCSL", "CPILFESL", "M2SL", "BOGMBASE", "DCOILWTICO", "GDP", "GDPC1", "FINRA_DEBIT", "MARGIN_GDP", "MSACSR", "VIXCLS", "FEAR_GREED", "^GSPC", "^IXIC", "TQQQ", "QQQ", "SPY", "VOO", "SCHD", "JEPQ", "SQQQ", "SPX_ADV_VOL", "SPX_DEC_VOL", "NYSE_ADV_VOL", "NYSE_DEC_VOL", "NSDQ_ADV_VOL", "NSDQ_DEC_VOL"];
+const TIP_KEYS = ["schiller_pe", "pe_ratio", "fwd_pe_ratio", "inflation", "core_inflation", "fed_rate", "treasury_30y", "vix", "fear_greed", "^GSPC", "^IXIC", "TQQQ", "QQQ", "SPY", "VOO", "SCHD", "JEPQ", "SQQQ", "DFEDTARU", "DGS2", "DGS10", "DGS30", "CPIAUCSL", "M2SL", "BOGMBASE", "DCOILWTICO", "CPILFESL", "BAMLH0A0HYM2", "BAMLH0A0HYM2EY", "GDP", "GDPC1", "FINRA_DEBIT", "MARGIN_GDP", "MSACSR", "VIXCLS", "FEAR_GREED", "NYSE_ADV_VOL", "NYSE_DEC_VOL", "NSDQ_ADV_VOL", "NSDQ_DEC_VOL", "SPX_ADV_VOL", "SPX_DEC_VOL"];
+
 export function IndicatorsPanel() {
+  const ti = useTranslations('Backtesting.indicators');
   const [indicators, setIndicators] = useState<any[]>([]);
   const [cape, setCape] = useState<any[]>([]);
   const [capeView, setCapeView] = useState<'daily'|'monthly'|'yearly'>('daily');
@@ -1045,7 +1052,7 @@ export function IndicatorsPanel() {
     return ()=> observer.disconnect();
   }, [visibleCount, capeView, capeRows.length, sortCol, sortDir]);
 
-  if (loading) return <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 text-sm text-slate-500">Cargando indicadores...</div>;
+  if (loading) return <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 text-sm text-slate-500">{ti('loading')}</div>;
 
   const capeLast = cape[cape.length - 1];
   const thermoToday = new Date().toISOString().slice(0, 10);
@@ -1091,7 +1098,7 @@ export function IndicatorsPanel() {
     <div className="space-y-6">
       <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
         <div className="flex flex-wrap items-center justify-between gap-3 mb-2">
-          <h3 className="font-semibold text-slate-100">Indicadores diarios — actualización automática</h3>
+          <h3 className="font-semibold text-slate-100">{ti('dailyTitle')}</h3>
           {isAdmin && (
           <button onClick={runSync} disabled={syncing} className="shrink-0 inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-teal-600 hover:bg-teal-500 disabled:bg-slate-700 disabled:text-slate-400 text-white text-sm font-semibold shadow border border-teal-500/30 transition">
             <span className={syncing ? 'animate-spin inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full' : ''}>{syncing ? '' : '↻'}</span>
@@ -1144,7 +1151,7 @@ export function IndicatorsPanel() {
         return (
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
           <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
-            <h3 className="font-semibold text-slate-100">Termómetro BuyHoldTime</h3>
+            <h3 className="font-semibold text-slate-100">{ti('thermoTitle')}</h3>
             <div className="flex items-center gap-2">
               <div className="inline-flex rounded-lg border border-slate-700 bg-slate-800/60 p-0.5">
                 {(['overview', 'timeline', 'stats'] as const).map((v) => (
@@ -1154,7 +1161,7 @@ export function IndicatorsPanel() {
                   </button>
                 ))}
               </div>
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700">en construcción</span>
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700">{ti('underConstruction')}</span>
             </div>
           </div>
           {thermoView === 'timeline' && <BhtTimeline />}
@@ -1197,7 +1204,7 @@ export function IndicatorsPanel() {
             <div className="mt-2 overflow-x-auto rounded-lg border border-slate-800">
               <table className="w-full text-xs font-mono">
                 <thead><tr className="text-slate-500 border-b border-slate-800">
-                  <th className="text-left font-normal px-3 py-1.5">Indicador</th><th className="text-right font-normal px-3 py-1.5">Valor</th><th className="text-right font-normal px-3 py-1.5">Puntaje</th><th className="text-right font-normal px-3 py-1.5">Peso</th><th className="text-right font-normal px-3 py-1.5">Aporte</th>
+                  <th className="text-left font-normal px-3 py-1.5">{ti('colIndicator')}</th><th className="text-right font-normal px-3 py-1.5">{ti('colValue')}</th><th className="text-right font-normal px-3 py-1.5">{ti('colScore')}</th><th className="text-right font-normal px-3 py-1.5">{ti('colWeight')}</th><th className="text-right font-normal px-3 py-1.5">{ti('colContribution')}</th>
                 </tr></thead>
                 <tbody>
                   {parts.map(p => (
@@ -1245,80 +1252,22 @@ export function IndicatorsPanel() {
 
       {/* === Cards agrupadas por categoría + tooltips === */}
       {(() => {
-        const tooltipMap: Record<string, string> = {
-          schiller_pe: 'CAPE = Precio / promedio 10a ganancias reales. >30 sobrevalorado (vender/reducir), 20-30 normal, <20 barato (comprar). Ratio = CAPE/mean3y.',
-          pe_ratio: 'S&P 500 PE = Precio / EPS 12m. Alto = mercado caro vs beneficios. Complementa CAPE (corto plazo).',
-          fwd_pe_ratio: 'Forward PE = Precio / EPS estimado 12m (operating, consenso S&P). >22 caro, 17-22 normal, <17 barato. Mira expectativas, no pasado. Debajo del promedio 10a (~19) = razonable.',
-          inflation: 'CPI YoY = (CPI_t / CPI_{t-12} -1)*100. >3% presiona Fed a subir tasas. Dato mensual FRED CPIAUCSL.',
-          core_inflation: 'Core CPI sin alimentos/energía. Más estable, la Fed lo mira para decidir tasas.',
-          fed_rate: 'FED Target Upper (DFEDTARU). 0.25% 2008-2015 ZIRP, hoy ~3.75%. Sube para frenar inflación.',
-          treasury_30y: '30Y Momentum: nivel del Treasury 30Y + delta vs MA6M. Se acelera al alza = freno a economía y liquidez (riesgo); cae = alivio. Base para valorar acciones vs bonos.',
-          vix: 'VIX = volatilidad implícita S&P 500. >30 pánico, <15 complacencia.',
-          fear_greed: 'Fear & Greed 0-100. <25 miedo (oportunidad), >75 avaricia (riesgo).',
-          '^GSPC': 'S&P 500 (^GSPC) = índice 500 grandes USA. Referencia del mercado.',
-          '^IXIC': 'Nasdaq (^IXIC) = tecnológico. Más volátil que S&P.',
-          'TQQQ': 'TQQQ = 3× QQQ diario. Decae con volatilidad, solo para tácticas cortas.',
-          'QQQ': 'QQQ = Nasdaq-100. Base para señal Mallik.',
-          'SPY': 'SPY = S&P 500 ETF. Buy&Hold benchmark.',
-          'VOO': 'VOO = S&P 500 Vanguard. Alternativa SPY.',
-          'SCHD': 'SCHD = Dividendos calidad. Inception 2011-10-20.',
-          'JEPQ': 'JEPQ = Nasdaq con covered calls + yield. Inception 2022-05-03.',
-          'SQQQ': 'SQQQ = -3× QQQ (inverso). Cobertura bajista.',
-          'DFEDTARU': 'FED Target Upper = techo del rango de tasa de la Fed. 0.25% en ZIRP 2008-2015; sube para frenar inflación, baja para rescatar.',
-          'DGS2': '2Y Momentum: nivel del Treasury 2Y + delta vs MA6M. Sube acelerado = endurecimiento descontado (riesgo); cae desde alto = alivio (oportunidad). Anticipa a la Fed. 2Y > 10Y = curva invertida.',
-          'DGS10': 'Treasury 10Y = risk-free. Base para HY 10Y+OAS.',
-          'DGS30': 'Treasury 30Y = bono del Tesoro a 30 años. Nivel + delta vs MA6M: al alza frena economía y liquidez (riesgo); a la baja alivia. Base para valorar acciones vs bonos.',
-          'CPIAUCSL': 'CPI YoY = (CPI_t / CPI_{t-12} -1)*100, inflación total. >3% presiona a la Fed a subir tasas. Dato mensual FRED.',
-          'M2SL': 'M2 = oferta monetaria amplia (efectivo + depósitos + money-market, billones $, FRED mensual). YoY >4% y acelerando + M0 expandiendo = viento a favor: bonus −10 al semáforo (oportunidad).',
-          'BOGMBASE': 'M0 = base monetaria (efectivo + reservas bancarias, FRED mensual). Δ3M >+5% con M2 >8% = bazuca Fed −20; >+30% = megabazuca −25. Si Δ3M ≤ 0 veta el tailwind.',
-          'DCOILWTICO': 'WTI = petróleo $/barril (FRED diario). Ratio vs SMA36M: shock ≥1.45 → +10, caro ≥1.20 → +5, barato <0.90 → −5, alivio <0.70 → −10 al semáforo. El +10 exige mes previo ya caro (guarda anti-spike).',
-          'CPILFESL': 'Core CPI sin alimentos ni energía. Más estable; es lo que la Fed mira para decidir tasas.',
-          'BAMLH0A0HYM2': 'HY OAS = prima riesgo high-yield sobre Treasuries. >5% estrés (2008/2020). Proxy BAA10Y*1.91 pre-2023.',
-          'BAMLH0A0HYM2EY': 'HY Effective Yield = tasa total HY (cupón+precio). Lo que pagan empresas HY.',
-          'GDP': 'GDP = PIB nominal trimestral USA (FRED GDP, $ billones SAAR). >4% nominal fuerte, <2% débil. Se muestra con YoY nominal y real.',
-          'GDPC1': 'GDPC1 = PIB real (ajustado inflación, billones 2017$). >2% expansión, <0% recesión. FRED GDPC1, YoY real = crecimiento volumen.',
-          'FINRA_DEBIT': 'FINRA Debit = saldos deudores en cuentas de margen (FINRA, millones $). Alto = apalancamiento elevado, riesgo de margin calls. Dato mensual, Excel FINRA. 1997→hoy.',
-          'MARGIN_GDP': 'Apalancamiento/PIB = FINRA Debit / PIB nominal. ≥5% extremo (euforia apalancada, riesgo de crash), 4-5% muy alto, 3-4% elevado, 2-3% normal, <2% bajo. Anticipa deleveraging.',
-          'MSACSR': 'Meses de inventario de casas nuevas USA (FRED MSACSR, mensual). >6m = exceso de oferta (mercado frío, caen precios), 4-6m equilibrado, <4m escasez (mercado caliente). Anticipa freno en construcción y consumo.',
-          'VIXCLS': 'VIX = volatilidad implícita S&P 500 a 30 días (FRED VIXCLS, diario). >30 pánico (oportunidad), 15-20 normal, <15 complacencia.',
-          'FEAR_GREED': 'CNN Fear & Greed 0-100 (diario, ~1Y historia). <25 miedo extremo (oportunidad), 25-45 miedo, 45-55 neutral, 55-75 codicia, >75 codicia extrema (riesgo).',
-          'NYSE_ADV_VOL': 'Volumen de acciones NYSE que subieron (WSJ, acciones/día). Base del Net Advancing Volume.',
-          'NYSE_DEC_VOL': 'Volumen de acciones NYSE que bajaron (WSJ, acciones/día).',
-          'NSDQ_ADV_VOL': 'Volumen de acciones Nasdaq que subieron (WSJ, acciones/día).',
-          'NSDQ_DEC_VOL': 'Volumen de acciones Nasdaq que bajaron (WSJ, acciones/día).',
-          'SPX_ADV_VOL': 'Volumen de constituyentes S&P 500 que subieron (acciones/día, 1993→hoy). Base del Net Advancing Volume.',
-          'SPX_DEC_VOL': 'Volumen de constituyentes S&P 500 que bajaron (acciones/día, 1993→hoy).',
-        };
+        const tooltipMap: Record<string, string> = Object.fromEntries(TIP_KEYS.map((k) => [k, ti(`tips.${k.replace(/[^A-Za-z0-9_]/g, '')}`)]));
         const catOrder = [
-          { key: 'valoracion', label: 'Valoración', icon: '📊', keys: ['schiller_pe','pe_ratio','fwd_pe_ratio'] },
-          { key: 'inflacion', label: 'Inflación y Política Monetaria', icon: '🏛️', keys: ['inflation','core_inflation','fed_rate'] },
-          { key: 'liquidez', label: 'Liquidez', icon: '💧', keys: ['M2SL','BOGMBASE'] },
-          { key: 'energia', label: 'Energía', icon: '🛢️', keys: ['DCOILWTICO'] },
-          { key: 'sentimiento', label: 'Sentimiento', icon: '😱', keys: ['VIXCLS','FEAR_GREED'] },
-          { key: 'apalancamiento', label: 'Apalancamiento', icon: '💳', keys: ['FINRA_DEBIT','MARGIN_GDP'] },
-          { key: 'tasas', label: 'Curva y Crédito', icon: '📈', keys: ['treasury_30y','DGS2','DGS10','DGS30','BAMLH0A0HYM2','BAMLH0A0HYM2EY'] },
-          { key: 'crecimiento', label: 'Crecimiento', icon: '🏭', keys: ['GDP'] },
-          { key: 'vivienda', label: 'Vivienda', icon: '🏠', keys: ['MSACSR'] },
-          { key: 'volumen', label: 'Volumen y amplitud', icon: '⚖️', keys: ['SPX_ADV_VOL','SPX_DEC_VOL','NYSE_ADV_VOL','NYSE_DEC_VOL','NSDQ_ADV_VOL','NSDQ_DEC_VOL'] },
-          { key: 'mercado', label: 'Mercado al contado', icon: '💹', keys: ['^GSPC','^IXIC','TQQQ','QQQ','SPY','VOO','SCHD','JEPQ','SQQQ'] },
+          { key: 'valoracion', label: ti('cats.valoracion'), icon: '📊', keys: ['schiller_pe','pe_ratio','fwd_pe_ratio'] },
+          { key: 'inflacion', label: ti('cats.inflacion'), icon: '🏛️', keys: ['inflation','core_inflation','fed_rate'] },
+          { key: 'liquidez', label: ti('cats.liquidez'), icon: '💧', keys: ['M2SL','BOGMBASE'] },
+          { key: 'energia', label: ti('cats.energia'), icon: '🛢️', keys: ['DCOILWTICO'] },
+          { key: 'sentimiento', label: ti('cats.sentimiento'), icon: '😱', keys: ['VIXCLS','FEAR_GREED'] },
+          { key: 'apalancamiento', label: ti('cats.apalancamiento'), icon: '💳', keys: ['FINRA_DEBIT','MARGIN_GDP'] },
+          { key: 'tasas', label: ti('cats.tasas'), icon: '📈', keys: ['treasury_30y','DGS2','DGS10','DGS30','BAMLH0A0HYM2','BAMLH0A0HYM2EY'] },
+          { key: 'crecimiento', label: ti('cats.crecimiento'), icon: '🏭', keys: ['GDP'] },
+          { key: 'vivienda', label: ti('cats.vivienda'), icon: '🏠', keys: ['MSACSR'] },
+          { key: 'volumen', label: ti('cats.volumen'), icon: '⚖️', keys: ['SPX_ADV_VOL','SPX_DEC_VOL','NYSE_ADV_VOL','NYSE_DEC_VOL','NSDQ_ADV_VOL','NSDQ_DEC_VOL'] },
+          { key: 'mercado', label: ti('cats.mercado'), icon: '💹', keys: ['^GSPC','^IXIC','TQQQ','QQQ','SPY','VOO','SCHD','JEPQ','SQQQ'] },
         ];
         const indByKey = new Map(indicators.map((i:any)=>[i.key, i]));
-        const marketName: Record<string, string> = {
-          'DGS2': 'Treasury 2Y', 'DGS10': 'Treasury 10Y', 'DGS30': 'Treasury 30Y',
-          'BAMLH0A0HYM2': 'High-Yield Spread', 'BAMLH0A0HYM2EY': 'High-Yield Yield',
-          'DFEDTARU': 'Tasa Fed', 'CPIAUCSL': 'Inflación (CPI)', 'CPILFESL': 'Inflación núcleo',
-          'M2SL': 'Oferta monetaria M2', 'BOGMBASE': 'Base monetaria M0',
-          'DCOILWTICO': 'Petróleo WTI',
-          'GDP': 'PIB nominal USA', 'GDPC1': 'PIB real USA', 'FINRA_DEBIT': 'Deuda de margen',
-          'MARGIN_GDP': 'Apalancamiento / PIB', 'MSACSR': 'Inventario vivienda',
-          'VIXCLS': 'Volatilidad VIX', 'FEAR_GREED': 'Miedo y Avaricia',
-          '^GSPC': 'S&P 500', '^IXIC': 'Nasdaq', 'TQQQ': 'TQQQ 3×', 'QQQ': 'Nasdaq 100',
-          'SPY': 'S&P 500 ETF', 'VOO': 'S&P 500 Vanguard', 'SCHD': 'Dividendos SCHD',
-          'JEPQ': 'Nasdaq cubierto JEPQ', 'SQQQ': 'Inverso SQQQ',
-          'SPX_ADV_VOL': 'Vol. al alza S&P', 'SPX_DEC_VOL': 'Vol. a la baja S&P',
-          'NYSE_ADV_VOL': 'Vol. al alza NYSE', 'NYSE_DEC_VOL': 'Vol. a la baja NYSE',
-          'NSDQ_ADV_VOL': 'Vol. al alza Nasdaq', 'NSDQ_DEC_VOL': 'Vol. a la baja Nasdaq',
-        };
+        const marketName: Record<string, string> = Object.fromEntries(NAME_KEYS.map((k) => [k, ti(`names.${k.replace(/[^A-Za-z0-9_]/g, '')}`)]));
         const mktTickers = Object.keys(markets);
         const renderTooltip = (text:string) => (
           <div className="group relative inline-flex ml-1">
@@ -1510,7 +1459,7 @@ export function IndicatorsPanel() {
                 </div>
               );
             })}
-            <p className="text-xs text-slate-500">Mercado live Yahoo (5 min) + FRED (1h). CAPE diario desde DB. Hover “?” para interpretación.</p>
+            <p className="text-xs text-slate-500">{ti('marketHint')}</p>
           </div>
         );
       })()}
@@ -1519,7 +1468,7 @@ export function IndicatorsPanel() {
 
       <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
         <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-          <h3 className="font-semibold text-slate-100">CAPE Shiller — SP500 / Nasdaq / TQQQ</h3>
+          <h3 className="font-semibold text-slate-100">{ti('capeChartTitle')}</h3>
           <div className="flex items-center gap-2">
           <button onClick={()=>{
             const buildSheet = (view: 'daily'|'monthly'|'yearly')=>{
@@ -1636,7 +1585,7 @@ export function IndicatorsPanel() {
             const sheets = [buildSheet('daily'), buildSheet('monthly'), buildSheet('yearly')];
             exportToExcel(`CAPE-Shiller-Completo-${new Date().toISOString().slice(0,10)}.xlsx`, sheets);
           }} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-teal-600 hover:bg-teal-500 text-white text-xs font-semibold transition">
-            <Download size={14} /> Excel (3 pestañas)
+            <Download size={14} /> {ti('excel3')}
           </button>
           <div className="flex gap-1 p-1 bg-slate-800 border border-slate-700 rounded-lg">
             {(['daily','monthly','yearly'] as const).map(v=>(
