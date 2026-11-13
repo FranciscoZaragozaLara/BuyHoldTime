@@ -84,7 +84,9 @@ Marcar `[x]` con rama y commit al terminar.
 - [ ] **Usuario:** definir jurisdicción y correo de contacto (`NEXT_PUBLIC_LEGAL_JURISDICTION`, `NEXT_PUBLIC_LEGAL_CONTACT_EMAIL`) y hacer revisar los términos por un abogado (México/EE.UU.) antes del lanzamiento.
 - [x] Controles de admin solo con rol ADMIN (`useIsAdmin`): sync de mercado (Indicadores, Regímenes) y recálculo de corridas, Run & Seed, y detalles internos del cron; sección "Operaciones de datos" en `/admin` con el sync. Códigos internos de estrategia solo para admin: visitantes ven el nombre (`StrategyLabelsProvider` en tablas, gráficas, Excel y selectores). El backend ya exigía `AdminOrApiKeyGuard`. Verificado con Playwright sin sesión (0 códigos visibles) y con sesión admin — rama `feat/admin-only-controls`.
 - [ ] Nombres públicos de estrategias: varios todavía llevan jerga interna (p. ej. "ZILPH", "sweetspot", "f0.74").
-- [ ] Textos a next-intl (hoy mezcla español/inglés: "Buy/Hold Index Score", "out of 100", "Key Metrics").
+- [~] Textos a next-intl, por fases (~830 textos fijos). **Fase 1 hecha** (rama `feat/i18n-public-pages`): home (namespace `Home`, hero sin promesas de "momento exacto"), footer (`Footer`), tarjeta Buy/Hold y métricas de la ficha (`Ticker`), "Key Metrics" → "Métricas clave".
+  - [ ] Fase 2: tablas de la ficha y la lista que alternan con `locale === 'es'` (StockHistoryTable, QuarterlyDataTable, StockChart, StockSeoSummary, PricesListClient) y metadatos/títulos de página (`generateMetadata` por idioma).
+  - [ ] Fase 3: Backtesting (IndicatorsPanel, RegimesPanel, RegimesDocsTable, BhtStats…), hoy solo en español.
 - [ ] Tokens de diseño: verde favorable, ámbar precaución, rojo riesgo; un solo acento.
 - [ ] Monitor de frescura por fuente (EDGAR, GuruFocus, FRED, precios) con aviso al admin.
 - [ ] Dividir `IndicatorsPanel.tsx` (2,073 líneas), `RegimesPanel.tsx` (1,510) y `EpsHistoryChart.tsx` (984).

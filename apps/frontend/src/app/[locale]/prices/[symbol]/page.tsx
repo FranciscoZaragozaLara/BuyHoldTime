@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getTickerDetails, getTickers, TickerDetails, HistoricalPrice } from '@/services/api';
 import { slimPrices } from '@/lib/slimPrices';
+import { getTranslations } from 'next-intl/server';
 import { Layout } from '@/components/Layout';
 import { StockChart } from '@/components/StockChart';
 import { StockHistoryTable } from '@/components/StockHistoryTable';
@@ -183,6 +184,7 @@ export default async function TickerDetailsPage({
   params: Promise<Params>;
 }) {
   const { symbol, locale } = await params;
+  const tTicker = await getTranslations({ locale, namespace: 'Ticker' });
   
   let details: TickerDetails;
   let offlineFallback = false;
@@ -454,7 +456,7 @@ export default async function TickerDetailsPage({
             <div className="p-6 rounded-2xl border border-slate-900 bg-slate-950/60 backdrop-blur-xl shadow-2xl flex-1 flex flex-col items-center justify-center text-center gap-6">
               <div className="w-full border-b border-slate-900/60 pb-3 flex justify-between items-center">
                 <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-                  Buy/Hold Index Score
+                  {tTicker('scoreTitle')}
                 </h3>
                 <Star size={14} className="fill-amber-400 stroke-amber-400" />
               </div>
@@ -502,7 +504,7 @@ export default async function TickerDetailsPage({
                 <div className="absolute bottom-4 flex flex-col items-center">
                   <span className="text-3xl font-black text-white">{score}</span>
                   <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mt-0.5">
-                    out of 100
+                    {tTicker('outOf100')}
                   </span>
                 </div>
               </div>

@@ -37,7 +37,7 @@ export const FundamentalTablesTab: React.FC<FundamentalTablesTabProps> = ({ snap
     },
     {
       id: 'keyMetrics',
-      label: locale === 'es' ? 'Key Metrics' : 'Key Metrics',
+      label: locale === 'es' ? 'Métricas clave' : 'Key Metrics',
       icon: BarChart2,
       score: null,
     },
@@ -90,7 +90,7 @@ export const FundamentalTablesTab: React.FC<FundamentalTablesTabProps> = ({ snap
 
   const sectionMapping: Record<string, { title: string; keys: string[] }> = {
     keyMetrics: {
-      title: locale === 'es' ? 'Key Metrics' : 'Key Metrics',
+      title: locale === 'es' ? 'Métricas clave' : 'Key Metrics',
       keys: ['keyMetrics'],
     },
     valuation: {

@@ -1,6 +1,6 @@
 import React from 'react';
 import Link from 'next/link';
-import { useTranslations } from 'next-intl';
+import { getTranslations } from 'next-intl/server';
 import { ArrowRight, Star, Sparkles } from 'lucide-react';
 import { Layout } from '@/components/Layout';
 import { SubscribeForm } from '@/components/SubscribeForm';
@@ -26,6 +26,7 @@ export default async function HomePage({
   params: Promise<{ locale: string }>;
 }) {
   const { locale } = await params;
+  const t = await getTranslations({ locale, namespace: 'Home' });
   let tickers: Ticker[] = [];
   let indicators: Indicator[] = [];
   let errorState = false;
@@ -105,16 +106,16 @@ export default async function HomePage({
         <section className="flex flex-col items-center text-center gap-6 max-w-4xl mx-auto py-8">
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-teal-500/20 bg-teal-500/5 text-teal-400 text-xs font-semibold">
             <Sparkles size={14} className="animate-pulse" />
-            <span>The intelligent way to navigate the stock market</span>
+            <span>{t('badge')}</span>
           </div>
 
           <h1 className="text-4xl sm:text-6xl font-black tracking-tight leading-none text-white">
-            Invest Smartly.<br />
-            Buy at the <span className="bg-gradient-to-r from-teal-400 to-emerald-400 bg-clip-text text-transparent">Exact Time</span>.
+            {t('heroLine1')}<br />
+            {t('heroLine2a')}<span className="bg-gradient-to-r from-teal-400 to-emerald-400 bg-clip-text text-transparent">{t('heroLine2b')}</span>.
           </h1>
 
           <p className="text-base sm:text-lg text-slate-400 max-w-2xl leading-relaxed">
-            BuyHoldTime combines global macroeconomic metrics, historical stock models, and technical indicators to help you spot optimum long-term investing windows.
+            {t('heroSubtitle')}
           </p>
 
           <div className="flex flex-wrap gap-4 mt-4 justify-center">
@@ -122,14 +123,14 @@ export default async function HomePage({
               href={`/${locale}/prices`} 
               className="flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-bold text-slate-950 bg-teal-400 hover:bg-teal-300 transition"
             >
-              Explore Tickers
+              {t('ctaTickers')}
               <ArrowRight size={16} />
             </Link>
             <Link 
               href={`/${locale}/indicators`} 
               className="flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-bold text-slate-200 bg-slate-900 border border-slate-800 hover:bg-slate-800 hover:text-white transition"
             >
-              Market Indicators
+              {t('ctaIndicators')}
             </Link>
           </div>
         </section>
@@ -137,7 +138,7 @@ export default async function HomePage({
         {/* Market Gauges Dashboard */}
         <section className="flex flex-col gap-6">
           <h2 className="text-xl font-bold tracking-tight text-white text-center sm:text-left">
-            Main Market Indicators
+            {t('indicatorsTitle')}
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             <IndexSparklineCard
@@ -184,17 +185,17 @@ export default async function HomePage({
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div>
               <h2 className="text-xl font-bold tracking-tight text-white">
-                Top Buy/Hold Index Scores
+                {t('topTitle')}
               </h2>
               <p className="text-sm text-slate-500 mt-1">
-                Highest model scores on our algorithmic Buy/Hold Index (educational, not recommendations).
+                {t('topSubtitle')}
               </p>
             </div>
             <Link 
               href={`/${locale}/prices`} 
               className="text-xs font-semibold text-teal-400 hover:text-teal-300 transition"
             >
-              View All 50 Tickers →
+              {t('viewAll', { count: tickers.length })}
             </Link>
           </div>
 
@@ -225,11 +226,11 @@ export default async function HomePage({
 
                   <div className="flex justify-between items-center">
                     <div>
-                      <span className="text-[10px] text-slate-500 uppercase font-semibold">Price</span>
+                      <span className="text-[10px] text-slate-500 uppercase font-semibold">{t('price')}</span>
                       <p className="text-lg font-extrabold text-white">${stock.price.toFixed(2)}</p>
                     </div>
                     <div className="text-right">
-                      <span className="text-[10px] text-slate-500 uppercase font-semibold">Daily Change</span>
+                      <span className="text-[10px] text-slate-500 uppercase font-semibold">{t('dailyChange')}</span>
                       <p className={`text-base font-bold ${stock.changePercent >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                         {stock.changePercent >= 0 ? '+' : ''}{stock.changePercent}%
                       </p>
@@ -239,7 +240,7 @@ export default async function HomePage({
                   <div className="flex justify-between items-center bg-slate-900/30 border border-slate-900/50 p-3 rounded-xl text-xs">
                     <span className="text-slate-400 flex items-center gap-1">
                       <Star size={14} className="fill-amber-400 stroke-amber-400" />
-                      BuyHold Index Score
+                      {t('indexScore')}
                     </span>
                     <span className={`font-extrabold text-sm ${isBuy ? 'text-emerald-400' : 'text-amber-400'}`}>
                       {stock.buyHoldIndex} / 100
@@ -247,9 +248,9 @@ export default async function HomePage({
                   </div>
 
                   <div className="flex gap-4 text-[10px] text-slate-500">
-                    <span>P/E Ratio: <strong>{stock.pe}x</strong></span>
+                    <span>{t('pe')} <strong>{stock.pe}x</strong></span>
                     <span>•</span>
-                    <span>Div Yield: <strong>{stock.dy}%</strong></span>
+                    <span>{t('divYield')} <strong>{stock.dy}%</strong></span>
                   </div>
                 </div>
               );

@@ -17,6 +17,7 @@ interface LayoutProps {
 export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const t = useTranslations('Navigation');
   const tLegal = useTranslations('Legal');
+  const tFooter = useTranslations('Footer');
   const locale = useLocale();
   const pathname = usePathname();
   const router = useRouter();
@@ -216,21 +217,19 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                 BuyHold<span className="text-teal-500">Time</span>.com
               </p>
               <p className="text-slate-500 leading-relaxed text-[11px]">
-                A stock market timing platform combining macroeconomic indicators,
-                Shiller PE (CAPE), P/E ratios, EPS history, and algorithmic scoring
-                to help long-term investors identify optimal buying windows.
+                {tFooter('description')}
               </p>
             </div>
 
             {/* Tools Column */}
             <nav aria-label="Tools navigation">
-              <p className="font-bold text-slate-400 uppercase tracking-widest text-[10px] mb-3">Tools</p>
+              <p className="font-bold text-slate-400 uppercase tracking-widest text-[10px] mb-3">{tFooter('tools')}</p>
               <ul className="flex flex-col gap-2">
                 {[
-                  { label: 'Stock Prices & Buy/Hold Index', path: `/${locale}/prices` },
-                  { label: 'Shiller PE (CAPE) Indicator', path: `/${locale}/indicators` },
-                  { label: 'Market Value Indicators', path: `/${locale}/indicators` },
-                  { label: 'FINRA Margin Debt Model', path: `/${locale}/indicators` },
+                  { label: tFooter('toolPrices'), path: `/${locale}/prices` },
+                  { label: tFooter('toolCape'), path: `/${locale}/indicators` },
+                  { label: tFooter('toolValue'), path: `/${locale}/indicators` },
+                  { label: tFooter('toolMargin'), path: `/${locale}/indicators` },
                 ].map(({ label, path }) => (
                   <li key={label}>
                     <Link href={path} className="hover:text-teal-400 transition text-[11px]">
@@ -243,12 +242,12 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
 
             {/* Popular Stocks Column */}
             <nav aria-label="Popular stocks">
-              <p className="font-bold text-slate-400 uppercase tracking-widest text-[10px] mb-3">Popular Analysis</p>
+              <p className="font-bold text-slate-400 uppercase tracking-widest text-[10px] mb-3">{tFooter('popular')}</p>
               <ul className="flex flex-col gap-2">
                 {['AAPL', 'MSFT', 'NVDA', 'AMZN', 'GOOGL', 'META', 'TSLA'].map((sym) => (
                   <li key={sym}>
                     <Link href={`/${locale}/prices/${sym}`} className="hover:text-teal-400 transition text-[11px]">
-                      {sym} Stock Analysis & P/E Ratio
+                      {tFooter('stockLink', { symbol: sym })}
                     </Link>
                   </li>
                 ))}
@@ -257,12 +256,12 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
 
             {/* ETFs & Indexes Column */}
             <nav aria-label="ETF and index analysis">
-              <p className="font-bold text-slate-400 uppercase tracking-widest text-[10px] mb-3">ETFs & Indexes</p>
+              <p className="font-bold text-slate-400 uppercase tracking-widest text-[10px] mb-3">{tFooter('etfs')}</p>
               <ul className="flex flex-col gap-2">
                 {['SPY', 'QQQ'].map((sym) => (
                   <li key={sym}>
                     <Link href={`/${locale}/prices/${sym}`} className="hover:text-teal-400 transition text-[11px]">
-                      {sym} ETF Price & Buy/Hold Score
+                      {tFooter('etfLink', { symbol: sym })}
                     </Link>
                   </li>
                 ))}
@@ -283,7 +282,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                 {tLegal('termsLink')}
               </Link>
             </p>
-            <p className="text-slate-700">Built with Next.js · NestJS</p>
+            <p className="text-slate-700">{tFooter('builtWith')}</p>
           </div>
 
         </div>

@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { useLocale } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import { Sparkles, DollarSign, Award, TrendingUp, BarChart2 } from 'lucide-react';
 import { Ticker } from '@/services/api';
 
@@ -30,6 +30,7 @@ function formatVolumeValue(val: number | null | undefined): string {
 
 export const FundamentalAnalysisCard: React.FC<FundamentalAnalysisCardProps> = ({ ticker, snapshot }) => {
   const locale = useLocale();
+  const tm = useTranslations('Ticker.metrics');
 
   const bhtScore = snapshot?.gfScore ?? null;
   const bhtValue = snapshot?.gfValue ? Number(snapshot.gfValue) : null;
@@ -76,39 +77,39 @@ export const FundamentalAnalysisCard: React.FC<FundamentalAnalysisCardProps> = (
 
   // Consolidated non-repeating metrics organized by Broker category
   const valuationMetrics = [
-    { label: 'Market Cap', value: ticker.cap || 'N/A' },
-    { label: 'Enterprise Val.', value: formatFinancialValue(ticker.enterpriseValue) },
+    { label: tm('marketCap'), value: ticker.cap || 'N/A' },
+    { label: tm('enterpriseValue'), value: formatFinancialValue(ticker.enterpriseValue) },
     { 
-      label: 'P/E (Trailing)', 
+      label: tm('peTrailing'), 
       value: (snapshot?.pe && Number(snapshot.pe) >= 3) ? `${Number(snapshot.pe).toFixed(1)}x` : (ticker.pe ? `${ticker.pe.toFixed(1)}x` : 'N/A') 
     },
     { 
-      label: 'Forward P/E', 
+      label: tm('forwardPe'), 
       value: snapshot?.forwardPe ? `${Number(snapshot.forwardPe).toFixed(1)}x` : (ticker.forwardPe ? `${ticker.forwardPe.toFixed(1)}x` : 'N/A') 
     },
     { 
-      label: 'P/B Ratio', 
+      label: tm('pb'), 
       value: snapshot?.pb ? `${Number(snapshot.pb).toFixed(2)}x` : (ticker.bookValue ? `${(currentPrice / ticker.bookValue).toFixed(2)}x` : 'N/A') 
     },
     { 
-      label: 'P/S Ratio', 
+      label: tm('ps'), 
       value: snapshot?.psRatio ? `${Number(snapshot.psRatio).toFixed(2)}x` : 'N/A' 
     },
     { 
-      label: 'EV / EBITDA', 
+      label: tm('evEbitda'), 
       value: snapshot?.evToEbitda ? `${Number(snapshot.evToEbitda).toFixed(2)}x` : 'N/A' 
     },
     { 
-      label: 'PEG Ratio', 
+      label: tm('peg'), 
       value: snapshot?.pegRatio ? `${Number(snapshot.pegRatio).toFixed(2)}x` : (ticker.pegRatio ? `${ticker.pegRatio.toFixed(2)}x` : 'N/A') 
     },
     { 
-      label: 'Shiller P/E', 
+      label: tm('shillerPe'), 
       value: snapshot?.shillerPe ? `${Number(snapshot.shillerPe).toFixed(2)}x` : 'N/A' 
     },
-    { label: 'Sector', value: ticker.sector || 'N/A' },
+    { label: tm('sector'), value: ticker.sector || 'N/A' },
     { 
-      label: 'P/E Term. Sector', 
+      label: tm('peTerminalSector'), 
       value: ticker.sectorTerminalPe ? `${ticker.sectorTerminalPe.toFixed(1)}x` : 'N/A' 
     },
   ];
@@ -118,9 +119,9 @@ export const FundamentalAnalysisCard: React.FC<FundamentalAnalysisCardProps> = (
     : (ticker.pe ? `${((1 / ticker.pe) * 100).toFixed(2)}%` : 'N/A');
 
   const earningsMetrics = [
-    { label: 'EPS (TTM)', value: ticker.eps ? `$${ticker.eps.toFixed(2)}` : 'N/A' },
-    { label: 'Earnings Yield', value: earningsYieldVal },
-    { label: 'Book Value', value: ticker.bookValue ? `$${ticker.bookValue.toFixed(2)}` : 'N/A' },
+    { label: tm('eps'), value: ticker.eps ? `$${ticker.eps.toFixed(2)}` : 'N/A' },
+    { label: tm('earningsYield'), value: earningsYieldVal },
+    { label: tm('bookValue'), value: ticker.bookValue ? `$${ticker.bookValue.toFixed(2)}` : 'N/A' },
   ];
 
   const perfData = (precalculatedPerformance as any)[ticker.symbol];
@@ -130,13 +131,13 @@ export const FundamentalAnalysisCard: React.FC<FundamentalAnalysisCardProps> = (
   const fromHighColorCard = isAtHighCard ? 'text-teal-400 font-bold' : 'text-rose-400 font-bold';
 
   const marketMetrics = [
-    { label: 'From High', value: fromHighFormattedCard, isCustomColor: true, colorClass: fromHighColorCard },
-    { label: 'Div. Rate', value: ticker.dividendRate ? `$${ticker.dividendRate.toFixed(2)}` : '$0.00' },
+    { label: tm('fromHigh'), value: fromHighFormattedCard, isCustomColor: true, colorClass: fromHighColorCard },
+    { label: tm('divRate'), value: ticker.dividendRate ? `$${ticker.dividendRate.toFixed(2)}` : '$0.00' },
     { 
-      label: 'Div. Yield', 
+      label: tm('divYield'), 
       value: snapshot?.dividendYield ? `${(Number(snapshot.dividendYield) * 100).toFixed(2)}%` : (ticker.dy ? `${ticker.dy.toFixed(2)}%` : '0.00%') 
     },
-    { label: 'Avg. Volume', value: formatVolumeValue(ticker.avgVolume) },
+    { label: tm('avgVolume'), value: formatVolumeValue(ticker.avgVolume) },
   ];
 
   return (

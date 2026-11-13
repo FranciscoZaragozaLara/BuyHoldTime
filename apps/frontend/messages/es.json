@@ -298,5 +298,61 @@
       "back": "Volver al inicio"
     },
     "dataSources": "Datos públicos de la SEC (EDGAR) y de agencias federales de EE.UU., entre otras fuentes."
+  },
+  "Home": {
+    "badge": "Datos y modelos para analizar el mercado",
+    "heroLine1": "Invierte con datos.",
+    "heroLine2a": "Entiende el ",
+    "heroLine2b": "momento del mercado",
+    "heroSubtitle": "BuyHoldTime reúne métricas macroeconómicas, valuaciones históricas e indicadores técnicos en herramientas educativas para analizar el mercado con visión de largo plazo.",
+    "ctaTickers": "Explorar acciones",
+    "ctaIndicators": "Indicadores de mercado",
+    "indicatorsTitle": "Principales indicadores del mercado",
+    "topTitle": "Puntuaciones Buy/Hold más altas",
+    "topSubtitle": "Las puntuaciones más altas del modelo algorítmico Buy/Hold (educativo, no son recomendaciones).",
+    "viewAll": "Ver los {count} tickers →",
+    "price": "Precio",
+    "dailyChange": "Cambio diario",
+    "indexScore": "Puntuación Buy/Hold",
+    "pe": "P/E:",
+    "divYield": "Rend. dividendo:"
+  },
+  "Footer": {
+    "description": "Plataforma educativa de análisis bursátil que combina indicadores macroeconómicos, CAPE de Shiller, razones P/E, historial de EPS y puntuaciones algorítmicas para estudiar el mercado con visión de largo plazo.",
+    "tools": "Herramientas",
+    "toolPrices": "Precios e índice Buy/Hold",
+    "toolCape": "Indicador CAPE de Shiller",
+    "toolValue": "Indicadores de valuación del mercado",
+    "toolMargin": "Modelo de deuda en margen",
+    "popular": "Análisis populares",
+    "stockLink": "{symbol}: análisis y razón P/E",
+    "etfs": "ETFs e índices",
+    "etfLink": "{symbol}: precio y puntuación Buy/Hold",
+    "builtWith": "Hecho con Next.js · NestJS"
+  },
+  "Ticker": {
+    "scoreTitle": "Puntuación Buy/Hold",
+    "outOf100": "de 100",
+    "metrics": {
+      "marketCap": "Capitalización",
+      "enterpriseValue": "Valor empresa",
+      "peTrailing": "P/E (12 meses)",
+      "forwardPe": "P/E estimado",
+      "pb": "P/VL",
+      "ps": "P/Ventas",
+      "evEbitda": "EV / EBITDA",
+      "peg": "PEG",
+      "shillerPe": "P/E de Shiller",
+      "sector": "Sector",
+      "peTerminalSector": "P/E terminal sector",
+      "eps": "EPS (12 meses)",
+      "earningsYield": "Rend. de utilidades",
+      "bookValue": "Valor en libros",
+      "fromHigh": "Desde máximo",
+      "divRate": "Dividendo anual",
+      "divYield": "Rend. dividendo",
+      "avgVolume": "Volumen prom."
+    },
+    "keyMetrics": "Métricas clave"
   }
 }

@@ -298,5 +298,61 @@
       "back": "Back to home"
     },
     "dataSources": "Public data from the SEC (EDGAR) and U.S. federal agencies, among other sources."
+  },
+  "Home": {
+    "badge": "Data and models to analyze the market",
+    "heroLine1": "Invest with data.",
+    "heroLine2a": "Understand ",
+    "heroLine2b": "market timing",
+    "heroSubtitle": "BuyHoldTime brings together macroeconomic metrics, historical valuations, and technical indicators in educational tools to analyze the market with a long-term view.",
+    "ctaTickers": "Explore tickers",
+    "ctaIndicators": "Market indicators",
+    "indicatorsTitle": "Main market indicators",
+    "topTitle": "Top Buy/Hold Index Scores",
+    "topSubtitle": "Highest model scores on our algorithmic Buy/Hold Index (educational, not recommendations).",
+    "viewAll": "View all {count} tickers →",
+    "price": "Price",
+    "dailyChange": "Daily change",
+    "indexScore": "Buy/Hold Index Score",
+    "pe": "P/E:",
+    "divYield": "Div. yield:"
+  },
+  "Footer": {
+    "description": "An educational market analysis platform combining macroeconomic indicators, Shiller PE (CAPE), P/E ratios, EPS history, and algorithmic scoring to study the market with a long-term view.",
+    "tools": "Tools",
+    "toolPrices": "Stock Prices & Buy/Hold Index",
+    "toolCape": "Shiller PE (CAPE) Indicator",
+    "toolValue": "Market Value Indicators",
+    "toolMargin": "Margin Debt Model",
+    "popular": "Popular Analysis",
+    "stockLink": "{symbol} Stock Analysis & P/E Ratio",
+    "etfs": "ETFs & Indexes",
+    "etfLink": "{symbol} ETF Price & Buy/Hold Score",
+    "builtWith": "Built with Next.js · NestJS"
+  },
+  "Ticker": {
+    "scoreTitle": "Buy/Hold Index Score",
+    "outOf100": "out of 100",
+    "metrics": {
+      "marketCap": "Market Cap",
+      "enterpriseValue": "Enterprise Val.",
+      "peTrailing": "P/E (Trailing)",
+      "forwardPe": "Forward P/E",
+      "pb": "P/B Ratio",
+      "ps": "P/S Ratio",
+      "evEbitda": "EV / EBITDA",
+      "peg": "PEG Ratio",
+      "shillerPe": "Shiller P/E",
+      "sector": "Sector",
+      "peTerminalSector": "P/E Term. Sector",
+      "eps": "EPS (TTM)",
+      "earningsYield": "Earnings Yield",
+      "bookValue": "Book Value",
+      "fromHigh": "From High",
+      "divRate": "Div. Rate",
+      "divYield": "Div. Yield",
+      "avgVolume": "Avg. Volume"
+    },
+    "keyMetrics": "Key Metrics"
   }
 }
