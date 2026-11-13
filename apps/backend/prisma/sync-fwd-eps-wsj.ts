@@ -2,7 +2,7 @@ import 'dotenv/config';
 import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { databaseUrl } from './db-url';
-import { impliedForwardEps, parseWsjPeYields, WSJ_PE_URL } from '../src/modules/market-data/wsj-pe';
+import { fetchWsjPeHtml, impliedForwardEps, parseWsjPeYields } from '../src/modules/market-data/wsj-pe';
 
 // SPX_FWD_EPS automático: P/E estimado a 12 meses del S&P 500 (Birinyi Associates, tabla de WSJ,
 // actualizada cada viernes) → EPS estimado = cierre del S&P 500 de esa fecha / P/E estimado.
@@ -12,9 +12,7 @@ const adapter = new PrismaPg({ connectionString: databaseUrl() });
 const prisma = new PrismaClient({ adapter });
 
 async function main() {
-  const res = await fetch(WSJ_PE_URL, { headers: { 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36' } });
-  if (!res.ok) throw new Error(`WSJ HTTP ${res.status}`);
-  const row = parseWsjPeYields(await res.text());
+  const row = parseWsjPeYields(await fetchWsjPeHtml());
   if (!row) throw new Error('No se encontró la fila S&P 500 Index en la tabla de WSJ (¿cambió el HTML?)');
   if (!row.estimate) throw new Error(`WSJ sin P/E estimado para ${row.asOf}`);
   const px = await prisma.btMarketData.findFirst({ where: { ticker: '^GSPC', date: { lte: new Date(`${row.asOf}T00:00:00Z`) } }, orderBy: { date: 'desc' } });

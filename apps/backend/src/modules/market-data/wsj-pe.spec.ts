@@ -1,4 +1,4 @@
-import { impliedForwardEps, parseWsjPeYields } from './wsj-pe';
+import { impliedForwardEps, MonthlyPeEntry, parseWsjPeYields, setMonthlyPe, WSJ_NDX } from './wsj-pe';
 
 const row = (name: string, ...v: string[]) => `<tr class="r"><td class="c is-first">${name}</td>${v.map((x) => `<td class="c">${x}</td>`).join('')}</tr>`;
 const table = (date: string, rows: string) => `<table class="t"><thead><tr><th></th><th colSpan="3"><div>P/E RATIO</div></th><th colSpan="2"><div>DIV YIELD</div></th></tr>
@@ -18,5 +18,24 @@ describe('parseWsjPeYields', () => {
   });
   test('EPS implícito', () => {
     expect(impliedForwardEps(7376.86, 18.95)).toBe(389.2802);
+  });
+});
+
+describe('setMonthlyPe', () => {
+  const e = (date: string, pe: number): MonthlyPeEntry => ({ date, period: `M${date.slice(5, 7)}`, fiscalYear: date.slice(0, 4), revenue: 0, netIncome: 0, eps: 0, epsDiluted: 0, sharesOutstanding: 0, peRatio: pe, source: 'real' });
+  const base = [e('2026-10-31', 27.12), e('2026-09-30', 29.06)];
+  test('mes nuevo: entrada al fin de mes, primero en la lista, sin tocar los demás', () => {
+    const r = setMonthlyPe(base, '2026-11-06', 26.98);
+    expect(r).toEqual([e('2026-11-30', 26.98), ...base]);
+    expect(base).toHaveLength(2);
+  });
+  test('mismo mes: reemplaza (queda el último dato semanal) y febrero bisiesto', () => {
+    const r = setMonthlyPe(setMonthlyPe(base, '2026-11-06', 26.98), '2026-11-27', 27.5);
+    expect(r.filter((x) => x.date.startsWith('2026-11'))).toEqual([e('2026-11-30', 27.5)]);
+    expect(setMonthlyPe([], '2028-02-25', 30)[0].date).toBe('2028-02-29');
+    expect(setMonthlyPe([], '2026-10-30', 26.123456)[0]).toEqual(e('2026-10-31', 26.1235));
+  });
+  test('fila del Nasdaq 100 en la tabla', () => {
+    expect(parseWsjPeYields(HTML, WSJ_NDX)).toMatchObject({ asOf: '2026-11-06', trailing: 26.98, estimate: 19.7 });
   });
 });

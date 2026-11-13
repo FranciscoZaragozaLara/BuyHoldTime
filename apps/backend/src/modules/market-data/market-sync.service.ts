@@ -183,7 +183,7 @@ export class MarketSyncService {
     }
   }
 
-  // P/E estimado del S&P 500 (WSJ / Birinyi, viernes) → SPX_FWD_EPS. Una consulta diaria a las
+  // P/E estimado del S&P 500 (WSJ / Birinyi, viernes) → SPX_FWD_EPS; luego P/E del Nasdaq 100. Una consulta diaria a las
   // 07:15 ET: el sábado toma el dato del viernes; los demás días solo confirma. FWD_EPS_SYNC_CRON=off apaga.
   @Cron('15 7 * * *', { timeZone: 'America/New_York' })
   async handleDailyFwdEps() {
@@ -198,6 +198,15 @@ export class MarketSyncService {
     } catch (e: any) {
       this.logger.error(`Forward EPS (WSJ) falló: ${e.message?.slice(0, 200)}`);
       await logSourceRun(this.prisma, { source: 'spx_fwd_eps', process: 'fwd-eps-wsj', startedAt, status: 'error', message: e.message });
+    }
+    // P/E trailing y estimado del Nasdaq 100 (misma tabla) → NDX_PE, NDX_FWD_PE y mes actual de QQQ/TQQQ.
+    const ndxStartedAt = new Date();
+    try {
+      await this.runTsScript('prisma/sync-ndx-pe-wsj.ts', {});
+      await logSourceRun(this.prisma, { source: 'ndx_pe', process: 'ndx-pe-wsj', startedAt: ndxStartedAt, status: 'ok' });
+    } catch (e: any) {
+      this.logger.error(`P/E Nasdaq 100 (WSJ) falló: ${e.message?.slice(0, 200)}`);
+      await logSourceRun(this.prisma, { source: 'ndx_pe', process: 'ndx-pe-wsj', startedAt: ndxStartedAt, status: 'error', message: e.message });
     }
   }
 

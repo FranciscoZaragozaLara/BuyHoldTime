@@ -49,6 +49,9 @@ export const DATA_SOURCES: SourceConfig[] = [
   // EPS estimado del S&P 500: P/E estimado de Birinyi (tabla de WSJ, viernes) → cron diario de market-sync.
   { id: 'spx_fwd_eps', type: 'scraper', cadence: 'weekly', lateDays: 10, staleDays: 21,
     sql: mdMax(null, ['SPX_FWD_EPS']), series: ['SPX_FWD_EPS'] },
+  // P/E trailing y estimado del Nasdaq 100 (misma tabla de WSJ) → también el mes actual de QQQ/TQQQ.
+  { id: 'ndx_pe', type: 'scraper', cadence: 'weekly', lateDays: 10, staleDays: 21,
+    sql: mdMax(null, ['NDX_PE', 'NDX_FWD_PE']), series: ['NDX_PE', 'NDX_FWD_PE'] },
   // EPS del S&P 500 a 12 meses: columna E de ie_data.xls (Shiller), cargada por daily_update.py.
   { id: 'spx_eps', type: 'file', cadence: 'quarterly', lateDays: 200, staleDays: 280,
     sql: mdMax(null, ['SPX_EPS']), series: ['SPX_EPS'] },

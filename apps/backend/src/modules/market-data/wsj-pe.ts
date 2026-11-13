@@ -30,3 +30,32 @@ export function parseWsjPeYields(html: string, index = 'S&P 500 Index'): WsjPeRo
 export function impliedForwardEps(price: number, forwardPe: number): number {
   return Math.round((price / forwardPe) * 1e4) / 1e4;
 }
+
+export const WSJ_NDX = 'NASDAQ 100 Index';
+
+/** Descarga el HTML de la tabla (User-Agent de navegador: WSJ rechaza clientes sin él). */
+export async function fetchWsjPeHtml(): Promise<string> {
+  const res = await fetch(WSJ_PE_URL, { headers: { 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36' } });
+  if (!res.ok) throw new Error(`WSJ HTTP ${res.status}`);
+  return res.text();
+}
+
+/** Entrada mensual de P/E de fondos (QQQ/TQQQ) en historical_eps_quarterly. */
+export type MonthlyPeEntry = {
+  date: string; period: string; fiscalYear: string; revenue: number; netIncome: number;
+  eps: number; epsDiluted: number; sharesOutstanding: number; peRatio?: number | null; source: string;
+};
+
+/**
+ * Pone `pe` en la entrada del fin de mes de `asOf` (convención de la serie: una entrada por mes,
+ * fecha = último día; los fondos la buscan por mes calendario). Reemplaza la del mismo mes, así que
+ * al cerrar el mes queda el último dato semanal. No toca los demás meses. Orden: más reciente primero.
+ */
+export function setMonthlyPe(entries: MonthlyPeEntry[], asOf: string, pe: number): MonthlyPeEntry[] {
+  const [y, m] = asOf.split('-').map(Number);
+  const last = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  const mm = String(m).padStart(2, '0');
+  const date = `${y}-${mm}-${String(last).padStart(2, '0')}`;
+  const entry: MonthlyPeEntry = { date, period: `M${mm}`, fiscalYear: String(y), revenue: 0, netIncome: 0, eps: 0, epsDiluted: 0, sharesOutstanding: 0, peRatio: Math.round(pe * 1e4) / 1e4, source: 'real' };
+  return [...entries.filter((e) => e.date.slice(0, 7) !== date.slice(0, 7)), entry].sort((a, b) => b.date.localeCompare(a.date));
+}

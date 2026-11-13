@@ -910,6 +910,10 @@
         "spx_fwd_eps": {
           "name": "S&P 500 EPS estimado (WSJ / Birinyi)",
           "feeds": "P/E estimado del termómetro"
+        },
+        "ndx_pe": {
+          "name": "P/E Nasdaq 100 (WSJ / Birinyi)",
+          "feeds": "P/E mensual de QQQ/TQQQ (EPS implícito en tablas de precios)"
         }
       },
       "noRuns": "sin registro",

@@ -910,6 +910,10 @@
         "spx_fwd_eps": {
           "name": "S&P 500 forward EPS (WSJ / Birinyi)",
           "feeds": "Thermometer forward P/E"
+        },
+        "ndx_pe": {
+          "name": "Nasdaq 100 P/E (WSJ / Birinyi)",
+          "feeds": "QQQ/TQQQ monthly P/E (implied EPS in price tables)"
         }
       },
       "noRuns": "no record",
