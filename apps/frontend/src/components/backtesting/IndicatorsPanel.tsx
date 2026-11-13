@@ -4,6 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useState, useRef, useMemo } fr
 import { useLocale, useTranslations } from 'next-intl';
 import { levelLabel } from '@/lib/levelLabels';
 import { capeBandLabel } from '@/lib/capeBands';
+import { buildEpsSchedule, epsAt } from '@/lib/spxEps';
 import { bhtHistoryRows, monthLabel, orbHistoryRows, shortDate, ORB_PART_KEY, PART_ORB_NAME, type MonthlyParts, type OrbHistoryRow } from '@/lib/orbHistory';
 import { useMarketSyncStream } from './useMarketSyncStream';
 import MarketSyncModal from './MarketSyncModal';
@@ -675,6 +676,9 @@ export function IndicatorsPanel() {
   const [marketHistory, setMarketHistory] = useState<Record<string, Map<string, number>>>({});
   // Filas de la tabla CAPE: serie CAPE o, si falta, días hábiles del SP500 (ver lib/capeTableRows).
   const capeRows: any[] = useMemo(() => buildCapeTableRows(cape, marketHistory['^GSPC']?.keys()), [cape, marketHistory]);
+  // EPS registrado del S&P 500 (último mes de Shiller ya publicado a cada fecha; ver src/lib/spxEps.ts).
+  const epsSchedule = useMemo(() => buildEpsSchedule(marketHistory['SPX_EPS']), [marketHistory]);
+  const regEps = (d: string): number | null => epsAt(epsSchedule, d)?.eps ?? null;
   const [volHistory, setVolHistory] = useState<Record<string, Map<string, number>>>({});
   const [thermoHist, setThermoHist] = useState<Record<string, { value: number; numerator: number; denominator: number; coverage: number; bonus?: number; bonusLabel?: string; liqBonus?: number; liqBonusLabel?: string; oilBonus?: number; oilBonusLabel?: string }>>({});
   const capeBhtDet = useBhtDetail();
@@ -1171,7 +1175,7 @@ export function IndicatorsPanel() {
   const thermoSpx = (liveGspc?.data?.close != null && liveGspc.data.source !== 'db-fallback') ? Number(liveGspc.data.close) : getClosestPrice(marketHistory['^GSPC'], thermoToday);
   const thermoFwdEps = getRecentPrice(marketHistory['SPX_FWD_EPS'], thermoToday, 130);
   const thermoFwd = thermoSpx != null && thermoFwdEps != null && thermoFwdEps !== 0 ? thermoSpx / thermoFwdEps : null;
-  const thermoEps = getRecentPrice(marketHistory['SPX_EPS'], thermoToday, 120);
+  const thermoEps = regEps(thermoToday);
   const thermoPe = thermoSpx != null && thermoEps != null && thermoEps !== 0 ? thermoSpx / thermoEps : null;
   const thermoCpi = getCpiYoY(marketHistory['CPIAUCSL'], liveMap['CPIAUCSL']?.data?.date || thermoToday);
   const thermoCore = getCpiYoY(marketHistory['CPILFESL'], liveMap['CPILFESL']?.data?.date || thermoToday);
@@ -1637,8 +1641,8 @@ export function IndicatorsPanel() {
                   if(sortCol==='hyOas') return getClosestPrice(marketHistory['BAMLH0A0HYM2'], d) ?? -1e9;
                   if(sortCol==='hyEy') return getClosestPrice(marketHistory['BAMLH0A0HYM2EY'], d) ?? -1e9;
                   if(sortCol==='hy10y') { const o=getClosestPrice(marketHistory['BAMLH0A0HYM2'], d); const t=getClosestPrice(marketHistory['DGS10'], d); return (o!=null&&t!=null)? o+t : -1e9; }
-                  if(sortCol==='spxeps') return getRecentPrice(marketHistory['SPX_EPS'], d, 120) ?? -1e9;
-                  if(sortCol==='spxpe') { const p=getClosestPrice(marketHistory['^GSPC'], d); const e=getRecentPrice(marketHistory['SPX_EPS'], d, 120); return (p!=null&&e!=null&&e!==0)? p/e : -1e9; }
+                  if(sortCol==='spxeps') return regEps(d) ?? -1e9;
+                  if(sortCol==='spxpe') { const p=getClosestPrice(marketHistory['^GSPC'], d); const e=regEps(d); return (p!=null&&e!=null&&e!==0)? p/e : -1e9; }
                   if(sortCol==='spxfwdpe') { const p=getClosestPrice(marketHistory['^GSPC'], d); const e=getRecentPrice(marketHistory['SPX_FWD_EPS'], d, 130); return (p!=null&&e!=null&&e!==0)? p/e : -1e9; }
                   if(sortCol==='cape') return r.cape ?? -1e9;
                   if(sortCol==='mean3y') return (r.mean3y ?? r.mean ?? -1e9);
@@ -1694,7 +1698,7 @@ export function IndicatorsPanel() {
                 const obvXls = getClosestPrice(obvMap, d);
                 const fuerzaXls = getClosestPrice(fuerzaMap, d);
                 const obvtXls = getClosestPrice(obvzMap, d);
-                const spxEpsXls = getRecentPrice(marketHistory['SPX_EPS'], d, 120);
+                const spxEpsXls = regEps(d);
                 const spxXls = getClosestPrice(marketHistory['^GSPC'], d);
                 const spxFwdEpsXls = getRecentPrice(marketHistory['SPX_FWD_EPS'], d, 130);
                 const peTtmXls = (spxXls!=null && spxEpsXls!=null && spxEpsXls!==0) ? spxXls/spxEpsXls : null;
@@ -1843,8 +1847,8 @@ export function IndicatorsPanel() {
                     if(sortCol==='m2yoy') return monthlyPctLive(marketHistory['M2SL'], d, 12) ?? -Infinity;
                     if(sortCol==='m0') return getRecentPrice(marketHistory['BOGMBASE'], d, 40) ?? -Infinity;
                     if(sortCol==='m0d3') return monthlyPctLive(marketHistory['BOGMBASE'], d, 3) ?? -Infinity;
-                    if(sortCol==='spxeps') return getRecentPrice(marketHistory['SPX_EPS'], d, 120) ?? -Infinity;
-                    if(sortCol==='spxpe') { const p=getClosestPrice(marketHistory['^GSPC'], d); const e=getRecentPrice(marketHistory['SPX_EPS'], d, 120); return (p!=null&&e!=null&&e!==0)? p/e : -Infinity; }
+                    if(sortCol==='spxeps') return regEps(d) ?? -Infinity;
+                    if(sortCol==='spxpe') { const p=getClosestPrice(marketHistory['^GSPC'], d); const e=regEps(d); return (p!=null&&e!=null&&e!==0)? p/e : -Infinity; }
                     if(sortCol==='spxfwdpe') { const p=getClosestPrice(marketHistory['^GSPC'], d); const e=getRecentPrice(marketHistory['SPX_FWD_EPS'], d, 130); return (p!=null&&e!=null&&e!==0)? p/e : -Infinity; }
                     if(sortCol==='cape') return r.cape ?? -Infinity;
                     if(sortCol==='capeAdj') return r.capeAdjusted ?? -Infinity;
@@ -1945,7 +1949,7 @@ export function IndicatorsPanel() {
                 const obv = getClosestPrice(obvMap, d);
                 const fuerza = getClosestPrice(fuerzaMap, d);
                 const obvt = getClosestPrice(obvzMap, d);
-                const spxEps = getRecentPrice(marketHistory['SPX_EPS'], d, 120);
+                const spxEps = regEps(d);
                 const spxFwdEps = getRecentPrice(marketHistory['SPX_FWD_EPS'], d, 130);
                 const br = breadthVals(d);
                 const fmtVol = (v:number|null) => v==null ? '—' : v>=1e9 ? `${(v/1e9).toFixed(2)}B` : `${(v/1e6).toFixed(1)}M`;
@@ -1965,7 +1969,7 @@ export function IndicatorsPanel() {
                   {(()=>{ const p=getCAGR(d); if(p==null) return <td className="p-2 text-right font-mono whitespace-nowrap text-slate-500">—</td>; const cls = p>15?'text-favorable-400 bg-favorable-500/10':p>10?'text-green-400 bg-green-500/10':p>5?'text-caution-400 bg-caution-500/10':p>0?'text-elevated-400 bg-elevated-500/10':'text-risk-400 bg-risk-500/10'; const arrow = p>0?'▲':'▼'; const years = ((new Date().getTime()-new Date(d).getTime())/(365.25*24*60*60*1000)).toFixed(1); return <td className={`p-2 text-right font-mono whitespace-nowrap font-semibold rounded ${cls}`} title={`CAGR ${d} → hoy (${years}a): (Phoy/Pd)^(1/años)-1`}>{arrow} {p.toFixed(2)}%</td>; })()}
                   {(()=>{ if(ndxDisp==null) return <td className="p-2 text-right font-mono text-sky-300 whitespace-nowrap">—</td>; return <td className="p-2 text-right font-mono text-sky-300 whitespace-nowrap cursor-help" onMouseEnter={(e)=> setStockHover({ticker:'^IXIC', d, x:e.clientX, y:e.clientY, cape: r.cape ?? null, ratio: r.capeRatio ?? null})} onMouseMove={(e)=> setStockHover(s=> s && s.ticker==='^IXIC' && s.d===d ? {...s, x:e.clientX, y:e.clientY}: s)} onMouseLeave={()=> setStockHover(null)}><span className="border-b border-dotted border-sky-400/40">${Number(ndxDisp).toFixed(2)}</span></td>; })()}
                   {(()=>{ if(tqqqDisp==null) return <td className="p-2 text-right font-mono text-sky-300 whitespace-nowrap">—</td>; return <td className="p-2 text-right font-mono text-sky-300 whitespace-nowrap cursor-help" onMouseEnter={(e)=> setStockHover({ticker:'TQQQ', d, x:e.clientX, y:e.clientY, cape: r.cape ?? null, ratio: r.capeRatio ?? null})} onMouseMove={(e)=> setStockHover(s=> s && s.ticker==='TQQQ' && s.d===d ? {...s, x:e.clientX, y:e.clientY}: s)} onMouseLeave={()=> setStockHover(null)}><span className="border-b border-dotted border-sky-400/40">${Number(tqqqDisp).toFixed(2)}</span></td>; })()}
-                  <td className="p-2 text-right font-mono text-accent-300 whitespace-nowrap" title={`S&P 500 EPS TTM ${d} — Shiller (ie_data.xls), mensual`}>{spxEps!=null?`$${spxEps.toFixed(2)}`:'—'}</td>
+                  <td className="p-2 text-right font-mono text-accent-300 whitespace-nowrap" title={`S&P 500 EPS TTM registrado ${d} — último mes de Shiller (ie_data.xls) publicado a esa fecha`}>{spxEps!=null?`$${spxEps.toFixed(2)}`:'—'}</td>
                   {(()=>{ const pe=(spxDisp!=null&&spxEps!=null&&spxEps!==0)? spxDisp/spxEps : null; if(pe==null) return <td className="p-2 text-right font-mono text-accent-300 whitespace-nowrap">—</td>; return <td className="p-2 text-right font-mono text-accent-300 whitespace-nowrap" title={`PE TTM ${d} — precio SPX / EPS TTM`}>{pe.toFixed(2)}</td>; })()}
                   {(()=>{ const pe=(spxDisp!=null&&spxFwdEps!=null&&spxFwdEps!==0)? spxDisp/spxFwdEps : null; if(pe==null) return <td className="p-2 text-right font-mono text-accent-300 whitespace-nowrap">—</td>; return <td className="p-2 text-right font-mono text-accent-300 whitespace-nowrap" title={`Forward PE ${d} — precio SPX / EPS estimado 12m (operating)`}>{pe.toFixed(2)}</td>; })()}
                   <td className="p-2 text-right font-mono text-favorable-400 whitespace-nowrap" title={r.e10Month ? `CAPE registrado ${d}: S&P 500 ÷ E10 de ${String(r.e10Month).slice(0, 7)} (${r.e10 != null ? Number(r.e10).toFixed(2) : '—'})` : undefined}>{r.cape?.toFixed(2) ?? '—'}</td>
