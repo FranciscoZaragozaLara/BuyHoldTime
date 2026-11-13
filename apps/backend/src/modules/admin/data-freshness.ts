@@ -46,8 +46,9 @@ export const DATA_SOURCES: SourceConfig[] = [
     sql: mdMax('finra', ['FINRA_DEBIT']), series: ['FINRA_DEBIT'] },
   { id: 'shiller_cape', type: 'file', cadence: 'monthly', lateDays: 50, staleDays: 80,
     sql: `SELECT 'E10 (ie_data.xls)' AS series, max(e10_month)::text AS d FROM bt_shiller_daily` },
-  { id: 'yardeni_fwd_eps', type: 'file', cadence: 'weekly', lateDays: 10, staleDays: 21,
-    sql: mdMax('yardeni%', ['SPX_FWD_EPS']), series: ['SPX_FWD_EPS'] },
+  // EPS estimado del S&P 500: P/E estimado de Birinyi (tabla de WSJ, viernes) → cron diario de market-sync.
+  { id: 'spx_fwd_eps', type: 'scraper', cadence: 'weekly', lateDays: 10, staleDays: 21,
+    sql: mdMax(null, ['SPX_FWD_EPS']), series: ['SPX_FWD_EPS'] },
   // EPS del S&P 500 a 12 meses: columna E de ie_data.xls (Shiller), cargada por daily_update.py.
   { id: 'spx_eps', type: 'file', cadence: 'quarterly', lateDays: 200, staleDays: 280,
     sql: mdMax(null, ['SPX_EPS']), series: ['SPX_EPS'] },

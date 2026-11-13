@@ -372,7 +372,7 @@
       "tips": {
         "schiller_pe": "CAPE = Precio / promedio 10a ganancias reales. >30 sobrevalorado, 20-30 normal, <20 barato. Ratio = CAPE/mean3y.",
         "pe_ratio": "S&P 500 PE = Precio / EPS 12m. Alto = mercado caro vs beneficios. Complementa CAPE (corto plazo).",
-        "fwd_pe_ratio": "Forward PE = Precio / EPS estimado 12m (operating, consenso S&P). >22 caro, 17-22 normal, <17 barato. Mira expectativas, no pasado. Debajo del promedio 10a (~19) = razonable.",
+        "fwd_pe_ratio": "Forward PE = Precio / EPS estimado a 12 meses (Birinyi Associates vía WSJ, operating, se actualiza cada viernes). >23.5 elevado, 20.5-23.5 caro, 16-20.5 justo, <16 barato. Mira expectativas, no el pasado.",
         "inflation": "CPI YoY = (CPI_t / CPI_(t−12) -1)*100. >3% presiona Fed a subir tasas. Dato mensual FRED CPIAUCSL.",
         "core_inflation": "Core CPI sin alimentos/energía. Más estable, la Fed lo mira para decidir tasas.",
         "fed_rate": "FED Target Upper (DFEDTARU). 0.25% 2008-2015 ZIRP, hoy ~3.75%. Sube para frenar inflación.",
@@ -844,7 +844,7 @@
       },
       "days": "{n} d",
       "thresholds": "Atrasada después de {late} días, vencida después de {stale}",
-      "footer": "Fecha de referencia: {today} (hora de Nueva York). Las corridas vienen de data_source_runs (sync de precios, daily_update.py, stream de mercado, amplitud, termómetro, EDGAR y GuruFocus); Yardeni se actualiza a mano.",
+      "footer": "Fecha de referencia: {today} (hora de Nueva York). Las corridas vienen de data_source_runs (sync de precios, daily_update.py, stream de mercado, amplitud, EPS estimado, termómetro, EDGAR y GuruFocus).",
       "menuStale": "{n} fuente(s) de datos vencida(s) o con corrida fallida",
       "src": {
         "stock_prices": {
@@ -887,10 +887,6 @@
           "name": "Shiller CAPE (ie_data.xls)",
           "feeds": "CAPE registrado, ratio, termómetro"
         },
-        "yardeni_fwd_eps": {
-          "name": "Yardeni EPS estimado",
-          "feeds": "P/E estimado del termómetro"
-        },
         "sec_edgar": {
           "name": "SEC EDGAR",
           "feeds": "EPS e ingresos trimestrales (10-Q / 10-K)"
@@ -910,6 +906,10 @@
         "spx_eps": {
           "name": "S&P 500 EPS (Shiller E)",
           "feeds": "P/E trailing del S&P 500 y columna SPX EPS"
+        },
+        "spx_fwd_eps": {
+          "name": "S&P 500 EPS estimado (WSJ / Birinyi)",
+          "feeds": "P/E estimado del termómetro"
         }
       },
       "noRuns": "sin registro",

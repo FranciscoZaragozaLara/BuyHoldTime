@@ -94,10 +94,10 @@ function bandScore(segs: [number, number, number, number][], v: number): number 
 export function capeRiskScore(cape: number): number {
   return bandScore(CAPE_SEGS.map(([lo, hi, sLo, sHi]) => [lo, hi, sLo, sHi] as [number, number, number, number]), cape);
 }
-// Forward PE: misma escala de puntos (Caro = 50–60 como base central)
+// Forward PE (EPS de Birinyi vía WSJ): bandas ×1.07 respecto a Yardeni; espejo de FWD_SEGS del backend.
 const FWD_SEGS: [number, number, number, number][] = [
-  [-Infinity, 15, 0, 25], [15, 19, 25, 50], [19, 22, 50, 80],
-  [22, 24, 80, 100], [24, Infinity, 100, 100],
+  [-Infinity, 16, 0, 25], [16, 20.5, 25, 50], [20.5, 23.5, 50, 80],
+  [23.5, 25.5, 80, 100], [25.5, Infinity, 100, 100],
 ];
 function fwdRiskScore(pe: number): number {
   return bandScore(FWD_SEGS, pe);
@@ -198,7 +198,7 @@ const partDesc: Record<string, string> = {
   MS: 'Vivienda', PIB: 'Crecimiento',
 };
 const partLabel = (k: string, loc = 'es') => partDesc[k] ? `${partName(k)} - (${levelLabel(partDesc[k], loc)})` : partName(k);
-const fwdBandLabel = (pe: number) => pe < 15 ? 'Barato' : pe < 19 ? 'Justo' : pe < 22 ? 'Caro' : pe < 24 ? 'Elevado' : 'Extremo';
+const fwdBandLabel = (pe: number) => pe < 16 ? 'Barato' : pe < 20.5 ? 'Justo' : pe < 23.5 ? 'Caro' : pe < 25.5 ? 'Elevado' : 'Extremo';
 // Bandas para el popover del orbe: [lo, hi, display, puntos, nivel]
 const CAPE_BANDS: [number, number, string, string, string][] = [
   [-Infinity, 29, '≤ 29', '0–25', 'Barato'], [29, 35, '29–35', '25–50', 'Justo'], [35, 40, '35–40', '50–70', 'Caro'], [40, 43, '40–43', '70–100', 'Elevado'], [43, Infinity, '≥ 43', '100', 'Extremo'],
@@ -260,7 +260,7 @@ const FG_BANDS: [number, number, string, string, string][] = [
   [-Infinity, 10, '≤ 10', '0', 'Miedo Extremo'], [10, 15, '10–15', '0–8', 'Pánico'], [15, 25, '15–25', '8–25', 'Miedo'], [25, 45, '25–45', '25–45', 'Cautela'], [45, 55, '45–55', '45–60', 'Neutral'], [55, 70, '55–70', '60–85', 'Codicia'], [70, 80, '70–80', '85–100', 'Euforia'], [80, Infinity, '≥ 80', '100', 'Codicia Extrema'],
 ];
 const FWD_BANDS: [number, number, string, string, string][] = [
-  [-Infinity, 15, '≤ 15', '0–25', 'Barato'], [15, 19, '15–19', '25–50', 'Justo'], [19, 22, '19–22', '50–80', 'Caro'], [22, 24, '22–24', '80–100', 'Elevado'], [24, Infinity, '≥ 24', '100', 'Extremo'],
+  [-Infinity, 16, '≤ 16', '0–25', 'Barato'], [16, 20.5, '16–20.5', '25–50', 'Justo'], [20.5, 23.5, '20.5–23.5', '50–80', 'Caro'], [23.5, 25.5, '23.5–25.5', '80–100', 'Elevado'], [25.5, Infinity, '≥ 25.5', '100', 'Extremo'],
 ];
 // Orbe de cristal genérico con puntaje; click/hover muestra valor actual + tabla de ponderación.
 type MomBlend = { level: number; levelScore: number; delta: number; ma: number; maLabel: string; trendScore: number } | null;

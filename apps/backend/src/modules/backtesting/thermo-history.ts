@@ -13,9 +13,11 @@ export const PE_SEGS: Seg[] = [
   [-Infinity, 20, 0, 25], [20, 24, 25, 50], [24, 27, 50, 80],
   [27, 30, 80, 100], [30, Infinity, 100, 100],
 ];
+// P/E estimado (EPS de Birinyi vía WSJ desde nov-2026): bandas ×1.07 respecto a las de Yardeni,
+// cuyo EPS era ~7% mayor, para que barato/justo/caro signifiquen lo mismo.
 export const FWD_SEGS: Seg[] = [
-  [-Infinity, 15, 0, 25], [15, 19, 25, 50], [19, 22, 50, 80],
-  [22, 24, 80, 100], [24, Infinity, 100, 100],
+  [-Infinity, 16, 0, 25], [16, 20.5, 25, 50], [20.5, 23.5, 50, 80],
+  [23.5, 25.5, 80, 100], [25.5, Infinity, 100, 100],
 ];
 export const RATIO_SEGS: Seg[] = [
   [-Infinity, 0.9, 0, 20], [0.9, 1.0, 20, 50], [1.0, 1.2, 50, 90],

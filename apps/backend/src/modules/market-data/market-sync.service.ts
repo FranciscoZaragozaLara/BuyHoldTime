@@ -183,6 +183,24 @@ export class MarketSyncService {
     }
   }
 
+  // P/E estimado del S&P 500 (WSJ / Birinyi, viernes) → SPX_FWD_EPS. Una consulta diaria a las
+  // 07:15 ET: el sábado toma el dato del viernes; los demás días solo confirma. FWD_EPS_SYNC_CRON=off apaga.
+  @Cron('15 7 * * *', { timeZone: 'America/New_York' })
+  async handleDailyFwdEps() {
+    if (process.env.FWD_EPS_SYNC_CRON?.trim().toLowerCase() === 'off') {
+      this.logger.log('Forward EPS (WSJ) desactivado (FWD_EPS_SYNC_CRON=off)');
+      return;
+    }
+    const startedAt = new Date();
+    try {
+      await this.runTsScript('prisma/sync-fwd-eps-wsj.ts', {});
+      await logSourceRun(this.prisma, { source: 'spx_fwd_eps', process: 'fwd-eps-wsj', startedAt, status: 'ok' });
+    } catch (e: any) {
+      this.logger.error(`Forward EPS (WSJ) falló: ${e.message?.slice(0, 200)}`);
+      await logSourceRun(this.prisma, { source: 'spx_fwd_eps', process: 'fwd-eps-wsj', startedAt, status: 'error', message: e.message });
+    }
+  }
+
   // Amplitud S&P 500 diaria (constituyentes actuales — sesgo supervivencia declarado).
   // L-V 22:35 ET: refresca últimos 5 días de SPX_ADV_VOL/SPX_DEC_VOL (500 reqs gentiles, ~10 min en background).
   @Cron('35 22 * * 1-5', { timeZone: 'America/New_York' })

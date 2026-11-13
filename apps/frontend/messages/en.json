@@ -372,7 +372,7 @@
       "tips": {
         "schiller_pe": "CAPE = Price / 10-year average of real earnings. >30 overvalued, 20-30 normal, <20 cheap. Ratio = CAPE/mean3y.",
         "pe_ratio": "S&P 500 PE = Price / trailing 12m EPS. High = market expensive vs earnings. Complements CAPE (short term).",
-        "fwd_pe_ratio": "Forward PE = Price / estimated 12m EPS (operating, S&P consensus). >22 expensive, 17-22 normal, <17 cheap. Looks at expectations, not the past. Below the 10y average (~19) = reasonable.",
+        "fwd_pe_ratio": "Forward PE = Price / estimated 12m EPS (Birinyi Associates via WSJ, operating, updated every Friday). >23.5 elevated, 20.5-23.5 expensive, 16-20.5 fair, <16 cheap. Looks at expectations, not the past.",
         "inflation": "CPI YoY = (CPI_t / CPI_(t−12) -1)*100. >3% pressures the Fed to raise rates. Monthly FRED CPIAUCSL data.",
         "core_inflation": "Core CPI excluding food/energy. More stable; the Fed watches it to set rates.",
         "fed_rate": "Fed Target Upper (DFEDTARU). 0.25% in 2008-2015 ZIRP, today ~3.75%. Rises to curb inflation.",
@@ -844,7 +844,7 @@
       },
       "days": "{n} d",
       "thresholds": "Late after {late} days, stale after {stale}",
-      "footer": "Reference date: {today} (New York time). Runs come from data_source_runs (price sync, daily_update.py, market stream, breadth, thermometer, EDGAR and GuruFocus); Yardeni is updated manually.",
+      "footer": "Reference date: {today} (New York time). Runs come from data_source_runs (price sync, daily_update.py, market stream, breadth, forward EPS, thermometer, EDGAR and GuruFocus).",
       "menuStale": "{n} data source(s) stale or with a failed run",
       "src": {
         "stock_prices": {
@@ -887,10 +887,6 @@
           "name": "Shiller CAPE (ie_data.xls)",
           "feeds": "Registered CAPE, ratio, thermometer"
         },
-        "yardeni_fwd_eps": {
-          "name": "Yardeni forward EPS",
-          "feeds": "Thermometer forward P/E"
-        },
         "sec_edgar": {
           "name": "SEC EDGAR",
           "feeds": "Quarterly EPS and revenue (10-Q / 10-K)"
@@ -910,6 +906,10 @@
         "spx_eps": {
           "name": "S&P 500 EPS (Shiller E)",
           "feeds": "S&P 500 trailing P/E and SPX EPS column"
+        },
+        "spx_fwd_eps": {
+          "name": "S&P 500 forward EPS (WSJ / Birinyi)",
+          "feeds": "Thermometer forward P/E"
         }
       },
       "noRuns": "no record",

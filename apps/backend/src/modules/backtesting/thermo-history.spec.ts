@@ -26,13 +26,13 @@ describe('thermo-history', () => {
     expect(bandScore(PE_SEGS, 26)).toBe(70);
     expect(bandScore(PE_SEGS, 27)).toBe(80);
     expect(bandScore(PE_SEGS, 30)).toBe(100);
-    // FWD 5 bandas: 19→50, 20→60, 21→70, 22→80, 23→90, 24+→100
-    expect(bandScore(FWD_SEGS, 19)).toBe(50);
-    expect(bandScore(FWD_SEGS, 20)).toBe(60);
-    expect(bandScore(FWD_SEGS, 21)).toBe(70);
-    expect(bandScore(FWD_SEGS, 22)).toBe(80);
-    expect(bandScore(FWD_SEGS, 23)).toBe(90);
-    expect(bandScore(FWD_SEGS, 24)).toBe(100);
+    // FWD 5 bandas (Birinyi, ×1.07): 16→25, 20.5→50, 22→65, 23.5→80, 24.5→90, 25.5+→100
+    expect(bandScore(FWD_SEGS, 16)).toBe(25);
+    expect(bandScore(FWD_SEGS, 20.5)).toBe(50);
+    expect(bandScore(FWD_SEGS, 22)).toBe(65);
+    expect(bandScore(FWD_SEGS, 23.5)).toBe(80);
+    expect(bandScore(FWD_SEGS, 24.5)).toBe(90);
+    expect(bandScore(FWD_SEGS, 25.5)).toBe(100);
     // RATIO 5 bandas: 1→50, 1.05→60, 1.10→70, 1.15→80, 1.20→90, 1.30+→100
     expect(bandScore(RATIO_SEGS, 1)).toBe(50);
     expect(bandScore(RATIO_SEGS, 1.05)).toBeCloseTo(60, 10);
