@@ -26,6 +26,8 @@ dist-ssr
 !package.json
 !tsconfig*.json
 !pnpm-workspace.json
+# Bandas CAPE del termómetro: datos de calibración versionados (los lee el backend).
+!packages/bht-bands/bands.json
 
 
 # Secretos de entorno
