@@ -1,4 +1,4 @@
-import { impliedForwardEps, MonthlyPeEntry, parseWsjPeYields, setMonthlyPe, WSJ_NDX } from './wsj-pe';
+import { impliedForwardEps, MonthlyPeEntry, parseWsjPeYields, setMonthlyPe, WSJ_NDX, wsjPointChanged } from './wsj-pe';
 
 const row = (name: string, ...v: string[]) => `<tr class="r"><td class="c is-first">${name}</td>${v.map((x) => `<td class="c">${x}</td>`).join('')}</tr>`;
 const table = (date: string, rows: string) => `<table class="t"><thead><tr><th></th><th colSpan="3"><div>P/E RATIO</div></th><th colSpan="2"><div>DIV YIELD</div></th></tr>
@@ -37,5 +37,16 @@ describe('setMonthlyPe', () => {
   });
   test('fila del Nasdaq 100 en la tabla', () => {
     expect(parseWsjPeYields(HTML, WSJ_NDX)).toMatchObject({ asOf: '2026-11-06', trailing: 26.98, estimate: 19.7 });
+  });
+});
+
+describe('wsjPointChanged', () => {
+  const p = (date: string, value: number) => ({ date, value });
+  test('dato nuevo por fecha o valor; sin cambio si es igual', () => {
+    expect(wsjPointChanged(p('2026-11-06', 389.28), p('2026-11-13', 391))).toBe(true);
+    expect(wsjPointChanged(p('2026-11-06', 389.28), p('2026-11-06', 389.5))).toBe(true);
+    expect(wsjPointChanged(p('2026-11-06', 389.28), p('2026-11-06', 389.28))).toBe(false);
+    expect(wsjPointChanged(null, p('2026-11-06', 1))).toBe(true);
+    expect(wsjPointChanged(p('2026-11-06', 1), null)).toBe(false);
   });
 });

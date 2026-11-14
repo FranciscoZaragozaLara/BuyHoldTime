@@ -7,6 +7,7 @@ import * as path from 'path';
 import { PrismaService } from '../../prisma/prisma.service';
 import { restoreShillerCsvFromDb, SHILLER_CSV_PATH, syncShillerCsvToDb } from '../backtesting/shiller-daily';
 import { logSourceRun, SourceRunTracker } from '../admin/data-source-runs';
+import { wsjPointChanged } from './wsj-pe';
 
 /**
  * Construye la línea planchada del día `date` para shiller_daily.csv SIN asumir
@@ -183,30 +184,50 @@ export class MarketSyncService {
     }
   }
 
-  // P/E estimado del S&P 500 (WSJ / Birinyi, viernes) → SPX_FWD_EPS; luego P/E del Nasdaq 100. Una consulta diaria a las
-  // 07:15 ET: el sábado toma el dato del viernes; los demás días solo confirma. FWD_EPS_SYNC_CRON=off apaga.
+  // Tabla "P/Es & Yields" de WSJ (Birinyi, se publica los viernes): un script por serie.
+  // `ticker` es la serie que vigila el monitor de frescura y con la que se detecta si hubo dato nuevo.
+  static readonly WSJ_PE_JOBS = [
+    { ticker: 'SPX_FWD_EPS', source: 'spx_fwd_eps', process: 'fwd-eps-wsj', script: 'prisma/sync-fwd-eps-wsj.ts', label: 'Forward EPS (WSJ)' },
+    { ticker: 'NDX_PE', source: 'ndx_pe', process: 'ndx-pe-wsj', script: 'prisma/sync-ndx-pe-wsj.ts', label: 'P/E Nasdaq 100 (WSJ)' },
+  ] as const;
+
+  private async latestPoint(ticker: string): Promise<{ date: string; value: number } | null> {
+    const row = await this.prisma.btMarketData.findFirst({ where: { ticker }, orderBy: { date: 'desc' } });
+    return row ? { date: row.date.toISOString().slice(0, 10), value: Number(row.close) } : null;
+  }
+
+  /** Corre un job de WSJ y compara la última fila antes/después. Lanza si el script falla. */
+  private async runWsjPeJob(job: (typeof MarketSyncService.WSJ_PE_JOBS)[number]) {
+    const before = await this.latestPoint(job.ticker);
+    await this.runTsScript(job.script, {});
+    const after = await this.latestPoint(job.ticker);
+    return { before, after, changed: wsjPointChanged(before, after) };
+  }
+
+  // Una consulta diaria a las 07:15 ET: el sábado toma el dato del viernes; los demás días solo confirma.
+  // Si entró un dato nuevo, recalcula el termómetro de los últimos 7 días (el BHT del viernes ya con el
+  // EPS nuevo, sin esperar a la sincronización del lunes). FWD_EPS_SYNC_CRON=off apaga.
   @Cron('15 7 * * *', { timeZone: 'America/New_York' })
   async handleDailyFwdEps() {
     if (process.env.FWD_EPS_SYNC_CRON?.trim().toLowerCase() === 'off') {
       this.logger.log('Forward EPS (WSJ) desactivado (FWD_EPS_SYNC_CRON=off)');
       return;
     }
-    const startedAt = new Date();
-    try {
-      await this.runTsScript('prisma/sync-fwd-eps-wsj.ts', {});
-      await logSourceRun(this.prisma, { source: 'spx_fwd_eps', process: 'fwd-eps-wsj', startedAt, status: 'ok' });
-    } catch (e: any) {
-      this.logger.error(`Forward EPS (WSJ) falló: ${e.message?.slice(0, 200)}`);
-      await logSourceRun(this.prisma, { source: 'spx_fwd_eps', process: 'fwd-eps-wsj', startedAt, status: 'error', message: e.message });
+    let changed = false;
+    for (const job of MarketSyncService.WSJ_PE_JOBS) {
+      const startedAt = new Date();
+      try {
+        const r = await this.runWsjPeJob(job);
+        changed ||= r.changed;
+        await logSourceRun(this.prisma, { source: job.source, process: job.process, startedAt, status: 'ok', rows: r.changed ? 1 : 0 });
+      } catch (e: any) {
+        this.logger.error(`${job.label} falló: ${e.message?.slice(0, 200)}`);
+        await logSourceRun(this.prisma, { source: job.source, process: job.process, startedAt, status: 'error', message: e.message });
+      }
     }
-    // P/E trailing y estimado del Nasdaq 100 (misma tabla) → NDX_PE, NDX_FWD_PE y mes actual de QQQ/TQQQ.
-    const ndxStartedAt = new Date();
-    try {
-      await this.runTsScript('prisma/sync-ndx-pe-wsj.ts', {});
-      await logSourceRun(this.prisma, { source: 'ndx_pe', process: 'ndx-pe-wsj', startedAt: ndxStartedAt, status: 'ok' });
-    } catch (e: any) {
-      this.logger.error(`P/E Nasdaq 100 (WSJ) falló: ${e.message?.slice(0, 200)}`);
-      await logSourceRun(this.prisma, { source: 'ndx_pe', process: 'ndx-pe-wsj', startedAt: ndxStartedAt, status: 'error', message: e.message });
+    if (changed) {
+      this.logger.log('Dato nuevo de WSJ: recalculando el termómetro de los últimos 7 días');
+      try { await this.refreshThermoTail(); } catch (e: any) { this.logger.error(`Thermo tail tras WSJ falló: ${e.message?.slice(0, 200)}`); }
     }
   }
 
@@ -414,7 +435,7 @@ export class MarketSyncService {
       purpose: string;
       source: string;
       api: string;
-      kind: 'yahoo' | 'fred' | 'finra' | 'cape' | 'cnn' | 'wsj';
+      kind: 'yahoo' | 'fred' | 'finra' | 'cape' | 'cnn' | 'wsj' | 'wsjpe';
     }> = [
       { ticker: 'TQQQ', name: 'TQQQ', purpose: 'Precio TQQQ 3x Nasdaq — subyacente apalancado', source: 'yfinance', api: 'https://query1.finance.yahoo.com/v8/finance/chart/TQQQ', kind: 'yahoo' },
       { ticker: 'QQQ', name: 'QQQ', purpose: 'Nasdaq 100 ETF — referencia Nasdaq', source: 'yfinance', api: 'https://query1.finance.yahoo.com/v8/finance/chart/QQQ', kind: 'yahoo' },
@@ -447,6 +468,9 @@ export class MarketSyncService {
       { ticker: 'BOGMBASE', name: 'BOGMBASE', purpose: 'Base monetaria M0 — inyección Fed semáforo', source: 'FRED', api: 'https://fred.stlouisfed.org/graph/fredgraph.csv?id=BOGMBASE', kind: 'fred' },
       { ticker: 'DCOILWTICO', name: 'DCOILWTICO', purpose: 'WTI petróleo — shock inflación semáforo', source: 'FRED', api: 'https://fred.stlouisfed.org/graph/fredgraph.csv?id=DCOILWTICO', kind: 'fred' },
       { ticker: 'CAPE', name: 'CAPE', purpose: 'Shiller CAPE — valuación R1', source: 'Shiller', api: 'BackTesting/data/shiller_daily.csv → bt_shiller_daily', kind: 'cape' },
+      // Después de ^GSPC (el EPS implícito usa el cierre del S&P 500 de la fecha de corte) y antes del recálculo del termómetro.
+      { ticker: 'SPX_FWD_EPS', name: 'SPX_FWD_EPS', purpose: 'EPS estimado S&P 500 (P/E de Birinyi) — Fwd PE del semáforo', source: 'WSJ / Birinyi', api: 'https://www.wsj.com/market-data/stocks/peyields', kind: 'wsjpe' },
+      { ticker: 'NDX_PE', name: 'NDX_PE', purpose: 'P/E Nasdaq 100 (trailing + estimado) — P/E mensual QQQ/TQQQ', source: 'WSJ / Birinyi', api: 'https://www.wsj.com/market-data/stocks/peyields', kind: 'wsjpe' },
     ];
 
     const send = (obj: any) => {
@@ -611,6 +635,13 @@ export class MarketSyncService {
           });
           daysExtracted = 1;
           after = v; afterDate = d;
+        } else if (ind.kind === 'wsjpe') {
+          // Mismo script que el cron de las 07:15 ET; filas = 1 si entró un dato nuevo.
+          const job = MarketSyncService.WSJ_PE_JOBS.find((j) => j.ticker === ind.ticker);
+          if (!job) throw new Error(`WSJ P/E sin job ${ind.ticker}`);
+          const r = await this.runWsjPeJob(job);
+          daysExtracted = r.changed ? 1 : 0;
+          if (r.after) { after = r.after.value; afterDate = r.after.date; }
         } else if (ind.kind === 'finra') {
           // FINRA no bloquea SSE: solo lectura DB, python va en background via patchBH/cron
           // no await runPython

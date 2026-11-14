@@ -59,3 +59,10 @@ export function setMonthlyPe(entries: MonthlyPeEntry[], asOf: string, pe: number
   const entry: MonthlyPeEntry = { date, period: `M${mm}`, fiscalYear: String(y), revenue: 0, netIncome: 0, eps: 0, epsDiluted: 0, sharesOutstanding: 0, peRatio: Math.round(pe * 1e4) / 1e4, source: 'real' };
   return [...entries.filter((e) => e.date.slice(0, 7) !== date.slice(0, 7)), entry].sort((a, b) => b.date.localeCompare(a.date));
 }
+
+/** ¿Entró un dato nuevo? (otra fecha de corte, o en la misma fecha otro valor). */
+export function wsjPointChanged(before: { date: string; value: number } | null, after: { date: string; value: number } | null): boolean {
+  if (!after) return false;
+  if (!before) return true;
+  return after.date !== before.date || Math.abs(after.value - before.value) > 1e-9;
+}
