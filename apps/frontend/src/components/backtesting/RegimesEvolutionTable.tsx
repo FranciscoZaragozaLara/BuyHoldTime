@@ -12,20 +12,18 @@ type RegimeEngine = ReturnType<typeof useRegimeEngine>;
 // Tabla de evolución de regímenes (Daily / Monthly / Yearly) con los mismos indicadores que Backtesting:
 // filtro por año, virtualización, scroll infinito y tooltips por celda. La vista la comparte con el
 // panel porque también define la ventana de R3 del motor de regímenes.
-export function RegimesEvolutionTable({ cape, capeView, setCapeView, equity, marketHistory, getRegime, getRegimeDetails, getEquityForDate, getBhEquityForDate, getDrawdownForDate, initialEquity, initialBhEquity }: {
+export function RegimesEvolutionTable({ cape, capeView, setCapeView, equity, marketHistory, getRegimeDetails, getEquityForDate, getBhEquityForDate, getDrawdownForDate, initialEquity }: {
   cape: any[]; capeView: View; setCapeView: (v: View) => void; equity: any[];
   marketHistory: Record<string, Map<string, number>>;
-  getRegime: RegimeEngine['getRegime']; getRegimeDetails: RegimeEngine['getRegimeDetails'];
+  getRegimeDetails: RegimeEngine['getRegimeDetails'];
   getEquityForDate: (iso: string) => number | null; getBhEquityForDate: (iso: string) => number | null; getDrawdownForDate: (iso: string) => number | null;
-  initialEquity: number; initialBhEquity: number;
+  initialEquity: number;
 }) {
-  const t = useTranslations('Backtesting.regimes');
   const tr = useTranslations('Backtesting.regimesPanel');
   const getMarginGdpRatio = (d: string) => marginGdpRatio(marketHistory['FINRA_DEBIT'], marketHistory['GDP'], d);
   const [visibleCount, setVisibleCount] = useState(15);
   const [filterYear, setFilterYear] = useState<string>('');
-  const [sortCol, setSortCol] = useState<string>('date');
-  const [sortDir, setSortDir] = useState<'asc'|'desc'>('desc');
+  const [sortDir] = useState<'asc'|'desc'>('desc');
 
   const [tableTip, setTableTip] = useState<null|{x:number,y:number,node:React.ReactNode}>(null);
 
@@ -145,7 +143,6 @@ export function RegimesEvolutionTable({ cape, capeView, setCapeView, equity, mar
               {paddingTop>0 && (<tr><td colSpan={34} style={{ height: paddingTop }} /></tr>)}
               {virtualItems.map((virtualRow:any)=>{
                 const r:any = sorted[virtualRow.index];
-                const idx = virtualRow.index;
                 const d=String(r.date||'').slice(0,10);
                 const maxDate = sorted.length ? sorted.reduce((m:string, row:any)=> String(row.date||'').slice(0,10) > m ? String(row.date||'').slice(0,10) : m, String(sorted[0].date||'').slice(0,10)) : null;
                 const isCurrent = d === maxDate;
@@ -172,14 +169,11 @@ export function RegimesEvolutionTable({ cape, capeView, setCapeView, equity, mar
                 const fgR=getClosestPrice(marketHistory['FEAR_GREED'],d);
                 const spx=getClosestPrice(marketHistory['^GSPC'],d);
                 const nasdaqVal=getClosestPrice(marketHistory['^IXIC'],d);
-                const regime=getRegime(d, capeVal, ratio);
-                const regimeColor= regime==='Stress'?'bg-risk-500/20 text-risk-400 border-risk-500/30': regime==='Bull'?'bg-favorable-500/20 text-favorable-400 border-favorable-500/30':'bg-caution-500/20 text-caution-400 border-caution-500/30';
                 const ratioColor = ratio==null ? 'text-slate-500' : ratio < 0.9 ? 'text-favorable-400 bg-favorable-500/10' : ratio < 1.05 ? 'text-green-400 bg-green-500/10' : ratio < 1.18 ? 'text-caution-400 bg-caution-500/10' : ratio < 1.35 ? 'text-elevated-400 bg-elevated-500/10' : 'text-risk-400 bg-risk-500/10';
                 const mgColor = mg==null ? 'text-slate-500' : mg>6?'text-risk-400 bg-risk-500/10 border-risk-500/20':mg>4?'text-elevated-400 bg-elevated-500/10 border-elevated-500/20':mg>2?'text-caution-400 bg-caution-500/10 border-caution-500/20':'text-favorable-400 bg-favorable-500/10 border-favorable-500/20';
                 const portVal = getEquityForDate(d);
                 const bhVal = getBhEquityForDate(d);
                 const perf = portVal!=null ? (portVal/initialEquity-1)*100 : null;
-                const bhPerf = bhVal!=null ? (bhVal/initialBhEquity-1)*100 : null;
                 const days = (new Date(d).getTime() - new Date(equity[0]?.date || d).getTime())/86400000;
                 const cagrVal = portVal!=null && days>30 ? (Math.pow(portVal/initialEquity, 365.25/days)-1)*100 : null;
                 const ddVal = getDrawdownForDate(d);

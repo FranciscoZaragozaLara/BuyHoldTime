@@ -24,7 +24,6 @@ export function RegimesPanel() {
   const t = useTranslations('Backtesting.regimes');
   const tr = useTranslations('Backtesting.regimesPanel');
   const locale = useLocale();
-  const tTabs = useTranslations('Backtesting.tabs');
   const [run, setRun] = useState<any>(null);
   const [metrics, setMetrics] = useState<any>(null);
   const [equity, setEquity] = useState<any[]>([]);
@@ -244,6 +243,18 @@ export function RegimesPanel() {
   },[selectedA, selectedAStart, selectedB, selectedBStart]);
 
     // Equity chart dual: Estrategia (teal) vs BH Baseline (gris punteado)
+  // Series de equity para la gráfica y la tabla (declaradas antes del efecto que las usa).
+  const equityMap = useMemo(()=>{ const m=new Map<string,number>(); for(const e of equity) m.set(e.date, Number(e.value)); return m; }, [equity]);
+  const equityDrawdownMap = useMemo(()=>{ const m=new Map<string,number>(); for(const e of equity) if(e.drawdown!=null) m.set(e.date, Number(e.drawdown)); return m; }, [equity]);
+  const initialEquity = useMemo(()=> equity.length ? Number(equity[0].value) : 100000, [equity]);
+  const bhEquityMap = useMemo(()=>{ const m=new Map<string,number>(); for(const e of bhEquity) m.set(e.date, Number(e.value)); return m; }, [bhEquity]);
+  const capeMap = useMemo(()=>{ const m=new Map<string,any>(); for(const c of cape) m.set(String(c.date).slice(0,10), c); return m; }, [cape]);
+  const initialBhEquity = useMemo(()=> bhEquity.length ? Number(bhEquity[0].value) : 100000, [bhEquity]);
+  const getBhEquityForDate = useCallback((iso:string)=> getClosestPrice(bhEquityMap, iso) ?? getRecentPrice(bhEquityMap, iso), [bhEquityMap]);
+  const getEquityForDate = useCallback((iso:string)=> getClosestPrice(equityMap, iso) ?? getRecentPrice(equityMap, iso), [equityMap]);
+  const getDrawdownForDate = useCallback((iso:string)=> getClosestPrice(equityDrawdownMap, iso), [equityDrawdownMap]);
+  const [equityTooltip, setEquityTooltip] = useState<null|{x:number,y:number,date:string,value:number|null,bhValue:number|null,perf:number|null,bhPerf:number|null,diff:number|null,cagr:number|null,bhCagr:number|null,regime:string,drawdown:number|null,r1?:boolean,r2?:boolean,r3?:boolean,total?:number, tradeA?:any, tradeB?:any, markerMeta?:any, ind?:any}>(null);
+
   useEffect(() => {
     if (!equity.length && !bhEquity.length) return;
     let chart:any = null;
@@ -419,16 +430,6 @@ export function RegimesPanel() {
     return () => { if(raf) cancelAnimationFrame(raf as any); if(ro) ro.disconnect(); try{ if(chart) chart.unsubscribeCrosshairMove(handleCrosshair); }catch{}; try{ if(chart) chart.remove(); }catch{}; if(equityChartApiRef.current===chart) equityChartApiRef.current=null; setEquityTooltip(null); };
   }, [equity, bhEquity, cape, marketHistory, capeView, tradesA, tradesB]);
 
-  const equityMap = useMemo(()=>{ const m=new Map<string,number>(); for(const e of equity) m.set(e.date, Number(e.value)); return m; }, [equity]);
-  const equityDrawdownMap = useMemo(()=>{ const m=new Map<string,number>(); for(const e of equity) if(e.drawdown!=null) m.set(e.date, Number(e.drawdown)); return m; }, [equity]);
-  const initialEquity = useMemo(()=> equity.length ? Number(equity[0].value) : 100000, [equity]);
-  const bhEquityMap = useMemo(()=>{ const m=new Map<string,number>(); for(const e of bhEquity) m.set(e.date, Number(e.value)); return m; }, [bhEquity]);
-  const capeMap = useMemo(()=>{ const m=new Map<string,any>(); for(const c of cape) m.set(String(c.date).slice(0,10), c); return m; }, [cape]);
-  const initialBhEquity = useMemo(()=> bhEquity.length ? Number(bhEquity[0].value) : 100000, [bhEquity]);
-  const getBhEquityForDate = useCallback((iso:string)=> getClosestPrice(bhEquityMap, iso) ?? getRecentPrice(bhEquityMap, iso), [bhEquityMap]);
-  const getEquityForDate = useCallback((iso:string)=> getClosestPrice(equityMap, iso) ?? getRecentPrice(equityMap, iso), [equityMap]);
-  const getDrawdownForDate = useCallback((iso:string)=> getClosestPrice(equityDrawdownMap, iso), [equityDrawdownMap]);
-  const [equityTooltip, setEquityTooltip] = useState<null|{x:number,y:number,date:string,value:number|null,bhValue:number|null,perf:number|null,bhPerf:number|null,diff:number|null,cagr:number|null,bhCagr:number|null,regime:string,drawdown:number|null,r1?:boolean,r2?:boolean,r3?:boolean,total?:number, tradeA?:any, tradeB?:any, markerMeta?:any, ind?:any}>(null);
 
   const stratMetrics = run ? {
     final_value: metrics?.final_value ?? metrics?.finalValue ?? 17405493,
@@ -467,8 +468,6 @@ export function RegimesPanel() {
   };
 
 
-  const marketSync = useMarketSyncStream(async () => { setRunsRefreshing(false); reloadBothRuns(); reloadCapeAndMarket(); });
-  const refreshing = marketSync.refreshing;
   const [runsRefreshOpen, setRunsRefreshOpen] = useState(false);
   const [runsRefreshLogs, setRunsRefreshLogs] = useState<any[]>([]);
   const [runsRefreshing, setRunsRefreshing] = useState(false);
@@ -556,6 +555,9 @@ export function RegimesPanel() {
     } catch {}
   }, [queryClient]);
 
+  // Después de los callbacks que invoca al terminar la sincronización.
+  const marketSync = useMarketSyncStream(async () => { setRunsRefreshing(false); reloadBothRuns(); reloadCapeAndMarket(); });
+  const refreshing = marketSync.refreshing;
   const handleRefresh = () => marketSync.start(getApiBase());
 
   const handleRefreshRuns = async () => {
@@ -774,8 +776,6 @@ export function RegimesPanel() {
                   const dDd = (Number(stratMetrics.max_drawdown)-Number(bhNorm.max_drawdown))*100;
                   const dSharpe = Number(stratMetrics.sharpe)-Number(bhNorm.sharpe);
                   const dTrades = Number(stratMetrics.num_trades)-Number(bhNorm.num_trades);
-                  const isPos = (v:number|null) => v!=null && v>0;
-                  const isNeg = (v:number|null) => v!=null && v<0;
                   return (
                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 font-mono text-xs">
                       <div className="bg-slate-800/70 rounded px-2.5 py-2 border border-slate-700/50">
@@ -996,8 +996,8 @@ export function RegimesPanel() {
       <CrisisEventsTable />
 
       <RegimesEvolutionTable cape={cape} capeView={capeView} setCapeView={setCapeView} equity={equity} marketHistory={marketHistory}
-        getRegime={getRegime} getRegimeDetails={getRegimeDetails} getEquityForDate={getEquityForDate} getBhEquityForDate={getBhEquityForDate}
-        getDrawdownForDate={getDrawdownForDate} initialEquity={initialEquity} initialBhEquity={initialBhEquity} />
+        getRegimeDetails={getRegimeDetails} getEquityForDate={getEquityForDate} getBhEquityForDate={getBhEquityForDate}
+        getDrawdownForDate={getDrawdownForDate} initialEquity={initialEquity} />
 
       <MarketSyncModal open={marketSync.open} logs={marketSync.logs} refreshing={marketSync.refreshing} error={marketSync.error} onClose={marketSync.close} />
 
