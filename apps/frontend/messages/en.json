@@ -448,6 +448,12 @@
         }
       },
       "ratioDesc": "Valuation relative to its 3-year mean.",
+      "ndxTitle": "Nasdaq 100 forward P/E",
+      "ndxTip": "Nasdaq 100 12-month forward P/E (Birinyi Associates via WSJ, updated on Fridays). Informational: not part of the thermometer. The Nasdaq usually trades at a premium to the S&P 500 because of its higher growth.",
+      "ndxTrailing": "Trailing P/E {v}",
+      "ndxPremium": "{v}× the S&P 500 forward P/E",
+      "ndxInfo": "Informational",
+      "ndxAsOf": "WSJ / Birinyi · {d}",
       "synced": "Synced: {v} @ {d}",
       "daily": "(daily)",
       "lastCape": "Latest CAPE:",

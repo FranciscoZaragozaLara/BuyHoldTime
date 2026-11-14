@@ -448,6 +448,12 @@
         }
       },
       "ratioDesc": "Valuación relativa a su media de 3 años.",
+      "ndxTitle": "Nasdaq 100 P/E estimado",
+      "ndxTip": "P/E estimado a 12 meses del Nasdaq 100 (Birinyi Associates vía WSJ, se actualiza los viernes). Informativo: no entra al termómetro. El Nasdaq suele cotizar con prima sobre el S&P 500 por su mayor crecimiento.",
+      "ndxTrailing": "P/E actual {v}",
+      "ndxPremium": "{v}× el P/E estimado del S&P 500",
+      "ndxInfo": "Informativo",
+      "ndxAsOf": "WSJ / Birinyi · {d}",
       "synced": "Sincronizado: {v} @ {d}",
       "daily": "(diario)",
       "lastCape": "Último CAPE:",

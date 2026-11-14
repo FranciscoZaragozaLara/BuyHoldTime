@@ -127,7 +127,7 @@ export function IndicatorsPanel() {
             setThermoHist(m);
           }
         } catch {}
-        const tickers = ['TQQQ', 'QQQ', 'SCHD', 'JEPQ', 'SQQQ', 'VOO', 'SPY', '^GSPC', '^IXIC', 'CPIAUCSL', 'CPILFESL', 'M2SL', 'BOGMBASE', 'DCOILWTICO', 'DFEDTARU', 'DGS2', 'DGS10', 'DGS30', 'BAMLH0A0HYM2', 'BAMLH0A0HYM2EY', 'GDP', 'GDPC1', 'FINRA_DEBIT', 'MSACSR', 'VIXCLS', 'FEAR_GREED', 'NYSE_ADV_VOL', 'NYSE_DEC_VOL', 'NSDQ_ADV_VOL', 'NSDQ_DEC_VOL', 'SPX_ADV_VOL', 'SPX_DEC_VOL', 'SPX_EPS', 'SPX_FWD_EPS'];
+        const tickers = ['TQQQ', 'QQQ', 'SCHD', 'JEPQ', 'SQQQ', 'VOO', 'SPY', '^GSPC', '^IXIC', 'CPIAUCSL', 'CPILFESL', 'M2SL', 'BOGMBASE', 'DCOILWTICO', 'DFEDTARU', 'DGS2', 'DGS10', 'DGS30', 'BAMLH0A0HYM2', 'BAMLH0A0HYM2EY', 'GDP', 'GDPC1', 'FINRA_DEBIT', 'MSACSR', 'VIXCLS', 'FEAR_GREED', 'NYSE_ADV_VOL', 'NYSE_DEC_VOL', 'NSDQ_ADV_VOL', 'NSDQ_DEC_VOL', 'SPX_ADV_VOL', 'SPX_DEC_VOL', 'SPX_EPS', 'SPX_FWD_EPS', 'NDX_PE', 'NDX_FWD_PE'];
         const to = new Date().toISOString().slice(0, 10);
         const from = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
         const m: Record<string, number | null> = {};
@@ -568,6 +568,28 @@ export function IndicatorsPanel() {
                           </span>
                         </div>
                         <div className="text-xs text-slate-500 mt-2 line-clamp-2">{ti('ratioDesc')} {ti('synced', { v: ratio.toFixed(3), d: (capeLast.date||'').slice(0,10) })}</div>
+                      </div>
+                      );
+                    })()}
+                    {cat.key==='valoracion' && (()=>{
+                      // Nasdaq 100 (WSJ / Birinyi, viernes): informativo, sin puntaje (las bandas del termómetro son del S&P 500).
+                      const today = new Date().toISOString().slice(0, 10);
+                      const fwdMap = marketHistory['NDX_FWD_PE'];
+                      const fwdDate = fwdMap && fwdMap.size ? Array.from(fwdMap.keys()).sort().pop()! : null;
+                      const ndxFwd = fwdDate ? fwdMap!.get(fwdDate)! : null;
+                      if (ndxFwd == null) return null;
+                      const ndxPe = getRecentPrice(marketHistory['NDX_PE'], today, 400);
+                      const premium = thermoFwd != null && thermoFwd > 0 ? ndxFwd / thermoFwd : null;
+                      return (
+                      <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 group/card">
+                        <div className="text-xs text-slate-500 flex items-center">ndx_fwd_pe {renderTooltip(ti('ndxTip'))}</div>
+                        <div className="font-semibold text-slate-100 truncate">{ti('ndxTitle')}</div>
+                        <div className="mt-2 flex items-center gap-2">
+                          <span className="text-xl font-mono text-favorable-400">{ndxFwd.toFixed(2)}x</span>
+                          <span className="ml-auto text-xs px-2 py-0.5 rounded-full border bg-slate-800 text-slate-400 border-slate-700">{ti('ndxInfo')}</span>
+                        </div>
+                        <div className="text-[11px] font-mono font-semibold text-slate-400 mt-1">{ndxPe != null ? ti('ndxTrailing', { v: `${ndxPe.toFixed(2)}x` }) : ''}{ndxPe != null && premium != null ? ' · ' : ''}{premium != null ? ti('ndxPremium', { v: premium.toFixed(2) }) : ''}</div>
+                        <div className="text-xs text-slate-500 mt-2">{ti('ndxAsOf', { d: fwdDate! })}</div>
                       </div>
                       );
                     })()}
