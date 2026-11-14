@@ -3,7 +3,8 @@ import { getApiBase } from '@/lib/apiBase';
 import React, { useEffect, useState } from 'react';
 import { CRISIS_EVENTS } from '@/lib/crisisEvents';
 import { useTranslations } from 'next-intl';
-import { BhtDetailPopover, bhtLeaveGuard, capeScoreColor, useBhtDetail } from './IndicatorsPanel';
+import { BhtDetailPopover, bhtLeaveGuard, useBhtDetail } from './BhtDetail';
+import { capeScoreColor } from './bhtBands';
 
 const fmt$ = (v: number) => '$' + Number(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const fmt0 = (v: number) => '$' + Number(v).toLocaleString('en-US', { maximumFractionDigits: 0 });

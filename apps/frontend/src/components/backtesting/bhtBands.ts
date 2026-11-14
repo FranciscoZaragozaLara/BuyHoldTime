@@ -29,3 +29,6 @@ export const bhtBand = (v: number): BhtBand =>
 
 export const bhtBandColor = (v: number): string => bhtBand(v).color;
 export const bhtBandLabel = (v: number): string => bhtBand(v).label;
+
+// Color de semaforización de cualquier puntaje 0-100 (mismas bandas del BHT).
+export const capeScoreColor = bhtBandColor;

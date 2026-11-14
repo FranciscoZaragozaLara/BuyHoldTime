@@ -102,6 +102,7 @@ Marcar `[x]` con rama y commit al terminar.
 - [x] P/E trailing y estimado del Nasdaq 100 desde la tabla de WSJ (Birinyi): `prisma/sync-ndx-pe-wsj.ts` → `NDX_PE`, `NDX_FWD_PE` (source `wsj-birinyi`) y entrada del mes en QQQ/TQQQ (`setMonthlyPe`, fin de mes; al cerrar el mes queda el último viernes). Cron 07:15 ET tras SPX_FWD_EPS, fuente del monitor `ndx_pe`. Historia hasta oct 2026 sigue siendo GuruFocus (`source/nasdaq_100_pe.js`). Suites 132/132 backend, 57/57 frontend — rama `feat/ndx-pe-wsj`.
 - [ ] **VPS:** `prisma migrate deploy` y `GRANT INSERT ON data_source_runs TO gurufocus_scraper;` (incluido en `prisma/sql/gurufocus-scraper-role.sql`).
 - [ ] Dividir `IndicatorsPanel.tsx` (2,073 líneas), `RegimesPanel.tsx` (1,510) y `EpsHistoryChart.tsx` (984).
+  - [x] Paso 1 `IndicatorsPanel` (2,027 → 1,390): puntajes/bandas a `src/lib/thermoScoring.ts` (+test), `useThermoLive.ts`, `ThermoOrbs.tsx`, `BhtDetail.tsx`, `BhtForwardTable.tsx`; `capeScoreColor` en `bhtBands.ts`. Quita el ciclo de imports con `BhtTimeline`/`CrisisEventsTable`/`BhtStats`. Nota: la banda inferior abierta (lo = −∞) puntúa ≈ su tope (CAPE < 29 → ~25), igual en el backend — rama `chore/split-indicators-panel`.
 
 ### P6 — PugInvestor (marca casual, después de validar)
 - [ ] Registrar puginvestor.com y buyholdtime.com (disponibles al 12 nov 2026; tarea del usuario).

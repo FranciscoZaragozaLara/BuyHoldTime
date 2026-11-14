@@ -2,7 +2,7 @@
 import { getApiBase } from '@/lib/apiBase';
 import React, { useEffect, useRef, useState } from 'react';
 import { createChart, ColorType, IChartApi, LineSeries } from 'lightweight-charts';
-import { BhtDetailPopover, useBhtDetail, bhtLeaveGuard } from './IndicatorsPanel';
+import { BhtDetailPopover, useBhtDetail, bhtLeaveGuard } from './BhtDetail';
 import { BHT_CUTS, bhtBandColor } from './bhtBands';
 import { useTranslations } from 'next-intl';
 import { TOKENS } from '@/lib/designTokens';

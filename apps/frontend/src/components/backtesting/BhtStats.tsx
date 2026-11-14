@@ -3,7 +3,7 @@ import { getApiBase } from '@/lib/apiBase';
 import React, { useEffect, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { bhtBandColor } from './bhtBands';
-import { capeRiskScore } from './IndicatorsPanel';
+import { capeRiskScore } from '@/lib/thermoScoring';
 
 
 type Agg = { n: number; min: number; avg: number; max: number } | null;
