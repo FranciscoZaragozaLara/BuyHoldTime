@@ -6,9 +6,10 @@ import {
 
 describe('thermoScoring', () => {
   it('interpola dentro de cada banda y satura en los extremos', () => {
-    // Banda inferior abierta (lo = -Infinity): interpola desde -1e9, así que vale ~su puntaje alto
-    // (CAPE < 29 → ~25). Igual que bandScore del backend (thermo-history.ts).
-    expect(capeRiskScore(10)).toBeCloseTo(25, 4);
+    // Piso anual 19.3 (P5 de 20 años): por debajo 0 pts, de 19.3 a 29 lineal 0→25.
+    expect(capeRiskScore(10)).toBe(0);
+    expect(capeRiskScore(19.3)).toBe(0);
+    expect(capeRiskScore(24.15)).toBeCloseTo(12.5);
     expect(capeRiskScore(32)).toBeCloseTo(37.5);
     expect(capeRiskScore(43)).toBe(100);
     expect(capeRiskScore(60)).toBe(100);

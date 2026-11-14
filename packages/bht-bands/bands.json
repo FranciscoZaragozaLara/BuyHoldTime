@@ -3,18 +3,118 @@
   "defaultYear": "2027",
   "resolution": "El anio es el de la fecha del dato a puntuar. Si el anio no existe, usar el anio anterior mas cercano; si no hay anterior, usar defaultYear.",
   "years": {
+    "1990": {
+      "note": "Sin calibración propia: copia de 2027 (lo que ya resolvía el backend) para darle su piso anual.",
+      "CAPE": {
+        "unit": "ratio precio/ganancias 10a",
+        "method": "score lineal dentro de cada tramo",
+        "segments": [
+          { "lo": null, "hi": 7.8, "scoreLo": 0, "scoreHi": 0, "label": "Barato", "display": "≤ 7.8" },
+          { "lo": 7.8, "hi": 29, "scoreLo": 0, "scoreHi": 25, "label": "Barato", "display": "7.8–29" },
+          { "lo": 29, "hi": 35, "scoreLo": 25, "scoreHi": 50, "label": "Justo", "display": "29–35" },
+          { "lo": 35, "hi": 40, "scoreLo": 50, "scoreHi": 70, "label": "Caro", "display": "35–40" },
+          { "lo": 40, "hi": 43, "scoreLo": 70, "scoreHi": 100, "label": "Elevado", "display": "40–43" },
+          { "lo": 43, "hi": null, "scoreLo": 100, "scoreHi": 100, "label": "Extremo", "display": "≥ 43" }
+        ],
+        "floor": {
+          "value": 7.8,
+          "method": "P5 del CAPE mensual de Shiller de los 20 años previos (sin datos futuros)"
+        }
+      }
+    },
+    "1991": {
+      "note": "Sin calibración propia: copia de 2027 (lo que ya resolvía el backend) para darle su piso anual.",
+      "CAPE": {
+        "unit": "ratio precio/ganancias 10a",
+        "method": "score lineal dentro de cada tramo",
+        "segments": [
+          { "lo": null, "hi": 7.8, "scoreLo": 0, "scoreHi": 0, "label": "Barato", "display": "≤ 7.8" },
+          { "lo": 7.8, "hi": 29, "scoreLo": 0, "scoreHi": 25, "label": "Barato", "display": "7.8–29" },
+          { "lo": 29, "hi": 35, "scoreLo": 25, "scoreHi": 50, "label": "Justo", "display": "29–35" },
+          { "lo": 35, "hi": 40, "scoreLo": 50, "scoreHi": 70, "label": "Caro", "display": "35–40" },
+          { "lo": 40, "hi": 43, "scoreLo": 70, "scoreHi": 100, "label": "Elevado", "display": "40–43" },
+          { "lo": 43, "hi": null, "scoreLo": 100, "scoreHi": 100, "label": "Extremo", "display": "≥ 43" }
+        ],
+        "floor": {
+          "value": 7.8,
+          "method": "P5 del CAPE mensual de Shiller de los 20 años previos (sin datos futuros)"
+        }
+      }
+    },
+    "1992": {
+      "note": "Sin calibración propia: copia de 2027 (lo que ya resolvía el backend) para darle su piso anual.",
+      "CAPE": {
+        "unit": "ratio precio/ganancias 10a",
+        "method": "score lineal dentro de cada tramo",
+        "segments": [
+          { "lo": null, "hi": 7.8, "scoreLo": 0, "scoreHi": 0, "label": "Barato", "display": "≤ 7.8" },
+          { "lo": 7.8, "hi": 29, "scoreLo": 0, "scoreHi": 25, "label": "Barato", "display": "7.8–29" },
+          { "lo": 29, "hi": 35, "scoreLo": 25, "scoreHi": 50, "label": "Justo", "display": "29–35" },
+          { "lo": 35, "hi": 40, "scoreLo": 50, "scoreHi": 70, "label": "Caro", "display": "35–40" },
+          { "lo": 40, "hi": 43, "scoreLo": 70, "scoreHi": 100, "label": "Elevado", "display": "40–43" },
+          { "lo": 43, "hi": null, "scoreLo": 100, "scoreHi": 100, "label": "Extremo", "display": "≥ 43" }
+        ],
+        "floor": {
+          "value": 7.8,
+          "method": "P5 del CAPE mensual de Shiller de los 20 años previos (sin datos futuros)"
+        }
+      }
+    },
+    "1993": {
+      "note": "Sin calibración propia: copia de 2027 (lo que ya resolvía el backend) para darle su piso anual.",
+      "CAPE": {
+        "unit": "ratio precio/ganancias 10a",
+        "method": "score lineal dentro de cada tramo",
+        "segments": [
+          { "lo": null, "hi": 7.8, "scoreLo": 0, "scoreHi": 0, "label": "Barato", "display": "≤ 7.8" },
+          { "lo": 7.8, "hi": 29, "scoreLo": 0, "scoreHi": 25, "label": "Barato", "display": "7.8–29" },
+          { "lo": 29, "hi": 35, "scoreLo": 25, "scoreHi": 50, "label": "Justo", "display": "29–35" },
+          { "lo": 35, "hi": 40, "scoreLo": 50, "scoreHi": 70, "label": "Caro", "display": "35–40" },
+          { "lo": 40, "hi": 43, "scoreLo": 70, "scoreHi": 100, "label": "Elevado", "display": "40–43" },
+          { "lo": 43, "hi": null, "scoreLo": 100, "scoreHi": 100, "label": "Extremo", "display": "≥ 43" }
+        ],
+        "floor": {
+          "value": 7.8,
+          "method": "P5 del CAPE mensual de Shiller de los 20 años previos (sin datos futuros)"
+        }
+      }
+    },
+    "1994": {
+      "note": "Sin calibración propia: copia de 2027 (lo que ya resolvía el backend) para darle su piso anual.",
+      "CAPE": {
+        "unit": "ratio precio/ganancias 10a",
+        "method": "score lineal dentro de cada tramo",
+        "segments": [
+          { "lo": null, "hi": 7.8, "scoreLo": 0, "scoreHi": 0, "label": "Barato", "display": "≤ 7.8" },
+          { "lo": 7.8, "hi": 29, "scoreLo": 0, "scoreHi": 25, "label": "Barato", "display": "7.8–29" },
+          { "lo": 29, "hi": 35, "scoreLo": 25, "scoreHi": 50, "label": "Justo", "display": "29–35" },
+          { "lo": 35, "hi": 40, "scoreLo": 50, "scoreHi": 70, "label": "Caro", "display": "35–40" },
+          { "lo": 40, "hi": 43, "scoreLo": 70, "scoreHi": 100, "label": "Elevado", "display": "40–43" },
+          { "lo": 43, "hi": null, "scoreLo": 100, "scoreHi": 100, "label": "Extremo", "display": "≥ 43" }
+        ],
+        "floor": {
+          "value": 7.8,
+          "method": "P5 del CAPE mensual de Shiller de los 20 años previos (sin datos futuros)"
+        }
+      }
+    },
     "1995": {
       "note": "Escalera de 3 desde 21 (se subio hasta partir: Barato <=21 con 270d al +2% vs Justo -1%). Base 1993-1994 efectiva (corte 1994-12-30).",
       "CAPE": {
         "unit": "ratio precio/ganancias 10a",
         "method": "score lineal dentro de cada tramo",
         "segments": [
-          { "lo": null, "hi": 21, "scoreLo": 0, "scoreHi": 25, "label": "Barato", "display": "≤ 21" },
+          { "lo": null, "hi": 7.8, "scoreLo": 0, "scoreHi": 0, "label": "Barato", "display": "≤ 7.8" },
+          { "lo": 7.8, "hi": 21, "scoreLo": 0, "scoreHi": 25, "label": "Barato", "display": "7.8–21" },
           { "lo": 21, "hi": 24, "scoreLo": 25, "scoreHi": 50, "label": "Justo", "display": "21–24" },
           { "lo": 24, "hi": 27, "scoreLo": 50, "scoreHi": 85, "label": "Caro", "display": "24–27" },
           { "lo": 27, "hi": 30, "scoreLo": 85, "scoreHi": 100, "label": "Elevado", "display": "27–30" },
           { "lo": 30, "hi": null, "scoreLo": 100, "scoreHi": 100, "label": "Extremo", "display": "≥ 30" }
-        ]
+        ],
+        "floor": {
+          "value": 7.8,
+          "method": "P5 del CAPE mensual de Shiller de los 20 años previos (sin datos futuros)"
+        }
       }
     },
     "1996": {
@@ -23,12 +123,17 @@
         "unit": "ratio precio/ganancias 10a",
         "method": "score lineal dentro de cada tramo",
         "segments": [
-          { "lo": null, "hi": 20, "scoreLo": 0, "scoreHi": 25, "label": "Barato", "display": "≤ 20" },
+          { "lo": null, "hi": 7.8, "scoreLo": 0, "scoreHi": 0, "label": "Barato", "display": "≤ 7.8" },
+          { "lo": 7.8, "hi": 20, "scoreLo": 0, "scoreHi": 25, "label": "Barato", "display": "7.8–20" },
           { "lo": 20, "hi": 23, "scoreLo": 25, "scoreHi": 50, "label": "Justo", "display": "20–23" },
           { "lo": 23, "hi": 26, "scoreLo": 50, "scoreHi": 85, "label": "Caro", "display": "23–26" },
           { "lo": 26, "hi": 29, "scoreLo": 85, "scoreHi": 100, "label": "Elevado", "display": "26–29" },
           { "lo": 29, "hi": null, "scoreLo": 100, "scoreHi": 100, "label": "Extremo", "display": "≥ 29" }
-        ]
+        ],
+        "floor": {
+          "value": 7.8,
+          "method": "P5 del CAPE mensual de Shiller de los 20 años previos (sin datos futuros)"
+        }
       }
     },
     "1997": {
@@ -37,12 +142,17 @@
         "unit": "ratio precio/ganancias 10a",
         "method": "score lineal dentro de cada tramo",
         "segments": [
-          { "lo": null, "hi": 26, "scoreLo": 0, "scoreHi": 25, "label": "Barato", "display": "≤ 26" },
+          { "lo": null, "hi": 7.8, "scoreLo": 0, "scoreHi": 0, "label": "Barato", "display": "≤ 7.8" },
+          { "lo": 7.8, "hi": 26, "scoreLo": 0, "scoreHi": 25, "label": "Barato", "display": "7.8–26" },
           { "lo": 26, "hi": 29, "scoreLo": 25, "scoreHi": 50, "label": "Justo", "display": "26–29" },
           { "lo": 29, "hi": 32, "scoreLo": 50, "scoreHi": 85, "label": "Caro", "display": "29–32" },
           { "lo": 32, "hi": 35, "scoreLo": 85, "scoreHi": 100, "label": "Elevado", "display": "32–35" },
           { "lo": 35, "hi": null, "scoreLo": 100, "scoreHi": 100, "label": "Extremo", "display": "≥ 35" }
-        ]
+        ],
+        "floor": {
+          "value": 7.8,
+          "method": "P5 del CAPE mensual de Shiller de los 20 años previos (sin datos futuros)"
+        }
       }
     },
     "1998": {
@@ -51,12 +161,17 @@
         "unit": "ratio precio/ganancias 10a",
         "method": "score lineal dentro de cada tramo",
         "segments": [
-          { "lo": null, "hi": 26, "scoreLo": 0, "scoreHi": 25, "label": "Barato", "display": "≤ 26" },
+          { "lo": null, "hi": 7.8, "scoreLo": 0, "scoreHi": 0, "label": "Barato", "display": "≤ 7.8" },
+          { "lo": 7.8, "hi": 26, "scoreLo": 0, "scoreHi": 25, "label": "Barato", "display": "7.8–26" },
           { "lo": 26, "hi": 29, "scoreLo": 25, "scoreHi": 50, "label": "Justo", "display": "26–29" },
           { "lo": 29, "hi": 32, "scoreLo": 50, "scoreHi": 85, "label": "Caro", "display": "29–32" },
           { "lo": 32, "hi": 35, "scoreLo": 85, "scoreHi": 100, "label": "Elevado", "display": "32–35" },
           { "lo": 35, "hi": null, "scoreLo": 100, "scoreHi": 100, "label": "Extremo", "display": "≥ 35" }
-        ]
+        ],
+        "floor": {
+          "value": 7.8,
+          "method": "P5 del CAPE mensual de Shiller de los 20 años previos (sin datos futuros)"
+        }
       }
     },
     "1999": {
@@ -65,12 +180,17 @@
         "unit": "ratio precio/ganancias 10a",
         "method": "score lineal dentro de cada tramo",
         "segments": [
-          { "lo": null, "hi": 26, "scoreLo": 0, "scoreHi": 25, "label": "Barato", "display": "≤ 26" },
+          { "lo": null, "hi": 7.8, "scoreLo": 0, "scoreHi": 0, "label": "Barato", "display": "≤ 7.8" },
+          { "lo": 7.8, "hi": 26, "scoreLo": 0, "scoreHi": 25, "label": "Barato", "display": "7.8–26" },
           { "lo": 26, "hi": 29, "scoreLo": 25, "scoreHi": 50, "label": "Justo", "display": "26–29" },
           { "lo": 29, "hi": 32, "scoreLo": 50, "scoreHi": 85, "label": "Caro", "display": "29–32" },
           { "lo": 32, "hi": 35, "scoreLo": 85, "scoreHi": 100, "label": "Elevado", "display": "32–35" },
           { "lo": 35, "hi": null, "scoreLo": 100, "scoreHi": 100, "label": "Extremo", "display": "≥ 35" }
-        ]
+        ],
+        "floor": {
+          "value": 7.8,
+          "method": "P5 del CAPE mensual de Shiller de los 20 años previos (sin datos futuros)"
+        }
       }
     },
     "2000": {
@@ -79,12 +199,17 @@
         "unit": "ratio precio/ganancias 10a",
         "method": "score lineal dentro de cada tramo",
         "segments": [
-          { "lo": null, "hi": 26, "scoreLo": 0, "scoreHi": 25, "label": "Barato", "display": "≤ 26" },
+          { "lo": null, "hi": 7.8, "scoreLo": 0, "scoreHi": 0, "label": "Barato", "display": "≤ 7.8" },
+          { "lo": 7.8, "hi": 26, "scoreLo": 0, "scoreHi": 25, "label": "Barato", "display": "7.8–26" },
           { "lo": 26, "hi": 29, "scoreLo": 25, "scoreHi": 50, "label": "Justo", "display": "26–29" },
           { "lo": 29, "hi": 32, "scoreLo": 50, "scoreHi": 85, "label": "Caro", "display": "29–32" },
           { "lo": 32, "hi": 35, "scoreLo": 85, "scoreHi": 100, "label": "Elevado", "display": "32–35" },
           { "lo": 35, "hi": null, "scoreLo": 100, "scoreHi": 100, "label": "Extremo", "display": "≥ 35" }
-        ]
+        ],
+        "floor": {
+          "value": 7.8,
+          "method": "P5 del CAPE mensual de Shiller de los 20 años previos (sin datos futuros)"
+        }
       }
     },
     "2001": {
@@ -93,12 +218,17 @@
         "unit": "ratio precio/ganancias 10a",
         "method": "score lineal dentro de cada tramo",
         "segments": [
-          { "lo": null, "hi": 26, "scoreLo": 0, "scoreHi": 25, "label": "Barato", "display": "≤ 26" },
+          { "lo": null, "hi": 7.8, "scoreLo": 0, "scoreHi": 0, "label": "Barato", "display": "≤ 7.8" },
+          { "lo": 7.8, "hi": 26, "scoreLo": 0, "scoreHi": 25, "label": "Barato", "display": "7.8–26" },
           { "lo": 26, "hi": 29, "scoreLo": 25, "scoreHi": 50, "label": "Justo", "display": "26–29" },
           { "lo": 29, "hi": 32, "scoreLo": 50, "scoreHi": 85, "label": "Caro", "display": "29–32" },
           { "lo": 32, "hi": 35, "scoreLo": 85, "scoreHi": 100, "label": "Elevado", "display": "32–35" },
           { "lo": 35, "hi": null, "scoreLo": 100, "scoreHi": 100, "label": "Extremo", "display": "≥ 35" }
-        ]
+        ],
+        "floor": {
+          "value": 7.8,
+          "method": "P5 del CAPE mensual de Shiller de los 20 años previos (sin datos futuros)"
+        }
       }
     },
     "2002": {
@@ -107,12 +237,17 @@
         "unit": "ratio precio/ganancias 10a",
         "method": "score lineal dentro de cada tramo",
         "segments": [
-          { "lo": null, "hi": 26, "scoreLo": 0, "scoreHi": 25, "label": "Barato", "display": "≤ 26" },
+          { "lo": null, "hi": 8.7, "scoreLo": 0, "scoreHi": 0, "label": "Barato", "display": "≤ 8.7" },
+          { "lo": 8.7, "hi": 26, "scoreLo": 0, "scoreHi": 25, "label": "Barato", "display": "8.7–26" },
           { "lo": 26, "hi": 29, "scoreLo": 25, "scoreHi": 50, "label": "Justo", "display": "26–29" },
           { "lo": 29, "hi": 32, "scoreLo": 50, "scoreHi": 85, "label": "Caro", "display": "29–32" },
           { "lo": 32, "hi": 35, "scoreLo": 85, "scoreHi": 100, "label": "Elevado", "display": "32–35" },
           { "lo": 35, "hi": null, "scoreLo": 100, "scoreHi": 100, "label": "Extremo", "display": "≥ 35" }
-        ]
+        ],
+        "floor": {
+          "value": 8.7,
+          "method": "P5 del CAPE mensual de Shiller de los 20 años previos (sin datos futuros)"
+        }
       }
     },
     "2003": {
@@ -121,12 +256,17 @@
         "unit": "ratio precio/ganancias 10a",
         "method": "score lineal dentro de cada tramo",
         "segments": [
-          { "lo": null, "hi": 26, "scoreLo": 0, "scoreHi": 25, "label": "Barato", "display": "≤ 26" },
+          { "lo": null, "hi": 9.6, "scoreLo": 0, "scoreHi": 0, "label": "Barato", "display": "≤ 9.6" },
+          { "lo": 9.6, "hi": 26, "scoreLo": 0, "scoreHi": 25, "label": "Barato", "display": "9.6–26" },
           { "lo": 26, "hi": 29, "scoreLo": 25, "scoreHi": 50, "label": "Justo", "display": "26–29" },
           { "lo": 29, "hi": 32, "scoreLo": 50, "scoreHi": 85, "label": "Caro", "display": "29–32" },
           { "lo": 32, "hi": 35, "scoreLo": 85, "scoreHi": 100, "label": "Elevado", "display": "32–35" },
           { "lo": 35, "hi": null, "scoreLo": 100, "scoreHi": 100, "label": "Extremo", "display": "≥ 35" }
-        ]
+        ],
+        "floor": {
+          "value": 9.6,
+          "method": "P5 del CAPE mensual de Shiller de los 20 años previos (sin datos futuros)"
+        }
       }
     },
     "2004": {
@@ -135,12 +275,17 @@
         "unit": "ratio precio/ganancias 10a",
         "method": "score lineal dentro de cada tramo",
         "segments": [
-          { "lo": null, "hi": 26, "scoreLo": 0, "scoreHi": 25, "label": "Barato", "display": "≤ 26" },
+          { "lo": null, "hi": 10, "scoreLo": 0, "scoreHi": 0, "label": "Barato", "display": "≤ 10.0" },
+          { "lo": 10, "hi": 26, "scoreLo": 0, "scoreHi": 25, "label": "Barato", "display": "10.0–26" },
           { "lo": 26, "hi": 29, "scoreLo": 25, "scoreHi": 50, "label": "Justo", "display": "26–29" },
           { "lo": 29, "hi": 32, "scoreLo": 50, "scoreHi": 85, "label": "Caro", "display": "29–32" },
           { "lo": 32, "hi": 35, "scoreLo": 85, "scoreHi": 100, "label": "Elevado", "display": "32–35" },
           { "lo": 35, "hi": null, "scoreLo": 100, "scoreHi": 100, "label": "Extremo", "display": "≥ 35" }
-        ]
+        ],
+        "floor": {
+          "value": 10,
+          "method": "P5 del CAPE mensual de Shiller de los 20 años previos (sin datos futuros)"
+        }
       }
     },
     "2005": {
@@ -149,12 +294,17 @@
         "unit": "ratio precio/ganancias 10a",
         "method": "score lineal dentro de cada tramo",
         "segments": [
-          { "lo": null, "hi": 26, "scoreLo": 0, "scoreHi": 25, "label": "Barato", "display": "≤ 26" },
+          { "lo": null, "hi": 11.7, "scoreLo": 0, "scoreHi": 0, "label": "Barato", "display": "≤ 11.7" },
+          { "lo": 11.7, "hi": 26, "scoreLo": 0, "scoreHi": 25, "label": "Barato", "display": "11.7–26" },
           { "lo": 26, "hi": 29, "scoreLo": 25, "scoreHi": 50, "label": "Justo", "display": "26–29" },
           { "lo": 29, "hi": 32, "scoreLo": 50, "scoreHi": 85, "label": "Caro", "display": "29–32" },
           { "lo": 32, "hi": 35, "scoreLo": 85, "scoreHi": 100, "label": "Elevado", "display": "32–35" },
           { "lo": 35, "hi": null, "scoreLo": 100, "scoreHi": 100, "label": "Extremo", "display": "≥ 35" }
-        ]
+        ],
+        "floor": {
+          "value": 11.7,
+          "method": "P5 del CAPE mensual de Shiller de los 20 años previos (sin datos futuros)"
+        }
       }
     },
     "2006": {
@@ -163,12 +313,17 @@
         "unit": "ratio precio/ganancias 10a",
         "method": "score lineal dentro de cada tramo",
         "segments": [
-          { "lo": null, "hi": 26, "scoreLo": 0, "scoreHi": 25, "label": "Barato", "display": "≤ 26" },
+          { "lo": null, "hi": 13.9, "scoreLo": 0, "scoreHi": 0, "label": "Barato", "display": "≤ 13.9" },
+          { "lo": 13.9, "hi": 26, "scoreLo": 0, "scoreHi": 25, "label": "Barato", "display": "13.9–26" },
           { "lo": 26, "hi": 29, "scoreLo": 25, "scoreHi": 50, "label": "Justo", "display": "26–29" },
           { "lo": 29, "hi": 32, "scoreLo": 50, "scoreHi": 85, "label": "Caro", "display": "29–32" },
           { "lo": 32, "hi": 35, "scoreLo": 85, "scoreHi": 100, "label": "Elevado", "display": "32–35" },
           { "lo": 35, "hi": null, "scoreLo": 100, "scoreHi": 100, "label": "Extremo", "display": "≥ 35" }
-        ]
+        ],
+        "floor": {
+          "value": 13.9,
+          "method": "P5 del CAPE mensual de Shiller de los 20 años previos (sin datos futuros)"
+        }
       }
     },
     "2007": {
@@ -177,12 +332,17 @@
         "unit": "ratio precio/ganancias 10a",
         "method": "score lineal dentro de cada tramo",
         "segments": [
-          { "lo": null, "hi": 26, "scoreLo": 0, "scoreHi": 25, "label": "Barato", "display": "≤ 26" },
+          { "lo": null, "hi": 14.8, "scoreLo": 0, "scoreHi": 0, "label": "Barato", "display": "≤ 14.8" },
+          { "lo": 14.8, "hi": 26, "scoreLo": 0, "scoreHi": 25, "label": "Barato", "display": "14.8–26" },
           { "lo": 26, "hi": 29, "scoreLo": 25, "scoreHi": 50, "label": "Justo", "display": "26–29" },
           { "lo": 29, "hi": 32, "scoreLo": 50, "scoreHi": 85, "label": "Caro", "display": "29–32" },
           { "lo": 32, "hi": 35, "scoreLo": 85, "scoreHi": 100, "label": "Elevado", "display": "32–35" },
           { "lo": 35, "hi": null, "scoreLo": 100, "scoreHi": 100, "label": "Extremo", "display": "≥ 35" }
-        ]
+        ],
+        "floor": {
+          "value": 14.8,
+          "method": "P5 del CAPE mensual de Shiller de los 20 años previos (sin datos futuros)"
+        }
       }
     },
     "2008": {
@@ -191,12 +351,17 @@
         "unit": "ratio precio/ganancias 10a",
         "method": "score lineal dentro de cada tramo",
         "segments": [
-          { "lo": null, "hi": 26, "scoreLo": 0, "scoreHi": 25, "label": "Barato", "display": "≤ 26" },
+          { "lo": null, "hi": 14.8, "scoreLo": 0, "scoreHi": 0, "label": "Barato", "display": "≤ 14.8" },
+          { "lo": 14.8, "hi": 26, "scoreLo": 0, "scoreHi": 25, "label": "Barato", "display": "14.8–26" },
           { "lo": 26, "hi": 29, "scoreLo": 25, "scoreHi": 50, "label": "Justo", "display": "26–29" },
           { "lo": 29, "hi": 32, "scoreLo": 50, "scoreHi": 85, "label": "Caro", "display": "29–32" },
           { "lo": 32, "hi": 35, "scoreLo": 85, "scoreHi": 100, "label": "Elevado", "display": "32–35" },
           { "lo": 35, "hi": null, "scoreLo": 100, "scoreHi": 100, "label": "Extremo", "display": "≥ 35" }
-        ]
+        ],
+        "floor": {
+          "value": 14.8,
+          "method": "P5 del CAPE mensual de Shiller de los 20 años previos (sin datos futuros)"
+        }
       }
     },
     "2009": {
@@ -205,12 +370,17 @@
         "unit": "ratio precio/ganancias 10a",
         "method": "score lineal dentro de cada tramo",
         "segments": [
-          { "lo": null, "hi": 26, "scoreLo": 0, "scoreHi": 25, "label": "Barato", "display": "≤ 26" },
+          { "lo": null, "hi": 16.2, "scoreLo": 0, "scoreHi": 0, "label": "Barato", "display": "≤ 16.2" },
+          { "lo": 16.2, "hi": 26, "scoreLo": 0, "scoreHi": 25, "label": "Barato", "display": "16.2–26" },
           { "lo": 26, "hi": 29, "scoreLo": 25, "scoreHi": 50, "label": "Justo", "display": "26–29" },
           { "lo": 29, "hi": 32, "scoreLo": 50, "scoreHi": 85, "label": "Caro", "display": "29–32" },
           { "lo": 32, "hi": 35, "scoreLo": 85, "scoreHi": 100, "label": "Elevado", "display": "32–35" },
           { "lo": 35, "hi": null, "scoreLo": 100, "scoreHi": 100, "label": "Extremo", "display": "≥ 35" }
-        ]
+        ],
+        "floor": {
+          "value": 16.2,
+          "method": "P5 del CAPE mensual de Shiller de los 20 años previos (sin datos futuros)"
+        }
       }
     },
     "2010": {
@@ -219,12 +389,17 @@
         "unit": "ratio precio/ganancias 10a",
         "method": "score lineal dentro de cada tramo",
         "segments": [
-          { "lo": null, "hi": 26, "scoreLo": 0, "scoreHi": 25, "label": "Barato", "display": "≤ 26" },
+          { "lo": null, "hi": 16.2, "scoreLo": 0, "scoreHi": 0, "label": "Barato", "display": "≤ 16.2" },
+          { "lo": 16.2, "hi": 26, "scoreLo": 0, "scoreHi": 25, "label": "Barato", "display": "16.2–26" },
           { "lo": 26, "hi": 29, "scoreLo": 25, "scoreHi": 50, "label": "Justo", "display": "26–29" },
           { "lo": 29, "hi": 32, "scoreLo": 50, "scoreHi": 85, "label": "Caro", "display": "29–32" },
           { "lo": 32, "hi": 35, "scoreLo": 85, "scoreHi": 100, "label": "Elevado", "display": "32–35" },
           { "lo": 35, "hi": null, "scoreLo": 100, "scoreHi": 100, "label": "Extremo", "display": "≥ 35" }
-        ]
+        ],
+        "floor": {
+          "value": 16.2,
+          "method": "P5 del CAPE mensual de Shiller de los 20 años previos (sin datos futuros)"
+        }
       }
     },
     "2011": {
@@ -233,12 +408,17 @@
         "unit": "ratio precio/ganancias 10a",
         "method": "score lineal dentro de cada tramo",
         "segments": [
-          { "lo": null, "hi": 26, "scoreLo": 0, "scoreHi": 25, "label": "Barato", "display": "≤ 26" },
+          { "lo": null, "hi": 17.8, "scoreLo": 0, "scoreHi": 0, "label": "Barato", "display": "≤ 17.8" },
+          { "lo": 17.8, "hi": 26, "scoreLo": 0, "scoreHi": 25, "label": "Barato", "display": "17.8–26" },
           { "lo": 26, "hi": 29, "scoreLo": 25, "scoreHi": 50, "label": "Justo", "display": "26–29" },
           { "lo": 29, "hi": 32, "scoreLo": 50, "scoreHi": 85, "label": "Caro", "display": "29–32" },
           { "lo": 32, "hi": 35, "scoreLo": 85, "scoreHi": 100, "label": "Elevado", "display": "32–35" },
           { "lo": 35, "hi": null, "scoreLo": 100, "scoreHi": 100, "label": "Extremo", "display": "≥ 35" }
-        ]
+        ],
+        "floor": {
+          "value": 17.8,
+          "method": "P5 del CAPE mensual de Shiller de los 20 años previos (sin datos futuros)"
+        }
       }
     },
     "2012": {
@@ -247,12 +427,17 @@
         "unit": "ratio precio/ganancias 10a",
         "method": "score lineal dentro de cada tramo",
         "segments": [
-          { "lo": null, "hi": 26, "scoreLo": 0, "scoreHi": 25, "label": "Barato", "display": "≤ 26" },
+          { "lo": null, "hi": 19.3, "scoreLo": 0, "scoreHi": 0, "label": "Barato", "display": "≤ 19.3" },
+          { "lo": 19.3, "hi": 26, "scoreLo": 0, "scoreHi": 25, "label": "Barato", "display": "19.3–26" },
           { "lo": 26, "hi": 29, "scoreLo": 25, "scoreHi": 50, "label": "Justo", "display": "26–29" },
           { "lo": 29, "hi": 32, "scoreLo": 50, "scoreHi": 85, "label": "Caro", "display": "29–32" },
           { "lo": 32, "hi": 35, "scoreLo": 85, "scoreHi": 100, "label": "Elevado", "display": "32–35" },
           { "lo": 35, "hi": null, "scoreLo": 100, "scoreHi": 100, "label": "Extremo", "display": "≥ 35" }
-        ]
+        ],
+        "floor": {
+          "value": 19.3,
+          "method": "P5 del CAPE mensual de Shiller de los 20 años previos (sin datos futuros)"
+        }
       }
     },
     "2013": {
@@ -261,12 +446,17 @@
         "unit": "ratio precio/ganancias 10a",
         "method": "score lineal dentro de cada tramo",
         "segments": [
-          { "lo": null, "hi": 26, "scoreLo": 0, "scoreHi": 25, "label": "Barato", "display": "≤ 26" },
+          { "lo": null, "hi": 19.3, "scoreLo": 0, "scoreHi": 0, "label": "Barato", "display": "≤ 19.3" },
+          { "lo": 19.3, "hi": 26, "scoreLo": 0, "scoreHi": 25, "label": "Barato", "display": "19.3–26" },
           { "lo": 26, "hi": 29, "scoreLo": 25, "scoreHi": 50, "label": "Justo", "display": "26–29" },
           { "lo": 29, "hi": 32, "scoreLo": 50, "scoreHi": 85, "label": "Caro", "display": "29–32" },
           { "lo": 32, "hi": 35, "scoreLo": 85, "scoreHi": 100, "label": "Elevado", "display": "32–35" },
           { "lo": 35, "hi": null, "scoreLo": 100, "scoreHi": 100, "label": "Extremo", "display": "≥ 35" }
-        ]
+        ],
+        "floor": {
+          "value": 19.3,
+          "method": "P5 del CAPE mensual de Shiller de los 20 años previos (sin datos futuros)"
+        }
       }
     },
     "2014": {
@@ -275,12 +465,17 @@
         "unit": "ratio precio/ganancias 10a",
         "method": "score lineal dentro de cada tramo",
         "segments": [
-          { "lo": null, "hi": 27, "scoreLo": 0, "scoreHi": 25, "label": "Barato", "display": "≤ 27" },
+          { "lo": null, "hi": 19.3, "scoreLo": 0, "scoreHi": 0, "label": "Barato", "display": "≤ 19.3" },
+          { "lo": 19.3, "hi": 27, "scoreLo": 0, "scoreHi": 25, "label": "Barato", "display": "19.3–27" },
           { "lo": 27, "hi": 30, "scoreLo": 25, "scoreHi": 50, "label": "Justo", "display": "27–30" },
           { "lo": 30, "hi": 33, "scoreLo": 50, "scoreHi": 85, "label": "Caro", "display": "30–33" },
           { "lo": 33, "hi": 36, "scoreLo": 85, "scoreHi": 100, "label": "Elevado", "display": "33–36" },
           { "lo": 36, "hi": null, "scoreLo": 100, "scoreHi": 100, "label": "Extremo", "display": "≥ 36" }
-        ]
+        ],
+        "floor": {
+          "value": 19.3,
+          "method": "P5 del CAPE mensual de Shiller de los 20 años previos (sin datos futuros)"
+        }
       }
     },
     "2015": {
@@ -289,12 +484,17 @@
         "unit": "ratio precio/ganancias 10a",
         "method": "score lineal dentro de cada tramo",
         "segments": [
-          { "lo": null, "hi": 27, "scoreLo": 0, "scoreHi": 25, "label": "Barato", "display": "≤ 27" },
+          { "lo": null, "hi": 19.3, "scoreLo": 0, "scoreHi": 0, "label": "Barato", "display": "≤ 19.3" },
+          { "lo": 19.3, "hi": 27, "scoreLo": 0, "scoreHi": 25, "label": "Barato", "display": "19.3–27" },
           { "lo": 27, "hi": 30, "scoreLo": 25, "scoreHi": 50, "label": "Justo", "display": "27–30" },
           { "lo": 30, "hi": 33, "scoreLo": 50, "scoreHi": 85, "label": "Caro", "display": "30–33" },
           { "lo": 33, "hi": 36, "scoreLo": 85, "scoreHi": 100, "label": "Elevado", "display": "33–36" },
           { "lo": 36, "hi": null, "scoreLo": 100, "scoreHi": 100, "label": "Extremo", "display": "≥ 36" }
-        ]
+        ],
+        "floor": {
+          "value": 19.3,
+          "method": "P5 del CAPE mensual de Shiller de los 20 años previos (sin datos futuros)"
+        }
       }
     },
     "2016": {
@@ -303,12 +503,17 @@
         "unit": "ratio precio/ganancias 10a",
         "method": "score lineal dentro de cada tramo",
         "segments": [
-          { "lo": null, "hi": 27, "scoreLo": 0, "scoreHi": 25, "label": "Barato", "display": "≤ 27" },
+          { "lo": null, "hi": 19.3, "scoreLo": 0, "scoreHi": 0, "label": "Barato", "display": "≤ 19.3" },
+          { "lo": 19.3, "hi": 27, "scoreLo": 0, "scoreHi": 25, "label": "Barato", "display": "19.3–27" },
           { "lo": 27, "hi": 30, "scoreLo": 25, "scoreHi": 50, "label": "Justo", "display": "27–30" },
           { "lo": 30, "hi": 33, "scoreLo": 50, "scoreHi": 85, "label": "Caro", "display": "30–33" },
           { "lo": 33, "hi": 36, "scoreLo": 85, "scoreHi": 100, "label": "Elevado", "display": "33–36" },
           { "lo": 36, "hi": null, "scoreLo": 100, "scoreHi": 100, "label": "Extremo", "display": "≥ 36" }
-        ]
+        ],
+        "floor": {
+          "value": 19.3,
+          "method": "P5 del CAPE mensual de Shiller de los 20 años previos (sin datos futuros)"
+        }
       }
     },
     "2017": {
@@ -317,12 +522,17 @@
         "unit": "ratio precio/ganancias 10a",
         "method": "score lineal dentro de cada tramo",
         "segments": [
-          { "lo": null, "hi": 27, "scoreLo": 0, "scoreHi": 25, "label": "Barato", "display": "≤ 27" },
+          { "lo": null, "hi": 19.3, "scoreLo": 0, "scoreHi": 0, "label": "Barato", "display": "≤ 19.3" },
+          { "lo": 19.3, "hi": 27, "scoreLo": 0, "scoreHi": 25, "label": "Barato", "display": "19.3–27" },
           { "lo": 27, "hi": 30, "scoreLo": 25, "scoreHi": 50, "label": "Justo", "display": "27–30" },
           { "lo": 30, "hi": 33, "scoreLo": 50, "scoreHi": 85, "label": "Caro", "display": "30–33" },
           { "lo": 33, "hi": 36, "scoreLo": 85, "scoreHi": 100, "label": "Elevado", "display": "33–36" },
           { "lo": 36, "hi": null, "scoreLo": 100, "scoreHi": 100, "label": "Extremo", "display": "≥ 36" }
-        ]
+        ],
+        "floor": {
+          "value": 19.3,
+          "method": "P5 del CAPE mensual de Shiller de los 20 años previos (sin datos futuros)"
+        }
       }
     },
     "2018": {
@@ -331,12 +541,17 @@
         "unit": "ratio precio/ganancias 10a",
         "method": "score lineal dentro de cada tramo",
         "segments": [
-          { "lo": null, "hi": 27, "scoreLo": 0, "scoreHi": 25, "label": "Barato", "display": "≤ 27" },
+          { "lo": null, "hi": 19.3, "scoreLo": 0, "scoreHi": 0, "label": "Barato", "display": "≤ 19.3" },
+          { "lo": 19.3, "hi": 27, "scoreLo": 0, "scoreHi": 25, "label": "Barato", "display": "19.3–27" },
           { "lo": 27, "hi": 30, "scoreLo": 25, "scoreHi": 50, "label": "Justo", "display": "27–30" },
           { "lo": 30, "hi": 33, "scoreLo": 50, "scoreHi": 85, "label": "Caro", "display": "30–33" },
           { "lo": 33, "hi": 36, "scoreLo": 85, "scoreHi": 100, "label": "Elevado", "display": "33–36" },
           { "lo": 36, "hi": null, "scoreLo": 100, "scoreHi": 100, "label": "Extremo", "display": "≥ 36" }
-        ]
+        ],
+        "floor": {
+          "value": 19.3,
+          "method": "P5 del CAPE mensual de Shiller de los 20 años previos (sin datos futuros)"
+        }
       }
     },
     "2019": {
@@ -345,12 +560,17 @@
         "unit": "ratio precio/ganancias 10a",
         "method": "score lineal dentro de cada tramo",
         "segments": [
-          { "lo": null, "hi": 27, "scoreLo": 0, "scoreHi": 25, "label": "Barato", "display": "≤ 27" },
+          { "lo": null, "hi": 19.3, "scoreLo": 0, "scoreHi": 0, "label": "Barato", "display": "≤ 19.3" },
+          { "lo": 19.3, "hi": 27, "scoreLo": 0, "scoreHi": 25, "label": "Barato", "display": "19.3–27" },
           { "lo": 27, "hi": 30, "scoreLo": 25, "scoreHi": 50, "label": "Justo", "display": "27–30" },
           { "lo": 30, "hi": 33, "scoreLo": 50, "scoreHi": 85, "label": "Caro", "display": "30–33" },
           { "lo": 33, "hi": 36, "scoreLo": 85, "scoreHi": 100, "label": "Elevado", "display": "33–36" },
           { "lo": 36, "hi": null, "scoreLo": 100, "scoreHi": 100, "label": "Extremo", "display": "≥ 36" }
-        ]
+        ],
+        "floor": {
+          "value": 19.3,
+          "method": "P5 del CAPE mensual de Shiller de los 20 años previos (sin datos futuros)"
+        }
       }
     },
     "2020": {
@@ -359,12 +579,17 @@
         "unit": "ratio precio/ganancias 10a",
         "method": "score lineal dentro de cada tramo",
         "segments": [
-          { "lo": null, "hi": 27, "scoreLo": 0, "scoreHi": 25, "label": "Barato", "display": "≤ 27" },
+          { "lo": null, "hi": 19.3, "scoreLo": 0, "scoreHi": 0, "label": "Barato", "display": "≤ 19.3" },
+          { "lo": 19.3, "hi": 27, "scoreLo": 0, "scoreHi": 25, "label": "Barato", "display": "19.3–27" },
           { "lo": 27, "hi": 30, "scoreLo": 25, "scoreHi": 50, "label": "Justo", "display": "27–30" },
           { "lo": 30, "hi": 33, "scoreLo": 50, "scoreHi": 85, "label": "Caro", "display": "30–33" },
           { "lo": 33, "hi": 36, "scoreLo": 85, "scoreHi": 100, "label": "Elevado", "display": "33–36" },
           { "lo": 36, "hi": null, "scoreLo": 100, "scoreHi": 100, "label": "Extremo", "display": "≥ 36" }
-        ]
+        ],
+        "floor": {
+          "value": 19.3,
+          "method": "P5 del CAPE mensual de Shiller de los 20 años previos (sin datos futuros)"
+        }
       }
     },
     "2021": {
@@ -373,12 +598,17 @@
         "unit": "ratio precio/ganancias 10a",
         "method": "score lineal dentro de cada tramo",
         "segments": [
-          { "lo": null, "hi": 27, "scoreLo": 0, "scoreHi": 25, "label": "Barato", "display": "≤ 27" },
+          { "lo": null, "hi": 19.3, "scoreLo": 0, "scoreHi": 0, "label": "Barato", "display": "≤ 19.3" },
+          { "lo": 19.3, "hi": 27, "scoreLo": 0, "scoreHi": 25, "label": "Barato", "display": "19.3–27" },
           { "lo": 27, "hi": 30, "scoreLo": 25, "scoreHi": 50, "label": "Justo", "display": "27–30" },
           { "lo": 30, "hi": 33, "scoreLo": 50, "scoreHi": 85, "label": "Caro", "display": "30–33" },
           { "lo": 33, "hi": 36, "scoreLo": 85, "scoreHi": 100, "label": "Elevado", "display": "33–36" },
           { "lo": 36, "hi": null, "scoreLo": 100, "scoreHi": 100, "label": "Extremo", "display": "≥ 36" }
-        ]
+        ],
+        "floor": {
+          "value": 19.3,
+          "method": "P5 del CAPE mensual de Shiller de los 20 años previos (sin datos futuros)"
+        }
       }
     },
     "2022": {
@@ -387,12 +617,17 @@
         "unit": "ratio precio/ganancias 10a",
         "method": "score lineal dentro de cada tramo",
         "segments": [
-          { "lo": null, "hi": 29, "scoreLo": 0, "scoreHi": 25, "label": "Barato", "display": "≤ 29" },
+          { "lo": null, "hi": 19.3, "scoreLo": 0, "scoreHi": 0, "label": "Barato", "display": "≤ 19.3" },
+          { "lo": 19.3, "hi": 29, "scoreLo": 0, "scoreHi": 25, "label": "Barato", "display": "19.3–29" },
           { "lo": 29, "hi": 35, "scoreLo": 25, "scoreHi": 50, "label": "Justo", "display": "29–35" },
           { "lo": 35, "hi": 40, "scoreLo": 50, "scoreHi": 85, "label": "Caro", "display": "35–40" },
           { "lo": 40, "hi": 43, "scoreLo": 85, "scoreHi": 100, "label": "Elevado", "display": "40–43" },
           { "lo": 43, "hi": null, "scoreLo": 100, "scoreHi": 100, "label": "Extremo", "display": "≥ 43" }
-        ]
+        ],
+        "floor": {
+          "value": 19.3,
+          "method": "P5 del CAPE mensual de Shiller de los 20 años previos (sin datos futuros)"
+        }
       }
     },
     "2023": {
@@ -401,12 +636,17 @@
         "unit": "ratio precio/ganancias 10a",
         "method": "score lineal dentro de cada tramo",
         "segments": [
-          { "lo": null, "hi": 29, "scoreLo": 0, "scoreHi": 25, "label": "Barato", "display": "≤ 29" },
+          { "lo": null, "hi": 19.3, "scoreLo": 0, "scoreHi": 0, "label": "Barato", "display": "≤ 19.3" },
+          { "lo": 19.3, "hi": 29, "scoreLo": 0, "scoreHi": 25, "label": "Barato", "display": "19.3–29" },
           { "lo": 29, "hi": 35, "scoreLo": 25, "scoreHi": 50, "label": "Justo", "display": "29–35" },
           { "lo": 35, "hi": 40, "scoreLo": 50, "scoreHi": 85, "label": "Caro", "display": "35–40" },
           { "lo": 40, "hi": 43, "scoreLo": 85, "scoreHi": 100, "label": "Elevado", "display": "40–43" },
           { "lo": 43, "hi": null, "scoreLo": 100, "scoreHi": 100, "label": "Extremo", "display": "≥ 43" }
-        ]
+        ],
+        "floor": {
+          "value": 19.3,
+          "method": "P5 del CAPE mensual de Shiller de los 20 años previos (sin datos futuros)"
+        }
       }
     },
     "2024": {
@@ -415,12 +655,17 @@
         "unit": "ratio precio/ganancias 10a",
         "method": "score lineal dentro de cada tramo",
         "segments": [
-          { "lo": null, "hi": 29, "scoreLo": 0, "scoreHi": 25, "label": "Barato", "display": "≤ 29" },
+          { "lo": null, "hi": 19.3, "scoreLo": 0, "scoreHi": 0, "label": "Barato", "display": "≤ 19.3" },
+          { "lo": 19.3, "hi": 29, "scoreLo": 0, "scoreHi": 25, "label": "Barato", "display": "19.3–29" },
           { "lo": 29, "hi": 35, "scoreLo": 25, "scoreHi": 50, "label": "Justo", "display": "29–35" },
           { "lo": 35, "hi": 40, "scoreLo": 50, "scoreHi": 85, "label": "Caro", "display": "35–40" },
           { "lo": 40, "hi": 43, "scoreLo": 85, "scoreHi": 100, "label": "Elevado", "display": "40–43" },
           { "lo": 43, "hi": null, "scoreLo": 100, "scoreHi": 100, "label": "Extremo", "display": "≥ 43" }
-        ]
+        ],
+        "floor": {
+          "value": 19.3,
+          "method": "P5 del CAPE mensual de Shiller de los 20 años previos (sin datos futuros)"
+        }
       }
     },
     "2025": {
@@ -429,12 +674,17 @@
         "unit": "ratio precio/ganancias 10a",
         "method": "score lineal dentro de cada tramo",
         "segments": [
-          { "lo": null, "hi": 29, "scoreLo": 0, "scoreHi": 25, "label": "Barato", "display": "≤ 29" },
+          { "lo": null, "hi": 19.3, "scoreLo": 0, "scoreHi": 0, "label": "Barato", "display": "≤ 19.3" },
+          { "lo": 19.3, "hi": 29, "scoreLo": 0, "scoreHi": 25, "label": "Barato", "display": "19.3–29" },
           { "lo": 29, "hi": 35, "scoreLo": 25, "scoreHi": 50, "label": "Justo", "display": "29–35" },
           { "lo": 35, "hi": 40, "scoreLo": 50, "scoreHi": 70, "label": "Caro", "display": "35–40" },
           { "lo": 40, "hi": 43, "scoreLo": 70, "scoreHi": 100, "label": "Elevado", "display": "40–43" },
           { "lo": 43, "hi": null, "scoreLo": 100, "scoreHi": 100, "label": "Extremo", "display": "≥ 43" }
-        ]
+        ],
+        "floor": {
+          "value": 19.3,
+          "method": "P5 del CAPE mensual de Shiller de los 20 años previos (sin datos futuros)"
+        }
       }
     },
     "2026": {
@@ -443,12 +693,17 @@
         "unit": "ratio precio/ganancias 10a",
         "method": "score lineal dentro de cada tramo",
         "segments": [
-          { "lo": null, "hi": 29, "scoreLo": 0, "scoreHi": 25, "label": "Barato", "display": "≤ 29" },
+          { "lo": null, "hi": 19.3, "scoreLo": 0, "scoreHi": 0, "label": "Barato", "display": "≤ 19.3" },
+          { "lo": 19.3, "hi": 29, "scoreLo": 0, "scoreHi": 25, "label": "Barato", "display": "19.3–29" },
           { "lo": 29, "hi": 35, "scoreLo": 25, "scoreHi": 50, "label": "Justo", "display": "29–35" },
           { "lo": 35, "hi": 40, "scoreLo": 50, "scoreHi": 70, "label": "Caro", "display": "35–40" },
           { "lo": 40, "hi": 43, "scoreLo": 70, "scoreHi": 100, "label": "Elevado", "display": "40–43" },
           { "lo": 43, "hi": null, "scoreLo": 100, "scoreHi": 100, "label": "Extremo", "display": "≥ 43" }
-        ]
+        ],
+        "floor": {
+          "value": 19.3,
+          "method": "P5 del CAPE mensual de Shiller de los 20 años previos (sin datos futuros)"
+        }
       }
     },
     "2027": {
@@ -457,12 +712,17 @@
         "unit": "ratio precio/ganancias 10a",
         "method": "score lineal dentro de cada tramo",
         "segments": [
-          { "lo": null, "hi": 29, "scoreLo": 0, "scoreHi": 25, "label": "Barato", "display": "≤ 29" },
+          { "lo": null, "hi": 19.3, "scoreLo": 0, "scoreHi": 0, "label": "Barato", "display": "≤ 19.3" },
+          { "lo": 19.3, "hi": 29, "scoreLo": 0, "scoreHi": 25, "label": "Barato", "display": "19.3–29" },
           { "lo": 29, "hi": 35, "scoreLo": 25, "scoreHi": 50, "label": "Justo", "display": "29–35" },
           { "lo": 35, "hi": 40, "scoreLo": 50, "scoreHi": 70, "label": "Caro", "display": "35–40" },
           { "lo": 40, "hi": 43, "scoreLo": 70, "scoreHi": 100, "label": "Elevado", "display": "40–43" },
           { "lo": 43, "hi": null, "scoreLo": 100, "scoreHi": 100, "label": "Extremo", "display": "≥ 43" }
-        ]
+        ],
+        "floor": {
+          "value": 19.3,
+          "method": "P5 del CAPE mensual de Shiller de los 20 años previos (sin datos futuros)"
+        }
       }
     }
   }

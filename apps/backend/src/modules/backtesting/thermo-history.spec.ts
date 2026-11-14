@@ -302,8 +302,9 @@ describe('thermo-history', () => {
     // CPI y CORE planos al 3%: nivel 70, delta 0 → 58 cada uno (aportan 580 + 580).
     expect(r!.coverage).toBe(9);
     expect(r!.denominator).toBe(95);
-    expect(r!.numerator).toBeCloseTo(4774.8, 0);
-    expect(r!.value).toBeCloseTo(50.3, 1);
+    // CAPE 20 en 1995 (corte 21, piso anual 7.8): 0 + (20−7.8)·25/(21−7.8) = 23.1 pts (antes 25 plano).
+    expect(r!.numerator).toBeCloseTo(4736.9, 0);
+    expect(r!.value).toBeCloseTo(49.9, 1);
     expect(r!.bonus).toBe(0);
     expect(r!.parts.map((p) => p.key)).toEqual(['CAPE', 'RATIO', 'CPI', 'CORE', 'Y2M', '30Y', 'VIX', 'MS', 'PIB']);
     expect(r!.parts.find((p) => p.key === 'RATIO')!.weight).toBe(15);

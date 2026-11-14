@@ -4,9 +4,11 @@ import { TOKENS } from '@/lib/designTokens';
 // Puntajes del termómetro BHT (0-100, 100 = riesgo máximo): bandas, etiquetas y desglose nivel+tendencia.
 // Espejo de los segmentos del backend; funciones puras.
 // === Termómetro BuyHoldTime: puntaje CAPE 0-100 (100 = riesgo máximo) ===
-// Bandas aprobadas: [lo, hi, puntajeLo, puntajeHi, etiqueta, display]
+// Bandas vigentes (2026–2027, espejo de packages/bht-bands/bands.json): [lo, hi, puntajeLo, puntajeHi, etiqueta, display].
+// Piso anual 19.3 = P5 del CAPE mensual de los 20 años previos (prisma/gen-cape-floors.ts): por debajo, 0 pts.
 export const CAPE_SEGS: [number, number, number, number, string, string][] = [
-  [-Infinity, 29, 0, 25, 'Barato', '≤ 29'],
+  [-Infinity, 19.3, 0, 0, 'Barato', '≤ 19.3'],
+  [19.3, 29, 0, 25, 'Barato', '19.3–29'],
   [29, 35, 25, 50, 'Justo', '29–35'],
   [35, 40, 50, 70, 'Caro', '35–40'],
   [40, 43, 70, 100, 'Elevado', '40–43'],
@@ -126,7 +128,7 @@ export const partLabel = (k: string, loc = 'es') => partDesc[k] ? `${partName(k)
 export const fwdBandLabel = (pe: number) => pe < 16 ? 'Barato' : pe < 20.5 ? 'Justo' : pe < 23.5 ? 'Caro' : pe < 25.5 ? 'Elevado' : 'Extremo';
 // Bandas para el popover del orbe: [lo, hi, display, puntos, nivel]
 export const CAPE_BANDS: [number, number, string, string, string][] = [
-  [-Infinity, 29, '≤ 29', '0–25', 'Barato'], [29, 35, '29–35', '25–50', 'Justo'], [35, 40, '35–40', '50–70', 'Caro'], [40, 43, '40–43', '70–100', 'Elevado'], [43, Infinity, '≥ 43', '100', 'Extremo'],
+  [-Infinity, 19.3, '≤ 19.3', '0', 'Barato'], [19.3, 29, '19.3–29', '0–25', 'Barato'], [29, 35, '29–35', '25–50', 'Justo'], [35, 40, '35–40', '50–70', 'Caro'], [40, 43, '40–43', '70–100', 'Elevado'], [43, Infinity, '≥ 43', '100', 'Extremo'],
 ];
 export const RATIO_BANDS: [number, number, string, string, string][] = [
   [-Infinity, 0.90, '≤ 0.90', '0–20', 'Barato'], [0.90, 1.00, '0.90–1.00', '20–50', 'Justo'], [1.00, 1.20, '1.00–1.20', '50–90', 'Caro'], [1.20, 1.30, '1.20–1.30', '90–100', 'Elevado'], [1.30, Infinity, '≥ 1.30', '100', 'Extremo'],

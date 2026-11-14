@@ -6,7 +6,7 @@ import { capeSegsForDate } from './bht-bands';
 export type Seg = [number, number, number, number];
 
 export const CAPE_SEGS: Seg[] = [
-  [-Infinity, 29, 0, 25], [29, 35, 25, 50], [35, 40, 50, 70],
+  [-Infinity, 19.3, 0, 0], [19.3, 29, 0, 25], [29, 35, 25, 50], [35, 40, 50, 70],
   [40, 43, 70, 100], [43, Infinity, 100, 100],
 ];
 export const PE_SEGS: Seg[] = [

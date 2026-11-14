@@ -11,6 +11,8 @@ interface JsonSeg {
   hi: number | null;
   scoreLo: number;
   scoreHi: number;
+  label?: string;
+  display?: string;
 }
 interface BandsFile {
   defaultYear: string;
@@ -20,7 +22,7 @@ interface BandsFile {
 // Bandas vigentes (2027): respaldo si el JSON no se encuentra. No editar aquí;
 // la calibración vive en packages/bht-bands/bands.json.
 const FALLBACK_SEGS: Seg[] = [
-  [-Infinity, 29, 0, 25], [29, 35, 25, 50], [35, 40, 50, 70],
+  [-Infinity, 19.3, 0, 0], [19.3, 29, 0, 25], [29, 35, 25, 50], [35, 40, 50, 70],
   [40, 43, 70, 100], [43, Infinity, 100, 100],
 ];
 
