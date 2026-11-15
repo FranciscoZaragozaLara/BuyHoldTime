@@ -6,6 +6,8 @@ import { createChart, ColorType, LineSeries, IChartApi, createSeriesMarkers } fr
 import { Eye, EyeOff, Calendar, Table, LineChart as ChartIcon, Sparkles } from 'lucide-react';
 import { IndicatorDetails } from '@/services/api';
 import { TOKENS } from '@/lib/designTokens';
+import { getApiBase } from '@/lib/apiBase';
+import { buildValuationChart, monthlyOpportunityMarkers, type DailyValuation } from '@/lib/valuationChart';
 
 interface MarketValueIndicatorClientProps {
   shillerPeData: IndicatorDetails;
@@ -129,123 +131,25 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
     rateGs10Data, excessCapeYieldData
   ]);
 
-  // Compute moving averages on the full dataset so they remain accurate when zoomed
-  const dataWithMa = useMemo(() => {
-    if (mergedData.length === 0) return [];
+  // Serie diaria desde 1990 (S&P 500, P/E registrado, CAPE): se pide después de pintar la mensual y la
+  // reemplaza en cuanto llega. Si falla, la gráfica se queda con la serie mensual.
+  const [daily, setDaily] = useState<DailyValuation | null>(null);
+  useEffect(() => {
+    let alive = true;
+    fetch(`${getApiBase()}/indicators/valuation-daily`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j: DailyValuation | null) => { if (alive && j && Array.isArray(j.dates) && j.dates.length) setDaily(j); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, []);
 
-    const ema50: (number | undefined)[] = new Array(mergedData.length);
-    const ema200: (number | undefined)[] = new Array(mergedData.length);
-
-    // S&P 500 prices are monthly, so 50 days approx 2.4 months, 200 days approx 9.5 months
-    const m50 = 2 / (2.4 + 1);
-    const m200 = 2 / (9.5 + 1);
-
-    // Initialize first elements
-    let prev50 = mergedData[0].sp500Price;
-    let prev200 = mergedData[0].sp500Price;
-
-    ema50[0] = prev50 !== undefined ? parseFloat(prev50.toFixed(2)) : undefined;
-    ema200[0] = prev200 !== undefined ? parseFloat(prev200.toFixed(2)) : undefined;
-
-    for (let i = 1; i < mergedData.length; i++) {
-      const val = mergedData[i].sp500Price;
-
-      if (val !== undefined && val !== null) {
-        if (prev50 === undefined || prev50 === null) {
-          prev50 = val;
-          ema50[i] = parseFloat(val.toFixed(2));
-        } else {
-          prev50 = (val - prev50) * m50 + prev50;
-          ema50[i] = parseFloat(prev50.toFixed(2));
-        }
-
-        if (prev200 === undefined || prev200 === null) {
-          prev200 = val;
-          ema200[i] = parseFloat(val.toFixed(2));
-        } else {
-          prev200 = (val - prev200) * m200 + prev200;
-          ema200[i] = parseFloat(prev200.toFixed(2));
-        }
-      } else {
-        ema50[i] = undefined;
-        ema200[i] = undefined;
-      }
-    }
-
-    return mergedData.map((item, index) => ({
-      ...item,
-      sp500PriceMa50: ema50[index],
-      sp500PriceMa200: ema200[index],
-    }));
-  }, [mergedData]);
-
-  // Compute 15-day rolling opportunity markers for the S&P 500 Price series
-  const opportunityMarkers = useMemo(() => {
-    const markers: any[] = [];
-    let lastBasicTime: string | null = null;
-    let lastSuperTime: string | null = null;
-    let lastUltraTime: string | null = null;
-
-    const getDaysDiff = (d1: string, d2: string) => {
-      const t1 = new Date(d1).getTime();
-      const t2 = new Date(d2).getTime();
-      return Math.abs(t1 - t2) / (1000 * 60 * 60 * 24);
-    };
-
-    for (let i = 0; i < dataWithMa.length; i++) {
-      const d = dataWithMa[i];
-      if (!d || !d.date || d.sp500Price === undefined || d.sp500PriceMa50 === undefined || d.sp500PriceMa200 === undefined) continue;
-
-      const price = d.sp500Price;
-      const ema50Val = d.sp500PriceMa50;
-      const ema200Val = d.sp500PriceMa200;
-      const mid = (ema50Val + ema200Val) / 2;
-      const markerTime = `${d.date}-01`;
-
-      if (price > ema200Val && price < mid) {
-        if (!lastBasicTime || getDaysDiff(markerTime, lastBasicTime) >= 15) {
-          markers.push({
-            time: markerTime,
-            position: 'aboveBar',
-            color: '#3b82f6', // Blue
-            shape: 'circle',
-            text: '$',
-            size: 1,
-          });
-          lastBasicTime = markerTime;
-        }
-      } else if (price <= ema200Val && price > ema200Val * 0.9) {
-        if (!lastSuperTime || getDaysDiff(markerTime, lastSuperTime) >= 15) {
-          markers.push({
-            time: markerTime,
-            position: 'aboveBar',
-            color: TOKENS.favorable, // Green
-            shape: 'circle',
-            text: '$$',
-            size: 1.15,
-          });
-          lastSuperTime = markerTime;
-        }
-      } else if (price <= ema200Val * 0.9) {
-        if (!lastUltraTime || getDaysDiff(markerTime, lastUltraTime) >= 15) {
-          markers.push({
-            time: markerTime,
-            position: 'aboveBar',
-            color: '#eab308', // Gold
-            shape: 'circle',
-            text: '$$ 🌟',
-            size: 1.15,
-          });
-          lastUltraTime = markerTime;
-        }
-      }
-    }
-    return markers;
-  }, [dataWithMa]);
+  // Puntos de la gráfica (mensual antes de 1990, diaria después) con EMA 50/200 y marcadores mensuales.
+  const points = useMemo(() => buildValuationChart(mergedData, daily), [mergedData, daily]);
+  const opportunityMarkers = useMemo(() => monthlyOpportunityMarkers(points), [points]);
 
   // Lightweight charts initialization and synchronization
   useEffect(() => {
-    if (!chartContainerRef.current || dataWithMa.length === 0) return;
+    if (!chartContainerRef.current || points.length === 0) return;
 
     const chart = createChart(chartContainerRef.current, {
       layout: {
@@ -324,14 +228,8 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
     });
 
     // Populate data format suitable for lightweight charts
-    const chartPoints = dataWithMa.map((d) => ({
-      time: `${d.date}-01`,
-      sp500Price: d.sp500Price,
-      peRatio: d.peRatio,
-      shillerPe: d.shillerPe,
-      sp500PriceMa50: d.sp500PriceMa50,
-      sp500PriceMa200: d.sp500PriceMa200,
-    }));
+    const chartPoints = points;
+    const byTime = new Map(points.map((p) => [p.time, p]));
 
     // Sin dato → punto vacío (hueco), no 0: el 0 dibujaba caídas verticales al final de cada serie.
     type PointKey = 'sp500Price' | 'peRatio' | 'shillerPe' | 'sp500PriceMa50' | 'sp500PriceMa200';
@@ -361,7 +259,10 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
       });
     }
 
+    // La gráfica se recrea al cambiar datos o filtros: lo pendiente no debe pintar sobre una instancia eliminada.
+    let disposed = false;
     const updateMaxLine = () => {
+      if (disposed) return;
       if (!showShillerPe) {
         if (maxPriceLine) {
           shillerPeSeries.removePriceLine(maxPriceLine);
@@ -419,11 +320,10 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
         return;
       }
 
-      const dateKey = timeStr.substring(0, 7);
-      const matched = dataWithMa.find(d => d.date === dateKey);
+      const matched = byTime.get(timeStr);
       if (matched) {
         setHoveredData({
-          date: dateKey,
+          date: matched.daily ? timeStr : timeStr.substring(0, 7),
           sp500Price: matched.sp500Price ?? null,
           sp500Ema50: matched.sp500PriceMa50 ?? null,
           sp500Ema200: matched.sp500PriceMa200 ?? null,
@@ -467,7 +367,7 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
       }
     }
 
-    setTimeout(updateMaxLine, 100);
+    const maxLineTimer = setTimeout(updateMaxLine, 100);
 
     const handleResize = () => {
       if (chartContainerRef.current && chartRef.current) {
@@ -482,11 +382,15 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
 
     return () => {
       resizeObserver.disconnect();
+      disposed = true;
+      clearTimeout(maxLineTimer);
+      chart.timeScale().unsubscribeVisibleTimeRangeChange(updateMaxLine);
       chart.remove();
       chartRef.current = null;
     };
   }, [
-    dataWithMa,
+    points,
+    opportunityMarkers,
     showSp500Price,
     showPeRatio,
     showShillerPe,
@@ -523,9 +427,10 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
   // Formatting helpers
   const formatDateLabel = (dateKey: any) => {
     if (typeof dateKey !== 'string') return '';
-    const [year, month] = dateKey.split('-');
-    const date = new Date(Number(year), Number(month) - 1, 15);
+    const [year, month, day] = dateKey.split('-');
+    const date = new Date(Number(year), Number(month) - 1, day ? Number(day) : 15);
     return date.toLocaleDateString(locale === 'es' ? 'es-ES' : 'en-US', {
+      ...(day ? { day: 'numeric' as const } : {}),
       month: 'short',
       year: 'numeric',
     });
