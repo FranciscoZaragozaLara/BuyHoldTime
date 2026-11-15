@@ -326,6 +326,32 @@ export function getLiqBonus(m2map: PriceMap | undefined, m0map: PriceMap | undef
   return { bonus: 0, yoy, m0d3, drop, label: '—' };
 }
 
+/** Misma fecha N meses antes, sin overflow de fin de mes (31 jul −2M → 31 may; 31 mar −1M → 28/29 feb). */
+function liqMonthsBack(isoDate: string, n: number): string {
+  const d = new Date(isoDate + 'T12:00:00Z');
+  const t = (((d.getMonth() - n) % 12) + 12) % 12;
+  d.setMonth(d.getMonth() - n);
+  if (d.getMonth() !== t) d.setDate(0);
+  return d.toISOString().slice(0, 10);
+}
+
+/**
+ * Bonus de liquidez suavizado (estudio nov-2026, variante L5): promedio del bonus crudo de este mes y los
+ * 2 anteriores, salvo bazuca (≤ −20) y viento en contra (+10), que entran inmediatos. El viento a favor (−10)
+ * dependía del signo de M0 Δ3M y prendía/apagaba mes a mes (saltos de hasta 30 pts en el BHT).
+ * 1993→hoy: aciertos de BHT ≥ 70 57% → 60%, salidas prematuras 24% → 22%, saltos ≥ 15 pts/mes 514 → 401.
+ */
+export function getLiqBonusSmoothed(m2map: PriceMap | undefined, m0map: PriceMap | undefined, isoDate: string, cpiMap?: PriceMap): LiqBonus {
+  const cur = getLiqBonus(m2map, m0map, isoDate, cpiMap);
+  if (cur.label === 'sin dato' || cur.bonus <= -20 || cur.bonus === 10) return cur;
+  const b1 = getLiqBonus(m2map, m0map, liqMonthsBack(isoDate, 1), cpiMap).bonus;
+  const b2 = getLiqBonus(m2map, m0map, liqMonthsBack(isoDate, 2), cpiMap).bonus;
+  const bonus = Math.round((cur.bonus + b1 + b2) / 3) || 0;
+  if (bonus === cur.bonus) return cur;
+  const label = bonus === 0 ? '—' : `${bonus < 0 ? 'viento a favor' : 'viento en contra'} prom. 3M (${[cur.bonus, b1, b2].map((x) => (x > 0 ? `+${x}` : `${x}`)).join('/')})`;
+  return { ...cur, bonus, label };
+}
+
 export interface OilBonus { bonus: number; ratio: number | null; price: number | null; label: string }
 
 /** Anclas mensuales: última obs ≤ día 1 de cada mes hacia atrás (sin overflow de fin de mes). */
@@ -493,7 +519,7 @@ export function computeThermoDay(
   push('PIB', gdpc1 != null ? pibScore(gdpc1) : null, 5, gdpc1);
   if (!parts.length) return null;
   // Bonus liquidez M2/M0 (simétrico: resta en oportunidad, suma en riesgo).
-  const liqB = getLiqBonus(s['M2SL'], s['BOGMBASE'], isoDate, s['CPIAUCSL']);
+  const liqB = getLiqBonusSmoothed(s['M2SL'], s['BOGMBASE'], isoDate, s['CPIAUCSL']);
   // Bonus petróleo WTI por ratio vs SMA36M (simétrico, fuera del promedio).
   const oilB = getOilBonus(s['DCOILWTICO'], isoDate);
   const numerator = parts.reduce((m, p) => m + p.score * p.weight, 0);
@@ -521,7 +547,7 @@ export function computeThermoLive(
   }
   const day = computeThermoDay(isoDate, series, cape);
   const hy = getHyBonus(series['BAMLH0A0HYM2'], isoDate, series['DFEDTARU']);
-  const liq = getLiqBonus(series['M2SL'], series['BOGMBASE'], isoDate, series['CPIAUCSL']);
+  const liq = getLiqBonusSmoothed(series['M2SL'], series['BOGMBASE'], isoDate, series['CPIAUCSL']);
   const oil = getOilBonus(series['DCOILWTICO'], isoDate);
   return { day, hy, liq, oil };
 }
