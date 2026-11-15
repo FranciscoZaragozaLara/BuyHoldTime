@@ -8,6 +8,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { restoreShillerCsvFromDb, SHILLER_CSV_PATH, syncShillerCsvToDb } from '../backtesting/shiller-daily';
 import { logSourceRun, SourceRunTracker } from '../admin/data-source-runs';
 import { wsjPointChanged } from './wsj-pe';
+import { syncIndicatorsTable } from './indicator-sync';
 
 /**
  * Construye la línea planchada del día `date` para shiller_daily.csv SIN asumir
@@ -104,6 +105,7 @@ export class MarketSyncService {
       .then(() => this.runPython('daily_update.py', []))
       .then(() => this.patchBHPerformance())
       .then(() => this.syncShillerDb())
+      .then(() => this.syncIndicators())
       .then(() => this.refreshThermoTail())
       .then(() => this.logger.log('Full sync background done'))
       .catch((e: any) => this.logger.error(`Full sync background failed: ${e.message?.slice(0, 200)}`))
@@ -134,6 +136,16 @@ export class MarketSyncService {
 
   // Cola del termómetro + BHT tras el sync: recalcula los últimos 7 días para que
   // las fechas nuevas no amanezcan con BHT vacío. Idempotente; nunca revienta el sync.
+  // Tabla `indicators` (fed_rate, treasury_30y, vix, fear_greed, inflation, core_inflation) desde sus series.
+  private async syncIndicators(): Promise<void> {
+    try {
+      const ups = await syncIndicatorsTable(this.prisma);
+      this.logger.log(`indicators: ${ups.map((u) => `${u.key}=${u.value.toFixed(2)}`).join(' · ') || 'sin cambios'}`);
+    } catch (e: any) {
+      this.logger.error(`indicators sync falló: ${e.message?.slice(0, 200)}`);
+    }
+  }
+
   private refreshThermoTail(): Promise<void> {
     const from = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
     this.logger.log(`Thermo tail refresh desde ${from}`);
@@ -177,6 +189,7 @@ export class MarketSyncService {
       await this.runPython('daily_update.py', []);
       await this.patchBHPerformance();
       await this.syncShillerDb();
+      await this.syncIndicators();
       await this.refreshThermoTail();
       this.logger.log('Daily market sync done');
     } catch (e: any) {
@@ -304,6 +317,7 @@ export class MarketSyncService {
     await this.runPython('daily_update.py', []);
     await this.patchBHPerformance();
     await this.syncShillerDb();
+    await this.syncIndicators();
     await this.refreshThermoTail();
     return { ok: true, log: 'sync ok' };
   }
@@ -814,6 +828,7 @@ export class MarketSyncService {
     await runs.flush(this.prisma);
     // Cola del termómetro + BHT hasta hoy antes de cerrar el stream,
     // para que la tabla pinte el registro del día sin recargar la página.
+    await this.syncIndicators();
     try { await this.refreshThermoTail(); } catch {}
     try { send({ type: 'done' }); } catch {}
     try { res.end(); } catch {}
