@@ -12,7 +12,7 @@ import { MarginGdpChart } from './MarginGdpChart';
 import { BhtTimeline } from './BhtTimeline';
 import { BhtStats } from './BhtStats';
 import { CrisisEventsTable } from './CrisisEventsTable';
-import { BHT_BANDS, bhtBand, capeScoreColor, BHT_CUTS } from './bhtBands';
+import { BHT_BANDS, bhtBand, capeScoreColor } from './bhtBands';
 import { buildCapeTableRows } from '@/lib/capeTableRows';
 import { getClosestPrice, getCpiMa6, getCpiYoY, getMa126, getRecentPrice, isValidIsoDate, marginGdpMa24, marginGdpRatio } from '@/lib/seriesLookup';
 import { useQueryClient } from '@tanstack/react-query';
@@ -23,6 +23,7 @@ import { capeRiskScore, fwdRiskScore, ratioRiskScore, CPI_LVL_SEGS, CPI_TRD_SEGS
 import { type ThermoLive, useThermoLive, useLiveTicker } from './useThermoLive';
 import { BhtHistoryBlock, ScoreOrb } from './ThermoOrbs';
 import { CapeHistoryTable } from './CapeHistoryTable';
+import { BhtGauge } from '@/components/BhtGauge';
 
 const NAME_KEYS = ["fed_rate", "DGS2", "DGS10", "DGS30", "BAMLH0A0HYM2", "BAMLH0A0HYM2EY", "DFEDTARU", "CPIAUCSL", "CPILFESL", "M2SL", "BOGMBASE", "DCOILWTICO", "GDP", "GDPC1", "FINRA_DEBIT", "MARGIN_GDP", "MSACSR", "VIXCLS", "FEAR_GREED", "^GSPC", "^IXIC", "TQQQ", "QQQ", "SPY", "VOO", "SCHD", "JEPQ", "SQQQ", "SPX_ADV_VOL", "SPX_DEC_VOL", "NYSE_ADV_VOL", "NYSE_DEC_VOL", "NSDQ_ADV_VOL", "NSDQ_DEC_VOL"];
 const TIP_KEYS = ["schiller_pe", "pe_ratio", "fwd_pe_ratio", "inflation", "core_inflation", "fed_rate", "treasury_30y", "vix", "fear_greed", "^GSPC", "^IXIC", "TQQQ", "QQQ", "SPY", "VOO", "SCHD", "JEPQ", "SQQQ", "DFEDTARU", "DGS2", "DGS10", "DGS30", "CPIAUCSL", "M2SL", "BOGMBASE", "DCOILWTICO", "CPILFESL", "BAMLH0A0HYM2", "BAMLH0A0HYM2EY", "GDP", "GDPC1", "FINRA_DEBIT", "MARGIN_GDP", "MSACSR", "VIXCLS", "FEAR_GREED", "NYSE_ADV_VOL", "NYSE_DEC_VOL", "NSDQ_ADV_VOL", "NSDQ_DEC_VOL", "SPX_ADV_VOL", "SPX_DEC_VOL"];
@@ -166,6 +167,12 @@ export function IndicatorsPanel() {
   const runSync = () => marketSync.start(getApiBase());
 
 
+  // Enlaces desde la home (#bht-thermo, #cat-valoracion…): las secciones existen hasta que carga la data.
+  useEffect(() => {
+    if (loading || typeof window === 'undefined' || !window.location.hash) return;
+    const el = document.getElementById(decodeURIComponent(window.location.hash.slice(1)));
+    if (el) requestAnimationFrame(() => el.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+  }, [loading]);
   if (loading) return <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 text-sm text-slate-500">{ti('loading')}</div>;
 
   const capeLast = cape[cape.length - 1];
@@ -247,28 +254,8 @@ export function IndicatorsPanel() {
         const band = bhtBand(riskScore);
         const riskLabel = band.label;
         const riskColor = band.textClass;
-        const CX = 100, CY = 104, R = 80;
-        const polar = (deg:number, r:number) => { const rad = (deg * Math.PI) / 180; return [CX + r * Math.cos(rad), CY - r * Math.sin(rad)] as const; };
-        // Arco proporcional a la frecuencia histórica (√freq: verde 11%, lima 25%,
-        // amarillo 46%, naranja 13%, rojo 6%): las bandas habituales se ven más grandes.
-        const SEGV = [0, ...BHT_CUTS, 100];
-        const SEGARC = [28, 43, 58, 30, 21];
-        const angL = (v:number) => {
-          const c = Math.max(0, Math.min(100, v));
-          let i = SEGV.findIndex((e, k) => k < SEGV.length - 1 && c >= e && (c < SEGV[k + 1] || (k === SEGV.length - 2 && c <= SEGV[k + 1])));
-          if (i < 0) i = SEGV.length - 2;
-          const acc = SEGARC.slice(0, i).reduce((m, x) => m + x, 0);
-          return acc + ((c - SEGV[i]) / (SEGV[i + 1] - SEGV[i])) * SEGARC[i];
-        };
-        const A = (v:number) => 180 - angL(v);
-        const arc = (v0:number, v1:number) => { const a0 = A(v0) - 0.6, a1 = A(v1) + 0.6; const [x0,y0] = polar(a0, R); const [x1,y1] = polar(a1, R); return `M ${x0.toFixed(1)} ${y0.toFixed(1)} A ${R} ${R} 0 0 1 ${x1.toFixed(1)} ${y1.toFixed(1)}`; };
-        const segs = BHT_BANDS.map((b): readonly [number, number, string] => [b.lo, b.hi, b.color]);
-        const [nx,ny] = polar(A(riskScore), R - 24);
-        const [t0x,t0y] = polar(A(0), R + 12);
-        const [t50x,t50y] = polar(A(50), R + 12);
-        const [t100x,t100y] = polar(A(100), R + 12);
         return (
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
+        <div id="bht-thermo" className="bg-slate-900 border border-slate-800 rounded-xl p-4 scroll-mt-24">
           <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
             <h3 className="font-semibold text-slate-100">{ti('thermoTitle')}</h3>
             <div className="flex items-center gap-2">
@@ -287,14 +274,7 @@ export function IndicatorsPanel() {
           {thermoView === 'stats' && <BhtStats />}
           {thermoView === 'overview' && (
           <div className="flex flex-col lg:flex-row items-center gap-6">
-            <svg viewBox="0 0 200 118" className="w-full max-w-[440px] flex-[1.2] shrink" role="img" aria-label={ti('riskAria', { score: riskScore, label: ti(`bht.b${BHT_BANDS.indexOf(band)}.label`) })}>
-              {segs.map(([v0,v1,c]) => <path key={v0} d={arc(v0 + 0.8, v1 - 0.8)} fill="none" stroke={c} strokeWidth="16" strokeLinecap="butt" opacity="0.85" />)}
-              <line x1={CX} y1={CY} x2={nx} y2={ny} stroke="#e2e8f0" strokeWidth="3" strokeLinecap="round" />
-              <circle cx={CX} cy={CY} r="6" fill="#e2e8f0" />
-              <text x={t0x.toFixed(0)} y={t0y.toFixed(0)} fill="#cbd5e1" fontSize="10" fontFamily="monospace" fontWeight="bold" textAnchor="start">0</text>
-              <text x={t50x.toFixed(0)} y={t50y.toFixed(0)} fill="#cbd5e1" fontSize="10" fontFamily="monospace" fontWeight="bold" textAnchor="middle">50</text>
-              <text x={t100x.toFixed(0)} y={t100y.toFixed(0)} fill="#cbd5e1" fontSize="10" fontFamily="monospace" fontWeight="bold" textAnchor="end">100</text>
-            </svg>
+            <BhtGauge score={riskScore} className="w-full max-w-[440px] flex-[1.2] shrink" ariaLabel={ti('riskAria', { score: riskScore, label: ti(`bht.b${BHT_BANDS.indexOf(band)}.label`) })} />
             <div className="flex-1 w-full text-center lg:text-left">
               <div className="font-mono text-5xl font-bold text-slate-100">{riskScore}<span className="text-lg text-slate-500">/100</span></div>
               <div className={`text-base font-semibold mt-1 ${riskColor}`}>{ti(`bht.b${BHT_BANDS.indexOf(band)}.label`)}</div>
@@ -548,7 +528,7 @@ export function IndicatorsPanel() {
               const mkts = cat.keys.filter(k=> k==='MARGIN_GDP' || mktTickers.includes(k)).map(k=> [k, markets[k] ?? (k==='MARGIN_GDP'? getMarginGdpRatio(new Date().toISOString().slice(0,10)): null)] as const);
               if (inds.length===0 && mkts.length===0) return null;
               return (
-                <div key={cat.key} className="bg-slate-900/40 border border-slate-800 rounded-xl p-4">
+                <div key={cat.key} id={`cat-${cat.key}`} className="bg-slate-900/40 border border-slate-800 rounded-xl p-4 scroll-mt-24">
                   <h4 className="text-sm font-semibold text-slate-100 mb-3 flex items-center gap-2"><span>{cat.icon}</span> {cat.label} <span className="text-xs font-normal text-slate-500">— {inds.length + mkts.length} activos</span></h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                     {inds.map((ind:any)=><IndicatorCard key={ind.key} ind={ind} />)}

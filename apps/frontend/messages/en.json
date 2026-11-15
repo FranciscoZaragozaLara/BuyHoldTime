@@ -719,7 +719,46 @@
     "fg_greed": "Greed",
     "fg_extremeGreed": "Extreme greed",
     "gainersTitle": "▲ Top gainers",
-    "losersTitle": "▼ Top decliners"
+    "losersTitle": "▼ Top decliners",
+    "ctaThermo": "See the full thermometer",
+    "thermoKicker": "BHT Thermometer",
+    "thermoTitle": "Market risk today",
+    "thermoUpdated": "Updated {date} · 12 indicators + adjustments",
+    "thermoAdviceTitle": "What this band suggests",
+    "thermoDetail": "See how it's calculated",
+    "thermoScale": "0 = lowest risk · 100 = highest risk",
+    "componentsTitle": "What is moving the thermometer today",
+    "componentsSubtitle": "Each indicator contributes a 0–100 score by its weight. Tap one to see its card, history and bands.",
+    "groups": {
+      "valuation": "Valuation",
+      "inflation": "Inflation and rates",
+      "risk": "Leverage and sentiment",
+      "economy": "Real economy"
+    },
+    "parts": {
+      "CAPE": "Shiller CAPE",
+      "FWD": "Forward P/E",
+      "RATIO": "CAPE vs 3-year mean",
+      "CPI": "Inflation (CPI)",
+      "CORE": "Core inflation",
+      "Y2M": "2-year Treasury",
+      "30Y": "30-year Treasury",
+      "MG": "Margin / GDP",
+      "VIX": "Volatility (VIX)",
+      "FG": "Fear & Greed",
+      "MS": "Housing (supply)",
+      "PIB": "Real GDP"
+    },
+    "weight": "weight {w}",
+    "bonusTitle": "Adjustments outside the average",
+    "bonuses": {
+      "hy": "Credit (HY)",
+      "liq": "Liquidity (M2/M0)",
+      "oil": "Oil (WTI)"
+    },
+    "bonusNone": "no adjustment",
+    "thermoUnavailable": "The thermometer is not available right now.",
+    "marketTitle": "Market today"
   },
   "Footer": {
     "description": "An educational market analysis platform combining macroeconomic indicators, Shiller PE (CAPE), P/E ratios, EPS history, and algorithmic scoring to study the market with a long-term view.",

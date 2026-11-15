@@ -352,6 +352,13 @@ export function BacktestingClient({ initialStrategies, initialRuns }: { initialS
   const tb = useTranslations('Backtesting.strategies');
   const t = useTranslations('Backtesting');
   const [activeTab, setActiveTab] = useState<'estrategias' | 'indicadores' | 'calculadora' | 'regimes'>('estrategias');
+  // Enlace directo a una pestaña (?tab=indicadores, desde la home). Se lee al montar para no exigir
+  // Suspense con useSearchParams.
+  useEffect(() => {
+    const tab = new URLSearchParams(window.location.search).get('tab');
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (tab === 'estrategias' || tab === 'indicadores' || tab === 'calculadora' || tab === 'regimes') setActiveTab(tab);
+  }, []);
   const [selected, setSelected] = useState<string[]>(['BH_QQQ', 'BH_TQQQ', 'SCHILLER_TQQQ_3A_RISK_D_V8', 'SCHILLER_TQQQ_3A_RISK_D_V8_ZILPH']);
   const [historicoCode, setHistoricoCode] = useState<string>('SCHILLER_TQQQ_3A_RISK_D_V8_ZILPH');
   const [metrics, setMetrics] = useState<any[]>(fallbackMetrics);

@@ -214,3 +214,23 @@ export async function getMarginDebtRiskSummary(): Promise<MarginDebtRiskSummary>
   return res.json();
 }
 
+
+/** Termómetro BHT de hoy (mismo cálculo que guarda la historia), para la home. null si el API falla. */
+export interface ThermoToday {
+  date: string;
+  value: number;
+  parts: { key: string; score: number; weight: number; value: number }[];
+  hy: { bonus: number; label: string };
+  liq: { bonus: number; label: string };
+  oil: { bonus: number; label: string };
+}
+export async function getThermoLive(): Promise<ThermoToday | null> {
+  try {
+    const res = await fetch(`${getApiBaseUrl()}/api/backtesting/thermo-live`, { next: { revalidate: 300 } });
+    if (!res.ok) return null;
+    const j = await res.json();
+    return j && typeof j.value === 'number' && Array.isArray(j.parts) ? (j as ThermoToday) : null;
+  } catch {
+    return null;
+  }
+}

@@ -6,7 +6,10 @@ import { Layout } from '@/components/Layout';
 import { SubscribeForm } from '@/components/SubscribeForm';
 import { IndexSparklineCard } from '@/components/IndexSparklineCard';
 import { JsonLd } from '@/components/JsonLd';
-import { getTickers, getLatestMarketValue, getMarketSeries, getCapeSeries, Ticker } from '@/services/api';
+import { getTickers, getLatestMarketValue, getMarketSeries, getCapeSeries, getThermoLive, Ticker } from '@/services/api';
+import { HomeThermoCard } from '@/components/home/HomeThermoCard';
+import { HomeThermoParts } from '@/components/home/HomeThermoParts';
+import { indicatorsHref } from '@/lib/homeThermo';
 import { RiskDisclaimer } from '@/components/RiskDisclaimer';
 import { TOKENS } from '@/lib/designTokens';
 import { changeBadgeType, fearGreedLabel, formatChangePct } from '@/lib/formatChange';
@@ -50,9 +53,10 @@ export default async function HomePage({
   // Fear & Greed real (serie diaria FEAR_GREED de CNN en bt_market_data, la misma del termómetro).
   // La fila fear_greed de la tabla `indicators` viene del seed y no se actualiza.
   // Mini-gráficas con las series reales de los últimos 30 días hábiles.
-  const [spySpark, nasdaqSpark, fearSpark, schillerSpark] = await Promise.all([
+  const [spySpark, nasdaqSpark, fearSpark, schillerSpark, thermo] = await Promise.all([
     getMarketSeries('SPY').catch(() => []), getMarketSeries('QQQ').catch(() => []),
     getMarketSeries('FEAR_GREED').catch(() => []), getCapeSeries().catch(() => []),
+    getThermoLive(),
   ]);
   const fg = fearSpark.length ? fearSpark[fearSpark.length - 1] : await getLatestMarketValue('FEAR_GREED').catch(() => null);
   const fgLabel = fg ? fearGreedLabel(fg.value) : null;
@@ -88,46 +92,58 @@ export default async function HomePage({
           creator: { '@type': 'Organization', name: 'BuyHoldTime', url: BASE_URL },
         }}
       />
-      <div className="flex flex-col gap-16 py-12 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="flex flex-col gap-14 py-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         
-        {/* Hero Section */}
-        <section className="flex flex-col items-center text-center gap-6 max-w-4xl mx-auto py-8">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-accent-500/20 bg-accent-500/5 text-accent-400 text-xs font-semibold">
-            <Sparkles size={14} className="animate-pulse" />
-            <span>{t('badge')}</span>
+        {/* Hero: propuesta a la izquierda, termómetro BHT de hoy a la derecha */}
+        <section className={thermo ? 'grid grid-cols-1 lg:grid-cols-[1fr_1.05fr] gap-10 items-center' : 'flex flex-col items-center text-center gap-6 max-w-4xl mx-auto py-8'}>
+          <div className={`flex flex-col gap-6 ${thermo ? 'items-center text-center lg:items-start lg:text-left' : 'items-center'}`}>
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-accent-500/20 bg-accent-500/5 text-accent-400 text-xs font-semibold">
+              <Sparkles size={14} className="animate-pulse" />
+              <span>{t('badge')}</span>
+            </div>
+
+            <h1 className="text-4xl sm:text-5xl xl:text-6xl font-black tracking-tight leading-[1.05] text-white">
+              {t('heroLine1')}<br />
+              {t('heroLine2a')}<span className="bg-gradient-to-r from-accent-400 to-favorable-400 bg-clip-text text-transparent">{t('heroLine2b')}</span>.
+            </h1>
+
+            <p className="text-base sm:text-lg text-slate-400 max-w-2xl leading-relaxed">
+              {t('heroSubtitle')}
+            </p>
+
+            <div className="flex flex-wrap gap-3 mt-2 justify-center lg:justify-start">
+              <Link
+                href={indicatorsHref(locale, thermo ? 'bht-thermo' : undefined)}
+                className="flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-bold text-slate-950 bg-accent-400 hover:bg-accent-300 transition"
+              >
+                {t('ctaThermo')}
+                <ArrowRight size={16} />
+              </Link>
+              <Link
+                href={`/${locale}/prices`}
+                className="flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-bold text-slate-200 bg-slate-900 border border-slate-800 hover:bg-slate-800 hover:text-white transition"
+              >
+                {t('ctaTickers')}
+              </Link>
+              <Link
+                href={`/${locale}/indicators`}
+                className="flex items-center gap-2 px-3 py-3 text-sm font-semibold text-slate-400 hover:text-white underline-offset-4 hover:underline transition"
+              >
+                {t('ctaIndicators')}
+              </Link>
+            </div>
           </div>
-
-          <h1 className="text-4xl sm:text-6xl font-black tracking-tight leading-none text-white">
-            {t('heroLine1')}<br />
-            {t('heroLine2a')}<span className="bg-gradient-to-r from-accent-400 to-favorable-400 bg-clip-text text-transparent">{t('heroLine2b')}</span>.
-          </h1>
-
-          <p className="text-base sm:text-lg text-slate-400 max-w-2xl leading-relaxed">
-            {t('heroSubtitle')}
-          </p>
-
-          <div className="flex flex-wrap gap-4 mt-4 justify-center">
-            <Link 
-              href={`/${locale}/prices`} 
-              className="flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-bold text-slate-950 bg-accent-400 hover:bg-accent-300 transition"
-            >
-              {t('ctaTickers')}
-              <ArrowRight size={16} />
-            </Link>
-            <Link 
-              href={`/${locale}/indicators`} 
-              className="flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-bold text-slate-200 bg-slate-900 border border-slate-800 hover:bg-slate-800 hover:text-white transition"
-            >
-              {t('ctaIndicators')}
-            </Link>
-          </div>
+          {thermo && <HomeThermoCard locale={locale} thermo={thermo} />}
         </section>
+
+        {/* Componentes del termómetro con enlace a su tarjeta en Indicadores */}
+        {thermo && <HomeThermoParts locale={locale} thermo={thermo} />}
 
         {/* Market Gauges Dashboard */}
         {(spyTicker || qqqTicker || fg || capeLast != null) && (
         <section className="flex flex-col gap-6">
           <h2 className="text-xl font-bold tracking-tight text-white text-center sm:text-left">
-            {t('indicatorsTitle')}
+            {t('marketTitle')}
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {spyTicker && (

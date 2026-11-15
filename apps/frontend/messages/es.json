@@ -719,7 +719,46 @@
     "fg_greed": "Codicia",
     "fg_extremeGreed": "Codicia extrema",
     "gainersTitle": "▲ Mayores alzas",
-    "losersTitle": "▼ Mayores caídas"
+    "losersTitle": "▼ Mayores caídas",
+    "ctaThermo": "Ver el termómetro completo",
+    "thermoKicker": "Termómetro BHT",
+    "thermoTitle": "Riesgo del mercado hoy",
+    "thermoUpdated": "Actualizado {date} · 12 indicadores + ajustes",
+    "thermoAdviceTitle": "Qué sugiere esta banda",
+    "thermoDetail": "Ver detalle del cálculo",
+    "thermoScale": "0 = riesgo mínimo · 100 = riesgo máximo",
+    "componentsTitle": "Qué mueve hoy el termómetro",
+    "componentsSubtitle": "Cada indicador aporta un puntaje de 0 a 100 según su peso. Toca uno para ver su tarjeta, su historia y sus bandas.",
+    "groups": {
+      "valuation": "Valuación",
+      "inflation": "Inflación y tasas",
+      "risk": "Apalancamiento y sentimiento",
+      "economy": "Economía real"
+    },
+    "parts": {
+      "CAPE": "CAPE de Shiller",
+      "FWD": "P/E estimado",
+      "RATIO": "CAPE vs media 3 años",
+      "CPI": "Inflación (CPI)",
+      "CORE": "Inflación núcleo",
+      "Y2M": "Bono 2 años",
+      "30Y": "Bono 30 años",
+      "MG": "Margen / PIB",
+      "VIX": "Volatilidad (VIX)",
+      "FG": "Miedo y Codicia",
+      "MS": "Vivienda (inventario)",
+      "PIB": "PIB real"
+    },
+    "weight": "peso {w}",
+    "bonusTitle": "Ajustes fuera del promedio",
+    "bonuses": {
+      "hy": "Crédito (HY)",
+      "liq": "Liquidez (M2/M0)",
+      "oil": "Petróleo (WTI)"
+    },
+    "bonusNone": "sin ajuste",
+    "thermoUnavailable": "El termómetro no está disponible en este momento.",
+    "marketTitle": "Mercado hoy"
   },
   "Footer": {
     "description": "Plataforma educativa de análisis bursátil que combina indicadores macroeconómicos, CAPE de Shiller, razones P/E, historial de EPS y puntuaciones algorítmicas para estudiar el mercado con visión de largo plazo.",
