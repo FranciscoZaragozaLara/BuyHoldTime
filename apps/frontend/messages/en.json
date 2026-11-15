@@ -490,7 +490,9 @@
       "strategyButton": "Strategy",
       "colContributionShort": "Contrib.",
       "triggerShort": "trigger",
-      "bhtPopHistoryTitle": "BHT history up to {date} — 12 months + 2 and 3 years ago · performance to today and peak"
+      "bhtPopHistoryTitle": "BHT history up to {date} — 12 months + 2 and 3 years ago · performance to today and peak",
+      "fwdPeak": "{name} peak",
+      "fwdPeakTitle": "Highest close from this date to today: ${value} on {date}"
     },
     "regimesPanel": {
       "loadingDates": "Loading dates…",

@@ -490,7 +490,9 @@
       "strategyButton": "Estrategia",
       "colContributionShort": "Aporte",
       "triggerShort": "gatillo",
-      "bhtPopHistoryTitle": "Historia del BHT hasta {date} — 12 meses + hace 2 y 3 años · rendimiento a hoy y pico"
+      "bhtPopHistoryTitle": "Historia del BHT hasta {date} — 12 meses + hace 2 y 3 años · rendimiento a hoy y pico",
+      "fwdPeak": "Pico {name}",
+      "fwdPeakTitle": "Máximo desde esta fecha hasta hoy: ${value} el {date}"
     },
     "regimesPanel": {
       "loadingDates": "Cargando fechas…",

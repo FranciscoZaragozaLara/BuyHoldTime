@@ -1,6 +1,8 @@
 'use client';
 import { getApiBase } from '@/lib/apiBase';
-import { useCallback, useEffect, useState, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
+import { peakGainPct, peakSinceMap, type Peak } from '@/lib/peakSince';
+import { shortDate } from '@/lib/orbHistory';
 import { useLocale, useTranslations } from 'next-intl';
 import { capeScoreColor } from './bhtBands';
 import { useBhtDetail, bhtLeaveGuard, BhtDetailPopover } from './BhtDetail';
@@ -42,10 +44,18 @@ export function BhtForwardTable({ live }: { live: { current: { v: number | null;
     if (sentinelRef.current) observer.observe(sentinelRef.current);
     return () => observer.disconnect();
   }, [visibleCount, view, rows.length, sortCol, sortDir]);
+  // Pico hasta hoy de cada índice (máximo desde la fecha de la fila), de la serie diaria completa.
+  const peaks = useMemo(() => ({ spx: peakSinceMap(rows, 'spx'), ndx: peakSinceMap(rows, 'ndx'), tqqq: peakSinceMap(rows, 'tqqq') }), [rows]);
   if (!rows.length) return null;
   let list = rows;
   if (view === 'monthly') { const m = new Map<string, any>(); for (const r of rows) m.set((r.date || '').slice(0, 7), r); list = Array.from(m.values()); }
   if (view === 'yearly') { const m = new Map<string, any>(); for (const r of rows) m.set((r.date || '').slice(0, 4), r); list = Array.from(m.values()); }
+  list = list.map((r: any) => {
+    const d0 = (r.date || '').slice(0, 10);
+    const o: any = { ...r };
+    for (const k of ['spx', 'ndx', 'tqqq'] as const) o[`${k}PeakPct`] = peakGainPct(r[k], peaks[k].get(d0));
+    return o;
+  });
   const maxDate = list.reduce((mm: any, r: any) => r.date > mm ? r.date : mm, list[0].date);
   const sorted = [...list].sort((a: any, b: any) => {
     if (sortCol === 'date') return sortDir === 'desc' ? b.date.localeCompare(a.date) : a.date.localeCompare(b.date);
@@ -57,13 +67,28 @@ export function BhtForwardTable({ live }: { live: { current: { v: number | null;
     { k: 'date', label: view === 'monthly' ? 'Mes' : view === 'yearly' ? 'Año' : 'Fecha', cls: 'text-left w-[92px] min-w-[92px] max-w-[92px] sticky left-0 bg-slate-900 z-20 shadow-[2px_0_4px_rgba(0,0,0,0.3)]' },
     { k: 'bhtValue', label: 'BHT', cls: 'text-right' },
     { k: 'spx', label: 'SP500', cls: 'text-right text-sky-300' },
+    { k: 'spxPeakPct', label: ti('fwdPeak', { name: 'SP500' }), cls: 'text-right text-violet-300' },
     { k: 'ndx', label: 'Nasdaq', cls: 'text-right text-sky-300' },
+    { k: 'ndxPeakPct', label: ti('fwdPeak', { name: 'Nasdaq' }), cls: 'text-right text-violet-300' },
     { k: 'tqqq', label: 'TQQQ', cls: 'text-right text-sky-300' },
+    { k: 'tqqqPeakPct', label: ti('fwdPeak', { name: 'TQQQ' }), cls: 'text-right text-violet-300' },
     ...['spx', 'ndx', 'tqqq'].flatMap((p) => [1, 2, 3, 5].map((y) => ({ k: `${p}${y}y`, label: `${p.toUpperCase()} ${y}Y`, cls: 'text-right' }))),
   ];
   const retTd = (v: number | null, key: string) => v == null
     ? <td key={key} className="p-2 text-right font-mono text-slate-600 whitespace-nowrap">—</td>
     : <td key={key} className={`p-2 text-right font-mono font-semibold whitespace-nowrap rounded ${v >= 0 ? 'text-favorable-400 bg-favorable-500/10' : 'text-risk-400 bg-risk-500/10'}`}>{v >= 0 ? '▲ ' : '▼ '}{Math.abs(v).toFixed(1)}%</td>;
+  // Celda de pico: valor nominal, % desde el cierre de la fila y fecha.
+  const peakTd = (r: any, k: 'spx' | 'ndx' | 'tqqq') => {
+    const pk: Peak | undefined = peaks[k].get((r.date || '').slice(0, 10));
+    const pct = r[`${k}PeakPct`] as number | null;
+    if (!pk || pct == null) return <td key={`${k}pk`} className="p-2 text-right font-mono text-slate-600 whitespace-nowrap">—</td>;
+    return (
+      <td key={`${k}pk`} className="p-2 text-right font-mono whitespace-nowrap align-top" title={ti('fwdPeakTitle', { value: pk.value.toFixed(2), date: pk.date })}>
+        <div className="text-violet-200">${pk.value.toFixed(2)}</div>
+        <div className="text-[10px] leading-tight"><span className={pct > 0 ? 'text-favorable-400' : 'text-slate-500'}>+{pct.toFixed(1)}%</span> <span className="text-slate-500">{shortDate(pk.date, loc)}</span></div>
+      </td>
+    );
+  };
   const toggle = (k: string) => {
     if (sortCol === k) setSortDir((d) => d === 'asc' ? 'desc' : 'asc');
     else { setSortCol(k); setSortDir('desc'); }
@@ -104,8 +129,11 @@ export function BhtForwardTable({ live }: { live: { current: { v: number | null;
                   <td className={`p-1.5 px-2 font-mono whitespace-nowrap w-[92px] min-w-[92px] max-w-[92px] align-top sticky left-0 z-10 shadow-[2px_0_4px_rgba(0,0,0,0.25)] ${isCurrent ? 'bg-slate-900' : 'bg-slate-950 group-hover:bg-slate-900'}`}><div className="flex flex-col items-start leading-none gap-0.5"><span className={`${isCurrent ? 'text-accent-300 font-bold' : 'text-slate-200'} text-xs`}>{view === 'yearly' ? d.slice(0, 4) : view === 'monthly' ? d.slice(0, 7) : d}</span>{isCurrent && <span className="text-[9px] px-1 py-0.5 rounded bg-accent-500 text-white font-bold leading-none">Actual</span>}</div></td>
                   {(() => { const isLive = isCurrent && liveBht != null; const v = isLive ? liveBht : r.bhtValue; if (v == null) return <td className="p-2 text-right font-mono text-slate-600 whitespace-nowrap">—</td>; return <td className="p-2 text-right font-mono font-semibold whitespace-nowrap cursor-help" style={{ color: capeScoreColor(v) }} onMouseEnter={(e) => { bhtDet.setHover({ d, x: e.clientX, y: e.clientY }); bhtDet.load(d); }} onMouseMove={(e) => bhtDet.setHover((s) => s && s.d === d ? { ...s, x: e.clientX, y: e.clientY } : s)} onMouseLeave={(e) => bhtLeaveGuard(e, bhtDet)}><span className="border-b border-dotted border-slate-400/40" title={isLive ? 'En vivo (igual que el semáforo)' : undefined}>{Number(v).toFixed(1)}{isLive && <span className="text-accent-300"> •</span>}</span></td>; })()}
                   <td className="p-2 text-right font-mono text-sky-300 whitespace-nowrap">{r.spx != null ? `$${Number(r.spx).toFixed(2)}` : '—'}</td>
+                  {peakTd(r, 'spx')}
                   <td className="p-2 text-right font-mono text-sky-300 whitespace-nowrap">{r.ndx != null ? `$${Number(r.ndx).toFixed(2)}` : '—'}</td>
+                  {peakTd(r, 'ndx')}
                   <td className="p-2 text-right font-mono text-sky-300 whitespace-nowrap">{r.tqqq != null ? `$${Number(r.tqqq).toFixed(2)}` : '—'}</td>
+                  {peakTd(r, 'tqqq')}
                   {['spx', 'ndx', 'tqqq'].flatMap((p) => [1, 2, 3, 5].map((y) => retTd(r[`${p}${y}y`], `${p}${y}`)))}
                 </tr>
               );
