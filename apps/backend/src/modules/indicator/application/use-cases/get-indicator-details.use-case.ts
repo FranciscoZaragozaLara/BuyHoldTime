@@ -22,7 +22,8 @@ export class GetIndicatorDetailsUseCase {
       throw new NotFoundException(`Indicator with key ${key} not found`);
     }
 
-    const history = await this.indicatorRepository.findHistory(indicator.id, limit);
+    const stored = await this.indicatorRepository.findHistory(indicator.id, limit);
+    const history = await this.indicatorRepository.deriveHistory(indicator.key, stored, limit);
     return {
       indicator,
       history,

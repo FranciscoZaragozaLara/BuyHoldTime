@@ -89,6 +89,7 @@ export default async function IndicatorsPage({
     indicator: { id: 'mock-excess', key: 'excess_cape_yield', name: 'Excess CAPE Yield', currentValue: 1.32, unit: '%', status: 'Normal', description: '', createdAt: '', updatedAt: '' },
     history: generateMockHistory(2.0, -0.005, 0.1, 200),
   };
+  let fwdPe: number | null = null;
   let marginDebtSummary: MarginDebtRiskSummary | null = null;
   let marginDebtHistory: MarginDebtRecord[] = [];
   let errorState = false;
@@ -105,6 +106,7 @@ export default async function IndicatorsPage({
       getIndicatorDetails('excess_cape_yield', 1500),
       getMarginDebtRiskSummary(),
       getMarginDebtHistory(360),
+      getIndicatorDetails('fwd_pe_ratio', 1),
     ]);
 
     if (results[0].status === 'fulfilled') shillerPeData = results[0].value;
@@ -117,6 +119,7 @@ export default async function IndicatorsPage({
     if (results[7].status === 'fulfilled') excessCapeYieldData = results[7].value;
     if (results[8].status === 'fulfilled') marginDebtSummary = results[8].value;
     if (results[9].status === 'fulfilled') marginDebtHistory = results[9].value;
+    if (results[10].status === 'fulfilled') fwdPe = results[10].value.indicator.currentValue;
   } catch (err) {
     console.error('Failed to fetch indicators in Server Component:', err);
     errorState = true;
@@ -163,6 +166,7 @@ export default async function IndicatorsPage({
           cpiData={cpiData}
           rateGs10Data={rateGs10Data}
           excessCapeYieldData={excessCapeYieldData}
+          fwdPe={fwdPe}
         />
 
         {/* FINRA Margin Debt Risk Model Panel */}

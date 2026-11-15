@@ -16,6 +16,8 @@ interface MarketValueIndicatorClientProps {
   cpiData: IndicatorDetails;
   rateGs10Data: IndicatorDetails;
   excessCapeYieldData: IndicatorDetails;
+  /** P/E estimado actual (WSJ / Birinyi), el mismo del termómetro. */
+  fwdPe?: number | null;
 }
 
 export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProps> = ({
@@ -27,6 +29,7 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
   cpiData,
   rateGs10Data,
   excessCapeYieldData,
+  fwdPe = null,
 }) => {
   const locale = useLocale();
   
@@ -330,15 +333,18 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
       sp500PriceMa200: d.sp500PriceMa200,
     }));
 
+    // Sin dato → punto vacío (hueco), no 0: el 0 dibujaba caídas verticales al final de cada serie.
+    type PointKey = 'sp500Price' | 'peRatio' | 'shillerPe' | 'sp500PriceMa50' | 'sp500PriceMa200';
+    const line = (k: PointKey) => chartPoints.map(p => (p[k] == null ? { time: p.time } : { time: p.time, value: p[k] as number }));
     if (showSp500Price) {
-      sp500Series.setData(chartPoints.map(p => ({ time: p.time, value: p.sp500Price ?? 0 })));
+      sp500Series.setData(line('sp500Price'));
       createSeriesMarkers(sp500Series, opportunityMarkers);
     }
     
-    if (showMa50) ema50Series.setData(chartPoints.map(p => ({ time: p.time, value: p.sp500PriceMa50 ?? 0 })));
-    if (showMa200) ema200Series.setData(chartPoints.map(p => ({ time: p.time, value: p.sp500PriceMa200 ?? 0 })));
-    if (showPeRatio) peSeries.setData(chartPoints.map(p => ({ time: p.time, value: p.peRatio ?? 0 })));
-    if (showShillerPe) shillerPeSeries.setData(chartPoints.map(p => ({ time: p.time, value: p.shillerPe ?? 0 })));
+    if (showMa50) ema50Series.setData(line('sp500PriceMa50'));
+    if (showMa200) ema200Series.setData(line('sp500PriceMa200'));
+    if (showPeRatio) peSeries.setData(line('peRatio'));
+    if (showShillerPe) shillerPeSeries.setData(line('shillerPe'));
 
     // Reference lines
     let overvaluedLine: any = null;
@@ -529,7 +535,7 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
     <div className="flex flex-col gap-10">
       
       {/* Visual Header / Summary Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         <div className="p-6 rounded-2xl border border-slate-900 bg-slate-900/30 backdrop-blur-sm relative overflow-hidden group">
           <div className="absolute top-0 right-0 p-3 opacity-10 text-accent-400 group-hover:scale-110 transition duration-300">
             <Sparkles size={48} />
@@ -541,7 +547,7 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
             {sp500PriceData.indicator.currentValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </p>
           <p className="text-xs text-slate-400 mt-2">
-            {locale === 'es' ? 'Último precio de cierre mensual' : 'Latest monthly index closing price'}
+            {locale === 'es' ? 'Último cierre del índice' : 'Latest index close'}
           </p>
         </div>
 
@@ -572,6 +578,21 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
           </p>
           <p className="text-xs text-slate-400 mt-2">
             {locale === 'es' ? 'Ajustado por inflación (promedio 10 años)' : 'Inflation-adjusted 10-year earnings multiple'}
+          </p>
+        </div>
+
+        <div className="p-6 rounded-2xl border border-slate-900 bg-slate-900/30 backdrop-blur-sm relative overflow-hidden group">
+          <div className="absolute top-0 right-0 p-3 opacity-10 text-favorable-500 group-hover:scale-110 transition duration-300">
+            <Sparkles size={48} />
+          </div>
+          <p className="text-xs text-slate-500 font-bold tracking-wider uppercase">
+            {locale === 'es' ? 'P/E ESTIMADO (FORWARD)' : 'FORWARD P/E'}
+          </p>
+          <p className="text-3xl font-extrabold mt-2 text-favorable-400">
+            {fwdPe != null ? `${fwdPe.toFixed(2)}x` : '—'}
+          </p>
+          <p className="text-xs text-slate-400 mt-2">
+            {locale === 'es' ? 'Precio ÷ EPS estimado a 12 meses (WSJ / Birinyi)' : 'Price ÷ 12-month estimated EPS (WSJ / Birinyi)'}
           </p>
         </div>
       </div>

@@ -1,4 +1,4 @@
-import { indicatorStatus, indicatorUpdates, syncIndicatorsTable } from './indicator-sync';
+import { indicatorStatus, indicatorUpdates, monthEnd, monthlyLast, peMonthlyHistory, syncIndicatorsTable, valuationUpdates } from './indicator-sync';
 
 const m = (o: Record<string, number>) => new Map(Object.entries(o));
 
@@ -31,9 +31,39 @@ describe('indicator-sync', () => {
     const db = {
       btMarketData: { findMany: async () => [{ ticker: 'DGS30', date: new Date('2026-11-13T00:00:00Z'), close: 4.86 }] },
       $executeRawUnsafe: async (...a: unknown[]) => { calls.push(a); return 1; },
+      $queryRawUnsafe: async () => [],
     };
     const ups = await syncIndicatorsTable(db, new Date('2026-11-15T12:00:00Z'));
     expect(ups).toEqual([{ key: 'treasury_30y', value: 4.86, status: 'High', asOf: '2026-11-13' }]);
     expect(calls).toEqual([[expect.stringContaining('UPDATE indicators'), 4.86, 'High', 'treasury_30y']]);
+  });
+});
+
+describe('valuación e historias derivadas', () => {
+  const spx = m({ '2026-10-30': 7580.07, '2026-11-12': 7592.4, '2026-11-13': 7561.67 });
+  const spxEps = m({ '2026-03-31': 272.94, '2026-06-30': 295.39 }); // jun se publica el 3 oct
+  test('P/E con EPS registrado, Fwd PE con EPS de WSJ, CAPE y precio', () => {
+    const u = valuationUpdates({ spx, spxEps, fwdEps: m({ '2026-11-13': 403.29 }), cape: m({ '2026-11-13': 39.81 }) }, '2026-11-15');
+    const by = Object.fromEntries(u.map((x) => [x.key, x]));
+    expect(by.sp500_price.value).toBe(7561.67);
+    expect(by.pe_ratio.value).toBeCloseTo(7561.67 / 295.39, 6);
+    expect(by.fwd_pe_ratio.value).toBeCloseTo(18.75, 2);
+    expect(by.fwd_pe_ratio.status).toBe('Normal');
+    expect(by.schiller_pe).toMatchObject({ value: 39.81, status: 'High' });
+  });
+  test('monthlyLast: último valor de cada mes posterior al corte, fecha fin de mes', () => {
+    expect(monthEnd('2028-02-10')).toBe('2028-02-29');
+    expect(monthlyLast(spx, '2026-09', '2026-11-15')).toEqual([{ date: '2026-10-31', value: 7580.07 }, { date: '2026-11-30', value: 7561.67 }]);
+    expect(monthlyLast(spx, '2026-10', '2026-11-12')).toEqual([{ date: '2026-11-30', value: 7592.4 }]);
+  });
+  test('P/E mensual: Shiller antes de 1990, SPX ÷ EPS registrado después', () => {
+    const pe = peMonthlyHistory({
+      shillerPrice: m({ '1989-11-30': 340, '1989-12-31': 350, '1990-01-31': 330 }),
+      shillerEarnings: m({ '1989-09-30': 25 }),
+      spx, spxEps,
+    }, '2026-11-15');
+    expect(pe.slice(0, 2)).toEqual([{ date: '1989-11-30', value: 13.6 }, { date: '1989-12-31', value: 14 }]);
+    expect(pe.map((p) => p.date)).toEqual(['1989-11-30', '1989-12-31', '2026-10-31', '2026-11-30']);
+    expect(pe[2].value).toBeCloseTo(7580.07 / 295.39, 6); // 30 oct ya conoce el EPS de junio (publicado 3 oct)
   });
 });
