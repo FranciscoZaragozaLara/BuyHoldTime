@@ -10,6 +10,8 @@ COPY packages/bht-bands/package.json packages/bht-bands/package.json
 RUN pnpm install --frozen-lockfile --filter "frontend..."
 
 COPY apps/frontend apps/frontend
+# Bandas del termómetro (thermo-segs.json, bands.json): las importa src/lib/thermoScoring.ts.
+COPY packages/bht-bands packages/bht-bands
 
 # NEXT_PUBLIC_* y el destino del proxy /backend se fijan al compilar.
 ARG BACKEND_INTERNAL_URL=http://backend:4000

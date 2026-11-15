@@ -1,99 +1,44 @@
 // Termómetro BuyHoldTime: réplica exacta de la lógica del frontend
 // (IndicatorsPanel.tsx) para historificar el valor al cierre en BD.
 // Bandas y pesos idénticos; subconjunto disponible por fecha.
-// CAPE usa las bandas anuales de packages/bht-bands/bands.json según el año del dato.
-import { capeSegsForDate } from './bht-bands';
+// CAPE usa las bandas anuales de packages/bht-bands/bands.json según el año del dato; el resto de
+// componentes, packages/bht-bands/thermo-segs.json (mismo archivo que usa el frontend).
+import { capeSegsForDate, defaultCapeSegs, thermoSegs } from './bht-bands';
 export type Seg = [number, number, number, number];
 
-export const CAPE_SEGS: Seg[] = [
-  [-Infinity, 19.3, 0, 0], [19.3, 29, 0, 25], [29, 35, 25, 50], [35, 40, 50, 70],
-  [40, 43, 70, 100], [43, Infinity, 100, 100],
-];
-export const PE_SEGS: Seg[] = [
-  [-Infinity, 20, 0, 25], [20, 24, 25, 50], [24, 27, 50, 80],
-  [27, 30, 80, 100], [30, Infinity, 100, 100],
-];
+export const CAPE_SEGS: Seg[] = defaultCapeSegs();
+export const PE_SEGS: Seg[] = thermoSegs('PE');
 // P/E estimado (EPS de Birinyi vía WSJ desde nov-2026): bandas ×1.07 respecto a las de Yardeni,
 // cuyo EPS era ~7% mayor, para que barato/justo/caro signifiquen lo mismo.
-export const FWD_SEGS: Seg[] = [
-  [-Infinity, 16, 0, 25], [16, 20.5, 25, 50], [20.5, 23.5, 50, 80],
-  [23.5, 25.5, 80, 100], [25.5, Infinity, 100, 100],
-];
-export const RATIO_SEGS: Seg[] = [
-  [-Infinity, 0.9, 0, 20], [0.9, 1.0, 20, 50], [1.0, 1.2, 50, 90],
-  [1.2, 1.3, 90, 100], [1.3, Infinity, 100, 100],
-];
-export const CPI_SEGS: Seg[] = [
-  [-Infinity, 1.0, 0, 8], [1.0, 1.5, 8, 20], [1.5, 2.0, 20, 35], [2.0, 2.5, 35, 50],
-  [2.5, 3.0, 50, 62], [3.0, 4.0, 62, 74], [4.0, 6.0, 74, 86], [6.0, 10.0, 86, 100], [10.0, Infinity, 100, 100],
-];
+export const FWD_SEGS: Seg[] = thermoSegs('FWD');
+export const RATIO_SEGS: Seg[] = thermoSegs('RATIO');
+export const CPI_SEGS: Seg[] = thermoSegs('CPI');
 // CPI momentum: nivel del YoY (40%) + delta vs media 6M de YoY (60%).
 // Un 3.5 acelerando desde 2 pesa más que un 7 cayendo desde 9.
-export const CPI_LVL_SEGS: Seg[] = [
-  [-Infinity, 1.0, 0, 10], [1.0, 1.5, 10, 25], [1.5, 2.0, 25, 40],
-  [2.0, 2.5, 40, 55], [2.5, 3.0, 55, 70], [3.0, 4.0, 70, 85], [4.0, Infinity, 85, 100],
-];
-export const CPI_TRD_SEGS: Seg[] = [
-  [-Infinity, -1.5, 0, 10], [-1.5, -0.5, 10, 30], [-0.5, 0.0, 30, 50],
-  [0.0, 0.5, 50, 70], [0.5, 1.5, 70, 90], [1.5, Infinity, 90, 100],
-];
-export const FED_SEGS: Seg[] = [
-  [-Infinity, 0.5, 0, 8], [0.5, 1.5, 8, 20], [1.5, 2.5, 20, 35], [2.5, 3.5, 35, 50],
-  [3.5, 4.5, 50, 62], [4.5, 5.5, 62, 74], [5.5, 7.0, 74, 86], [7.0, 12.0, 86, 100], [12.0, Infinity, 100, 100],
-];
+export const CPI_LVL_SEGS: Seg[] = thermoSegs('CPI_LVL');
+export const CPI_TRD_SEGS: Seg[] = thermoSegs('CPI_TRD');
+export const FED_SEGS: Seg[] = thermoSegs('FED');
 // Y2M (2Y Momentum): combina nivel del Treasury 2Y (40%) con su delta vs
 // media móvil 6M (60%). El 2Y descuenta la política Fed meses antes del anuncio.
-export const Y2M_LVL_SEGS: Seg[] = [
-  [-Infinity, 1.5, 0, 15], [1.5, 2.5, 15, 30], [2.5, 3.5, 30, 50],
-  [3.5, 4.5, 50, 70], [4.5, 5.5, 70, 88], [5.5, Infinity, 88, 100],
-];
-export const Y2M_TRD_SEGS: Seg[] = [
-  [-Infinity, -1.0, 0, 10], [-1.0, -0.4, 10, 30], [-0.4, 0.0, 30, 50],
-  [0.0, 0.4, 50, 70], [0.4, 1.0, 70, 90], [1.0, Infinity, 90, 100],
-];
-export const Y30_SEGS: Seg[] = [
-  [-Infinity, 2.0, 0, 8], [2.0, 3.0, 8, 20], [3.0, 3.5, 20, 35], [3.5, 4.0, 35, 50],
-  [4.0, 4.5, 50, 62], [4.5, 5.0, 62, 74], [5.0, 6.0, 74, 86], [6.0, 10.0, 86, 100], [10.0, Infinity, 100, 100],
-];
+export const Y2M_LVL_SEGS: Seg[] = thermoSegs('Y2M_LVL');
+export const Y2M_TRD_SEGS: Seg[] = thermoSegs('Y2M_TRD');
+export const Y30_SEGS: Seg[] = thermoSegs('Y30');
 // Y30M (30Y Momentum): mismo esquema que Y2M — nivel del Treasury 30Y (40%) +
 // delta vs MA6M (60%), con la misma regla de tendencia. Si los bonos se aceleran
 // al alza, frenan economía y liquidez.
-export const Y30M_LVL_SEGS: Seg[] = [
-  [-Infinity, 2.0, 0, 15], [2.0, 3.0, 15, 30], [3.0, 3.5, 30, 50],
-  [3.5, 4.0, 50, 70], [4.0, 5.0, 70, 88], [5.0, Infinity, 88, 100],
-];
-export const HY_SEGS: Seg[] = [
-  [-Infinity, 3.0, 0, 12], [3.0, 3.5, 12, 25], [3.5, 4.0, 25, 38], [4.0, 5.0, 38, 55],
-  [5.0, 6.5, 55, 68], [6.5, 8.0, 68, 80], [8.0, 11.0, 80, 90], [11.0, Infinity, 90, 100],
-];
-export const MG_SEGS: Seg[] = [
-  [-Infinity, 2.0, 0, 20], [2.0, 3.0, 20, 50], [3.0, 4.0, 50, 70],
-  [4.0, 4.5, 70, 85], [4.5, 5.0, 85, 100], [5.0, Infinity, 100, 100],
-];
+export const Y30M_LVL_SEGS: Seg[] = thermoSegs('Y30M_LVL');
+export const HY_SEGS: Seg[] = thermoSegs('HY');
+export const MG_SEGS: Seg[] = thermoSegs('MG');
 // MG momentum: nivel del ratio (40%) + desvío vs MA24M del ratio (60%).
-export const MG_TRD_SEGS: Seg[] = [
-  [-Infinity, -0.9, 0, 10], [-0.9, -0.5, 10, 30], [-0.5, -0.15, 30, 50],
-  [-0.15, 0.15, 50, 50], [0.15, 0.5, 50, 70], [0.5, 0.9, 70, 90], [0.9, Infinity, 90, 100],
-];
-export const VIX_SEGS: Seg[] = [
-  [-Infinity, 12, 90, 100], [12, 15, 78, 90], [15, 20, 60, 78], [20, 25, 35, 60], [25, 30, 10, 35], [30, Infinity, 0, 10],
-];
+export const MG_TRD_SEGS: Seg[] = thermoSegs('MG_TRD');
+export const VIX_SEGS: Seg[] = thermoSegs('VIX');
 // Fear & Greed estirado: el índice rara vez toca 0/100; ≤10 => 0 y ≥80 => 100, centro intacto.
-export const FG_SEGS: Seg[] = [
-  [-Infinity, 10, 0, 0], [10, 15, 0, 8], [15, 25, 8, 25], [25, 45, 25, 45],
-  [45, 55, 45, 60], [55, 70, 60, 85], [70, 80, 85, 100], [80, Infinity, 100, 100],
-];
+export const FG_SEGS: Seg[] = thermoSegs('FG');
 export function fgScore(v: number): number {
   return bandScore(FG_SEGS, v);
 }
-export const MS_SEGS: Seg[] = [
-  [-Infinity, 3.5, 0, 8], [3.5, 4.5, 8, 20], [4.5, 5.5, 20, 35], [5.5, 6.5, 35, 50],
-  [6.5, 7.5, 50, 62], [7.5, 9.0, 62, 74], [9.0, 11.0, 74, 88], [11.0, 13.0, 88, 100], [13.0, Infinity, 100, 100],
-];
-export const GDP_SEGS: Seg[] = [
-  [-Infinity, 0, 0, 10], [0, 1.0, 10, 25], [1.0, 2.0, 25, 45], [2.0, 3.0, 45, 70],
-  [3.0, 4.0, 70, 90], [4.0, Infinity, 90, 100],
-];
+export const MS_SEGS: Seg[] = thermoSegs('MS');
+export const GDP_SEGS: Seg[] = thermoSegs('GDP');
 
 export function bandScore(segs: Seg[], v: number): number {
   for (const [lo, hi, sLo, sHi] of segs) {

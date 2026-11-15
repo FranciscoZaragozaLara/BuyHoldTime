@@ -2,7 +2,12 @@ import { describe, expect, it } from 'vitest';
 import {
   bandScore, capeRiskScore, fwdRiskScore, fwdBandLabel, FWD_BANDS, FWD_SEGS, ratioRiskScore, ratioBandLabel, RATIO_BANDS,
   hyBandLabel, HY_BANDS, cpiMScore, momBlend, CPI_LVL_SEGS, CPI_TRD_SEGS, trendTag, vixRiskScore, fgRiskScore, partLabel,
+  CAPE_BANDS, CAPE_SEGS, CPI_BANDS, Y2M_BANDS, Y30_BANDS, MG_BANDS, GDP_BANDS, MS_BANDS, VIX_BANDS, OIL_BANDS, FG_BANDS, segsOf, capeJsonSegsForYear,
 } from './thermoScoring';
+// El backend se importa por ruta calculada: vitest lo resuelve en el monorepo, y el type-check de
+// `next build` (imagen Docker sin apps/backend) no lo sigue.
+type Segs = [number, number, number, number][];
+const backendModule = (name: string) => import(/* @vite-ignore */ new URL(`../../../backend/src/modules/backtesting/${name}.ts`, import.meta.url).pathname);
 
 describe('thermoScoring', () => {
   it('interpola dentro de cada banda y satura en los extremos', () => {
@@ -47,5 +52,36 @@ describe('thermoScoring', () => {
     expect(trendTag(1.2).text).toBe('Alcista Extrema');
     expect(trendTag(-0.3).text).toBe('Bajista Leve');
     expect(partLabel('RATIO')).toBe('CAPE Ratio - (vs media 3a)');
+  });
+});
+
+describe('fuente única de bandas (packages/bht-bands)', () => {
+  type Band = [number, number, string, string, string];
+  const pts = (x: string) => x.split('–').map(Number);
+  it('las tablas de los popovers tienen los mismos cortes y puntos que thermo-segs.json', () => {
+    const pairs: [string, Band[], string][] = [
+      ['FWD', FWD_BANDS, 'FWD'], ['RATIO', RATIO_BANDS, 'RATIO'], ['CPI', CPI_BANDS, 'CPI_LVL'], ['Y2M', Y2M_BANDS, 'Y2M_LVL'],
+      ['Y30', Y30_BANDS, 'Y30M_LVL'], ['HY', HY_BANDS, 'HY'], ['MG', MG_BANDS, 'MG'], ['GDP', GDP_BANDS, 'GDP'], ['MS', MS_BANDS, 'MS'],
+      ['VIX', VIX_BANDS, 'VIX'], ['OIL', OIL_BANDS, 'OIL'], ['FG', FG_BANDS, 'FG'], ['CAPE', CAPE_BANDS, ''],
+    ];
+    for (const [name, bands, key] of pairs) {
+      const segs = key ? segsOf(key) : CAPE_SEGS.map(([lo, hi, a, b]) => [lo, hi, a, b] as [number, number, number, number]);
+      const sorted = [...bands].sort((x, y) => x[0] - y[0]);
+      expect(sorted.map((b) => [b[0], b[1]]), name).toEqual(segs.map((x) => [x[0], x[1]]));
+      sorted.forEach((b, i) => {
+        const [a, c] = pts(b[3]);
+        expect([a, c ?? a], `${name} ${b[2]}`).toEqual([segs[i][2], segs[i][3]]);
+      });
+    }
+  });
+  it('backend y frontend leen las mismas bandas', async () => {
+    const backend = (await backendModule('thermo-history')) as Record<string, Segs>;
+    const { capeSegsForYear } = (await backendModule('bht-bands')) as { capeSegsForYear: (y: string) => Segs };
+    const names = ['FWD', 'RATIO', 'CPI_LVL', 'CPI_TRD', 'Y2M_LVL', 'Y2M_TRD', 'Y30M_LVL', 'HY', 'MG', 'MG_TRD', 'VIX', 'MS', 'GDP', 'FG'];
+    for (const n of names) expect(segsOf(n), n).toEqual(backend[`${n}_SEGS`]);
+    const y = new Date().getFullYear();
+    expect(capeJsonSegsForYear(y).map((x) => [x.lo ?? -Infinity, x.hi ?? Infinity, x.scoreLo, x.scoreHi])).toEqual(capeSegsForYear(String(y)));
+    expect(capeJsonSegsForYear(1990)).toEqual(capeJsonSegsForYear(1990)); // años sin entrada resuelven igual
+    expect(capeJsonSegsForYear(2009).map((x) => x.lo ?? -Infinity)).toEqual(capeSegsForYear('2009').map((x) => x[0]));
   });
 });
