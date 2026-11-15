@@ -9,6 +9,7 @@ import { restoreShillerCsvFromDb, SHILLER_CSV_PATH, syncShillerCsvToDb } from '.
 import { logSourceRun, SourceRunTracker } from '../admin/data-source-runs';
 import { wsjPointChanged } from './wsj-pe';
 import { syncIndicatorsTable } from './indicator-sync';
+import { notifyFrontendRevalidate } from './frontend-revalidate';
 
 /**
  * Construye la línea planchada del día `date` para shiller_daily.csv SIN asumir
@@ -107,6 +108,7 @@ export class MarketSyncService {
       .then(() => this.syncShillerDb())
       .then(() => this.syncIndicators())
       .then(() => this.refreshThermoTail())
+      .then(() => this.revalidateFrontend())
       .then(() => this.logger.log('Full sync background done'))
       .catch((e: any) => this.logger.error(`Full sync background failed: ${e.message?.slice(0, 200)}`))
       .finally(() => { this.fullSyncRunning = false; });
@@ -136,6 +138,14 @@ export class MarketSyncService {
 
   // Cola del termómetro + BHT tras el sync: recalcula los últimos 7 días para que
   // las fechas nuevas no amanezcan con BHT vacío. Idempotente; nunca revienta el sync.
+  // Caché de datos del frontend (home, /indicators): se invalida al terminar cada sincronización.
+  private async revalidateFrontend(): Promise<void> {
+    const r = await notifyFrontendRevalidate();
+    if (r.skipped) return;
+    if (r.ok) this.logger.log('Frontend: caché de datos de mercado invalidada');
+    else this.logger.warn(`Frontend: no se pudo invalidar la caché (${r.status ?? r.error})`);
+  }
+
   // Tabla `indicators` (fed_rate, treasury_30y, vix, fear_greed, inflation, core_inflation) desde sus series.
   private async syncIndicators(): Promise<void> {
     try {
@@ -191,6 +201,7 @@ export class MarketSyncService {
       await this.syncShillerDb();
       await this.syncIndicators();
       await this.refreshThermoTail();
+      await this.revalidateFrontend();
       this.logger.log('Daily market sync done');
     } catch (e: any) {
       this.logger.error(`Daily sync failed: ${e.message}`);
@@ -241,6 +252,8 @@ export class MarketSyncService {
     if (changed) {
       this.logger.log('Dato nuevo de WSJ: recalculando el termómetro de los últimos 7 días');
       try { await this.refreshThermoTail(); } catch (e: any) { this.logger.error(`Thermo tail tras WSJ falló: ${e.message?.slice(0, 200)}`); }
+      await this.syncIndicators();
+      await this.revalidateFrontend();
     }
   }
 
@@ -319,6 +332,7 @@ export class MarketSyncService {
     await this.syncShillerDb();
     await this.syncIndicators();
     await this.refreshThermoTail();
+    await this.revalidateFrontend();
     return { ok: true, log: 'sync ok' };
   }
 
@@ -830,6 +844,7 @@ export class MarketSyncService {
     // para que la tabla pinte el registro del día sin recargar la página.
     await this.syncIndicators();
     try { await this.refreshThermoTail(); } catch {}
+    await this.revalidateFrontend();
     try { send({ type: 'done' }); } catch {}
     try { res.end(); } catch {}
     // en background por si algo faltó, reintentar patchBH completo

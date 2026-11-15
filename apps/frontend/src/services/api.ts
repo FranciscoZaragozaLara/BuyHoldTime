@@ -1,4 +1,5 @@
 import { getApiBase } from '@/lib/apiBase';
+import { MARKET_DATA_TAG } from '@/lib/revalidation';
 export interface Ticker {
   id: string;
   symbol: string;
@@ -99,7 +100,7 @@ function getApiBaseUrl(): string {
 export async function getTickers(): Promise<Ticker[]> {
   const res = await fetch(`${getApiBaseUrl()}/tickers`, {
     // Revalidate ticker list every 60 seconds (prices update frequently)
-    next: { revalidate: 60 },
+    next: { revalidate: 60, tags: [MARKET_DATA_TAG] },
   });
   if (!res.ok) throw new Error('Failed to fetch tickers');
   return res.json();
@@ -118,7 +119,7 @@ export async function getTickerDetails(symbol: string, limit = 500, noStore = fa
 /** Último cierre de una serie diaria de bt_market_data (p. ej. FEAR_GREED), o null. */
 export async function getLatestMarketValue(ticker: string, lookbackDays = 14): Promise<{ date: string; value: number } | null> {
   const from = new Date(Date.now() - lookbackDays * 86400000).toISOString().slice(0, 10);
-  const res = await fetch(`${getApiBaseUrl()}/api/backtesting/market-data?ticker=${encodeURIComponent(ticker)}&from=${from}`, { next: { revalidate: 3600 } });
+  const res = await fetch(`${getApiBaseUrl()}/api/backtesting/market-data?ticker=${encodeURIComponent(ticker)}&from=${from}`, { next: { revalidate: 3600, tags: [MARKET_DATA_TAG] } });
   if (!res.ok) return null;
   const rows = (await res.json()) as { date: string; close: number | null }[];
   const last = [...rows].reverse().find((r) => r.close != null && Number.isFinite(Number(r.close)));
@@ -128,7 +129,7 @@ export async function getLatestMarketValue(ticker: string, lookbackDays = 14): P
 /** Últimos `points` cierres diarios de una serie de bt_market_data (para mini-gráficas), del más viejo al más nuevo. */
 export async function getMarketSeries(ticker: string, points = 30): Promise<{ date: string; value: number }[]> {
   const from = new Date(Date.now() - Math.ceil(points * 1.6 + 10) * 86400000).toISOString().slice(0, 10);
-  const res = await fetch(`${getApiBaseUrl()}/api/backtesting/market-data?ticker=${encodeURIComponent(ticker)}&from=${from}`, { next: { revalidate: 3600 } });
+  const res = await fetch(`${getApiBaseUrl()}/api/backtesting/market-data?ticker=${encodeURIComponent(ticker)}&from=${from}`, { next: { revalidate: 3600, tags: [MARKET_DATA_TAG] } });
   if (!res.ok) return [];
   const rows = (await res.json()) as { date: string; close: number | null }[];
   return rows.filter((r) => r.close != null && Number.isFinite(Number(r.close))).map((r) => ({ date: String(r.date).slice(0, 10), value: Number(r.close) })).slice(-points);
@@ -137,7 +138,7 @@ export async function getMarketSeries(ticker: string, points = 30): Promise<{ da
 /** Últimos `points` valores del CAPE registrado diario (bt_shiller_daily). */
 export async function getCapeSeries(points = 30): Promise<{ date: string; value: number }[]> {
   const from = new Date(Date.now() - Math.ceil(points * 1.6 + 10) * 86400000).toISOString().slice(0, 10);
-  const res = await fetch(`${getApiBaseUrl()}/api/backtesting/shiller-daily?from=${from}`, { next: { revalidate: 3600 } });
+  const res = await fetch(`${getApiBaseUrl()}/api/backtesting/shiller-daily?from=${from}`, { next: { revalidate: 3600, tags: [MARKET_DATA_TAG] } });
   if (!res.ok) return [];
   const rows = (await res.json()) as { date: string; cape: number | null }[];
   return rows.filter((r) => r.cape != null && Number.isFinite(Number(r.cape))).map((r) => ({ date: String(r.date).slice(0, 10), value: Number(r.cape) })).slice(-points);
@@ -146,7 +147,7 @@ export async function getCapeSeries(points = 30): Promise<{ date: string; value:
 export async function getIndicators(): Promise<Indicator[]> {
   const res = await fetch(`${getApiBaseUrl()}/indicators`, {
     // Macro indicators change slowly — revalidate every hour
-    next: { revalidate: 3600 },
+    next: { revalidate: 3600, tags: [MARKET_DATA_TAG] },
   });
   if (!res.ok) throw new Error('Failed to fetch indicators');
   return res.json();
@@ -155,7 +156,7 @@ export async function getIndicators(): Promise<Indicator[]> {
 export async function getIndicatorDetails(key: string, limit = 150): Promise<IndicatorDetails> {
   const res = await fetch(`${getApiBaseUrl()}/indicators/${key}?limit=${limit}`, {
     // Indicator history: revalidate every hour
-    next: { revalidate: 3600 },
+    next: { revalidate: 3600, tags: [MARKET_DATA_TAG] },
   });
   if (!res.ok) throw new Error(`Failed to fetch indicator details for ${key}`);
   return res.json();
@@ -226,7 +227,7 @@ export interface ThermoToday {
 }
 export async function getThermoLive(): Promise<ThermoToday | null> {
   try {
-    const res = await fetch(`${getApiBaseUrl()}/api/backtesting/thermo-live`, { next: { revalidate: 300 } });
+    const res = await fetch(`${getApiBaseUrl()}/api/backtesting/thermo-live`, { next: { revalidate: 300, tags: [MARKET_DATA_TAG] } });
     if (!res.ok) return null;
     const j = await res.json();
     return j && typeof j.value === 'number' && Array.isArray(j.parts) ? (j as ThermoToday) : null;
