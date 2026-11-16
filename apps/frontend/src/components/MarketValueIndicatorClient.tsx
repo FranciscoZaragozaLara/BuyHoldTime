@@ -8,7 +8,7 @@ import { IndicatorDetails } from '@/services/api';
 import { TOKENS } from '@/lib/designTokens';
 import { getApiBase } from '@/lib/apiBase';
 import { buildValuationChart, monthlyOpportunityMarkers, type DailyValuation } from '@/lib/valuationChart';
-import { bhtBandColor } from '@/components/backtesting/bhtBands';
+import { BHT_BANDS, bhtBandColor } from '@/components/backtesting/bhtBands';
 import { BhtDetailPopover, bhtLeaveGuard, useBhtDetail } from '@/components/backtesting/BhtDetail';
 
 interface MarketValueIndicatorClientProps {
@@ -41,6 +41,7 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
   const [showSp500Price, setShowSp500Price] = useState(true);
   const [showPeRatio, setShowPeRatio] = useState(true);
   const [showShillerPe, setShowShillerPe] = useState(true);
+  const [showBht, setShowBht] = useState(true);
   const [showMa50, setShowMa50] = useState(false);
   const [showMa200, setShowMa200] = useState(false);
 
@@ -55,6 +56,7 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
     sp500Ema200: number | null;
     peRatio: number | null;
     shillerPe: number | null;
+    bht: number | null;
   } | null>(null);
 
   // Timeframe selection: 1Y, 3Y, 5Y, 10Y, 25Y, ALL
@@ -242,6 +244,19 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
       title: 'Shiller PE',
     });
 
+    // BHT Index (0-100) en su propia escala superpuesta y fija, con el color del semáforo en cada punto.
+    const bhtSeries = chart.addSeries(LineSeries, {
+      color: '#94a3b8',
+      lineWidth: 1,
+      priceScaleId: 'bht',
+      priceLineVisible: false,
+      lastValueVisible: true,
+      visible: showBht,
+      title: 'BHT',
+      autoscaleInfoProvider: () => ({ priceRange: { minValue: 0, maxValue: 100 } }),
+    });
+    chart.priceScale('bht').applyOptions({ visible: false, scaleMargins: { top: 0.05, bottom: 0.05 } });
+
     // Populate data format suitable for lightweight charts
     const chartPoints = points;
     const byTime = new Map(points.map((p) => [p.time, p]));
@@ -260,6 +275,10 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
     if (showMa200) ema200Series.setData(line('sp500PriceMa200'));
     if (showPeRatio) peSeries.setData(line('peRatio'));
     if (showShillerPe) shillerPeSeries.setData(line('shillerPe'));
+    if (showBht) {
+      bhtSeries.setData(chartPoints.map(p => (p.bht == null ? { time: p.time } : { time: p.time, value: p.bht, color: bhtBandColor(p.bht) })));
+      bhtSeries.createPriceLine({ price: 50, color: 'rgba(226,232,240,0.35)', lineWidth: 1, lineStyle: 2, axisLabelVisible: false, title: '' });
+    }
 
     // Reference lines
     let overvaluedLine: any = null;
@@ -354,6 +373,7 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
           sp500Ema200: matched.sp500PriceMa200 ?? null,
           peRatio: matched.peRatio ?? null,
           shillerPe: matched.shillerPe ?? null,
+          bht: matched.bht ?? null,
         });
       } else {
         setHoveredData(null);
@@ -423,6 +443,7 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
     showSp500Price,
     showPeRatio,
     showShillerPe,
+    showBht,
     showMa50,
     showMa200,
     timeframe,
@@ -599,6 +620,20 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
             {showShillerPe ? <Eye size={14} /> : <EyeOff size={14} />}
             <span className="w-2.5 h-2.5 rounded-full bg-risk-500" />
             <span>Shiller P/E Ratio (CAPE){hoveredData?.shillerPe ? `: ${hoveredData.shillerPe.toFixed(2)}x` : ''}</span>
+          </button>
+
+          <button
+            onClick={() => setShowBht(!showBht)}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border transition ${
+              showBht
+                ? 'bg-slate-800/60 border-slate-600 text-slate-200'
+                : 'bg-slate-950 border-slate-900 text-slate-600'
+            }`}
+            title={locale === 'es' ? 'BHT Index (0-100) en escala propia, con el color del semáforo' : 'BHT Index (0-100) on its own scale, colored by the traffic light'}
+          >
+            {showBht ? <Eye size={14} /> : <EyeOff size={14} />}
+            <span className="w-2.5 h-2.5 rounded-full" style={{ background: `linear-gradient(90deg,${BHT_BANDS.map((b) => b.color).join(',')})` }} />
+            <span>BHT Index{hoveredData?.bht != null ? `: ${hoveredData.bht.toFixed(1)}` : ''}</span>
           </button>
 
           <button
