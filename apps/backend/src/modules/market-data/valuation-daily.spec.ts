@@ -8,6 +8,7 @@ describe('buildValuationDaily', () => {
       m({ '1989-12-29': 350, '2026-10-02': 7600.123, '2026-10-05': 7650 }),
       m({ '2026-03-31': 261.7, '2026-06-30': 295.39 }), // jun se publica el 3 oct
       m({ '2026-10-02': 40.555, '2026-10-06': 40.1 }),
+      m({ '2026-10-02': 69.94, '2026-10-05': 70.11 }),
     );
     expect(v.dates).toEqual(['2026-10-02', '2026-10-05', '2026-10-06']);
     expect(v.spx).toEqual([7600.12, 7650, null]);
@@ -15,5 +16,6 @@ describe('buildValuationDaily', () => {
     expect(v.pe[1]).toBeCloseTo(7650 / 295.39, 2);
     expect(v.pe[2]).toBeNull();
     expect(v.cape).toEqual([40.56, null, 40.1]);
+    expect(v.bht).toEqual([69.94, 70.11, null]);
   });
 });

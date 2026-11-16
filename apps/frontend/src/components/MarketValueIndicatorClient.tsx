@@ -8,6 +8,8 @@ import { IndicatorDetails } from '@/services/api';
 import { TOKENS } from '@/lib/designTokens';
 import { getApiBase } from '@/lib/apiBase';
 import { buildValuationChart, monthlyOpportunityMarkers, type DailyValuation } from '@/lib/valuationChart';
+import { bhtBandColor } from '@/components/backtesting/bhtBands';
+import { BhtDetailPopover, bhtLeaveGuard, useBhtDetail } from '@/components/backtesting/BhtDetail';
 
 interface MarketValueIndicatorClientProps {
   shillerPeData: IndicatorDetails;
@@ -143,6 +145,19 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
     return () => { alive = false; };
   }, []);
 
+  // Detalle del BHT en el hover (mismo popover que el Timeline del termómetro) + fila forward de esa fecha.
+  const bhtDet = useBhtDetail();
+  const [fwdCache, setFwdCache] = useState<Record<string, unknown>>({});
+  const loadFwd = (d: string) => {
+    if (fwdCache[d] !== undefined) return;
+    setFwdCache((m) => ({ ...m, [d]: null }));
+    const from = new Date(d); from.setDate(from.getDate() - 7);
+    fetch(`${getApiBase()}/api/backtesting/bht-forward?from=${from.toISOString().slice(0, 10)}&to=${d}`, { cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : []))
+      .then((rows: unknown[]) => setFwdCache((m) => ({ ...m, [d]: rows.length ? rows[rows.length - 1] : null })))
+      .catch(() => {});
+  };
+
   // Puntos de la gráfica (mensual antes de 1990, diaria después) con EMA 50/200 y marcadores mensuales.
   const points = useMemo(() => buildValuationChart(mergedData, daily), [mergedData, daily]);
   const opportunityMarkers = useMemo(() => monthlyOpportunityMarkers(points), [points]);
@@ -235,7 +250,9 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
     type PointKey = 'sp500Price' | 'peRatio' | 'shillerPe' | 'sp500PriceMa50' | 'sp500PriceMa200';
     const line = (k: PointKey) => chartPoints.map(p => (p[k] == null ? { time: p.time } : { time: p.time, value: p[k] as number }));
     if (showSp500Price) {
-      sp500Series.setData(line('sp500Price'));
+      // Color del semáforo BHT del día (desde 1993); antes, el color de la serie.
+      sp500Series.setData(chartPoints.map(p => (p.sp500Price == null ? { time: p.time }
+        : p.bht != null ? { time: p.time, value: p.sp500Price, color: bhtBandColor(p.bht) } : { time: p.time, value: p.sp500Price })));
       createSeriesMarkers(sp500Series, opportunityMarkers);
     }
     
@@ -321,6 +338,14 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
       }
 
       const matched = byTime.get(timeStr);
+      if (matched?.daily && matched.bht != null && chartContainerRef.current) {
+        const rect = chartContainerRef.current.getBoundingClientRect();
+        bhtDet.setHover({ d: timeStr, x: rect.left + param.point.x, y: rect.top + param.point.y });
+        bhtDet.load(timeStr);
+        loadFwd(timeStr);
+      } else {
+        bhtDet.scheduleClear();
+      }
       if (matched) {
         setHoveredData({
           date: matched.daily ? timeStr : timeStr.substring(0, 7),
@@ -379,9 +404,13 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
     };
     const resizeObserver = new ResizeObserver(handleResize);
     resizeObserver.observe(chartContainerRef.current);
+    const containerEl = chartContainerRef.current;
+    const onLeave = (e: MouseEvent) => bhtLeaveGuard(e, bhtDet);
+    containerEl.addEventListener('mouseleave', onLeave);
 
     return () => {
       resizeObserver.disconnect();
+      containerEl.removeEventListener('mouseleave', onLeave);
       disposed = true;
       clearTimeout(maxLineTimer);
       chart.timeScale().unsubscribeVisibleTimeRangeChange(updateMaxLine);
@@ -607,6 +636,14 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
             </div>
           )}
           <div ref={chartContainerRef} className="h-[400px] w-full" />
+          {bhtDet.hover && (
+            <BhtDetailPopover
+              hover={bhtDet.hover}
+              detail={bhtDet.cache[bhtDet.hover.d]}
+              forward={fwdCache[bhtDet.hover.d]}
+              onLeave={() => bhtDet.scheduleClear()} onHold={() => bhtDet.cancelClear()}
+            />
+          )}
         </div>
       </div>
 

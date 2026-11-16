@@ -16,13 +16,14 @@ describe('valuationChart', () => {
     expect(p.every((x) => !x.daily)).toBe(true);
   });
   it('híbrida: mensual antes del primer día diario, diaria después; EMA continua', () => {
-    const daily: DailyValuation = { dates: ['1990-01-01', '1990-01-02', '1990-01-03'], spx: [null, 353.4, 355.67], pe: [null, 15.1, 15.2], cape: [17.9, 17.95, 18.0] };
+    const daily: DailyValuation = { dates: ['1990-01-01', '1990-01-02', '1990-01-03'], spx: [null, 353.4, 355.67], pe: [null, 15.1, 15.2], cape: [17.9, 17.95, 18.0], bht: [null, 52.3, 71] };
     const p = buildValuationChart(monthly, daily);
     expect(p.map((x) => x.time)).toEqual(['1989-11-01', '1989-12-01', '1990-01-01', '1990-01-02', '1990-01-03']);
     expect(p[2]).toMatchObject({ daily: true, shillerPe: 17.9, sp500Price: undefined, sp500PriceMa50: undefined });
     const e50Dec = p[1].sp500PriceMa50!;
     expect(p[3].sp500PriceMa50).toBeCloseTo(e50Dec + (353.4 - e50Dec) * (2 / 51), 1); // sembrada con el mensual
     expect(Math.abs(p[3].sp500PriceMa200! - p[1].sp500PriceMa200!)).toBeLessThan(1);
+    expect(p.map((x) => x.bht)).toEqual([undefined, undefined, undefined, 52.3, 71]); // BHT del día solo en el tramo diario
   });
   it('marcadores: como mucho uno por mes, con el último día del mes', () => {
     const dates: string[] = []; const spx: number[] = [];

@@ -5,12 +5,14 @@
 import { TOKENS } from './designTokens';
 
 export type MonthlyRow = { date: string; sp500Price?: number; peRatio?: number; shillerPe?: number };
-export type DailyValuation = { dates: string[]; spx: (number | null)[]; pe: (number | null)[]; cape: (number | null)[] };
+export type DailyValuation = { dates: string[]; spx: (number | null)[]; pe: (number | null)[]; cape: (number | null)[]; bht?: (number | null)[] };
 export type ChartPoint = {
   time: string; // YYYY-MM-DD
   daily: boolean;
   sp500Price?: number; peRatio?: number; shillerPe?: number;
   sp500PriceMa50?: number; sp500PriceMa200?: number;
+  /** BHT Index del día (desde 1993): da el color de la línea del S&P 500 y el detalle en el hover. */
+  bht?: number;
 };
 
 const r2 = (v: number) => Math.round(v * 100) / 100;
@@ -47,7 +49,7 @@ export function buildValuationChart(monthly: MonthlyRow[], daily: DailyValuation
     e200 = emaStep(e200, px, d200);
     out.push({
       time: d, daily: true,
-      sp500Price: px, peRatio: daily.pe[i] ?? undefined, shillerPe: daily.cape[i] ?? undefined,
+      sp500Price: px, peRatio: daily.pe[i] ?? undefined, shillerPe: daily.cape[i] ?? undefined, bht: daily.bht?.[i] ?? undefined,
       sp500PriceMa50: px != null && e50 != null ? r2(e50) : undefined,
       sp500PriceMa200: px != null && e200 != null ? r2(e200) : undefined,
     });

@@ -93,17 +93,18 @@ export class IndicatorRepositoryImpl implements IIndicatorRepository {
     return cut([...stored, ...toEntities(monthlyLast(src, lastMonth, today))]);
   }
 
-  // Serie diaria para la gráfica de /indicators.
+  // Serie diaria para la gráfica de /indicators (incluye el BHT del día).
   async valuationDaily(): Promise<ValuationDaily> {
     const daily = async (ticker: string, from: string): Promise<PriceMap> => {
       const rows = await this.prisma.btMarketData.findMany({ where: { ticker, date: { gte: new Date(`${from}T00:00:00Z`) } }, select: { date: true, close: true } });
       return toMap(rows.map((r) => ({ d: r.date.toISOString().slice(0, 10), v: r.close })));
     };
-    const [spx, spxEps, cape] = await Promise.all([
+    const [spx, spxEps, cape, bht] = await Promise.all([
       daily('^GSPC', '1990-01-01'),
       daily('SPX_EPS', '1871-01-01'),
       this.prisma.$queryRawUnsafe(`SELECT date::text AS d, cape AS v FROM bt_shiller_daily WHERE cape IS NOT NULL AND date >= '1990-01-01'`).then((r) => toMap(r as Array<{ d: string; v: unknown }>)),
+      this.prisma.$queryRawUnsafe(`SELECT date::text AS d, value AS v FROM bt_thermo_history WHERE date >= '1990-01-01'`).then((r) => toMap(r as Array<{ d: string; v: unknown }>)),
     ]);
-    return buildValuationDaily(spx, spxEps, cape);
+    return buildValuationDaily(spx, spxEps, cape, bht);
   }
 }
