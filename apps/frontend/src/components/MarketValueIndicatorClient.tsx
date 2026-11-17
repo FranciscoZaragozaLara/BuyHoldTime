@@ -365,7 +365,8 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
       const matched = byTime.get(timeStr);
       if (matched?.daily && matched.bht != null && chartContainerRef.current) {
         const rect = chartContainerRef.current.getBoundingClientRect();
-        bhtDet.setHover({ d: timeStr, x: rect.left + param.point.x, y: rect.top + param.point.y });
+        // param.point cuenta desde el área de trazo: se suma el ancho del eje izquierdo para tener la posición real del cursor.
+        bhtDet.setHover({ d: timeStr, x: rect.left + chart.priceScale('left').width() + param.point.x, y: rect.top + param.point.y });
         bhtDet.load(timeStr);
         loadFwd(timeStr);
       } else {

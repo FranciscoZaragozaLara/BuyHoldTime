@@ -7,6 +7,8 @@ import { BHT_BANDS, bhtBand, capeScoreColor } from './bhtBands';
 import { partLabel } from '@/lib/thermoScoring';
 import { useThermoPartsMonthly } from './useThermoLive';
 import { OrbHistoryTable } from './ThermoOrbs';
+import { createPortal } from 'react-dom';
+import { placePopover } from '@/lib/popoverPlacement';
 
 // Hover compartido del BHT Index: detalle por indicador igual al termómetro.
 // El cierre es diferido (gracia de 350ms) para poder mover el mouse al popup
@@ -44,15 +46,11 @@ export function BhtDetailPopover({ hover, detail, onLeave, onHold, liveValue }: 
   const loc = useLocale();
   const popRef = useRef<HTMLDivElement>(null);
   const hist = useThermoPartsMonthly(true, hover.d);
-  // Posición fija junto al cursor, medida con la altura real: abajo-derecha; si no cabe, arriba; si tampoco, se recorre.
+  // Posición fija a un lado del cursor (no tapa el crosshair), medida con el tamaño real y dentro de la pantalla.
   const [pos, setPos] = useState<{ left: number; top: number } | null>(null);
   useLayoutEffect(() => {
-    const vw = window.innerWidth, vh = window.innerHeight;
-    const w = popRef.current?.offsetWidth ?? 720, h = Math.min(popRef.current?.offsetHeight ?? 0, vh - 16);
-    const left = Math.min(Math.max(8, hover.x + 12), vw - w - 8);
-    let top = hover.y + 16;
-    if (top + h > vh - 8) top = hover.y - 16 - h >= 8 ? hover.y - 16 - h : Math.max(8, vh - 8 - h);
-    setPos({ left, top });
+    const el = popRef.current;
+    setPos(placePopover({ x: hover.x, y: hover.y }, { w: el?.offsetWidth ?? 720, h: el?.offsetHeight ?? 0 }, { w: window.innerWidth, h: window.innerHeight }));
   }, [hover.x, hover.y, detail, hist.data]);
   const bd = detail != null ? bhtBand(Number(detail.value)) : null;
   const headV = liveValue ?? (detail != null ? Number(detail.value) : null);
@@ -60,7 +58,9 @@ export function BhtDetailPopover({ hover, detail, onLeave, onHold, liveValue }: 
   const [showStrat, setShowStrat] = useState(false);
   useEffect(() => { setShowStrat(false); }, [hover.d]);
   const sign = (v: number) => `${v > 0 ? '+' : ''}${v.toFixed(0)}`;
-  return (
+  // Portal al body: un ancestro con transform/backdrop-filter haría que `fixed` se midiera desde él y no desde la pantalla.
+  if (typeof document === 'undefined') return null;
+  return createPortal(
     <div ref={popRef} data-bht-pop className="fixed z-[9999] w-[720px] max-w-[calc(100vw-16px)] max-h-[calc(100vh-16px)] overflow-y-auto p-3 rounded-xl bg-slate-900 border border-slate-700 shadow-2xl text-xs leading-snug text-slate-200 text-left pointer-events-none" style={pos ? { left: pos.left, top: pos.top } : { left: -9999, top: 0 }} onMouseEnter={() => onHold?.()} onMouseLeave={onLeave}>
       <div className="font-bold mb-1.5"><span className="text-sky-300">{hover.d}</span> <span className="text-slate-100">· BHT</span> {headV != null && <span className="font-mono" style={{ color: capeScoreColor(headV) }}>{headV.toFixed(1)}/100</span>}{liveValue != null && <span className="ml-1.5 text-[10px] px-1.5 py-px rounded-full bg-accent-500/20 text-accent-300 font-bold" title={ti('liveTitle')}>{ti('live')}</span>}{bd && (
         <button type="button" onClick={(e) => { e.stopPropagation(); setShowStrat((v) => !v); }}
@@ -116,6 +116,7 @@ export function BhtDetailPopover({ hover, detail, onLeave, onHold, liveValue }: 
         <div className="text-[11px] font-semibold text-slate-100 mb-1">{ti('bhtPopHistoryTitle', { date: hover.d })}</div>
         <OrbHistoryTable rows={bhtHistoryRows(hist.data)} loading={hist.isLoading} valueHeader="BHT" dec={1} showValue={false} compact />
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

@@ -194,7 +194,8 @@ export function BhtTimeline() {
       })();
       if (!row || !containerRef.current) return;
       const rect = containerRef.current.getBoundingClientRect();
-      bhtDet.setHover({ d: row.date, x: rect.left + param.point.x, y: rect.top + param.point.y });
+      // param.point cuenta desde el área de trazo: se suma el ancho del eje izquierdo (0 si no hay).
+      bhtDet.setHover({ d: row.date, x: rect.left + chart.priceScale('left').width() + param.point.x, y: rect.top + param.point.y });
       bhtDet.load(row.date);
       loadFwd(row.date);
     };
