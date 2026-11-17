@@ -771,8 +771,12 @@ export class BacktestingService {
       const ob = getOilBonus(oilMap, iso);
       oilPrice = ob.price; oilRatio = ob.ratio;
     } catch {}
+    const qqqRow = await this.prisma.btMarketData.findFirst({ where: { ticker: 'QQQ', date: { lte: r.date } }, orderBy: { date: 'desc' }, select: { close: true } }).catch(() => null);
+    const qqqClose = qqqRow ? Number(qqqRow.close) : null;
     return {
       date: r.date.toISOString().slice(0, 10), value: r.bhtValue, numerator, denominator, coverage: parts.length,
+      // Cierres del día para el encabezado del hover: S&P 500, QQQ (Nasdaq-100, misma serie que la gráfica de /indicators) y TQQQ.
+      prices: { spx: r.spx ?? null, qqq: qqqClose, tqqq: r.tqqq ?? null },
       bonus: th?.bonus ?? 0, bonusLabel: th?.bonusLabel ?? null, bonusHy, bonusD1, bonusZ, bonusSigma, bonusFed,
       liqBonus: (th as any)?.liqBonus ?? 0, liqBonusLabel: (th as any)?.liqBonusLabel ?? null, liqYoy, liqM0d3, liqDrop,
       oilBonus: (th as any)?.oilBonus ?? 0, oilBonusLabel: (th as any)?.oilBonusLabel ?? null, oilPrice, oilRatio,

@@ -66,6 +66,12 @@ export function BhtDetailPopover({ hover, detail, onLeave, onHold, liveValue }: 
         <button type="button" onClick={(e) => { e.stopPropagation(); setShowStrat((v) => !v); }}
           className="ml-2 px-2 py-0.5 rounded-md text-[11px] font-bold text-slate-900 align-middle cursor-pointer pointer-events-auto"
           style={{ backgroundColor: bd.color }}>{ti('strategyButton')} {showStrat ? '▾' : '▸'}</button>
+      )}{detail?.prices && (
+        <span className="ml-2 font-mono font-normal text-[11px] text-slate-400 align-middle">
+          {([['S&P 500', detail.prices.spx], ['QQQ (Nasdaq-100)', detail.prices.qqq], ['TQQQ', detail.prices.tqqq]] as [string, number | null][])
+            .filter(([, v]) => v != null)
+            .map(([k, v], i) => <span key={k}>{i > 0 && <span className="text-slate-600"> · </span>}{k} <span className="text-slate-100">{Number(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></span>)}
+        </span>
       )}</div>
       {showStrat && bd && (
         <div className="mt-1 mb-1.5 p-2 rounded-lg border" style={{ borderColor: `${bd.color}66`, backgroundColor: `${bd.color}14` }}>
