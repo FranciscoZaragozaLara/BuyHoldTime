@@ -7,6 +7,8 @@
 //    reinicia y la siguiente venta vuelve a exigir 72. Lo que pasó desde ese día (sin vender = valuado a hoy,
 //    comparado con mantener hasta hoy) y lo esperado según los días del rango.
 export type Instrument = 'spx' | 'qqq' | 'tqqq';
+/** Días del rango que entran a los promedios: toda la historia o solo los últimos 5 años. */
+export type SampleWindow = 'all' | '5y';
 export type StrategySeries = { dates: string[]; bht: (number | null)[]; px: Record<Instrument, (number | null)[]> };
 
 export const HORIZONS = [1, 2, 3, 5] as const;
@@ -42,7 +44,7 @@ function lastOnOrBefore(dates: string[], d: string): number {
 }
 
 export type StrategyResult = {
-  date: string; instrument: Instrument; bht: number; range: [number, number];
+  date: string; instrument: Instrument; window: SampleWindow; bht: number; range: [number, number];
   frequency: { all: { count: number; total: number; pct: number }; last5y: { count: number; total: number; pct: number } };
   base: { price: number | null; today: string; todayPrice: number | null };
   perf: Array<{ years: number; n: number; avgPct: number | null; medianPct: number | null; positivePct: number | null; nominal: number | null; targetDate: string }>;
@@ -77,7 +79,7 @@ export function trancheSales(s: StrategySeries, i: number): Array<{ j: number; t
   return sales;
 }
 
-export function computeBhtStrategy(s: StrategySeries, date: string, instrument: Instrument): StrategyResult | null {
+export function computeBhtStrategy(s: StrategySeries, date: string, instrument: Instrument, window: SampleWindow = 'all'): StrategyResult | null {
   const i = lastOnOrBefore(s.dates, date);
   if (i < 0 || s.bht[i] == null) return null;
   const px = s.px[instrument];
@@ -95,8 +97,9 @@ export function computeBhtStrategy(s: StrategySeries, date: string, instrument: 
     if (b == null) return;
     allN++;
     const hit = inRange(b);
-    if (hit) { allC++; samples.push(k); }
+    if (hit) allC++;
     if (s.dates[k] >= from5y) { n5++; if (hit) c5++; }
+    if (hit && (window === 'all' || s.dates[k] >= from5y)) samples.push(k);
   });
   const pct = (c: number, n: number) => (n ? (c / n) * 100 : 0);
 
@@ -124,7 +127,9 @@ export function computeBhtStrategy(s: StrategySeries, date: string, instrument: 
     const p0 = px[k];
     if (p0 == null) continue;
     const end = addYears(s.dates[k], PEAK_YEARS);
-    if (end > today) continue; // ventana completa de 5 años
+    // Toda la historia: solo ventanas completas de 5 años. Últimos 5 años: ninguna está completa, así que se usa
+    // el pico hasta hoy (ventana parcial).
+    if (end > today && window === 'all') continue;
     let best = p0, bestJ = k;
     for (let j = k + 1; j < s.dates.length && s.dates[j] <= end; j++) { const p = px[j]; if (p != null && p > best) { best = p; bestJ = j; } }
     peakPcts.push((best / p0 - 1) * 100);
@@ -170,7 +175,7 @@ export function computeBhtStrategy(s: StrategySeries, date: string, instrument: 
   }
 
   return {
-    date: s.dates[i], instrument, bht, range,
+    date: s.dates[i], instrument, window, bht, range,
     frequency: { all: { count: allC, total: allN, pct: pct(allC, allN) }, last5y: { count: c5, total: n5, pct: pct(c5, n5) } },
     base: { price: basePrice ?? null, today, todayPrice: todayPrice ?? null },
     perf,

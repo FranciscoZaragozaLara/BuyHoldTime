@@ -4,7 +4,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import NodeCache from 'node-cache';
 import { toShillerApiRow } from './shiller-daily';
 import { monthlyPartsFromDaily } from './bht-forward';
-import { computeBhtStrategy, type Instrument as StrategyInstrument, type StrategySeries } from './bht-strategy';
+import { computeBhtStrategy, type Instrument as StrategyInstrument, type SampleWindow, type StrategySeries } from './bht-strategy';
 import { spliceSeries } from '../market-data/valuation-daily';
 import { computeThermoLive, LivePoints, THERMO_LIVE_TICKERS, THERMO_TICKERS, getHyBonus, getHySigma24, getLiqBonus, getOilBonus, PriceMap } from './thermo-history';
 
@@ -758,13 +758,14 @@ export class BacktestingService {
     return series;
   }
 
-  async getBhtStrategy(date: string, instrument: string) {
+  async getBhtStrategy(date: string, instrument: string, window?: string) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date ?? '')) return { error: 'date required (YYYY-MM-DD)' };
     const inst = (['spx', 'qqq', 'tqqq'].includes(instrument) ? instrument : 'spx') as StrategyInstrument;
-    const key = `r:${date}:${inst}`;
+    const win: SampleWindow = window === '5y' ? '5y' : 'all'; // por defecto toda la historia
+    const key = `r:${date}:${inst}:${win}`;
     const hit = this.strategyCache.get(key);
     if (hit) return hit;
-    const r = computeBhtStrategy(await this.strategySeries(), date, inst);
+    const r = computeBhtStrategy(await this.strategySeries(), date, inst, win);
     if (!r) return { error: 'not found' };
     this.strategyCache.set(key, r);
     return r;

@@ -83,4 +83,21 @@ describe('computeBhtStrategy', () => {
     expect(r.base.price).toBeNull();
     expect(r.perf[0].avgPct).toBeNull();
   });
+
+  test('ventana de 5 años: promedios solo con días del rango de los últimos 5 años; pico hasta hoy', () => {
+    // 8 años mensuales; BHT 63 al inicio y en los últimos 2 años (2006-2007)
+    const b = Array.from({ length: 96 }, (_, k) => (k < 24 || k >= 72 ? 63 : 50));
+    const p = Array.from({ length: 96 }, (_, k) => 100 + k);
+    const st = series(b, p);
+    const all = computeBhtStrategy(st, '2007-12-01', 'spx', 'all')!;
+    const w5 = computeBhtStrategy(st, '2007-12-01', 'spx', '5y')!;
+    expect(w5.window).toBe('5y');
+    expect(all.perf[0].n).toBe(24 + 12); // 2000-2001 y 2006 tienen 1 año completo hacia adelante
+    expect(w5.perf[0].n).toBe(12); // solo 2006
+    expect(w5.perf.find((x) => x.years === 5)!.n).toBe(0);
+    expect(all.peak.n).toBe(24);
+    expect(w5.peak.n).toBe(24); // ventana parcial hasta hoy
+    expect(w5.frequency).toEqual(all.frequency); // la frecuencia no cambia
+  });
 });
+

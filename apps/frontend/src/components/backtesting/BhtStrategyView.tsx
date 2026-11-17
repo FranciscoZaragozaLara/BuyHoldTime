@@ -6,6 +6,7 @@ import { getApiBase } from '@/lib/apiBase';
 import { bhtBand, capeScoreColor } from './bhtBands';
 
 type Instrument = 'spx' | 'qqq' | 'tqqq';
+type Win = 'all' | '5y';
 type Result = {
   date: string; bht: number; range: [number, number];
   frequency: { all: { count: number; total: number; pct: number }; last5y: { count: number; total: number; pct: number } };
@@ -20,10 +21,10 @@ type Result = {
 };
 
 const cache = new Map<string, Promise<Result | null>>();
-function fetchStrategy(date: string, inst: Instrument) {
-  const key = `${date}:${inst}`;
+function fetchStrategy(date: string, inst: Instrument, win: Win) {
+  const key = `${date}:${inst}:${win}`;
   if (!cache.has(key)) {
-    cache.set(key, fetch(`${getApiBase()}/api/backtesting/bht-strategy?date=${date}&instrument=${inst}`)
+    cache.set(key, fetch(`${getApiBase()}/api/backtesting/bht-strategy?date=${date}&instrument=${inst}&window=${win}`)
       .then((r) => (r.ok ? r.json() : null)).then((j) => (j && !j.error ? (j as Result) : null))
       .catch(() => { cache.delete(key); return null; }));
   }
@@ -39,7 +40,8 @@ const T = {
   es: {
     advice: 'Estrategia para la banda', range: 'BHT del día', rangeOf: 'rango', freq: 'Frecuencia del rango', hist: 'histórica', last5: 'últimos 5 años', days: 'días',
     perfTitle: 'Rendimiento promedio de los días en este rango', horizon: 'Plazo', avg: 'Prom.', med: 'Mediana', pos: '% positivos', nominal: 'Precio esperado', target: 'Fecha', n: 'n',
-    peak: 'Pico máx. (5a)', peakIn: 'en ~', peakNote: 'Pico dentro de 5 años; fecha = día + tiempo promedio al pico.', loading: 'Calculando…', error: 'No se pudo calcular.',
+    peak: 'Pico máx. (5a)', peakIn: 'en ~', peak5: 'Pico máx. (a hoy)', peak5Note: 'Pico desde cada día hasta hoy (ningún día de los últimos 5 años tiene 5 años completos).',
+    winAll: 'Toda la historia', win5: 'Últimos 5 años', winTitle: 'Días del rango que entran a los promedios', peakNote: 'Pico dentro de 5 años; fecha = día + tiempo promedio al pico.', loading: 'Calculando…', error: 'No se pudo calcular.',
     trTitle: 'Venta en 4 tramos iguales (25%) en la escalera del BHT', trRules: 'Al menos 15 días entre ventas (no vende todo en un salto). Si tras una venta el BHT baja de 62, la escalera vuelve a 72.', trThis: 'Desde este día', trExp: 'Esperado (días del rango)', th: 'Tramo · escalón', sold: 'Venta', price: 'Precio', ret: 'Rend.', wait: 'Tiempo',
     pending: 'pendiente → hoy', jump: 'BHT', jumpTitle: 'BHT del día anterior → BHT del día de la venta', strategy: 'Estrategia 4 tramos', hold: 'Mantener hasta hoy', reached: 'Lo alcanzó', base: 'Compra', today: 'hoy',
     note: 'Promedios de días históricos (se traslapan; n = días con dato). No es una recomendación de inversión.',
@@ -48,7 +50,8 @@ const T = {
   en: {
     advice: 'Strategy for the band', range: 'BHT of the day', rangeOf: 'range', freq: 'Range frequency', hist: 'all history', last5: 'last 5 years', days: 'days',
     perfTitle: 'Average performance of days in this range', horizon: 'Horizon', avg: 'Avg', med: 'Median', pos: '% positive', nominal: 'Expected price', target: 'Date', n: 'n',
-    peak: 'Max peak (5y)', peakIn: 'in ~', peakNote: 'Peak within 5 years; date = day + average time to peak.', loading: 'Computing…', error: 'Could not compute.',
+    peak: 'Max peak (5y)', peakIn: 'in ~', peak5: 'Max peak (to today)', peak5Note: 'Peak from each day until today (no day in the last 5 years has a full 5-year window).',
+    winAll: 'All history', win5: 'Last 5 years', winTitle: 'Range days included in the averages', peakNote: 'Peak within 5 years; date = day + average time to peak.', loading: 'Computing…', error: 'Could not compute.',
     trTitle: 'Sell in 4 equal tranches (25%) on the BHT ladder', trRules: 'At least 15 days between sales (no selling everything on one jump). If BHT drops below 62 after a sale, the ladder restarts at 72.', trThis: 'From this day', trExp: 'Expected (range days)', th: 'Tranche · step', sold: 'Sale', price: 'Price', ret: 'Return', wait: 'Time',
     pending: 'pending → today', jump: 'BHT', jumpTitle: 'BHT the day before → BHT on the sale day', strategy: '4-tranche strategy', hold: 'Hold until today', reached: 'Reached', base: 'Buy', today: 'today',
     note: 'Averages of historical days (overlapping; n = days with data). Not investment advice.',
@@ -61,13 +64,15 @@ const dur = (days: number | null, t: (typeof T)['es']) => (days == null ? '—' 
 export default function BhtStrategyView({ date, locale, adviceLabel, adviceText }: { date: string; locale: string; adviceLabel?: string; adviceText?: string }) {
   const t = T[locale === 'es' ? 'es' : 'en'];
   const [inst, setInst] = useState<Instrument>('spx');
+  // Días del rango que entran a los promedios (rendimiento, pico y lo esperado por tramo).
+  const [win, setWin] = useState<Win>('all');
   const [state, setState] = useState<{ key: string; data: Result | null } | null>(null);
-  const key = `${date}:${inst}`;
+  const key = `${date}:${inst}:${win}`;
   useEffect(() => {
     let alive = true;
-    fetchStrategy(date, inst).then((data) => { if (alive) setState({ key, data }); });
+    fetchStrategy(date, inst, win).then((data) => { if (alive) setState({ key, data }); });
     return () => { alive = false; };
-  }, [date, inst, key]);
+  }, [date, inst, win, key]);
   // Mientras carga otro instrumento se muestra el resultado anterior atenuado: el popup no se encoge bajo el cursor.
   const fresh = state?.key === key;
   const r = fresh ? state!.data : state?.data ?? undefined;
@@ -88,6 +93,12 @@ export default function BhtStrategyView({ date, locale, adviceLabel, adviceText 
               className={`px-2 py-0.5 rounded-md text-[11px] font-semibold transition ${inst === k ? 'bg-slate-700 text-white' : 'text-slate-400 hover:text-slate-200'}`}>{INST[k]}</button>
           ))}
         </div>
+        <div className="inline-flex rounded-lg border border-slate-700 bg-slate-950/60 p-0.5" title={t.winTitle}>
+          {(['all', '5y'] as Win[]).map((k) => (
+            <button key={k} type="button" onClick={() => setWin(k)}
+              className={`px-2 py-0.5 rounded-md text-[11px] font-semibold transition ${win === k ? 'bg-slate-700 text-white' : 'text-slate-400 hover:text-slate-200'}`}>{k === 'all' ? t.winAll : t.win5}</button>
+          ))}
+        </div>
         {r && (
           <span className="font-mono text-[11px] text-slate-400">
             {t.range} <span className="font-bold" style={{ color: capeScoreColor(r.bht) }}>{r.bht.toFixed(1)}</span> → {t.rangeOf} <span className="text-slate-100">{r.range[0]}–{r.range[1]}</span>
@@ -100,7 +111,7 @@ export default function BhtStrategyView({ date, locale, adviceLabel, adviceText 
       {r === undefined ? <div className="font-mono text-slate-500">{t.loading}</div> : r === null ? <div className="font-mono text-risk-300">{t.error}</div> : (
         <div className={`space-y-2 transition-opacity ${fresh ? '' : 'opacity-50'}`}>
           <div>
-            <div className="text-[11px] font-semibold text-slate-100 mb-1">{t.perfTitle} · {INST[inst]} · {t.base} {money(r.base.price)} ({r.date})</div>
+            <div className="text-[11px] font-semibold text-slate-100 mb-1">{t.perfTitle} ({win === 'all' ? t.winAll : t.win5}) · {INST[inst]} · {t.base} {money(r.base.price)} ({r.date})</div>
             <table className="w-full font-mono text-[11px]">
               <thead className="text-[9px] uppercase tracking-wide text-slate-500">
                 <tr className="border-b border-slate-700/70">
@@ -121,7 +132,7 @@ export default function BhtStrategyView({ date, locale, adviceLabel, adviceText 
                   </tr>
                 ))}
                 <tr className="border-t border-slate-700" title={t.peakNote}>
-                  <td className="py-[1px] text-slate-300">{t.peak}</td>
+                  <td className="py-[1px] text-slate-300" title={win === '5y' ? t.peak5Note : t.peakNote}>{win === '5y' ? t.peak5 : t.peak}</td>
                   <td className={`text-right font-bold ${pctCls(r.peak.avgPct)}`}>{pctTxt(r.peak.avgPct)}</td>
                   <td colSpan={2} className="text-right text-slate-500">{t.peakIn} {dur(r.peak.avgDays, t)}</td>
                   <td className="text-right text-slate-100">{money(r.peak.nominal)}</td>
@@ -141,7 +152,7 @@ export default function BhtStrategyView({ date, locale, adviceLabel, adviceText 
                   <th />
                   <th colSpan={5} className="text-center font-normal border-b border-slate-700/70">{t.trThis} ({t.base} {money(r.base.price)})</th>
                   <th className="w-3" />
-                  <th colSpan={3} className="text-center font-normal border-b border-slate-700/70">{t.trExp}</th>
+                  <th colSpan={3} className="text-center font-normal border-b border-slate-700/70">{t.trExp}{win === '5y' ? ` · ${t.win5}` : ''}</th>
                 </tr>
                 <tr className="border-b border-slate-700/70">
                   <th className="text-left font-normal py-0.5">{t.th}</th>

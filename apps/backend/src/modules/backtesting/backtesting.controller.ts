@@ -80,8 +80,9 @@ export class BacktestingController {
   @Get('thermo-live')
   getThermoLive() { return this.svc.getThermoLive(); }
 
+  // Vista Estrategia del popover del BHT (window=all|5y: días del rango en los promedios).
   @Get('bht-strategy')
-  getBhtStrategy(@Query('date') date: string, @Query('instrument') instrument: string) { return this.svc.getBhtStrategy(date, instrument); }
+  getBhtStrategy(@Query('date') date: string, @Query('instrument') instrument: string, @Query('window') window: string) { return this.svc.getBhtStrategy(date, instrument, window); }
 
   @Get('bht-forward/detail')
   getBhtForwardDetail(@Query('date') date: string) { return this.svc.getBhtForwardDetail(date); }
