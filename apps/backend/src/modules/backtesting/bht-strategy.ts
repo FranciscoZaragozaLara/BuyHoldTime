@@ -42,7 +42,8 @@ export type StrategyResult = {
   perf: Array<{ years: number; n: number; avgPct: number | null; medianPct: number | null; positivePct: number | null; nominal: number | null; targetDate: string }>;
   peak: { n: number; avgPct: number | null; avgDays: number | null; nominal: number | null; date: string | null };
   tranches: {
-    actual: Array<{ threshold: number; date: string | null; price: number | null; pct: number | null; days: number | null }>;
+    // bhtPrev → bhtHit: BHT del día anterior y del día de la venta (deja ver saltos que cruzan varios umbrales a la vez).
+    actual: Array<{ threshold: number; date: string | null; price: number | null; pct: number | null; days: number | null; bhtPrev: number | null; bhtHit: number | null }>;
     strategyPct: number | null; holdPct: number | null; soldCount: number;
     expected: Array<{ threshold: number; n: number; reachedPct: number | null; avgDays: number | null; avgPct: number | null }>;
   };
@@ -118,6 +119,7 @@ export function computeBhtStrategy(s: StrategySeries, date: string, instrument: 
   // 3) Tramos: lo que pasó desde este día…
   const todayPrice = px[last];
   const hits = trancheHits(s, i);
+  const prevBht = (j: number): number | null => { for (let k = j - 1; k >= 0; k--) if (s.bht[k] != null) return s.bht[k]; return null; };
   const actual = TRANCHES.map((threshold, t) => {
     const j = hits[t];
     const p = j != null ? px[j] : null;
@@ -125,6 +127,7 @@ export function computeBhtStrategy(s: StrategySeries, date: string, instrument: 
       threshold, date: j != null ? s.dates[j] : null, price: p ?? null,
       pct: p != null && basePrice != null ? (p / basePrice - 1) * 100 : null,
       days: j != null ? daysBetween(s.dates[i], s.dates[j]) : null,
+      bhtPrev: j != null ? prevBht(j) : null, bhtHit: j != null ? s.bht[j] : null,
     };
   });
   let strategyPct: number | null = null, holdPct: number | null = null;

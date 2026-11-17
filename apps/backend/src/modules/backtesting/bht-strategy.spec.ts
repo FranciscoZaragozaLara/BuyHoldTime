@@ -41,6 +41,7 @@ describe('computeBhtStrategy', () => {
     const r = computeBhtStrategy(s, '2000-01-01', 'spx')!;
     expect(r.tranches.actual.map((a) => a.date)).toEqual(['2002-01-01', '2004-01-01', '2005-01-01', '2005-01-01']);
     expect(r.tranches.actual[0].pct).toBeCloseTo(24, 6); // 124/100
+    expect([r.tranches.actual[2].bhtPrev, r.tranches.actual[2].bhtHit]).toEqual([80, 90]); // salto que cruza 82 y 87 el mismo día
     expect(r.tranches.holdPct).toBeCloseTo(95, 6); // 195/100
     expect(r.tranches.strategyPct).toBeCloseTo((24 + 48 + 60 + 60) / 4, 6);
     const t = computeBhtStrategy(series([63, 74, 74], [100, 110, 120]), '2000-01-01', 'spx')!;

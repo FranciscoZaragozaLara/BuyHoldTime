@@ -13,7 +13,7 @@ type Result = {
   perf: Array<{ years: number; n: number; avgPct: number | null; medianPct: number | null; positivePct: number | null; nominal: number | null; targetDate: string }>;
   peak: { n: number; avgPct: number | null; avgDays: number | null; nominal: number | null; date: string | null };
   tranches: {
-    actual: Array<{ threshold: number; date: string | null; price: number | null; pct: number | null; days: number | null }>;
+    actual: Array<{ threshold: number; date: string | null; price: number | null; pct: number | null; days: number | null; bhtPrev: number | null; bhtHit: number | null }>;
     strategyPct: number | null; holdPct: number | null; soldCount: number;
     expected: Array<{ threshold: number; n: number; reachedPct: number | null; avgDays: number | null; avgPct: number | null }>;
   };
@@ -41,7 +41,7 @@ const T = {
     perfTitle: 'Rendimiento promedio de los días en este rango', horizon: 'Plazo', avg: 'Prom.', med: 'Mediana', pos: '% positivos', nominal: 'Precio esperado', target: 'Fecha', n: 'n',
     peak: 'Pico máx. (5a)', peakIn: 'en ~', peakNote: 'Pico dentro de 5 años; fecha = día + tiempo promedio al pico.', loading: 'Calculando…', error: 'No se pudo calcular.',
     trTitle: 'Venta en 4 tramos iguales (25%) al alcanzar el BHT', trThis: 'Desde este día', trExp: 'Esperado (días del rango)', th: 'BHT', sold: 'Venta', price: 'Precio', ret: 'Rend.', wait: 'Tiempo',
-    pending: 'pendiente → hoy', strategy: 'Estrategia 4 tramos', hold: 'Mantener hasta hoy', reached: 'Lo alcanzó', base: 'Compra', today: 'hoy',
+    pending: 'pendiente → hoy', jump: 'BHT', jumpTitle: 'BHT del día anterior → BHT del día de la venta', sameDayTitle: 'Mismo día que el tramo anterior: el BHT saltó y cruzó varios umbrales a la vez', strategy: 'Estrategia 4 tramos', hold: 'Mantener hasta hoy', reached: 'Lo alcanzó', base: 'Compra', today: 'hoy',
     note: 'Promedios de días históricos (se traslapan; n = días con dato). No es una recomendación de inversión.',
     y: 'a', d: 'd',
   },
@@ -50,7 +50,7 @@ const T = {
     perfTitle: 'Average performance of days in this range', horizon: 'Horizon', avg: 'Avg', med: 'Median', pos: '% positive', nominal: 'Expected price', target: 'Date', n: 'n',
     peak: 'Max peak (5y)', peakIn: 'in ~', peakNote: 'Peak within 5 years; date = day + average time to peak.', loading: 'Computing…', error: 'Could not compute.',
     trTitle: 'Sell in 4 equal tranches (25%) when BHT reaches', trThis: 'From this day', trExp: 'Expected (range days)', th: 'BHT', sold: 'Sale', price: 'Price', ret: 'Return', wait: 'Time',
-    pending: 'pending → today', strategy: '4-tranche strategy', hold: 'Hold until today', reached: 'Reached', base: 'Buy', today: 'today',
+    pending: 'pending → today', jump: 'BHT', jumpTitle: 'BHT the day before → BHT on the sale day', sameDayTitle: 'Same day as the previous tranche: BHT jumped across several thresholds at once', strategy: '4-tranche strategy', hold: 'Hold until today', reached: 'Reached', base: 'Buy', today: 'today',
     note: 'Averages of historical days (overlapping; n = days with data). Not investment advice.',
     y: 'y', d: 'd',
   },
@@ -138,13 +138,13 @@ export default function BhtStrategyView({ date, locale, adviceLabel, adviceText 
               <thead className="text-[9px] uppercase tracking-wide text-slate-500">
                 <tr>
                   <th />
-                  <th colSpan={4} className="text-center font-normal border-b border-slate-700/70">{t.trThis} ({t.base} {money(r.base.price)})</th>
+                  <th colSpan={5} className="text-center font-normal border-b border-slate-700/70">{t.trThis} ({t.base} {money(r.base.price)})</th>
                   <th className="w-3" />
                   <th colSpan={3} className="text-center font-normal border-b border-slate-700/70">{t.trExp}</th>
                 </tr>
                 <tr className="border-b border-slate-700/70">
                   <th className="text-left font-normal py-0.5">{t.th}</th>
-                  <th className="text-right font-normal">{t.sold}</th><th className="text-right font-normal">{t.price}</th><th className="text-right font-normal">{t.ret}</th><th className="text-right font-normal">{t.wait}</th>
+                  <th className="text-right font-normal">{t.sold}</th><th className="text-right font-normal" title={t.jumpTitle}>{t.jump}</th><th className="text-right font-normal">{t.price}</th><th className="text-right font-normal">{t.ret}</th><th className="text-right font-normal">{t.wait}</th>
                   <th />
                   <th className="text-right font-normal">{t.reached}</th><th className="text-right font-normal">{t.ret}</th><th className="text-right font-normal">{t.wait}</th>
                 </tr>
@@ -159,6 +159,10 @@ export default function BhtStrategyView({ date, locale, adviceLabel, adviceText 
                       {a.date ? (
                         <>
                           <td className="text-right text-slate-300">{a.date}</td>
+                          <td className="text-right text-slate-400" title={t.jumpTitle}>
+                            {a.bhtPrev != null && a.bhtHit != null ? <>{a.bhtPrev.toFixed(1)}→<span style={{ color: capeScoreColor(a.bhtHit) }}>{a.bhtHit.toFixed(1)}</span></> : '—'}
+                            {i > 0 && r.tranches.actual[i - 1].date === a.date && <span className="ml-1 text-caution-300" title={t.sameDayTitle}>⚡</span>}
+                          </td>
                           <td className="text-right text-slate-100">{money(a.price)}</td>
                           <td className={`text-right font-bold ${pctCls(a.pct)}`}>{pctTxt(a.pct)}</td>
                           <td className="text-right text-slate-500">{dur(a.days, t)}</td>
@@ -166,6 +170,7 @@ export default function BhtStrategyView({ date, locale, adviceLabel, adviceText 
                       ) : (
                         <>
                           <td className="text-right text-slate-500 italic">{t.pending}</td>
+                          <td className="text-right text-slate-600">—</td>
                           <td className="text-right text-slate-400">{money(r.base.todayPrice)}</td>
                           <td className={`text-right ${pctCls(r.tranches.holdPct)}`}>{pctTxt(r.tranches.holdPct)}</td>
                           <td className="text-right text-slate-600">—</td>
