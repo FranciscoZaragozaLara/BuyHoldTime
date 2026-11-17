@@ -7,7 +7,7 @@ import { Eye, EyeOff, Calendar, Table, LineChart as ChartIcon, Sparkles } from '
 import { IndicatorDetails } from '@/services/api';
 import { TOKENS } from '@/lib/designTokens';
 import { getApiBase } from '@/lib/apiBase';
-import { buildValuationChart, monthlyOpportunityMarkers, type DailyValuation } from '@/lib/valuationChart';
+import { buildValuationChart, monthlyOpportunityMarkers, type DailyValuation, type Instrument } from '@/lib/valuationChart';
 import { BHT_BANDS, bhtBandColor } from '@/components/backtesting/bhtBands';
 import { BhtDetailPopover, bhtLeaveGuard, useBhtDetail } from '@/components/backtesting/BhtDetail';
 
@@ -42,6 +42,14 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
   const [showPeRatio, setShowPeRatio] = useState(true);
   const [showShillerPe, setShowShillerPe] = useState(true);
   const [showBht, setShowBht] = useState(true);
+  // Un instrumento a la vez: precio, EMA 50/200 y P/E son los suyos; CAPE y BHT no cambian.
+  const [instrument, setInstrument] = useState<Instrument>('spx');
+  const INSTRUMENTS: Record<Instrument, { label: string; color: string; pe: string }> = {
+    spx: { label: 'S&P 500', color: TOKENS.accent, pe: 'P/E S&P 500' },
+    ndx: { label: 'Nasdaq 100 (QQQ)', color: '#3b82f6', pe: 'P/E Nasdaq 100' },
+    tqqq: { label: 'TQQQ', color: '#d946ef', pe: locale === 'es' ? 'P/E Nasdaq 100 (subyacente)' : 'P/E Nasdaq 100 (underlying)' },
+  };
+  const inst = INSTRUMENTS[instrument];
   const [showMa50, setShowMa50] = useState(false);
   const [showMa200, setShowMa200] = useState(false);
 
@@ -161,7 +169,7 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
   };
 
   // Puntos de la gráfica (mensual antes de 1990, diaria después) con EMA 50/200 y marcadores mensuales.
-  const points = useMemo(() => buildValuationChart(mergedData, daily), [mergedData, daily]);
+  const points = useMemo(() => buildValuationChart(mergedData, daily, instrument), [mergedData, daily, instrument]);
   const opportunityMarkers = useMemo(() => monthlyOpportunityMarkers(points), [points]);
 
   // Lightweight charts initialization and synchronization
@@ -199,11 +207,11 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
 
     // Create Series
     const sp500Series = chart.addSeries(LineSeries, {
-      color: TOKENS.accent,
+      color: inst.color,
       lineWidth: 2,
       priceScaleId: 'right',
       priceLineVisible: false,
-      title: 'S&P 500',
+      title: inst.label,
     });
 
     const ema50Series = chart.addSeries(LineSeries, {
@@ -265,9 +273,7 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
     type PointKey = 'sp500Price' | 'peRatio' | 'shillerPe' | 'sp500PriceMa50' | 'sp500PriceMa200';
     const line = (k: PointKey) => chartPoints.map(p => (p[k] == null ? { time: p.time } : { time: p.time, value: p[k] as number }));
     if (showSp500Price) {
-      // Color del semáforo BHT del día (desde 1993); antes, el color de la serie.
-      sp500Series.setData(chartPoints.map(p => (p.sp500Price == null ? { time: p.time }
-        : p.bht != null ? { time: p.time, value: p.sp500Price, color: bhtBandColor(p.bht) } : { time: p.time, value: p.sp500Price })));
+      sp500Series.setData(line('sp500Price'));
       createSeriesMarkers(sp500Series, opportunityMarkers);
     }
     
@@ -444,6 +450,7 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
     showPeRatio,
     showShillerPe,
     showBht,
+    instrument,
     showMa50,
     showMa200,
     timeframe,
@@ -582,6 +589,19 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
         </div>
 
         {/* Legend / Line toggles */}
+        <div className="flex flex-wrap items-center gap-2 text-xs">
+          <span className="text-slate-500 font-semibold">{locale === 'es' ? 'Instrumento:' : 'Instrument:'}</span>
+          <div className="inline-flex rounded-lg border border-slate-800 bg-slate-900/60 p-0.5">
+            {(Object.keys(INSTRUMENTS) as Instrument[]).map((k) => (
+              <button key={k} type="button" onClick={() => setInstrument(k)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md font-semibold transition ${instrument === k ? 'bg-slate-700 text-white' : 'text-slate-400 hover:text-slate-200'}`}>
+                <span className="w-2 h-2 rounded-full" style={{ background: INSTRUMENTS[k].color }} />
+                {INSTRUMENTS[k].label}
+              </button>
+            ))}
+          </div>
+          {instrument !== 'spx' && <span className="text-slate-500">{locale === 'es' ? 'Desde 1999 (QQQ) / 2010 (TQQQ). El CAPE es del S&P 500.' : 'Since 1999 (QQQ) / 2010 (TQQQ). CAPE is the S&P 500\'s.'}</span>}
+        </div>
         <div className="flex flex-wrap gap-4 text-xs bg-slate-900/40 p-4 rounded-xl border border-slate-900 min-h-[104px] md:h-[104px] content-start">
           <button
             onClick={() => setShowSp500Price(!showSp500Price)}
@@ -592,8 +612,8 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
             }`}
           >
             {showSp500Price ? <Eye size={14} /> : <EyeOff size={14} />}
-            <span className="w-2.5 h-2.5 rounded-full bg-accent-400" />
-            <span>S&P 500 Index Price{hoveredData?.sp500Price ? `: $${hoveredData.sp500Price.toLocaleString(undefined, { minimumFractionDigits: 2 })}` : ''}</span>
+            <span className="w-2.5 h-2.5 rounded-full" style={{ background: inst.color }} />
+            <span>{inst.label}{hoveredData?.sp500Price ? `: $${hoveredData.sp500Price.toLocaleString(undefined, { minimumFractionDigits: 2 })}` : ''}</span>
           </button>
 
           <button
@@ -606,7 +626,7 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
           >
             {showPeRatio ? <Eye size={14} /> : <EyeOff size={14} />}
             <span className="w-2.5 h-2.5 rounded-full bg-caution-500" />
-            <span>Regular P/E Ratio{hoveredData?.peRatio ? `: ${hoveredData.peRatio.toFixed(2)}x` : ''}</span>
+            <span>{inst.pe}{hoveredData?.peRatio ? `: ${hoveredData.peRatio.toFixed(2)}x` : ''}</span>
           </button>
 
           <button
@@ -646,7 +666,7 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
           >
             {showMa50 ? <Eye size={14} /> : <EyeOff size={14} />}
             <span className="w-2.5 h-2.5 rounded-full bg-elevated-500" />
-            <span>S&P 500 EMA 50{hoveredData?.sp500Ema50 ? `: $${hoveredData.sp500Ema50.toFixed(2)}` : ''}</span>
+            <span>EMA 50 {inst.label}{hoveredData?.sp500Ema50 ? `: $${hoveredData.sp500Ema50.toFixed(2)}` : ''}</span>
           </button>
 
           <button
@@ -659,7 +679,7 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
           >
             {showMa200 ? <Eye size={14} /> : <EyeOff size={14} />}
             <span className="w-2.5 h-2.5 rounded-full bg-favorable-500" />
-            <span>S&P 500 EMA 200{hoveredData?.sp500Ema200 ? `: $${hoveredData.sp500Ema200.toFixed(2)}` : ''}</span>
+            <span>EMA 200 {inst.label}{hoveredData?.sp500Ema200 ? `: $${hoveredData.sp500Ema200.toFixed(2)}` : ''}</span>
           </button>
         </div>
 

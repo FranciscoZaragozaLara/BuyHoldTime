@@ -34,4 +34,18 @@ describe('valuationChart', () => {
     expect(new Set(months).size).toBe(months.length);
     for (const x of mk) expect(p.filter((q) => q.time.slice(0, 7) === x.time.slice(0, 7)).pop()!.time).toBe(x.time);
   });
+  it('Nasdaq 100 / TQQQ: sin tramo mensual; precio, P/E y EMA del instrumento; CAPE y BHT del mercado', () => {
+    const daily: DailyValuation = {
+      dates: ['1999-03-09', '1999-03-10', '1999-03-11'], spx: [1280, 1286, 1290], pe: [30, 30.1, 30.2], cape: [40, 40.1, 40.2], bht: [70, 71, 72],
+      qqq: [null, 100, 102], tqqq: [null, null, null], ndxPe: [null, 70, 71.4],
+    };
+    const n = buildValuationChart(monthly, daily, 'ndx');
+    expect(n.every((x) => x.daily)).toBe(true);
+    expect(n.map((x) => [x.sp500Price, x.peRatio, x.shillerPe, x.bht])).toEqual([[undefined, undefined, 40, 70], [100, 70, 40.1, 71], [102, 71.4, 40.2, 72]]);
+    expect(n[1].sp500PriceMa50).toBe(100); // EMA arranca con el primer precio del instrumento
+    const t = buildValuationChart(monthly, daily, 'tqqq');
+    expect(t.map((x) => x.peRatio)).toEqual([undefined, 70, 71.4]); // P/E del subyacente
+    expect(t.every((x) => x.sp500Price === undefined)).toBe(true);
+  });
 });
+

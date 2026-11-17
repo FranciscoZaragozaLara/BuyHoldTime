@@ -4,7 +4,7 @@ import { IIndicatorRepository } from '../../application/ports/indicator-reposito
 import { Indicator } from '../../domain/indicator.entity';
 import { IndicatorHistory } from '../../domain/indicator-history.entity';
 import { monthlyLast, peMonthlyHistory, toMap, type HistoryPoint, type PriceMap } from '../../../market-data/indicator-sync';
-import { buildValuationDaily, type ValuationDaily } from '../../../market-data/valuation-daily';
+import { buildValuationDaily, spliceSeries, type ValuationDaily } from '../../../market-data/valuation-daily';
 
 @Injectable()
 export class IndicatorRepositoryImpl implements IIndicatorRepository {
@@ -99,12 +99,28 @@ export class IndicatorRepositoryImpl implements IIndicatorRepository {
       const rows = await this.prisma.btMarketData.findMany({ where: { ticker, date: { gte: new Date(`${from}T00:00:00Z`) } }, select: { date: true, close: true } });
       return toMap(rows.map((r) => ({ d: r.date.toISOString().slice(0, 10), v: r.close })));
     };
-    const [spx, spxEps, cape, bht] = await Promise.all([
+    const [spx, spxEps, cape, bht, qqqOld, qqq, tqqq, qqqTicker, ndxPeWsj] = await Promise.all([
       daily('^GSPC', '1990-01-01'),
       daily('SPX_EPS', '1871-01-01'),
       this.prisma.$queryRawUnsafe(`SELECT date::text AS d, cape AS v FROM bt_shiller_daily WHERE cape IS NOT NULL AND date >= '1990-01-01'`).then((r) => toMap(r as Array<{ d: string; v: unknown }>)),
       this.prisma.$queryRawUnsafe(`SELECT date::text AS d, value AS v FROM bt_thermo_history WHERE date >= '1990-01-01'`).then((r) => toMap(r as Array<{ d: string; v: unknown }>)),
+      // QQQ antes de 2010 (bt_market_data empieza ahí): precios del listado de tickers desde su inicio (1999).
+      this.prisma.$queryRawUnsafe(`SELECT h.date::text AS d, h.close AS v FROM historical_prices h JOIN tickers t ON t.id = h.ticker_id WHERE t.symbol = 'QQQ'`).then((r) => toMap(r as Array<{ d: string; v: unknown }>)),
+      daily('QQQ', '1990-01-01'),
+      daily('TQQQ', '1990-01-01'),
+      this.prisma.ticker.findFirst({ where: { symbol: 'QQQ' }, select: { historicalEpsQuarterly: true } }),
+      daily('NDX_PE', '2026-01-01'),
     ]);
-    return buildValuationDaily(spx, spxEps, cape, bht);
+    // P/E mensual del Nasdaq 100: entradas mensuales del ticker QQQ (GuruFocus hasta oct-2026, WSJ/Birinyi después).
+    const ndxMonthlyPe = new Map<string, number>();
+    for (const e of ((qqqTicker?.historicalEpsQuarterly as Array<{ date?: string; peRatio?: number | null }> | null) ?? [])) {
+      if (e?.date && e.peRatio != null && Number(e.peRatio) > 0) ndxMonthlyPe.set(String(e.date).slice(0, 7), Number(e.peRatio));
+    }
+    // Meses con dato de WSJ: el EPS implícito se ancla al viernes del dato, no al último cierre del mes.
+    const ndxPeAnchors = new Map<string, string>();
+    for (const d of [...ndxPeWsj.keys()].sort()) ndxPeAnchors.set(d.slice(0, 7), d);
+    // historical_prices trae el cierre sin ajustar y bt_market_data el ajustado: se unen con el factor del primer día común.
+    const qqqAll = spliceSeries(qqqOld, qqq);
+    return buildValuationDaily(spx, spxEps, cape, bht, { qqq: qqqAll, tqqq, ndxMonthlyPe, ndxPeAnchors });
   }
 }

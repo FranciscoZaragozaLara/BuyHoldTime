@@ -5,10 +5,18 @@
 import { TOKENS } from './designTokens';
 
 export type MonthlyRow = { date: string; sp500Price?: number; peRatio?: number; shillerPe?: number };
-export type DailyValuation = { dates: string[]; spx: (number | null)[]; pe: (number | null)[]; cape: (number | null)[]; bht?: (number | null)[] };
+export type DailyValuation = {
+  dates: string[]; spx: (number | null)[]; pe: (number | null)[]; cape: (number | null)[]; bht?: (number | null)[];
+  qqq?: (number | null)[]; tqqq?: (number | null)[]; ndxPe?: (number | null)[];
+};
+/** Instrumento de la gráfica: precio, EMA y P/E son los suyos; CAPE y BHT son del mercado (independientes). */
+export type Instrument = 'spx' | 'ndx' | 'tqqq';
+const PRICE_KEY: Record<Instrument, 'spx' | 'qqq' | 'tqqq'> = { spx: 'spx', ndx: 'qqq', tqqq: 'tqqq' };
+const PE_KEY: Record<Instrument, 'pe' | 'ndxPe'> = { spx: 'pe', ndx: 'ndxPe', tqqq: 'ndxPe' };
 export type ChartPoint = {
   time: string; // YYYY-MM-DD
   daily: boolean;
+  /** Precio del instrumento elegido (el nombre se conserva por compatibilidad con la gráfica). */
   sp500Price?: number; peRatio?: number; shillerPe?: number;
   sp500PriceMa50?: number; sp500PriceMa200?: number;
   /** BHT Index del día (desde 1993): da el color de la línea del S&P 500 y el detalle en el hover. */
@@ -23,7 +31,9 @@ function emaStep(prev: number | undefined, v: number | undefined, alpha: number)
   return prev == null ? v : prev + (v - prev) * alpha;
 }
 
-export function buildValuationChart(monthly: MonthlyRow[], daily: DailyValuation | null): ChartPoint[] {
+export function buildValuationChart(monthly: MonthlyRow[], daily: DailyValuation | null, instrument: Instrument = 'spx'): ChartPoint[] {
+  // Nasdaq 100 y TQQQ no tienen serie mensual previa: solo el tramo diario (CAPE y BHT siguen desde 1990).
+  if (instrument !== 'spx') monthly = [];
   const firstDaily = daily?.dates.find((_, i) => daily.spx[i] != null || daily.cape[i] != null);
   const cutMonth = firstDaily ? firstDaily.slice(0, 7) : null;
   const out: ChartPoint[] = [];
@@ -42,14 +52,16 @@ export function buildValuationChart(monthly: MonthlyRow[], daily: DailyValuation
   }
   if (!daily || !cutMonth) return out;
   const d50 = 2 / 51, d200 = 2 / 201;
+  const prices = daily[PRICE_KEY[instrument]] ?? [];
+  const pes = daily[PE_KEY[instrument]] ?? [];
   daily.dates.forEach((d, i) => {
     if (d < firstDaily!) return;
-    const px = daily.spx[i] ?? undefined;
+    const px = prices[i] ?? undefined;
     e50 = emaStep(e50, px, d50);
     e200 = emaStep(e200, px, d200);
     out.push({
       time: d, daily: true,
-      sp500Price: px, peRatio: daily.pe[i] ?? undefined, shillerPe: daily.cape[i] ?? undefined, bht: daily.bht?.[i] ?? undefined,
+      sp500Price: px, peRatio: pes[i] ?? undefined, shillerPe: daily.cape[i] ?? undefined, bht: daily.bht?.[i] ?? undefined,
       sp500PriceMa50: px != null && e50 != null ? r2(e50) : undefined,
       sp500PriceMa200: px != null && e200 != null ? r2(e200) : undefined,
     });
