@@ -4,6 +4,8 @@ import { PrismaService } from '../../prisma/prisma.service';
 import NodeCache from 'node-cache';
 import { toShillerApiRow } from './shiller-daily';
 import { monthlyPartsFromDaily } from './bht-forward';
+import { computeBhtStrategy, type Instrument as StrategyInstrument, type StrategySeries } from './bht-strategy';
+import { spliceSeries } from '../market-data/valuation-daily';
 import { computeThermoLive, LivePoints, THERMO_LIVE_TICKERS, THERMO_TICKERS, getHyBonus, getHySigma24, getLiqBonus, getOilBonus, PriceMap } from './thermo-history';
 
 // Día con mercado (lun–vie). Sáb/dom no operan y el BHT no se calcula.
@@ -730,6 +732,42 @@ export class BacktestingService {
     };
     this.liveCache.set('thermo-live', out, 60);
     return out;
+  }
+
+  // Vista Estrategia del popover del BHT: se calcula solo cuando se pide. La serie (BHT + precios diarios) se arma
+  // una vez y se guarda 1 hora en memoria; cada resultado (fecha, instrumento) también. 
+  private readonly strategyCache = new NodeCache({ stdTTL: 3600, checkperiod: 600, useClones: false });
+  private async strategySeries(): Promise<StrategySeries> {
+    const hit = this.strategyCache.get<StrategySeries>('series');
+    if (hit) return hit;
+    const rows = await this.prisma.$queryRawUnsafe<Array<{ d: string; b: number | null; spx: number | null; tqqq: number | null }>>(
+      `SELECT date::text AS d, bht_value AS b, spx, tqqq FROM bt_bht_forward ORDER BY date`);
+    const toMap = (r: Array<{ d: string; v: unknown }>): PriceMap => new Map(r.filter((x) => x.v != null).map((x) => [x.d, Number(x.v)]));
+    // QQQ: listado de tickers desde 1999 unido a bt_market_data (misma serie que la gráfica de /indicators).
+    const [qOld, qNew] = await Promise.all([
+      this.prisma.$queryRawUnsafe<Array<{ d: string; v: unknown }>>(`SELECT h.date::text AS d, h.close AS v FROM historical_prices h JOIN tickers t ON t.id = h.ticker_id WHERE t.symbol = 'QQQ'`).then(toMap),
+      this.prisma.$queryRawUnsafe<Array<{ d: string; v: unknown }>>(`SELECT date::text AS d, close AS v FROM bt_market_data WHERE ticker = 'QQQ'`).then(toMap),
+    ]);
+    const qqq = spliceSeries(qOld, qNew);
+    const num = (v: unknown) => (v == null ? null : Number(v));
+    const series: StrategySeries = {
+      dates: rows.map((r) => r.d), bht: rows.map((r) => num(r.b)),
+      px: { spx: rows.map((r) => num(r.spx)), qqq: rows.map((r) => qqq.get(r.d) ?? null), tqqq: rows.map((r) => num(r.tqqq)) },
+    };
+    this.strategyCache.set('series', series);
+    return series;
+  }
+
+  async getBhtStrategy(date: string, instrument: string) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date ?? '')) return { error: 'date required (YYYY-MM-DD)' };
+    const inst = (['spx', 'qqq', 'tqqq'].includes(instrument) ? instrument : 'spx') as StrategyInstrument;
+    const key = `r:${date}:${inst}`;
+    const hit = this.strategyCache.get(key);
+    if (hit) return hit;
+    const r = computeBhtStrategy(await this.strategySeries(), date, inst);
+    if (!r) return { error: 'not found' };
+    this.strategyCache.set(key, r);
+    return r;
   }
 
   async getBhtForwardDetail(date: string) {

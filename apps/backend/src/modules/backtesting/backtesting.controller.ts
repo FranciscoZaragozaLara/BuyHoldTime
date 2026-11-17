@@ -80,6 +80,9 @@ export class BacktestingController {
   @Get('thermo-live')
   getThermoLive() { return this.svc.getThermoLive(); }
 
+  @Get('bht-strategy')
+  getBhtStrategy(@Query('date') date: string, @Query('instrument') instrument: string) { return this.svc.getBhtStrategy(date, instrument); }
+
   @Get('bht-forward/detail')
   getBhtForwardDetail(@Query('date') date: string) { return this.svc.getBhtForwardDetail(date); }
 

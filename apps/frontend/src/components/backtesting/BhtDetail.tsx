@@ -8,7 +8,11 @@ import { partLabel } from '@/lib/thermoScoring';
 import { useThermoPartsMonthly } from './useThermoLive';
 import { OrbHistoryTable } from './ThermoOrbs';
 import { createPortal } from 'react-dom';
+import dynamic from 'next/dynamic';
 import { placePopover } from '@/lib/popoverPlacement';
+
+// Vista Estrategia: su código se descarga solo cuando se pulsa el botón (lazy) y calcula en el backend bajo demanda.
+const BhtStrategyView = dynamic(() => import('./BhtStrategyView'), { ssr: false, loading: () => <div className="mt-2 font-mono text-slate-500">…</div> });
 
 // Hover compartido del BHT Index: detalle por indicador igual al termómetro.
 // El cierre es diferido (gracia de 350ms) para poder mover el mouse al popup
@@ -20,8 +24,34 @@ export function useBhtDetail() {
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const cancelClear = useCallback(() => { if (timer.current) { clearTimeout(timer.current); timer.current = null; } }, []);
   const scheduleClear = useCallback(() => { cancelClear(); timer.current = setTimeout(() => setHover(null), 350); }, [cancelClear]);
-  useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
-  const setHoverLive = useCallback((v: BhtHoverState | ((s: BhtHoverState) => BhtHoverState)) => { if (v != null) cancelClear(); setHover(v); }, [cancelClear]);
+  // Llevar el mouse al popup: si el cursor avanza hacia el popup (en el hueco entre ambos), el cambio de fecha y posición
+  // se difiere un instante; al entrar al popup (cancelClear) se descarta y el popup se queda donde está.
+  const hoverRef = useRef<BhtHoverState>(null);
+  const aim = useRef<{ timer: ReturnType<typeof setTimeout>; since: number } | null>(null);
+  const cancelAim = useCallback(() => { if (aim.current) { clearTimeout(aim.current.timer); aim.current = null; } }, []);
+  const cancelClearAll = useCallback(() => { cancelClear(); cancelAim(); }, [cancelClear, cancelAim]);
+  useEffect(() => () => { if (timer.current) clearTimeout(timer.current); cancelAim(); }, [cancelAim]);
+  const apply = useCallback((v: BhtHoverState) => { hoverRef.current = v; setHover(v); }, []);
+  const setHoverLive = useCallback((v: BhtHoverState | ((s: BhtHoverState) => BhtHoverState)) => {
+    const next = typeof v === 'function' ? v(hoverRef.current) : v;
+    if (next != null) cancelClear();
+    const cur = hoverRef.current;
+    const el = typeof document !== 'undefined' ? document.querySelector('[data-bht-pop]') : null;
+    if (next && cur && el && next.d !== cur.d) {
+      const r = el.getBoundingClientRect();
+      const inY = next.y >= r.top && next.y <= r.bottom;
+      const toward = inY && ((r.left >= cur.x && next.x > cur.x && next.x <= r.left + 2) || (r.right <= cur.x && next.x < cur.x && next.x >= r.right - 2));
+      // Como máximo 180 ms de espera: quien recorre la gráfica despacio no se queda "atorado".
+      if (toward && (!aim.current || Date.now() - aim.current.since < 180)) {
+        const since = aim.current?.since ?? Date.now();
+        if (aim.current) clearTimeout(aim.current.timer);
+        aim.current = { since, timer: setTimeout(() => { aim.current = null; apply(next); }, 180) };
+        return;
+      }
+    }
+    cancelAim();
+    apply(next);
+  }, [cancelClear, cancelAim, apply]);
   const load = (d: string) => {
     if (cache[d]) return;
     fetch(`${getApiBase()}/api/backtesting/bht-forward/detail?date=${d}`, { cache: 'no-store' })
@@ -29,7 +59,7 @@ export function useBhtDetail() {
       .then((j) => { if (j && !j.error) setCache((m) => ({ ...m, [d]: j })); })
       .catch(() => {});
   };
-  return { hover, setHover: setHoverLive, cache, load, scheduleClear, cancelClear };
+  return { hover, setHover: setHoverLive, cache, load, scheduleClear, cancelClear: cancelClearAll };
 }
 
 // Al salir el mouse hacia el popup no se cierra (permite pulsar Estrategia);
@@ -45,40 +75,53 @@ export function BhtDetailPopover({ hover, detail, onLeave, onHold, liveValue }: 
   const ti = useTranslations('Backtesting.indicators');
   const loc = useLocale();
   const popRef = useRef<HTMLDivElement>(null);
-  const hist = useThermoPartsMonthly(true, hover.d);
+  // La vista va atada a la fecha: cada fecha nueva abre en Historia y la Estrategia se calcula solo si se pide.
+  const [viewFor, setViewFor] = useState<{ d: string; v: 'history' | 'strategy' }>({ d: hover.d, v: 'history' });
+  const view = viewFor.d === hover.d ? viewFor.v : 'history';
+  const setView = (v: 'history' | 'strategy') => setViewFor({ d: hover.d, v });
+  const hist = useThermoPartsMonthly(view === 'history', hover.d);
   // Posición fija a un lado del cursor (no tapa el crosshair), medida con el tamaño real y dentro de la pantalla.
   const [pos, setPos] = useState<{ left: number; top: number } | null>(null);
   useLayoutEffect(() => {
     const el = popRef.current;
     setPos(placePopover({ x: hover.x, y: hover.y }, { w: el?.offsetWidth ?? 720, h: el?.offsetHeight ?? 0 }, { w: window.innerWidth, h: window.innerHeight }));
   }, [hover.x, hover.y, detail, hist.data]);
+  // Si el contenido crece (p. ej. al abrir Estrategia) y se sale por abajo, se sube lo justo; no se mueve en horizontal.
+  useEffect(() => {
+    const el = popRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(() => {
+      const r = el.getBoundingClientRect(), vh = window.innerHeight;
+      if (r.bottom > vh - 8) setPos((p) => (p ? { ...p, top: Math.max(8, vh - 8 - r.height) } : p));
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
   const bd = detail != null ? bhtBand(Number(detail.value)) : null;
   const headV = liveValue ?? (detail != null ? Number(detail.value) : null);
   const loadMsg = liveValue != null ? ti('detailComputing') : ti('detailLoading');
-  const [showStrat, setShowStrat] = useState(false);
-  useEffect(() => { setShowStrat(false); }, [hover.d]);
   const sign = (v: number) => `${v > 0 ? '+' : ''}${v.toFixed(0)}`;
   // Portal al body: un ancestro con transform/backdrop-filter haría que `fixed` se midiera desde él y no desde la pantalla.
   if (typeof document === 'undefined') return null;
   return createPortal(
-    <div ref={popRef} data-bht-pop className="fixed z-[9999] w-[720px] max-w-[calc(100vw-16px)] max-h-[calc(100vh-16px)] overflow-y-auto p-3 rounded-xl bg-slate-900 border border-slate-700 shadow-2xl text-xs leading-snug text-slate-200 text-left pointer-events-none" style={pos ? { left: pos.left, top: pos.top } : { left: -9999, top: 0 }} onMouseEnter={() => onHold?.()} onMouseLeave={onLeave}>
-      <div className="font-bold mb-1.5"><span className="text-sky-300">{hover.d}</span> <span className="text-slate-100">· BHT</span> {headV != null && <span className="font-mono" style={{ color: capeScoreColor(headV) }}>{headV.toFixed(1)}/100</span>}{liveValue != null && <span className="ml-1.5 text-[10px] px-1.5 py-px rounded-full bg-accent-500/20 text-accent-300 font-bold" title={ti('liveTitle')}>{ti('live')}</span>}{bd && (
-        <button type="button" onClick={(e) => { e.stopPropagation(); setShowStrat((v) => !v); }}
-          className="ml-2 px-2 py-0.5 rounded-md text-[11px] font-bold text-slate-900 align-middle cursor-pointer pointer-events-auto"
-          style={{ backgroundColor: bd.color }}>{ti('strategyButton')} {showStrat ? '▾' : '▸'}</button>
-      )}{detail?.prices && (
+    <div ref={popRef} data-bht-pop className="fixed z-[9999] w-[720px] max-w-[calc(100vw-16px)] max-h-[calc(100vh-16px)] overflow-y-auto p-3 rounded-xl bg-slate-900 border border-slate-700 shadow-2xl text-xs leading-snug text-slate-200  text-left" style={pos ? { left: pos.left, top: pos.top } : { left: -9999, top: 0 }} onMouseEnter={() => onHold?.()} onMouseLeave={onLeave}>
+      <div className="flex items-start justify-between gap-2 mb-1.5">
+      <div className="font-bold"><span className="text-sky-300">{hover.d}</span> <span className="text-slate-100">· BHT</span> {headV != null && <span className="font-mono" style={{ color: capeScoreColor(headV) }}>{headV.toFixed(1)}/100</span>}{liveValue != null && <span className="ml-1.5 text-[10px] px-1.5 py-px rounded-full bg-accent-500/20 text-accent-300 font-bold" title={ti('liveTitle')}>{ti('live')}</span>}{detail?.prices && (
         <span className="ml-2 font-mono font-normal text-[11px] text-slate-400 align-middle">
           {([['S&P 500', detail.prices.spx], ['QQQ (Nasdaq-100)', detail.prices.qqq], ['TQQQ', detail.prices.tqqq]] as [string, number | null][])
             .filter(([, v]) => v != null)
             .map(([k, v], i) => <span key={k}>{i > 0 && <span className="text-slate-600"> · </span>}{k} <span className="text-slate-100">{Number(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></span>)}
         </span>
       )}</div>
-      {showStrat && bd && (
-        <div className="mt-1 mb-1.5 p-2 rounded-lg border" style={{ borderColor: `${bd.color}66`, backgroundColor: `${bd.color}14` }}>
-          <div className="font-bold mb-0.5" style={{ color: bd.color }}>{ti('strategyBand', { label: ti(`bht.b${BHT_BANDS.indexOf(bd)}.label`) })}</div>
-          <div className="text-slate-200 font-normal leading-snug">{ti(`bht.b${BHT_BANDS.indexOf(bd)}.advice`)}</div>
-        </div>
-      )}
+      {/* Interruptor Historia / Estrategia en la esquina: siempre en el mismo lugar y fácil de alcanzar. */}
+      <div className="shrink-0 inline-flex rounded-lg border border-slate-700 bg-slate-950/60 p-0.5 text-[11px] font-bold">
+        <button type="button" onClick={(e) => { e.stopPropagation(); setView('history'); }}
+          className={`px-2 py-0.5 rounded-md transition ${view === 'history' ? 'bg-slate-700 text-white' : 'text-slate-400 hover:text-slate-200'}`}>{loc === 'es' ? 'Historia' : 'History'}</button>
+        <button type="button" onClick={(e) => { e.stopPropagation(); setView('strategy'); }}
+          className={`px-2 py-0.5 rounded-md transition ${view === 'strategy' ? 'text-slate-900' : 'text-slate-400 hover:text-slate-200'}`}
+          style={view === 'strategy' && bd ? { backgroundColor: bd.color } : undefined}>{ti('strategyButton')} ▸</button>
+      </div>
+      </div>
       {detail == null ? <div className="text-slate-500 font-mono">{loadMsg}</div> : (
         <>
           {/* Componentes en cuadrícula compacta: nombre corto · valor · puntaje · aporte (nombre largo en el tooltip). */}
@@ -112,10 +155,16 @@ export function BhtDetailPopover({ hover, detail, onLeave, onHold, liveValue }: 
           </div>
         </>
       )}
-      <div className="mt-2 pt-1.5 border-t border-slate-800">
-        <div className="text-[11px] font-semibold text-slate-100 mb-1">{ti('bhtPopHistoryTitle', { date: hover.d })}</div>
-        <OrbHistoryTable rows={bhtHistoryRows(hist.data)} loading={hist.isLoading} valueHeader="BHT" dec={1} showValue={false} compact />
-      </div>
+      {view === 'strategy' ? (
+        <BhtStrategyView date={hover.d} locale={loc}
+          adviceLabel={bd ? ti('strategyBand', { label: ti(`bht.b${BHT_BANDS.indexOf(bd)}.label`) }) : undefined}
+          adviceText={bd ? ti(`bht.b${BHT_BANDS.indexOf(bd)}.advice`) : undefined} />
+      ) : (
+        <div className="mt-2 pt-1.5 border-t border-slate-800">
+          <div className="text-[11px] font-semibold text-slate-100 mb-1">{ti('bhtPopHistoryTitle', { date: hover.d })}</div>
+          <OrbHistoryTable rows={bhtHistoryRows(hist.data)} loading={hist.isLoading} valueHeader="BHT" dec={1} showValue={false} compact />
+        </div>
+      )}
     </div>,
     document.body,
   );
