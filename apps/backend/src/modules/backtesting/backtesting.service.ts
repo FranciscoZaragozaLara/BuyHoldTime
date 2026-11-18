@@ -5,6 +5,7 @@ import NodeCache from 'node-cache';
 import { toShillerApiRow } from './shiller-daily';
 import { monthlyPartsFromDaily } from './bht-forward';
 import { computeBhtStrategy, type Instrument as StrategyInstrument, type SampleWindow, type StrategySeries } from './bht-strategy';
+import { computeBhtDrawdowns } from './bht-drawdowns';
 import { spliceSeries } from '../market-data/valuation-daily';
 import { computeThermoLive, LivePoints, THERMO_LIVE_TICKERS, THERMO_TICKERS, getHyBonus, getHySigma24, getLiqBonus, getOilBonus, PriceMap } from './thermo-history';
 
@@ -766,6 +767,19 @@ export class BacktestingService {
     const hit = this.strategyCache.get(key);
     if (hit) return hit;
     const r = computeBhtStrategy(await this.strategySeries(), date, inst, win);
+    if (!r) return { error: 'not found' };
+    this.strategyCache.set(key, r);
+    return r;
+  }
+
+  // Vista Drawdowns: caída máxima por año y tramos de compra/venta con el BHT vs Hold completo.
+  async getBhtDrawdowns(date: string, instrument: string) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date ?? '')) return { error: 'date required (YYYY-MM-DD)' };
+    const inst = (['spx', 'qqq', 'tqqq'].includes(instrument) ? instrument : 'spx') as StrategyInstrument;
+    const key = `dd:${date}:${inst}`;
+    const hit = this.strategyCache.get(key);
+    if (hit) return hit;
+    const r = computeBhtDrawdowns(await this.strategySeries(), date, inst);
     if (!r) return { error: 'not found' };
     this.strategyCache.set(key, r);
     return r;

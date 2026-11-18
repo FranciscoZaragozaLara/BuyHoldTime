@@ -2,26 +2,18 @@
 // 1) Rango del BHT del día ±2 puntos (63 → 61–65): días históricos y de los últimos 5 años en ese rango.
 // 2) Rendimiento promedio de esos días a 1, 2, 3 y 5 años y pico máximo dentro de 5 años, proyectado
 //    sobre el precio del día (precio nominal esperado y fecha).
-// 3) Venta en 4 tramos iguales en la escalera 72 → 77 → 82 → 87+, con al menos 15 días entre ventas
-//    (no vende todo de jalón en un salto) y memoria: si tras una venta el BHT baja de 62, la escalera se
-//    reinicia y la siguiente venta vuelve a exigir 72. Lo que pasó desde ese día (sin vender = valuado a hoy,
-//    comparado con mantener hasta hoy) y lo esperado según los días del rango.
+// Los tramos de compra/venta y las caídas por año están en la vista Drawdowns (bht-drawdowns.ts).
 export type Instrument = 'spx' | 'qqq' | 'tqqq';
 /** Días del rango que entran a los promedios: toda la historia o solo los últimos 5 años. */
 export type SampleWindow = 'all' | '5y';
 export type StrategySeries = { dates: string[]; bht: (number | null)[]; px: Record<Instrument, (number | null)[]> };
 
 export const HORIZONS = [1, 2, 3, 5] as const;
-export const TRANCHES = [72, 77, 82, 87] as const;
-/** Días mínimos entre dos ventas. */
-export const MIN_GAP_DAYS = 15;
-/** Si tras una venta el BHT baja de este nivel (sale de Codicia), la escalera vuelve a 72. */
-export const LADDER_RESET_BELOW = 62;
 const PEAK_YEARS = 5;
 const DAY = 86_400_000;
 
-const addYears = (d: string, n: number) => `${Number(d.slice(0, 4)) + n}${d.slice(4)}`;
-const daysBetween = (a: string, b: string) => Math.round((Date.parse(b) - Date.parse(a)) / DAY);
+export const addYears = (d: string, n: number) => `${Number(d.slice(0, 4)) + n}${d.slice(4)}`;
+export const daysBetween = (a: string, b: string) => Math.round((Date.parse(b) - Date.parse(a)) / DAY);
 const addDays = (d: string, n: number) => new Date(Date.parse(d) + n * DAY).toISOString().slice(0, 10);
 const avg = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null);
 const median = (xs: number[]) => {
@@ -31,13 +23,13 @@ const median = (xs: number[]) => {
 };
 
 /** Índice del primer día ≥ d (búsqueda binaria); -1 si no hay. */
-function firstOnOrAfter(dates: string[], d: string): number {
+export function firstOnOrAfter(dates: string[], d: string): number {
   let lo = 0, hi = dates.length;
   while (lo < hi) { const mid = (lo + hi) >> 1; if (dates[mid] < d) lo = mid + 1; else hi = mid; }
   return lo < dates.length ? lo : -1;
 }
 /** Índice del último día ≤ d; -1 si no hay. */
-function lastOnOrBefore(dates: string[], d: string): number {
+export function lastOnOrBefore(dates: string[], d: string): number {
   const i = firstOnOrAfter(dates, d);
   if (i === -1) return dates.length - 1;
   return dates[i] === d ? i : i - 1;
@@ -49,35 +41,7 @@ export type StrategyResult = {
   base: { price: number | null; today: string; todayPrice: number | null };
   perf: Array<{ years: number; n: number; avgPct: number | null; medianPct: number | null; positivePct: number | null; nominal: number | null; targetDate: string }>;
   peak: { n: number; avgPct: number | null; avgDays: number | null; nominal: number | null; date: string | null };
-  tranches: {
-    // bhtPrev → bhtHit: BHT del día anterior y del día de la venta (deja ver saltos que cruzan varios umbrales a la vez).
-    actual: Array<{ tranche: number; threshold: number | null; date: string | null; price: number | null; pct: number | null; days: number | null; bhtPrev: number | null; bhtHit: number | null }>;
-    strategyPct: number | null; holdPct: number | null; soldCount: number;
-    expected: Array<{ tranche: number; n: number; reachedPct: number | null; avgDays: number | null; avgPct: number | null }>;
-  };
 };
-
-/**
- * Ventas de los 4 tramos desde el día `i`: el tramo siguiente se vende cuando el BHT alcanza el escalón vigente
- * de la escalera (72, 77, 82, 87) y pasaron al menos MIN_GAP_DAYS desde la venta anterior. Tras una venta, si
- * el BHT baja de LADDER_RESET_BELOW, la escalera vuelve a 72. Devuelve por tramo el día y el escalón usado.
- */
-export function trancheSales(s: StrategySeries, i: number): Array<{ j: number; threshold: number } | null> {
-  const sales: Array<{ j: number; threshold: number } | null> = TRANCHES.map(() => null);
-  let sold = 0, level = 0, lastSale: string | null = null;
-  for (let j = i + 1; j < s.dates.length && sold < TRANCHES.length; j++) {
-    const b = s.bht[j];
-    if (b == null) continue;
-    if (sold > 0 && b < LADDER_RESET_BELOW) level = 0;
-    if (b >= TRANCHES[level] && (lastSale == null || daysBetween(lastSale, s.dates[j]) >= MIN_GAP_DAYS)) {
-      sales[sold] = { j, threshold: TRANCHES[level] };
-      sold++;
-      level = Math.min(level + 1, TRANCHES.length - 1);
-      lastSale = s.dates[j];
-    }
-  }
-  return sales;
-}
 
 export function computeBhtStrategy(s: StrategySeries, date: string, instrument: Instrument, window: SampleWindow = 'all'): StrategyResult | null {
   const i = lastOnOrBefore(s.dates, date);
@@ -137,42 +101,7 @@ export function computeBhtStrategy(s: StrategySeries, date: string, instrument: 
   }
   const pkPct = avg(peakPcts), pkDays = avg(peakDays);
 
-  // 3) Tramos: lo que pasó desde este día…
   const todayPrice = px[last];
-  const sales = trancheSales(s, i);
-  const prevBht = (j: number): number | null => { for (let k = j - 1; k >= 0; k--) if (s.bht[k] != null) return s.bht[k]; return null; };
-  const actual = sales.map((sale, t) => {
-    const j = sale?.j ?? null;
-    const p = j != null ? px[j] : null;
-    return {
-      tranche: t + 1, threshold: sale?.threshold ?? null, date: j != null ? s.dates[j] : null, price: p ?? null,
-      pct: p != null && basePrice != null ? (p / basePrice - 1) * 100 : null,
-      days: j != null ? daysBetween(s.dates[i], s.dates[j]) : null,
-      bhtPrev: j != null ? prevBht(j) : null, bhtHit: j != null ? s.bht[j] : null,
-    };
-  });
-  let strategyPct: number | null = null, holdPct: number | null = null;
-  if (basePrice != null && todayPrice != null) {
-    holdPct = (todayPrice / basePrice - 1) * 100;
-    // Tramo sin vender: se valúa al precio de hoy.
-    strategyPct = actual.reduce((m, a) => m + (a.pct ?? holdPct!), 0) / TRANCHES.length;
-  }
-  // …y lo esperado según todos los días históricos del rango: % que alcanzó cada umbral, días promedio y
-  // rendimiento promedio al vender (los días recientes aún pueden alcanzarlo, así que el % es un mínimo).
-  const expected = TRANCHES.map((_, t) => ({ tranche: t + 1, n: 0, reached: 0, days: [] as number[], rets: [] as number[] }));
-  for (const k of samples) {
-    const p0 = px[k];
-    if (p0 == null) continue;
-    const h = trancheSales(s, k);
-    expected.forEach((e, t) => {
-      e.n++;
-      const j = h[t]?.j;
-      if (j == null || px[j] == null) return;
-      e.reached++;
-      e.days.push(daysBetween(s.dates[k], s.dates[j]));
-      e.rets.push((px[j]! / p0 - 1) * 100);
-    });
-  }
 
   return {
     date: s.dates[i], instrument, window, bht, range,
@@ -183,10 +112,6 @@ export function computeBhtStrategy(s: StrategySeries, date: string, instrument: 
       n: peakPcts.length, avgPct: pkPct, avgDays: pkDays,
       nominal: pkPct != null && basePrice != null ? basePrice * (1 + pkPct / 100) : null,
       date: pkDays != null ? addDays(s.dates[i], Math.round(pkDays)) : null,
-    },
-    tranches: {
-      actual, strategyPct, holdPct, soldCount: actual.filter((a) => a.date != null).length,
-      expected: expected.map((e) => ({ tranche: e.tranche, n: e.n, reachedPct: e.n ? (e.reached / e.n) * 100 : null, avgDays: avg(e.days), avgPct: avg(e.rets) })),
     },
   };
 }

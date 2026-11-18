@@ -13,11 +13,6 @@ type Result = {
   base: { price: number | null; today: string; todayPrice: number | null };
   perf: Array<{ years: number; n: number; avgPct: number | null; medianPct: number | null; positivePct: number | null; nominal: number | null; targetDate: string }>;
   peak: { n: number; avgPct: number | null; avgDays: number | null; nominal: number | null; date: string | null };
-  tranches: {
-    actual: Array<{ tranche: number; threshold: number | null; date: string | null; price: number | null; pct: number | null; days: number | null; bhtPrev: number | null; bhtHit: number | null }>;
-    strategyPct: number | null; holdPct: number | null; soldCount: number;
-    expected: Array<{ tranche: number; n: number; reachedPct: number | null; avgDays: number | null; avgPct: number | null }>;
-  };
 };
 
 const cache = new Map<string, Promise<Result | null>>();
@@ -42,20 +37,16 @@ const T = {
     perfTitle: 'Rendimiento promedio de los días en este rango', horizon: 'Plazo', avg: 'Prom.', med: 'Mediana', pos: '% positivos', nominal: 'Precio esperado', target: 'Fecha', n: 'n',
     peak: 'Pico máx. (5a)', peakIn: 'en ~', peak5: 'Pico máx. (a hoy)', peak5Note: 'Pico desde cada día hasta hoy (ningún día de los últimos 5 años tiene 5 años completos).',
     winAll: 'Toda la historia', win5: 'Últimos 5 años', winTitle: 'Días del rango que entran a los promedios', peakNote: 'Pico dentro de 5 años; fecha = día + tiempo promedio al pico.', loading: 'Calculando…', error: 'No se pudo calcular.',
-    trTitle: 'Venta en 4 tramos iguales (25%) en la escalera del BHT', trRules: 'Al menos 15 días entre ventas (no vende todo en un salto). Si tras una venta el BHT baja de 62, la escalera vuelve a 72.', trThis: 'Desde este día', trExp: 'Esperado (días del rango)', th: 'Tramo · escalón', sold: 'Venta', price: 'Precio', ret: 'Rend.', wait: 'Tiempo',
-    pending: 'pendiente → hoy', jump: 'BHT', jumpTitle: 'BHT del día anterior → BHT del día de la venta', strategy: 'Estrategia 4 tramos', hold: 'Mantener hasta hoy', reached: 'Lo alcanzó', base: 'Compra', today: 'hoy',
     note: 'Promedios de días históricos (se traslapan; n = días con dato). No es una recomendación de inversión.',
-    y: 'a', d: 'd',
+    base: 'Compra', y: 'a', d: 'd',
   },
   en: {
     advice: 'Strategy for the band', range: 'BHT of the day', rangeOf: 'range', freq: 'Range frequency', hist: 'all history', last5: 'last 5 years', days: 'days',
     perfTitle: 'Average performance of days in this range', horizon: 'Horizon', avg: 'Avg', med: 'Median', pos: '% positive', nominal: 'Expected price', target: 'Date', n: 'n',
     peak: 'Max peak (5y)', peakIn: 'in ~', peak5: 'Max peak (to today)', peak5Note: 'Peak from each day until today (no day in the last 5 years has a full 5-year window).',
     winAll: 'All history', win5: 'Last 5 years', winTitle: 'Range days included in the averages', peakNote: 'Peak within 5 years; date = day + average time to peak.', loading: 'Computing…', error: 'Could not compute.',
-    trTitle: 'Sell in 4 equal tranches (25%) on the BHT ladder', trRules: 'At least 15 days between sales (no selling everything on one jump). If BHT drops below 62 after a sale, the ladder restarts at 72.', trThis: 'From this day', trExp: 'Expected (range days)', th: 'Tranche · step', sold: 'Sale', price: 'Price', ret: 'Return', wait: 'Time',
-    pending: 'pending → today', jump: 'BHT', jumpTitle: 'BHT the day before → BHT on the sale day', strategy: '4-tranche strategy', hold: 'Hold until today', reached: 'Reached', base: 'Buy', today: 'today',
     note: 'Averages of historical days (overlapping; n = days with data). Not investment advice.',
-    y: 'y', d: 'd',
+    base: 'Buy', y: 'y', d: 'd',
   },
 };
 
@@ -64,7 +55,7 @@ const dur = (days: number | null, t: (typeof T)['es']) => (days == null ? '—' 
 export default function BhtStrategyView({ date, locale, adviceLabel, adviceText }: { date: string; locale: string; adviceLabel?: string; adviceText?: string }) {
   const t = T[locale === 'es' ? 'es' : 'en'];
   const [inst, setInst] = useState<Instrument>('spx');
-  // Días del rango que entran a los promedios (rendimiento, pico y lo esperado por tramo).
+  // Días del rango que entran a los promedios (rendimiento y pico).
   const [win, setWin] = useState<Win>('all');
   const [state, setState] = useState<{ key: string; data: Result | null } | null>(null);
   const key = `${date}:${inst}:${win}`;
@@ -143,66 +134,6 @@ export default function BhtStrategyView({ date, locale, adviceLabel, adviceText 
             </table>
           </div>
 
-          <div>
-            <div className="text-[11px] font-semibold text-slate-100 mb-0.5">{t.trTitle} 72 → 77 → 82 → 87+ · {INST[inst]}</div>
-            <div className="text-[10px] text-slate-500 mb-1">{t.trRules}</div>
-            <table className="w-full font-mono text-[11px]">
-              <thead className="text-[9px] uppercase tracking-wide text-slate-500">
-                <tr>
-                  <th />
-                  <th colSpan={5} className="text-center font-normal border-b border-slate-700/70">{t.trThis} ({t.base} {money(r.base.price)})</th>
-                  <th className="w-3" />
-                  <th colSpan={3} className="text-center font-normal border-b border-slate-700/70">{t.trExp}{win === '5y' ? ` · ${t.win5}` : ''}</th>
-                </tr>
-                <tr className="border-b border-slate-700/70">
-                  <th className="text-left font-normal py-0.5">{t.th}</th>
-                  <th className="text-right font-normal">{t.sold}</th><th className="text-right font-normal" title={t.jumpTitle}>{t.jump}</th><th className="text-right font-normal">{t.price}</th><th className="text-right font-normal">{t.ret}</th><th className="text-right font-normal">{t.wait}</th>
-                  <th />
-                  <th className="text-right font-normal">{t.reached}</th><th className="text-right font-normal">{t.ret}</th><th className="text-right font-normal">{t.wait}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {r.tranches.actual.map((a, i) => {
-                  const e = r.tranches.expected[i];
-                  return (
-                    <tr key={a.tranche} className="border-b border-slate-800/60">
-                      <td className="py-[1px] text-slate-400">#{a.tranche}{a.threshold != null && <> · <span className="font-bold" style={{ color: bhtBand(a.threshold).color }}>{a.threshold === 87 ? '87+' : a.threshold}</span></>}</td>
-                      {a.date ? (
-                        <>
-                          <td className="text-right text-slate-300">{a.date}</td>
-                          <td className="text-right text-slate-400" title={t.jumpTitle}>
-                            {a.bhtPrev != null && a.bhtHit != null ? <>{a.bhtPrev.toFixed(1)}→<span style={{ color: capeScoreColor(a.bhtHit) }}>{a.bhtHit.toFixed(1)}</span></> : '—'}
-                          </td>
-                          <td className="text-right text-slate-100">{money(a.price)}</td>
-                          <td className={`text-right font-bold ${pctCls(a.pct)}`}>{pctTxt(a.pct)}</td>
-                          <td className="text-right text-slate-500">{dur(a.days, t)}</td>
-                        </>
-                      ) : (
-                        <>
-                          <td className="text-right text-slate-500 italic">{t.pending}</td>
-                          <td className="text-right text-slate-600">—</td>
-                          <td className="text-right text-slate-400">{money(r.base.todayPrice)}</td>
-                          <td className={`text-right ${pctCls(r.tranches.holdPct)}`}>{pctTxt(r.tranches.holdPct)}</td>
-                          <td className="text-right text-slate-600">—</td>
-                        </>
-                      )}
-                      <td />
-                      <td className="text-right text-slate-300">{e.reachedPct == null ? '—' : `${e.reachedPct.toFixed(0)}%`}</td>
-                      <td className={`text-right ${pctCls(e.avgPct)}`}>{pctTxt(e.avgPct)}</td>
-                      <td className="text-right text-slate-500">{dur(e.avgDays, t)}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-            <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 font-mono text-[11px]">
-              <span>{t.strategy}: <span className={`font-bold ${pctCls(r.tranches.strategyPct)}`}>{pctTxt(r.tranches.strategyPct)}</span> <span className="text-slate-500">({r.tranches.soldCount}/4)</span></span>
-              <span>{t.hold} ({money(r.base.todayPrice)}, {r.base.today}): <span className={`font-bold ${pctCls(r.tranches.holdPct)}`}>{pctTxt(r.tranches.holdPct)}</span></span>
-              {r.tranches.strategyPct != null && r.tranches.holdPct != null && (
-                <span className="text-slate-400">Δ <span className={`font-bold ${pctCls(r.tranches.strategyPct - r.tranches.holdPct)}`}>{pctTxt(r.tranches.strategyPct - r.tranches.holdPct)}</span></span>
-              )}
-            </div>
-          </div>
           <div className="text-[10px] text-slate-500">{t.note}</div>
         </div>
       )}

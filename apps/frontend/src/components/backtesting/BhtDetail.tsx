@@ -13,6 +13,9 @@ import { placePinned, placePopover } from '@/lib/popoverPlacement';
 
 // Vista Estrategia: su código se descarga solo cuando se pulsa el botón (lazy) y calcula en el backend bajo demanda.
 const BhtStrategyView = dynamic(() => import('./BhtStrategyView'), { ssr: false, loading: () => <div className="mt-2 font-mono text-slate-500">…</div> });
+// Vista Drawdowns (caídas por año y tramos de compra/venta): igual, lazy y bajo demanda.
+const BhtDrawdownsView = dynamic(() => import('./BhtDrawdownsView'), { ssr: false, loading: () => <div className="mt-2 font-mono text-slate-500">…</div> });
+type PopView = 'history' | 'strategy' | 'drawdowns';
 
 // Hover compartido del BHT Index: detalle por indicador igual al termómetro.
 // El cierre es diferido (gracia de 350ms) para poder mover el mouse al popup
@@ -129,9 +132,9 @@ export function BhtDetailPopover({ hover, detail, onLeave, onHold, liveValue, on
   const popRef = useRef<HTMLDivElement>(null);
   // La vista va atada a la fecha: cada fecha nueva abre en Historia y la Estrategia se calcula solo si se pide.
   // Fijado (con ✕), la vista elegida se conserva al cambiar de fecha con clic o con ← →.
-  const [viewFor, setViewFor] = useState<{ d: string; v: 'history' | 'strategy' }>({ d: hover.d, v: 'history' });
+  const [viewFor, setViewFor] = useState<{ d: string; v: PopView }>({ d: hover.d, v: 'history' });
   const view = onClose || viewFor.d === hover.d ? viewFor.v : 'history';
-  const setView = (v: 'history' | 'strategy') => setViewFor({ d: hover.d, v });
+  const setView = (v: PopView) => setViewFor({ d: hover.d, v });
   const hist = useThermoPartsMonthly(view === 'history', hover.d);
   // Posición fija a un lado del cursor (no tapa el crosshair), medida con el tamaño real y dentro de la pantalla.
   const [pos, setPos] = useState<{ left: number; top: number } | null>(null);
@@ -174,6 +177,8 @@ export function BhtDetailPopover({ hover, detail, onLeave, onHold, liveValue, on
         <button type="button" onClick={(e) => { e.stopPropagation(); setView('strategy'); }}
           className={`px-2 py-0.5 rounded-md transition ${view === 'strategy' ? 'text-slate-900' : 'text-slate-400 hover:text-slate-200'}`}
           style={view === 'strategy' && bd ? { backgroundColor: bd.color } : undefined}>{ti('strategyButton')} ▸</button>
+        <button type="button" onClick={(e) => { e.stopPropagation(); setView('drawdowns'); }}
+          className={`px-2 py-0.5 rounded-md transition ${view === 'drawdowns' ? 'bg-risk-500/80 text-white' : 'text-slate-400 hover:text-slate-200'}`}>Drawdowns</button>
       </div>
       {onClose && (
         <button type="button" onClick={(e) => { e.stopPropagation(); onClose(); }} aria-label={loc === 'es' ? 'Cerrar' : 'Close'} title={loc === 'es' ? 'Cerrar (Esc)' : 'Close (Esc)'}
@@ -213,7 +218,9 @@ export function BhtDetailPopover({ hover, detail, onLeave, onHold, liveValue, on
           </div>
         </>
       )}
-      {view === 'strategy' ? (
+      {view === 'drawdowns' ? (
+        <BhtDrawdownsView date={hover.d} locale={loc} />
+      ) : view === 'strategy' ? (
         <BhtStrategyView date={hover.d} locale={loc}
           adviceLabel={bd ? ti('strategyBand', { label: ti(`bht.b${BHT_BANDS.indexOf(bd)}.label`) }) : undefined}
           adviceText={bd ? ti(`bht.b${BHT_BANDS.indexOf(bd)}.advice`) : undefined} />

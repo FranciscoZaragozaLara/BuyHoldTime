@@ -84,6 +84,10 @@ export class BacktestingController {
   @Get('bht-strategy')
   getBhtStrategy(@Query('date') date: string, @Query('instrument') instrument: string, @Query('window') window: string) { return this.svc.getBhtStrategy(date, instrument, window); }
 
+  // Vista Drawdowns del popover del BHT: caída máxima por año y tramos de compra y venta contra Hold completo.
+  @Get('bht-drawdowns')
+  getBhtDrawdowns(@Query('date') date: string, @Query('instrument') instrument: string) { return this.svc.getBhtDrawdowns(date, instrument); }
+
   @Get('bht-forward/detail')
   getBhtForwardDetail(@Query('date') date: string) { return this.svc.getBhtForwardDetail(date); }
 
