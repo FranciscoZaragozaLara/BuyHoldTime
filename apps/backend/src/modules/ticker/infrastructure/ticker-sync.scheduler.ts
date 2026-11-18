@@ -1,10 +1,9 @@
 import { Injectable, Logger, Optional } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
-import { spawn } from 'child_process';
-import * as path from 'path';
 import { SyncTickersUseCase } from '../application/use-cases/sync-tickers.use-case';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { logSourceRun } from '../../admin/data-source-runs';
+import { runTsScript } from './stock-sync.service';
 
 /**
  * Sincronización diaria de precios históricos y métricas de los tickers (Yahoo).
@@ -85,28 +84,6 @@ export class TickerSyncScheduler {
 
   /** Lanza un script ts-node desde la raíz de apps/backend (src/ o dist/src/). */
   protected runTsScript(script: string, timeoutMs: number): Promise<void> {
-    return new Promise((resolve, reject) => {
-      let root = path.resolve(__dirname, '..', '..', '..', '..');
-      if (path.basename(root) === 'dist') root = path.resolve(root, '..');
-      const proc = spawn('npx', ['ts-node', script], { cwd: root, env: process.env });
-      let stderr = '';
-      const timer = setTimeout(() => {
-        proc.kill('SIGTERM');
-        reject(new Error(`${script} superó el tiempo límite de ${Math.round(timeoutMs / 60000)} min`));
-      }, timeoutMs);
-      proc.stderr.on('data', (d) => (stderr += d.toString()));
-      proc.stdout.on('data', (d) => {
-        const line = d.toString().trim();
-        if (line) this.logger.log(line);
-      });
-      proc.on('error', (err) => {
-        clearTimeout(timer);
-        reject(err);
-      });
-      proc.on('close', (code) => {
-        clearTimeout(timer);
-        code === 0 ? resolve() : reject(new Error(`${script} exit ${code}: ${stderr.slice(0, 800)}`));
-      });
-    });
+    return runTsScript(script, timeoutMs, (line) => this.logger.log(line));
   }
 }

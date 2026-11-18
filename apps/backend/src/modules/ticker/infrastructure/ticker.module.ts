@@ -7,15 +7,20 @@ import { FastSyncTickersUseCase } from '../application/use-cases/fast-sync-ticke
 import { ITickerRepositorySymbol } from '../application/ports/ticker-repository.interface';
 import { TickerRepositoryImpl } from './database/ticker.repository.impl';
 import { TickerSyncScheduler } from './ticker-sync.scheduler';
+import { StockSyncService } from './stock-sync.service';
+import { StockSyncController } from './controllers/stock-sync.controller';
+import { AuthModule } from '../../auth/auth.module';
 
 @Module({
-  controllers: [TickerController],
+  imports: [AuthModule],
+  controllers: [TickerController, StockSyncController],
   providers: [
     GetTickersUseCase,
     GetTickerDetailsUseCase,
     SyncTickersUseCase,
     FastSyncTickersUseCase,
     TickerSyncScheduler,
+    StockSyncService,
     {
       provide: ITickerRepositorySymbol,
       useClass: TickerRepositoryImpl,

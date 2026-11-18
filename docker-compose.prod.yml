@@ -65,6 +65,8 @@ services:
       # Invalidación de la caché del frontend al terminar cada sincronización (opcional; vacío = desactivado).
       FRONTEND_REVALIDATE_URL: http://frontend:3000/api/revalidate
       REVALIDATE_SECRET: ${REVALIDATE_SECRET:-}
+      GURUFOCUS_API_URL: ${GURUFOCUS_API_URL:-}
+      GURUFOCUS_API_KEY: ${GURUFOCUS_API_KEY:-}
     volumes:
       # Scripts Python + result_*.json (clona BackTesting junto a este repo)
       - ${BACKTESTING_PATH:-../BackTesting}:/opt/backtesting
