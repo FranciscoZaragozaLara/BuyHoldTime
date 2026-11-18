@@ -37,10 +37,10 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
 }) => {
   const locale = useLocale();
   
-  // Visibility states for the 3 main chart lines
+  // Líneas visibles: por defecto solo el instrumento base y el BHT; P/E, CAPE y EMA se encienden a mano.
   const [showSp500Price, setShowSp500Price] = useState(true);
-  const [showPeRatio, setShowPeRatio] = useState(true);
-  const [showShillerPe, setShowShillerPe] = useState(true);
+  const [showPeRatio, setShowPeRatio] = useState(false);
+  const [showShillerPe, setShowShillerPe] = useState(false);
   const [showBht, setShowBht] = useState(true);
   // Un instrumento a la vez: precio, EMA 50/200 y P/E son los suyos; CAPE y BHT no cambian.
   const [instrument, setInstrument] = useState<Instrument>('spx');
