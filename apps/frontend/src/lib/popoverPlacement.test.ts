@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { placePopover } from './popoverPlacement';
+import { placePinned, placePopover } from './popoverPlacement';
 
 const vp = { w: 1400, h: 800 }, size = { w: 720, h: 500 };
 
@@ -20,5 +20,18 @@ describe('placePopover', () => {
   it('vertical centrado en el cursor y recortado a la pantalla', () => {
     expect(placePopover({ x: 300, y: 50 }, size, vp).top).toBe(8);
     expect(placePopover({ x: 300, y: 790 }, size, vp).top).toBe(800 - 8 - 500);
+  });
+});
+
+describe('placePinned', () => {
+  const vp = { w: 1358, h: 739 }, size = { w: 720, h: 400 };
+  it('punto a la izquierda: popover pegado al borde derecho', () => {
+    expect(placePinned({ x: 300, y: 400 }, size, vp)).toEqual({ left: 1358 - 8 - 720, top: 170 });
+  });
+  it('punto a la derecha: popover pegado al borde izquierdo', () => {
+    expect(placePinned({ x: 1000, y: 400 }, size, vp).left).toBe(8);
+  });
+  it('no salta al moverse un día dentro de la misma mitad', () => {
+    expect(placePinned({ x: 640, y: 400 }, size, vp).left).toBe(placePinned({ x: 646, y: 400 }, size, vp).left);
   });
 });

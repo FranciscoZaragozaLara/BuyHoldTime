@@ -17,3 +17,14 @@ export function placePopover(
   const top = Math.min(Math.max(margin, cursor.y - h / 2), viewport.h - margin - h);
   return { left, top };
 }
+
+/** Popover fijo (clic): anclado al borde de la pantalla opuesto al punto, para no saltar con cada día
+ *  (← →) y solo cambiar de lado al cruzar la mitad. En vertical, centrado en la pantalla (tampoco salta). */
+export function placePinned(
+  point: { x: number; y: number }, size: { w: number; h: number }, viewport: { w: number; h: number }, margin = 8,
+): Placement {
+  const w = Math.min(size.w, viewport.w - 2 * margin), h = Math.min(size.h, viewport.h - 2 * margin);
+  const left = point.x < viewport.w / 2 ? viewport.w - margin - w : margin;
+  const top = Math.max(margin, Math.round((viewport.h - h) / 2));
+  return { left, top };
+}

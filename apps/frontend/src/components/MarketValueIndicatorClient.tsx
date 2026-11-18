@@ -9,7 +9,8 @@ import { TOKENS } from '@/lib/designTokens';
 import { getApiBase } from '@/lib/apiBase';
 import { buildValuationChart, monthlyOpportunityMarkers, type DailyValuation, type Instrument } from '@/lib/valuationChart';
 import { BHT_BANDS, bhtBandColor } from '@/components/backtesting/bhtBands';
-import { BhtDetailPopover, bhtLeaveGuard, useBhtDetail } from '@/components/backtesting/BhtDetail';
+import { BhtDetailPopover, BhtHoverTip, useBhtDetail, useBhtPin } from '@/components/backtesting/BhtDetail';
+import { attachBhtChartPin, type BhtPoint } from '@/components/backtesting/bhtChartPin';
 
 interface MarketValueIndicatorClientProps {
   shillerPeData: IndicatorDetails;
@@ -155,8 +156,11 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
     return () => { alive = false; };
   }, []);
 
-  // Detalle del BHT en el hover (mismo popover que el Timeline del termómetro) + fila forward de esa fecha.
+  // Detalle del BHT (mismo popover que el Timeline del termómetro) + fila forward de esa fecha.
+  // El cursor muestra un tooltip compacto; un clic fija el popover completo (ver bhtChartPin).
   const bhtDet = useBhtDetail();
+  const bhtPin = useBhtPin();
+  const dailyIdx = useMemo(() => new Map((daily?.dates ?? []).map((d, i) => [d, i])), [daily]);
   const [fwdCache, setFwdCache] = useState<Record<string, unknown>>({});
   const loadFwd = (d: string) => {
     if (fwdCache[d] !== undefined) return;
@@ -166,6 +170,14 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
       .then((r) => (r.ok ? r.json() : []))
       .then((rows: unknown[]) => setFwdCache((m) => ({ ...m, [d]: rows.length ? rows[rows.length - 1] : null })))
       .catch(() => {});
+  };
+
+  // Callbacks vigentes para los manejadores de la gráfica (se registran una vez por cada gráfica creada).
+  const pinCb = useRef({ tip: (_p: BhtPoint | null) => {}, pin: (_p: BhtPoint) => {}, pinned: (): string | null => null });
+  pinCb.current = {
+    tip: bhtPin.setTip,
+    pin: (p) => { bhtPin.setPin(p); bhtDet.load(p.d); loadFwd(p.d); },
+    pinned: bhtPin.pinnedDate,
   };
 
   // Puntos de la gráfica (mensual antes de 1990, diaria después) con EMA 50/200 y marcadores mensuales.
@@ -363,15 +375,6 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
       }
 
       const matched = byTime.get(timeStr);
-      if (matched?.daily && matched.bht != null && chartContainerRef.current) {
-        const rect = chartContainerRef.current.getBoundingClientRect();
-        // param.point cuenta desde el área de trazo: se suma el ancho del eje izquierdo para tener la posición real del cursor.
-        bhtDet.setHover({ d: timeStr, x: rect.left + chart.priceScale('left').width() + param.point.x, y: rect.top + param.point.y });
-        bhtDet.load(timeStr);
-        loadFwd(timeStr);
-      } else {
-        bhtDet.scheduleClear();
-      }
       if (matched) {
         setHoveredData({
           date: matched.daily ? timeStr : timeStr.substring(0, 7),
@@ -431,13 +434,21 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
     };
     const resizeObserver = new ResizeObserver(handleResize);
     resizeObserver.observe(chartContainerRef.current);
-    const containerEl = chartContainerRef.current;
-    const onLeave = (e: MouseEvent) => bhtLeaveGuard(e, bhtDet);
-    containerEl.addEventListener('mouseleave', onLeave);
+    // Tooltip compacto al pasar el cursor, clic para fijar el detalle y ← → día a día.
+    const navDates = chartPoints.filter((p) => p.daily && p.bht != null).map((p) => p.time);
+    const detachPin = attachBhtChartPin(chart, chartContainerRef.current, {
+      resolve: (d) => { const m = byTime.get(d); return m?.daily && m.bht != null ? d : null; },
+      dates: () => navDates,
+      anchor: () => showBht ? { series: bhtSeries, value: (d) => byTime.get(d)?.bht ?? null }
+        : showSp500Price ? { series: sp500Series, value: (d) => byTime.get(d)?.sp500Price ?? null } : null,
+      onTip: (p) => pinCb.current.tip(p),
+      onPin: (p) => pinCb.current.pin(p),
+      pinned: () => pinCb.current.pinned(),
+    });
 
     return () => {
       resizeObserver.disconnect();
-      containerEl.removeEventListener('mouseleave', onLeave);
+      detachPin();
       disposed = true;
       clearTimeout(maxLineTimer);
       chart.timeScale().unsubscribeVisibleTimeRangeChange(updateMaxLine);
@@ -691,13 +702,19 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
               <span className="text-accent-400 font-bold">{formatDateLabel(hoveredData.date)}</span>
             </div>
           )}
-          <div ref={chartContainerRef} className="h-[400px] w-full" />
-          {bhtDet.hover && (
+          <div ref={chartContainerRef} data-bht-chart className="h-[400px] w-full" />
+          {bhtPin.tip && bhtPin.tip.d !== bhtPin.pin?.d && daily && (() => {
+            const i = dailyIdx.get(bhtPin.tip.d);
+            if (i == null) return null;
+            return <BhtHoverTip point={bhtPin.tip} bht={daily.bht?.[i] ?? null}
+              prices={[['S&P 500', daily.spx[i]], ['QQQ (Nasdaq-100)', daily.qqq?.[i]], ['TQQQ', daily.tqqq?.[i]]]} />;
+          })()}
+          {bhtPin.pin && (
             <BhtDetailPopover
-              hover={bhtDet.hover}
-              detail={bhtDet.cache[bhtDet.hover.d]}
-              forward={fwdCache[bhtDet.hover.d]}
-              onLeave={() => bhtDet.scheduleClear()} onHold={() => bhtDet.cancelClear()}
+              hover={bhtPin.pin}
+              detail={bhtDet.cache[bhtPin.pin.d]}
+              forward={fwdCache[bhtPin.pin.d]}
+              onClose={bhtPin.close}
             />
           )}
         </div>

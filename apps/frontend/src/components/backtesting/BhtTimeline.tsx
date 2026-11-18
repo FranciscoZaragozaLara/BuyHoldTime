@@ -1,8 +1,9 @@
 'use client';
 import { getApiBase } from '@/lib/apiBase';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createChart, ColorType, IChartApi, LineSeries } from 'lightweight-charts';
-import { BhtDetailPopover, useBhtDetail, bhtLeaveGuard } from './BhtDetail';
+import { BhtDetailPopover, BhtHoverTip, useBhtDetail, useBhtPin } from './BhtDetail';
+import { attachBhtChartPin, timeKey, type BhtPoint } from './bhtChartPin';
 import { BHT_CUTS, bhtBandColor } from './bhtBands';
 import { useTranslations } from 'next-intl';
 import { TOKENS } from '@/lib/designTokens';
@@ -40,7 +41,10 @@ export function BhtTimeline() {
   const rowsRef = useRef<Row[]>([]);
   rowsRef.current = rows;
 
+  // El cursor muestra un tooltip compacto; un clic fija el popover completo (ver bhtChartPin).
   const bhtDet = useBhtDetail();
+  const bhtPin = useBhtPin();
+  const rowByDate = useMemo(() => new Map(rows.map((r) => [r.date, r])), [rows]);
   const [fwdCache, setFwdCache] = useState<Record<string, any>>({});
   const loadFwd = (d: string) => {
     if (fwdCache[d] !== undefined) return;
@@ -50,6 +54,14 @@ export function BhtTimeline() {
       .then((r) => (r.ok ? r.json() : []))
       .then((fj) => setFwdCache((m) => ({ ...m, [d]: fj.length ? fj[fj.length - 1] : null })))
       .catch(() => {});
+  };
+
+  // Callbacks vigentes para los manejadores de la gráfica (se registran una vez al crearla).
+  const pinCb = useRef({ tip: (_p: BhtPoint | null) => {}, pin: (_p: BhtPoint) => {}, pinned: (): string | null => null });
+  pinCb.current = {
+    tip: bhtPin.setTip,
+    pin: (p) => { bhtPin.setPin(p); bhtDet.load(p.d); loadFwd(p.d); },
+    pinned: bhtPin.pinnedDate,
   };
 
   // Una sola carga amplia (11 años: cubre el rango 10A + pan); los rangos son ventanas.
@@ -182,24 +194,26 @@ export function BhtTimeline() {
     chart.timeScale().fitContent();
     setIsLoaded(true);
 
-    const toKey = (t: any) => typeof t === 'string' ? t : typeof t === 'number' ? new Date(t * 1000).toISOString().split('T')[0] : String(t);
-    const handler = (param: any) => {
-      if (!param.time || !param.point) return;
-      const date = toKey(param.time);
-      const all = rowsRef.current;
-      const row = all.find((r) => r.date === date) || (() => {
-        let best = all[0]; let bd = Infinity;
-        for (const r of all) { const dd = Math.abs(new Date(r.date).getTime() - new Date(date).getTime()); if (dd < bd) { bd = dd; best = r; } }
-        return best;
-      })();
-      if (!row || !containerRef.current) return;
-      const rect = containerRef.current.getBoundingClientRect();
-      // param.point cuenta desde el área de trazo: se suma el ancho del eje izquierdo (0 si no hay).
-      bhtDet.setHover({ d: row.date, x: rect.left + chart.priceScale('left').width() + param.point.x, y: rect.top + param.point.y });
-      bhtDet.load(row.date);
-      loadFwd(row.date);
+    const toKey = (t: any) => timeKey(t) ?? String(t);
+    // Tooltip compacto al pasar el cursor, clic para fijar el detalle y ← → día a día. La fecha bajo el cursor
+    // se lleva al día con BHT más cercano.
+    const bhtDates = data.filter((r) => r.bht != null).map((r) => r.date);
+    const nearestBhtDate = (d: string): string | null => {
+      if (!bhtDates.length) return null;
+      let lo = 0, hi = bhtDates.length;
+      while (lo < hi) { const m = (lo + hi) >> 1; if (bhtDates[m] < d) lo = m + 1; else hi = m; }
+      const a = bhtDates[Math.max(0, lo - 1)], b = bhtDates[Math.min(bhtDates.length - 1, lo)];
+      return Math.abs(Date.parse(a) - Date.parse(d)) <= Math.abs(Date.parse(b) - Date.parse(d)) ? a : b;
     };
-    chart.subscribeCrosshairMove(handler);
+    const bhtAt = new Map(data.map((r) => [r.date, r.bht]));
+    const detachPin = attachBhtChartPin(chart, containerRef.current, {
+      resolve: nearestBhtDate,
+      dates: () => bhtDates,
+      anchor: () => (firstBht ? { series: firstBht, value: (d) => bhtAt.get(d) ?? null } : null),
+      onTip: (p) => pinCb.current.tip(p),
+      onPin: (p) => pinCb.current.pin(p),
+      pinned: () => pinCb.current.pinned(),
+    });
     const ro = new ResizeObserver(() => {
       if (containerRef.current && chartRef.current) {
         const ww = containerRef.current.clientWidth; const hh = containerRef.current.clientHeight;
@@ -221,13 +235,10 @@ export function BhtTimeline() {
     };
     try { chart.timeScale().subscribeVisibleTimeRangeChange(onVisibleRange); } catch { /* noop */ }
     ro.observe(containerRef.current);
-    const leave = () => { try { (bhtLeaveGuard as any)({ relatedTarget: null }, bhtDet); } catch { /* noop */ } };
-    containerRef.current.addEventListener('mouseleave', leave);
     return () => {
       try { chart.timeScale().unsubscribeVisibleTimeRangeChange(onVisibleRange); } catch { /* noop */ }
       ro.disconnect();
-      try { chart.unsubscribeCrosshairMove(handler); } catch { /* noop */ }
-      try { containerRef.current?.removeEventListener('mouseleave', leave); } catch { /* noop */ }
+      detachPin();
       chart.remove(); chartRef.current = null; seriesRefs.current = {};
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -284,14 +295,18 @@ export function BhtTimeline() {
         </div>
         {loading && <span className="text-[11px] text-slate-500 font-mono">{tb('loading')}</span>}
       </div>
-      <div ref={containerRef} className="w-full h-[300px]" />
+      <div ref={containerRef} data-bht-chart className="w-full h-[300px]" />
       <p className="text-[11px] text-slate-500 mt-1">{tb('timelineHint', { assets: shownAssets ? ` + ${shownAssets}` : '' })}</p>
-      {bhtDet.hover && (
+      {bhtPin.tip && bhtPin.tip.d !== bhtPin.pin?.d && (() => {
+        const r = rowByDate.get(bhtPin.tip.d);
+        return r ? <BhtHoverTip point={bhtPin.tip} bht={r.bht} prices={[['S&P 500', r.spx], ['Nasdaq 100', r.ndx], ['TQQQ', r.tqqq]]} /> : null;
+      })()}
+      {bhtPin.pin && (
         <BhtDetailPopover
-          hover={bhtDet.hover}
-          detail={bhtDet.cache[bhtDet.hover.d]}
-          forward={fwdCache[bhtDet.hover.d]}
-          onLeave={() => bhtDet.scheduleClear()} onHold={() => bhtDet.cancelClear()}
+          hover={bhtPin.pin}
+          detail={bhtDet.cache[bhtPin.pin.d]}
+          forward={fwdCache[bhtPin.pin.d]}
+          onClose={bhtPin.close}
         />
       )}
     </div>
