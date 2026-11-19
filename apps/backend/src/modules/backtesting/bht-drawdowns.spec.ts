@@ -111,3 +111,36 @@ describe('desde la compra hasta hoy', () => {
     expect(one.sinceBuy).toEqual({ maxDd: null, maxPeak: null });
   });
 });
+
+describe('tramos + tendencia (SMA 200)', () => {
+  const mkT = (dates: string[], bht: number[], px: number[], trend: string[]): StrategySeries =>
+    ({ dates, bht, px: { spx: px, qqq: px.map(() => null), tqqq: px.map(() => null) }, trend });
+
+  test('la compra abajo de la SMA 200 espera y se ejecuta al recuperarla', () => {
+    const dates = monthly(6);
+    // vende a 74 (alcista); BHT cae a 45 con tendencia bajista (sin compra); recupera la tendencia con BHT 65
+    const s = mkT(dates, [50, 74, 45, 50, 65, 65], [100, 120, 90, 80, 95, 100], ['UPTREND', 'UPTREND', 'DOWNTREND', 'DOWNTREND', 'UPTREND', 'UPTREND']);
+    const plain = simulateTranches(s, 0, 'spx');
+    const t = simulateTranches(s, 0, 'spx', { trend: true });
+    expect(plain.trades.map((x) => [x.type, x.date])).toEqual([['sell', '2000-02-01'], ['buy', '2000-03-01']]);
+    expect(t.trades.map((x) => [x.type, x.date, x.reason])).toEqual([['sell', '2000-02-01', 'ladder'], ['buy', '2000-05-01', 'trend']]);
+    expect(t.trades[1].level).toBe(200);
+    expect(t.pending).toBe(0);
+  });
+
+  test('con BHT ≥ 50, perder la SMA 200 vende un tramo extra; con BHT bajo (miedo), no', () => {
+    const dates = monthly(4);
+    const s = mkT(dates, [60, 66, 64, 64], [100, 110, 100, 95], ['UPTREND', 'UPTREND', 'DOWNTREND', 'DOWNTREND']);
+    const t = simulateTranches(s, 0, 'spx', { trend: true });
+    expect(t.trades.map((x) => [x.type, x.date, x.reason, x.level])).toEqual([['sell', '2000-03-01', 'trend', 200]]);
+    const low = mkT(dates, [45, 45, 45, 45], [100, 110, 100, 95], ['UPTREND', 'UPTREND', 'DOWNTREND', 'DOWNTREND']);
+    expect(simulateTranches(low, 0, 'spx', { trend: true }).trades).toEqual([]);
+  });
+
+  test('computeBhtDrawdowns trae la variante solo si la serie tiene régimen', () => {
+    const dates = monthly(3);
+    expect(computeBhtDrawdowns(mk(dates, [50, 50, 50], [100, 110, 120]), '2000-01-01', 'spx')!.tranchesTrend).toBeNull();
+    const r = computeBhtDrawdowns(mkT(dates, [50, 50, 50], [100, 110, 120], ['UPTREND', 'UPTREND', 'UPTREND']), '2000-01-01', 'spx')!;
+    expect(r.tranchesTrend!.pct).toBeCloseTo(20, 9);
+  });
+});
