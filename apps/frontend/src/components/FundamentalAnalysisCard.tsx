@@ -136,7 +136,8 @@ export const FundamentalAnalysisCard: React.FC<FundamentalAnalysisCardProps> = (
     { label: tm('divRate'), value: ticker.dividendRate ? `$${ticker.dividendRate.toFixed(2)}` : '$0.00' },
     { 
       label: tm('divYield'), 
-      value: snapshot?.dividendYield ? `${(Number(snapshot.dividendYield) * 100).toFixed(2)}%` : (ticker.dy ? `${ticker.dy.toFixed(2)}%` : '0.00%') 
+      // GuruFocus da el rendimiento ya en % ("Dividend Yield %": 1.03 = 1.03%).
+      value: snapshot?.dividendYield ? `${Number(snapshot.dividendYield).toFixed(2)}%` : (ticker.dy ? `${ticker.dy.toFixed(2)}%` : '0.00%') 
     },
     { label: tm('avgVolume'), value: formatVolumeValue(ticker.avgVolume) },
   ];

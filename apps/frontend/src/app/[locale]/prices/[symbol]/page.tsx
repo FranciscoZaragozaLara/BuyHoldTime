@@ -11,6 +11,7 @@ import { QuarterlyDataTable } from '@/components/QuarterlyDataTable';
 import { EpsHistoryChart } from '@/components/EpsHistoryChart';
 import { FundamentalAnalysisCard } from '@/components/FundamentalAnalysisCard';
 import { FundamentalTablesTab } from '@/components/FundamentalTablesTab';
+import { EtfProfileCard } from '@/components/EtfProfileCard';
 import { StockValuationCalculator } from '@/components/StockValuationCalculator';
 import { StockSeoSummary } from '@/components/StockSeoSummary';
 import { JsonLd } from '@/components/JsonLd';
@@ -537,7 +538,10 @@ export default async function TickerDetailsPage({
 
         {/* Full-width section below for long wide tables */}
         <div className="flex flex-col gap-8 w-full">
-          
+
+          {/* Perfil del ETF y principales posiciones (solo ETFs) */}
+          <EtfProfileCard snapshot={details.snapshot} />
+
           {/* Historical data table with Daily, Monthly and Annual tabs */}
           <StockHistoryTable 
             prices={updatedPrices} 
