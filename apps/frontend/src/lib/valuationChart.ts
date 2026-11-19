@@ -117,8 +117,9 @@ const BUY_RANK: Record<string, number> = { starter: 1, buy: 2, strong: 3 };
 /**
  * Estado BHT × tendencia de un día ("arriba" = S&P 500 arriba de su SMA 200, régimen alcista o corrección):
  *  strong ($$): BHT < 40 arriba · buy ($): BHT < 40 abajo, o 40–49 arriba · starter (¼$, primer tramo pequeño):
- *  BHT 50–60 arriba · danger (⚠): BHT ≥ 50 abajo de la SMA 200 (tendencia rota). Con BHT alto y tendencia alcista no
- *  hay alerta: los rallies con BHT 70+ suelen seguir, y marcarlos como peligro hacía salir demasiado pronto.
+ *  BHT 50–60 arriba · danger (⚠): BHT ≥ 50 en tendencia bajista (abajo de la SMA 50 y de la SMA 200). Sin alerta con
+ *  tendencia alcista (los rallies con BHT 70+ suelen seguir) ni en Rebote (arriba de la SMA 50, abajo de la 200): tras
+ *  un piso, el rebote se leía como «no compres» justo al empezar la recuperación.
  */
 export function signalState(bht: number | undefined, trend: string | undefined): SignalState | null {
   const regime = toTrendRegime(trend);
@@ -126,8 +127,8 @@ export function signalState(bht: number | undefined, trend: string | undefined):
   const above = regime === 'UPTREND' || regime === 'PULLBACK';
   if (bht < 40) return above ? 'strong' : 'buy';
   if (bht < 50) return above ? 'buy' : null;
-  if (!above) return 'danger';
-  return bht < 61 ? 'starter' : null;
+  if (regime === 'DOWNTREND') return 'danger';
+  return above && bht < 61 ? 'starter' : null;
 }
 
 /**
@@ -145,15 +146,22 @@ export function signalMarkers(points: ChartPoint[]): SignalMarker[] {
   const last: Record<string, { i: number; kind: string } | undefined> = {};
   // Última marca dentro del estado vigente (para los recordatorios) y su precio.
   let runMark: { i: number; price: number } | null = null;
+  // Precio de la última ⚠ del episodio bajista (abajo de la SMA 200): otra alerta solo si el precio subió. Al recuperar
+  // la SMA 200 el episodio termina. Evita alertas repetidas al oscilar entre Bajista y Rebote.
+  let episodeDanger: number | null = null;
   daily.forEach((p, i) => {
     const st = signalState(p.bht, p.trend);
     const price = p.sp500Price!;
+    const reg = toTrendRegime(p.trend);
+    if (reg === 'UPTREND' || reg === 'PULLBACK') episodeDanger = null;
+    const dangerOk = st !== 'danger' || episodeDanger == null || price > episodeDanger;
     if (st && st !== prev) {
       runMark = null;
       const l = last[fam(st)];
       const upgrade = st !== 'danger' && !!l && (BUY_RANK[st] ?? 0) > (BUY_RANK[l.kind] ?? 0);
-      if (!l || upgrade || i - l.i >= SIGNAL_COOLDOWN) {
+      if (dangerOk && (!l || upgrade || i - l.i >= SIGNAL_COOLDOWN)) {
         out.push({ time: p.time, kind: st, priority: 2 });
+        if (st === 'danger') episodeDanger = price;
         last[fam(st)] = { i, kind: st };
         runMark = { i, price };
       }
@@ -161,8 +169,9 @@ export function signalMarkers(points: ChartPoint[]): SignalMarker[] {
       // El estado se mantiene: recordatorio mensual (desde la última marca de la familia si la entrada esperó).
       const ref = runMark ?? (last[fam(st)] ? { i: last[fam(st)]!.i, price: daily[last[fam(st)]!.i].sp500Price! } : null);
       const due = !ref || i - ref.i >= SIGNAL_REPEAT;
-      if (due && (st !== 'danger' || !ref || price > ref.price)) {
+      if (due && dangerOk && (st !== 'danger' || !ref || price > ref.price)) {
         out.push({ time: p.time, kind: st, priority: 1 }); // recordatorio
+        if (st === 'danger') episodeDanger = price;
         last[fam(st)] = { i, kind: st };
         runMark = { i, price };
       }

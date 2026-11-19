@@ -51,7 +51,7 @@ describe('señales BHT × tendencia y cruces', () => {
     expect(signalState(55, 'U')).toBe('starter'); // primer tramo pequeño con BHT 50–60 y tendencia alcista
     expect(signalState(60.5, 'P')).toBe('starter');
     expect(signalState(64, 'U')).toBeNull();
-    expect(signalState(55, 'R')).toBe('danger');
+    expect(signalState(55, 'R')).toBeNull(); // Rebote: sin alerta
     expect(signalState(65, 'D')).toBe('danger');
     expect(signalState(75, 'U')).toBeNull(); // rally con BHT alto y tendencia alcista: sin alerta
     expect(signalState(75, 'D')).toBe('danger');
@@ -92,6 +92,12 @@ describe('señales BHT × tendencia y cruces', () => {
     const m = signalMarkers(p).filter((x) => x.kind === 'danger');
     // día 0 (entrada, precio 100); día 21 precio 79 < 100 → no; sube: día 40 precio 100 ≯ 100; día 41 precio 103 > 100 → sí
     expect(m.map((x) => x.time)).toEqual([day(0), day(41)]);
+  });
+
+  it('una alerta por episodio bajista: oscilar entre Bajista y Rebote no repite la alerta si el precio no subió', () => {
+    // BHT 58; 0-4 alcista (¼$), 5-49 abajo de la SMA 200 alternando Bajista/Rebote cada 10 sesiones, precio bajando
+    const p = pts(100, (k) => ({ bht: 58, trend: k < 5 ? 'U' : Math.floor((k - 5) / 10) % 2 === 0 ? 'D' : 'R', sp500Price: 100 - k * 0.2 }));
+    expect(signalMarkers(p).filter((x) => x.kind === 'danger').map((x) => x.time)).toEqual([day(5)]);
   });
 
   it('peligro con BHT neutral y tendencia bajista', () => {
