@@ -76,7 +76,7 @@ export function buildValuationChart(monthly: MonthlyRow[], daily: DailyValuation
   return out;
 }
 
-export type SignalKind = 'strong' | 'buy' | 'starter' | 'danger' | 'golden' | 'death';
+export type SignalKind = 'max' | 'strong' | 'buy' | 'starter' | 'danger' | 'golden' | 'death';
 export type SignalMarker = {
   time: string; kind: SignalKind;
   /** 3 cruce · 2 entrada a un estado / subida de nivel · 1 recordatorio mensual (para el raleo por zoom). */
@@ -84,14 +84,11 @@ export type SignalMarker = {
   position: 'aboveBar' | 'belowBar'; color: string; shape: 'circle' | 'square' | 'arrowUp' | 'arrowDown'; text: string; size: number;
 };
 
-/**
- * Espera mínima (sesiones, ~2 meses) entre señales de la misma familia (¼$/$/$$ comparten una; ⚠ la suya; subir de
- * nivel de compra no espera), y duración mínima de un cruce para contarlo.
- */
+/** Espera mínima (sesiones, ~2 meses) entre dos entradas de alerta (⚠). */
 export const SIGNAL_COOLDOWN = 40;
 /**
- * Recordatorio mientras un estado se mantiene: cada ~1 mes (sesiones) se repite el icono. Compras: con solo mantenerse;
- * alerta (⚠): solo si el precio subió desde la alerta anterior.
+ * Compras: mientras el BHT siga en cualquier nivel de compra, una señal cada ~1 mes (sesiones) aunque el precio no baje
+ * más (bajar a un nivel más barato la adelanta). Alerta (⚠): recordatorio igual de espaciado, solo si el precio subió.
  */
 export const SIGNAL_REPEAT = 21;
 /**
@@ -101,40 +98,44 @@ export const SIGNAL_REPEAT = 21;
 export const DEATH_CROSS_MIN_BHT = 50;
 export const CROSS_MIN_SESSIONS = 10;
 
+// Compras: más barato = señal (y tramo) más grande.
 const STYLE: Record<SignalKind, Omit<SignalMarker, 'time' | 'kind' | 'priority'>> = {
-  strong: { position: 'belowBar', color: TOKENS.favorable, shape: 'circle', text: '$$', size: 1.2 },
-  buy: { position: 'belowBar', color: TOKENS.accent, shape: 'circle', text: '$', size: 0.9 },
+  max: { position: 'belowBar', color: TOKENS.favorable, shape: 'circle', text: '$$$', size: 1.6 },
+  strong: { position: 'belowBar', color: TOKENS.favorable, shape: 'circle', text: '$$', size: 1.25 },
+  buy: { position: 'belowBar', color: TOKENS.accent, shape: 'circle', text: '$', size: 0.95 },
   starter: { position: 'belowBar', color: TOKENS.caution, shape: 'circle', text: '¼$', size: 0.7 },
   danger: { position: 'aboveBar', color: TOKENS.risk, shape: 'square', text: '⚠', size: 1 },
   golden: { position: 'belowBar', color: TOKENS.caution, shape: 'arrowUp', text: 'Golden Cross', size: 1.1 },
   death: { position: 'aboveBar', color: '#94a3b8', shape: 'arrowDown', text: 'Death Cross', size: 1.1 },
 };
 
-export type SignalState = 'strong' | 'buy' | 'starter' | 'danger';
-/** Nivel de las señales de compra (subir de nivel no espera la pausa entre señales). */
-const BUY_RANK: Record<string, number> = { starter: 1, buy: 2, strong: 3 };
+export type SignalState = 'max' | 'strong' | 'buy' | 'starter' | 'danger';
+/** Nivel de las señales de compra (1 ¼$ … 4 $$$): bajar a un nivel más barato no espera la pausa entre señales. */
+export const BUY_RANK: Record<string, number> = { starter: 1, buy: 2, strong: 3, max: 4 };
+const BUY_BY_RANK: SignalState[] = ['starter', 'starter', 'buy', 'strong', 'max'];
 
 /**
- * Estado BHT × tendencia de un día ("arriba" = S&P 500 arriba de su SMA 200, régimen alcista o corrección):
- *  strong ($$): BHT < 40 arriba · buy ($): BHT < 40 abajo, o 40–49 arriba · starter (¼$, primer tramo pequeño):
- *  BHT 50–60 arriba · danger (⚠): BHT ≥ 50 en tendencia bajista (abajo de la SMA 50 y de la SMA 200). Sin alerta con
- *  tendencia alcista (los rallies con BHT 70+ suelen seguir) ni en Rebote (arriba de la SMA 50, abajo de la 200): tras
- *  un piso, el rebote se leía como «no compres» justo al empezar la recuperación.
+ * Estado BHT × tendencia de un día. Compras en escalera por lo barato del BHT (más barato = tramo más grande):
+ *  BHT 50–60 → ¼$ · 40–49 → $ · 30–39 → $$ · < 30 → $$$, con el S&P 500 arriba de su SMA 200 (alcista o corrección).
+ *  Abajo de la SMA 200 cada tramo baja un nivel (escalonar hasta que la tendencia confirme): 40–49 → ¼$ … < 30 → $$;
+ *  50–60 abajo de la SMA 200 no compra. danger (⚠): BHT ≥ 50 en tendencia bajista (abajo de la SMA 50 y de la 200).
+ *  Sin alerta con tendencia alcista (los rallies con BHT 70+ suelen seguir) ni en Rebote (tras un piso se leía como
+ *  «no compres» justo al empezar la recuperación).
  */
 export function signalState(bht: number | undefined, trend: string | undefined): SignalState | null {
   const regime = toTrendRegime(trend);
   if (bht == null || !regime) return null;
   const above = regime === 'UPTREND' || regime === 'PULLBACK';
-  if (bht < 40) return above ? 'strong' : 'buy';
-  if (bht < 50) return above ? 'buy' : null;
-  if (regime === 'DOWNTREND') return 'danger';
-  return above && bht < 61 ? 'starter' : null;
+  const tier = bht < 30 ? 4 : bht < 40 ? 3 : bht < 50 ? 2 : bht < 61 ? 1 : 0;
+  const rank = above ? tier : tier - 1;
+  if (rank >= 1) return BUY_BY_RANK[rank];
+  return regime === 'DOWNTREND' && bht >= 50 ? 'danger' : null;
 }
 
 /**
- * Señales de la gráfica: $$ / $ / ¼$ / ⚠ al ENTRAR en cada estado (no cada día), con SIGNAL_COOLDOWN sesiones entre
- * dos de la misma familia; si el estado se mantiene, un recordatorio cada SIGNAL_REPEAT sesiones (⚠ solo si el
- * precio subió); y cruces de la SMA 50 sobre la SMA 200 del precio mostrado (Golden Cross hacia arriba,
+ * Señales de la gráfica. Compras (¼$ … $$$): al entrar en zona de compra, al bajar a un nivel más barato (de inmediato)
+ * y, mientras siga barato, una cada SIGNAL_REPEAT sesiones con el nivel vigente. Alerta (⚠): al entrar (con
+ * SIGNAL_COOLDOWN entre entradas), una por episodio bajista salvo que el precio suba. Y cruces de la SMA 50 sobre la SMA 200 del precio mostrado (Golden Cross hacia arriba,
  * Death Cross hacia abajo), descartando los que se revierten en menos de CROSS_MIN_SESSIONS sesiones.
  */
 export function signalMarkers(points: ChartPoint[]): SignalMarker[] {
@@ -142,10 +143,8 @@ export function signalMarkers(points: ChartPoint[]): SignalMarker[] {
   const out: Array<{ time: string; kind: SignalKind; priority: number }> = [];
   // 1) BHT × tendencia
   let prev: string | null = null;
-  const fam = (k: string) => (k === 'danger' ? 'danger' : 'buy');
-  const last: Record<string, { i: number; kind: string } | undefined> = {};
-  // Última marca dentro del estado vigente (para los recordatorios) y su precio.
-  let runMark: { i: number; price: number } | null = null;
+  let lastBuy: { i: number; kind: string } | null = null;
+  let lastDanger: { i: number; price: number } | null = null;
   // Precio de la última ⚠ del episodio bajista (abajo de la SMA 200): otra alerta solo si el precio subió. Al recuperar
   // la SMA 200 el episodio termina. Evita alertas repetidas al oscilar entre Bajista y Rebote.
   let episodeDanger: number | null = null;
@@ -154,26 +153,23 @@ export function signalMarkers(points: ChartPoint[]): SignalMarker[] {
     const price = p.sp500Price!;
     const reg = toTrendRegime(p.trend);
     if (reg === 'UPTREND' || reg === 'PULLBACK') episodeDanger = null;
-    const dangerOk = st !== 'danger' || episodeDanger == null || price > episodeDanger;
-    if (st && st !== prev) {
-      runMark = null;
-      const l = last[fam(st)];
-      const upgrade = st !== 'danger' && !!l && (BUY_RANK[st] ?? 0) > (BUY_RANK[l.kind] ?? 0);
-      if (dangerOk && (!l || upgrade || i - l.i >= SIGNAL_COOLDOWN)) {
-        out.push({ time: p.time, kind: st, priority: 2 });
-        if (st === 'danger') episodeDanger = price;
-        last[fam(st)] = { i, kind: st };
-        runMark = { i, price };
+    if (st && BUY_RANK[st]) {
+      // Compras: entrada, nivel más barato o recordatorio mensual mientras siga en zona de compra.
+      const deeper = !!lastBuy && BUY_RANK[st] > (BUY_RANK[lastBuy.kind] ?? 0) && i - lastBuy.i < SIGNAL_REPEAT;
+      if (!lastBuy || deeper || i - lastBuy.i >= SIGNAL_REPEAT) {
+        const entry = !prev || !BUY_RANK[prev] || deeper;
+        out.push({ time: p.time, kind: st as SignalKind, priority: entry ? 2 : 1 });
+        lastBuy = { i, kind: st };
       }
-    } else if (st && st === prev) {
-      // El estado se mantiene: recordatorio mensual (desde la última marca de la familia si la entrada esperó).
-      const ref = runMark ?? (last[fam(st)] ? { i: last[fam(st)]!.i, price: daily[last[fam(st)]!.i].sp500Price! } : null);
-      const due = !ref || i - ref.i >= SIGNAL_REPEAT;
-      if (due && dangerOk && (st !== 'danger' || !ref || price > ref.price)) {
-        out.push({ time: p.time, kind: st, priority: 1 }); // recordatorio
-        if (st === 'danger') episodeDanger = price;
-        last[fam(st)] = { i, kind: st };
-        runMark = { i, price };
+    } else if (st === 'danger' && (episodeDanger == null || price > episodeDanger)) {
+      const entry = prev !== 'danger';
+      const ok = entry
+        ? !lastDanger || i - lastDanger.i >= SIGNAL_COOLDOWN
+        : !lastDanger || (i - lastDanger.i >= SIGNAL_REPEAT && price > lastDanger.price);
+      if (ok) {
+        out.push({ time: p.time, kind: 'danger', priority: entry ? 2 : 1 });
+        lastDanger = { i, price };
+        episodeDanger = price;
       }
     }
     prev = st;
@@ -217,7 +213,7 @@ export const MARKER_MIN_PX = 30;
  */
 export function thinMarkers<T extends Pick<SignalMarker, 'time' | 'kind' | 'priority' | 'position'>>(markers: T[], indexOf: (time: string) => number | undefined, minGapBars: number): T[] {
   if (minGapBars <= 1) return markers;
-  const KIND_RANK: Partial<Record<SignalKind, number>> = { strong: 3, danger: 3, buy: 2, starter: 1 };
+  const KIND_RANK: Partial<Record<SignalKind, number>> = { max: 4, strong: 3, danger: 3, buy: 2, starter: 1 };
   const order = markers
     .map((m, k) => ({ m, k, idx: indexOf(m.time) }))
     .filter((x) => x.idx != null)

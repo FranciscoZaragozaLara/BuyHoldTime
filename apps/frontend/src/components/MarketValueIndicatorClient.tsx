@@ -740,12 +740,14 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
           <div ref={chartContainerRef} data-bht-chart className="h-[400px] w-full" />
           {/* Leyenda de las señales sobre la línea del precio. */}
           <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-slate-400">
-            <span><b style={{ color: TOKENS.favorable }}>$$</b> {locale === 'es' ? 'BHT < 40 con tendencia alcista (SMA 200)' : 'BHT < 40 with the trend up (200-day SMA)'}</span>
-            <span><b style={{ color: TOKENS.accent }}>$</b> {locale === 'es' ? 'BHT < 40 en tendencia bajista o 40–49 en alcista' : 'BHT < 40 in a downtrend or 40–49 in an uptrend'}</span>
-            <span><b style={{ color: TOKENS.caution }}>¼$</b> {locale === 'es' ? 'primer tramo pequeño: BHT 50–60 con tendencia alcista' : 'small first tranche: BHT 50–60 in an uptrend'}</span>
+            <span>
+              {locale === 'es' ? 'Compras (más barato = tramo más grande): ' : 'Buys (cheaper = bigger tranche): '}
+              <b style={{ color: TOKENS.caution }}>¼$</b> BHT 50–60 · <b style={{ color: TOKENS.accent }}>$</b> 40–49 · <b style={{ color: TOKENS.favorable }}>$$</b> 30–39 · <b style={{ color: TOKENS.favorable }}>$$$</b> &lt; 30
+              {locale === 'es' ? ' con tendencia alcista; abajo de la SMA 200 baja un nivel (40–49 → ¼$). Se repiten cada ~mes mientras siga barato.' : ' in an uptrend; below the 200-day SMA one level lower (40–49 → ¼$). Repeated about monthly while it stays cheap.'}
+            </span>
             <span><b style={{ color: TOKENS.risk }}>⚠</b> {locale === 'es' ? 'Riesgo: BHT ≥ 50 con el S&P 500 en tendencia bajista (abajo de su SMA 50 y 200); una por caída, salvo que el precio suba' : 'Risk: BHT ≥ 50 with the S&P 500 in a downtrend (below its 50- and 200-day SMA); once per decline unless price rises'}</span>
             <span><b style={{ color: TOKENS.caution }}>▲ Golden Cross</b> / <b className="text-slate-400">▼ Death Cross</b> {locale === 'es' ? 'SMA 50 cruza la SMA 200 del instrumento (el Death Cross solo con BHT ≥ 50: con BHT bajo llega tarde, cerca de los pisos)' : 'instrument 50-day SMA crosses its 200-day SMA (Death Cross only with BHT ≥ 50: with a low BHT it comes late, near bottoms)'}</span>
-            <span className="text-slate-500">{locale === 'es' ? 'Se marcan al entrar en cada estado. Lectura del modelo, no recomendación.' : 'Marked when each state begins. Model reading, not advice.'}</span>
+            <span className="text-slate-500">{locale === 'es' ? 'Lectura del modelo, no recomendación.' : 'Model reading, not advice.'}</span>
           </div>
           {bhtPin.tip && bhtPin.tip.d !== bhtPin.pin?.d && daily && (() => {
             const i = dailyIdx.get(bhtPin.tip.d);

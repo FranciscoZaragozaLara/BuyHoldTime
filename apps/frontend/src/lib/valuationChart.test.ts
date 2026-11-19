@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildValuationChart, signalMarkers, signalState, thinMarkers, DEATH_CROSS_MIN_BHT, CROSS_MIN_SESSIONS, SIGNAL_COOLDOWN, SIGNAL_REPEAT, type ChartPoint, type DailyValuation, type MonthlyRow } from './valuationChart';
+import { buildValuationChart, signalMarkers, signalState, thinMarkers, DEATH_CROSS_MIN_BHT, CROSS_MIN_SESSIONS, SIGNAL_REPEAT, type ChartPoint, type DailyValuation, type MonthlyRow } from './valuationChart';
 
 const monthly: MonthlyRow[] = [
   { date: '1989-11', sp500Price: 340, peRatio: 14, shillerPe: 17 },
@@ -42,18 +42,17 @@ describe('valuationChart', () => {
 
 
 describe('señales BHT × tendencia y cruces', () => {
-  it('estado del día según la banda del BHT y la SMA 200', () => {
-    expect(signalState(30, 'U')).toBe('strong');
-    expect(signalState(30, 'PULLBACK')).toBe('strong');
-    expect(signalState(30, 'D')).toBe('buy');
-    expect(signalState(45, 'U')).toBe('buy');
-    expect(signalState(45, 'D')).toBeNull();
-    expect(signalState(55, 'U')).toBe('starter'); // primer tramo pequeño con BHT 50–60 y tendencia alcista
+  it('escalera de compra por lo barato del BHT; abajo de la SMA 200 baja un nivel', () => {
+    // arriba de la SMA 200
+    expect([55, 45, 35, 25].map((b) => signalState(b, 'U'))).toEqual(['starter', 'buy', 'strong', 'max']);
     expect(signalState(60.5, 'P')).toBe('starter');
     expect(signalState(64, 'U')).toBeNull();
-    expect(signalState(55, 'R')).toBeNull(); // Rebote: sin alerta
-    expect(signalState(65, 'D')).toBe('danger');
-    expect(signalState(75, 'U')).toBeNull(); // rally con BHT alto y tendencia alcista: sin alerta
+    expect(signalState(75, 'U')).toBeNull(); // rally con BHT alto: sin alerta
+    // abajo de la SMA 200 (Rebote o Bajista)
+    expect([45, 35, 25].map((b) => signalState(b, 'R'))).toEqual(['starter', 'buy', 'strong']);
+    expect([45, 35, 25].map((b) => signalState(b, 'D'))).toEqual(['starter', 'buy', 'strong']);
+    expect(signalState(55, 'R')).toBeNull(); // Rebote con BHT neutral: ni compra ni alerta
+    expect(signalState(55, 'D')).toBe('danger');
     expect(signalState(75, 'D')).toBe('danger');
     expect(signalState(undefined, 'U')).toBeNull();
     expect(signalState(30, undefined)).toBeNull();
@@ -63,51 +62,39 @@ describe('señales BHT × tendencia y cruces', () => {
   const pts = (n: number, f: (k: number) => Partial<ChartPoint>): ChartPoint[] =>
     Array.from({ length: n }, (_, k) => ({ time: day(k), daily: true, sp500Price: 100, ...f(k) }));
 
-  it('se marca al entrar en el estado, no cada día, y respeta la espera entre señales iguales', () => {
-    // 0-9 miedo con tendencia alcista ($$), 10-14 codicia (sin señal), 15-19 otra vez $$ (en la espera), 45 de nuevo $$
-    const p = pts(60, (k) => ({ bht: (k < 10 || (k >= 15 && k < 20) || k >= 45) ? 30 : 65, trend: 'U' }));
-    const m = signalMarkers(p).filter((x) => x.kind === 'strong');
-    expect(m.map((x) => x.time)).toEqual([day(0), day(45)]);
-    expect(SIGNAL_COOLDOWN).toBe(40);
-    expect(m[0]).toMatchObject({ text: '$$', position: 'belowBar' });
-  });
-
-  it('subir de nivel (¼$ → $ → $$) no espera; bajar de nivel sí', () => {
-    // 0-4 ¼$ (BHT 55), 5-9 $ (45), 10-14 $$ (30), 15-19 $ otra vez → dentro de la espera, no se marca
-    const p = pts(20, (k) => ({ bht: k < 5 ? 55 : k < 10 ? 45 : k < 15 ? 30 : 45, trend: 'U' }));
-    expect(signalMarkers(p).map((x) => [x.kind, x.time])).toEqual([['starter', day(0)], ['buy', day(5)], ['strong', day(10)]]);
-    expect(signalMarkers(p)[0]).toMatchObject({ text: '¼$' });
-  });
-
-  it('recordatorio mensual mientras el estado de compra se mantiene', () => {
-    // 70 sesiones seguidas con BHT 30 y tendencia alcista: $$ al entrar y cada 21 sesiones
-    const p = pts(70, () => ({ bht: 30, trend: 'U' }));
-    expect(signalMarkers(p).map((x) => x.time)).toEqual([day(0), day(21), day(42), day(63)]);
+  it('mientras siga barato vuelve a comprar cada ~mes aunque el precio no baje', () => {
+    const p = pts(70, () => ({ bht: 35, trend: 'U' }));
+    const m = signalMarkers(p);
+    expect(m.map((x) => [x.kind, x.time])).toEqual([['strong', day(0)], ['strong', day(21)], ['strong', day(42)], ['strong', day(63)]]);
+    expect(m.map((x) => x.priority)).toEqual([2, 1, 1, 1]); // entrada y recordatorios
     expect(SIGNAL_REPEAT).toBe(21);
   });
 
-  it('la alerta se repite solo si el precio subió desde la anterior', () => {
-    // 50 sesiones en peligro (BHT 60, tendencia bajista): precio baja las primeras 30 y luego sube
-    const p = pts(50, (k) => ({ bht: 60, trend: 'D', sp500Price: k < 30 ? 100 - k : 70 + (k - 30) * 3 }));
-    const m = signalMarkers(p).filter((x) => x.kind === 'danger');
-    // día 0 (entrada, precio 100); día 21 precio 79 < 100 → no; sube: día 40 precio 100 ≯ 100; día 41 precio 103 > 100 → sí
-    expect(m.map((x) => x.time)).toEqual([day(0), day(41)]);
+  it('más barato = señal más grande, de inmediato; volver a un nivel menos barato espera el mes', () => {
+    // 0-4 ¼$ (55), 5-9 $ (45), 10-14 $$ (35), 15-19 $$$ (25), 20-29 $ (45) → espera; día 36 (21 tras el $$$) → $
+    const bht = (k: number) => (k < 5 ? 55 : k < 10 ? 45 : k < 15 ? 35 : k < 20 ? 25 : 45);
+    const m = signalMarkers(pts(40, (k) => ({ bht: bht(k), trend: 'U' })));
+    expect(m.map((x) => [x.kind, x.time])).toEqual([['starter', day(0)], ['buy', day(5)], ['strong', day(10)], ['max', day(15)], ['buy', day(36)]]);
+    expect(m.map((x) => x.size)).toEqual([0.7, 0.95, 1.25, 1.6, 0.95]);
+    expect(m.find((x) => x.kind === 'max')).toMatchObject({ text: '$$$' });
   });
 
-  it('una alerta por episodio bajista: oscilar entre Bajista y Rebote no repite la alerta si el precio no subió', () => {
-    // BHT 58; 0-4 alcista (¼$), 5-49 abajo de la SMA 200 alternando Bajista/Rebote cada 10 sesiones, precio bajando
+  it('BHT 40–49 abajo de la SMA 200 (como sep–nov 2022): tramo pequeño ¼$ mensual', () => {
+    const m = signalMarkers(pts(45, () => ({ bht: 46, trend: 'D' })));
+    expect(m.map((x) => [x.kind, x.time])).toEqual([['starter', day(0)], ['starter', day(21)], ['starter', day(42)]]);
+  });
+
+  it('una alerta por episodio bajista: oscilar entre Bajista y Rebote no la repite si el precio no subió', () => {
     const p = pts(100, (k) => ({ bht: 58, trend: k < 5 ? 'U' : Math.floor((k - 5) / 10) % 2 === 0 ? 'D' : 'R', sp500Price: 100 - k * 0.2 }));
     expect(signalMarkers(p).filter((x) => x.kind === 'danger').map((x) => x.time)).toEqual([day(5)]);
   });
 
-  it('peligro con BHT neutral y tendencia bajista', () => {
-    const p = pts(10, (k) => ({ bht: 58, trend: k < 5 ? 'U' : 'D' }));
-    // BHT 58: primer tramo pequeño mientras la tendencia es alcista; alerta al perder la SMA 200
-    expect(signalMarkers(p).map((x) => [x.kind, x.time])).toEqual([['starter', day(0)], ['danger', day(5)]]);
+  it('la alerta se repite solo si el precio subió desde la anterior', () => {
+    const p = pts(50, (k) => ({ bht: 60, trend: 'D', sp500Price: k < 30 ? 100 - k : 70 + (k - 30) * 3 }));
+    expect(signalMarkers(p).filter((x) => x.kind === 'danger').map((x) => x.time)).toEqual([day(0), day(41)]);
   });
 
   it('Golden Cross y Death Cross del precio (SMA 50 cruzando la SMA 200)', () => {
-    // baja hasta la sesión 250, sube hasta la 450 (golden), vuelve a bajar (death)
     const price = (k: number) => (k < 250 ? 300 - k * 0.5 : k < 450 ? 175 + (k - 250) * 1.5 : 475 - (k - 450) * 2);
     const m = signalMarkers(pts(700, (k) => ({ sp500Price: price(k) })));
     expect(m.map((x) => x.kind)).toEqual(['golden', 'death']);
