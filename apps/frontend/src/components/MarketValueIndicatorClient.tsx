@@ -56,6 +56,10 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
 
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
+  // Zoom y posición vigentes: la gráfica se recrea al prender/apagar series o cambiar de instrumento y debe
+  // conservarlos; solo los botones de rango (1Y…ALL) los cambian.
+  const viewRef = useRef<{ from: any; to: any } | null>(null);
+  const lastTimeframeRef = useRef<string | null>(null);
 
   // Hovered data state for interactive legend displays
   const [hoveredData, setHoveredData] = useState<{
@@ -390,9 +394,15 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
       }
     });
 
-    // Handle timeframe bounds
+    // Rango visible: se conserva el de antes de recrear la gráfica salvo que se haya pulsado un botón de rango.
+    const timeframeChanged = lastTimeframeRef.current !== timeframe;
+    lastTimeframeRef.current = timeframe;
     const latest = chartPoints[chartPoints.length - 1];
-    if (latest) {
+    let restored = false;
+    if (!timeframeChanged && viewRef.current) {
+      try { chart.timeScale().setVisibleRange(viewRef.current); restored = true; } catch { /* rango inválido: se aplica el del botón */ }
+    }
+    if (latest && !restored) {
       const latestDate = new Date(latest.time);
       let fromDate: Date | null = null;
       if (timeframe === '1Y') {
@@ -421,6 +431,10 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
         chart.timeScale().fitContent();
       }
     }
+
+    // Guarda cada cambio de zoom/desplazamiento (después de aplicar el rango inicial).
+    const rememberView = (r: { from: any; to: any } | null) => { if (r) viewRef.current = { from: r.from, to: r.to }; };
+    chart.timeScale().subscribeVisibleTimeRangeChange(rememberView);
 
     const maxLineTimer = setTimeout(updateMaxLine, 100);
 
@@ -452,6 +466,7 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
       disposed = true;
       clearTimeout(maxLineTimer);
       chart.timeScale().unsubscribeVisibleTimeRangeChange(updateMaxLine);
+      chart.timeScale().unsubscribeVisibleTimeRangeChange(rememberView);
       chart.remove();
       chartRef.current = null;
     };
