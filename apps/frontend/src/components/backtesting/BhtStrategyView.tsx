@@ -2,6 +2,7 @@
 // Vista "Estrategia" del popover del BHT. Se carga con next/dynamic (su código se descarga solo al pulsar
 // el botón) y pide el cálculo al backend bajo demanda; los resultados quedan en memoria por (fecha, instrumento).
 import { useEffect, useState } from 'react';
+import type React from 'react';
 import { getApiBase } from '@/lib/apiBase';
 import { bhtBand, capeScoreColor } from './bhtBands';
 import { fmtPct, opportunityMessage } from '@/lib/bhtOpportunity';
@@ -51,7 +52,7 @@ const T = {
     peak: 'Pico máx. (5a)', peakIn: 'en ~', peak5: 'Pico máx. (a hoy)', peak5Note: 'Pico desde cada día hasta hoy (ningún día de los últimos 5 años tiene 5 años completos).',
     winAll: 'Toda la historia', win5: 'Últimos 5 años', winTitle: 'Días del rango que entran a los promedios', peakNote: 'Pico dentro de 5 años; fecha = día + tiempo promedio al pico.', loading: 'Calculando…', error: 'No se pudo calcular.',
     note: 'Promedios de días históricos (se traslapan; n = días con dato). No es una recomendación de inversión.',
-    mxTitle: 'BHT × tendencia', mxShow: 'Ver matriz BHT × tendencia', mxHide: 'Ocultar matriz', mxCell: 'Esta combinación', mxRet: 'rend. 12m', mxPos: 'positivo', mxDd: 'caída máx. prom.', mxP15: 'prob. caer >15%', mxDays: 'días', mxNote: 'Cada celda: rendimiento promedio a 12 meses y, debajo, caída máxima promedio y probabilidad de caer más de 15% en esos 12 meses. Celdas con pocos días se ven tenues.', mxBand: 'Banda BHT',
+    mxHere: 'Estás aquí', mxTitle: 'BHT × tendencia', mxShow: 'Ver matriz BHT × tendencia', mxHide: 'Ocultar matriz', mxCell: 'Esta combinación', mxRet: 'rend. 12m', mxPos: 'positivo', mxDd: 'caída máx. prom.', mxP15: 'prob. caer >15%', mxDays: 'días', mxNote: 'Cada celda: rendimiento promedio a 12 meses y, debajo, caída máxima promedio y probabilidad de caer más de 15% en esos 12 meses. Celdas con pocos días se ven tenues.', mxBand: 'Banda BHT',
     pctl: 'percentil', cagr: 'CAGR', cagrTitle: 'Rendimiento anual compuesto equivalente al promedio del plazo',
     since: 'Comprando en esta fecha y manteniendo hasta hoy', atPeak: 'Comprando en esta fecha y vendiendo en el pico máximo', peakCol: 'Pico', dateCol: 'Fecha', noPeak: 'no superó la compra', buy: 'Compra', last: 'Último', total: 'Total', yrs: 'Años', short: '< 1 año', sinceNote: 'CAGR solo con al menos 1 año de tenencia.',
     base: 'Compra', y: 'a', d: 'd',
@@ -62,7 +63,7 @@ const T = {
     peak: 'Max peak (5y)', peakIn: 'in ~', peak5: 'Max peak (to today)', peak5Note: 'Peak from each day until today (no day in the last 5 years has a full 5-year window).',
     winAll: 'All history', win5: 'Last 5 years', winTitle: 'Range days included in the averages', peakNote: 'Peak within 5 years; date = day + average time to peak.', loading: 'Computing…', error: 'Could not compute.',
     note: 'Averages of historical days (overlapping; n = days with data). Not investment advice.',
-    mxTitle: 'BHT × trend', mxShow: 'Show BHT × trend matrix', mxHide: 'Hide matrix', mxCell: 'This combination', mxRet: '12m return', mxPos: 'positive', mxDd: 'avg max drawdown', mxP15: 'prob. of falling >15%', mxDays: 'days', mxNote: 'Each cell: average 12-month return and, below, average max drawdown and probability of falling more than 15% within those 12 months. Cells with few days are dimmed.', mxBand: 'BHT band',
+    mxHere: 'You are here', mxTitle: 'BHT × trend', mxShow: 'Show BHT × trend matrix', mxHide: 'Hide matrix', mxCell: 'This combination', mxRet: '12m return', mxPos: 'positive', mxDd: 'avg max drawdown', mxP15: 'prob. of falling >15%', mxDays: 'days', mxNote: 'Each cell: average 12-month return and, below, average max drawdown and probability of falling more than 15% within those 12 months. Cells with few days are dimmed.', mxBand: 'BHT band',
     pctl: 'percentile', cagr: 'CAGR', cagrTitle: 'Compound annual rate equivalent to the horizon average',
     since: 'Buying on this date and holding until today', atPeak: 'Buying on this date and selling at the maximum peak', peakCol: 'Peak', dateCol: 'Date', noPeak: 'never above the buy price', buy: 'Buy', last: 'Last', total: 'Total', yrs: 'Years', short: '< 1 year', sinceNote: 'CAGR only with at least 1 year held.',
     base: 'Buy', y: 'y', d: 'd',
@@ -181,7 +182,10 @@ export default function BhtStrategyView({ date, locale, adviceLabel, adviceText 
                           const cur = bi === r.matrix!.current.band && g === regime;
                           if (!x || !x.n) return <td key={g} className="text-right text-slate-600">—</td>;
                           return (
-                            <td key={g} className={`text-right px-1 rounded ${cur ? 'ring-1 ring-white/70 bg-slate-800/70' : ''} ${x.n < 60 ? 'opacity-50' : ''}`} title={`${x.n} ${t.mxDays} · ${x.pos12m?.toFixed(0)}% ${t.mxPos}`}>
+                            // Celda de hoy: pulso sutil con el color de la banda y nunca atenuada (aunque tenga pocos días).
+                            <td key={g} className={`text-right px-1 rounded ${cur ? 'bht-cell-now' : x.n < 60 ? 'opacity-50' : ''}`}
+                              style={cur ? ({ '--pulse': b.color } as React.CSSProperties) : undefined}
+                              title={`${cur ? `${t.mxHere} · ` : ''}${x.n} ${t.mxDays} · ${x.pos12m?.toFixed(0)}% ${t.mxPos}`}>
                               <div className={`font-bold ${pctCls(x.avg12m)}`}>{pctTxt(x.avg12m)}</div>
                               <div className="text-slate-500">{x.avgMdd?.toFixed(0)}% · {x.pDd15?.toFixed(0)}%</div>
                             </td>

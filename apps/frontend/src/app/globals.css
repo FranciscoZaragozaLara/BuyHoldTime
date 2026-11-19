@@ -96,3 +96,13 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Matriz BHT × tendencia: celda donde estamos hoy. Pulso sutil del brillo con el color de la banda (--pulse). */
+@keyframes bht-cell-pulse {
+  0%, 100% { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--pulse) 55%, transparent); background-color: color-mix(in srgb, var(--pulse) 10%, transparent); }
+  50% { box-shadow: inset 0 0 0 1.5px var(--pulse), 0 0 12px color-mix(in srgb, var(--pulse) 45%, transparent); background-color: color-mix(in srgb, var(--pulse) 22%, transparent); }
+}
+.bht-cell-now { animation: bht-cell-pulse 1.8s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .bht-cell-now { animation: none; box-shadow: inset 0 0 0 1.5px var(--pulse); background-color: color-mix(in srgb, var(--pulse) 18%, transparent); }
+}
