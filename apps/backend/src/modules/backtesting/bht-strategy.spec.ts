@@ -102,3 +102,14 @@ describe('vendiendo en el pico', () => {
     expect(r.sinceDate.tqqq.peak).toBeNull(); // nunca superó el precio de compra
   });
 });
+
+describe('percentil del BHT', () => {
+  test('% de días con BHT menor o igual al de hoy, en toda la historia y en 5 años', () => {
+    const dates = Array.from({ length: 96 }, (_, k) => `${2000 + Math.floor(k / 12)}-${String((k % 12) + 1).padStart(2, '0')}-01`);
+    const bht = dates.map((_, k) => k % 100); // 0..95, uno por mes
+    const s: StrategySeries = { dates, bht, px: { spx: dates.map(() => 100), qqq: dates.map(() => null), tqqq: dates.map(() => null) } };
+    const r = computeBhtStrategy(s, '2000-10-01', 'spx')!; // BHT 9
+    expect(r.percentile.all).toBeCloseTo((10 / 96) * 100, 9); // 0..9
+    expect(r.percentile.last5y).toBe(0); // los últimos 5 años tienen BHT ≥ 35
+  });
+});

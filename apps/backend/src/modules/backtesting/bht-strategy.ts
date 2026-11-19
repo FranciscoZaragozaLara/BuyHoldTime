@@ -44,6 +44,8 @@ export function lastOnOrBefore(dates: string[], d: string): number {
 export type StrategyResult = {
   date: string; instrument: Instrument; window: SampleWindow; bht: number; range: [number, number];
   frequency: { all: { count: number; total: number; pct: number }; last5y: { count: number; total: number; pct: number } };
+  /** Percentil del BHT del día: % de días con BHT ≤ al de hoy (bajo = barato, mejor momento de compra). */
+  percentile: { all: number; last5y: number };
   base: { price: number | null; today: string; todayPrice: number | null };
   perf: Array<{ years: number; n: number; avgPct: number | null; medianPct: number | null; positivePct: number | null; nominal: number | null; targetDate: string; cagrPct: number | null }>;
   /** Comprar en la fecha y mantener hasta hoy (último cierre), por instrumento. CAGR solo con ≥ 1 año. */
@@ -67,11 +69,12 @@ export function computeBhtStrategy(s: StrategySeries, date: string, instrument: 
   const from5y = addYears(today, -5);
 
   // 1) Frecuencia (días con BHT).
-  let allN = 0, allC = 0, n5 = 0, c5 = 0;
+  let allN = 0, allC = 0, n5 = 0, c5 = 0, allLe = 0, le5 = 0;
   const samples: number[] = [];
   s.bht.forEach((b, k) => {
     if (b == null) return;
     allN++;
+    if (b <= bht) { allLe++; if (s.dates[k] >= from5y) le5++; }
     const hit = inRange(b);
     if (hit) allC++;
     if (s.dates[k] >= from5y) { n5++; if (hit) c5++; }
@@ -147,6 +150,7 @@ export function computeBhtStrategy(s: StrategySeries, date: string, instrument: 
   return {
     date: s.dates[i], instrument, window, bht, range,
     frequency: { all: { count: allC, total: allN, pct: pct(allC, allN) }, last5y: { count: c5, total: n5, pct: pct(c5, n5) } },
+    percentile: { all: pct(allLe, allN), last5y: pct(le5, n5) },
     base: { price: basePrice ?? null, today, todayPrice: todayPrice ?? null },
     perf,
     sinceDate,

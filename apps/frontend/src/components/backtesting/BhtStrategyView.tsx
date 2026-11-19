@@ -4,12 +4,14 @@
 import { useEffect, useState } from 'react';
 import { getApiBase } from '@/lib/apiBase';
 import { bhtBand, capeScoreColor } from './bhtBands';
+import { fmtPct, opportunityMessage } from '@/lib/bhtOpportunity';
 
 type Instrument = 'spx' | 'qqq' | 'tqqq';
 type Win = 'all' | '5y';
 type Result = {
   date: string; bht: number; range: [number, number];
   frequency: { all: { count: number; total: number; pct: number }; last5y: { count: number; total: number; pct: number } };
+  percentile?: { all: number; last5y: number };
   base: { price: number | null; today: string; todayPrice: number | null };
   perf: Array<{ years: number; n: number; avgPct: number | null; medianPct: number | null; positivePct: number | null; nominal: number | null; targetDate: string; cagrPct?: number | null }>;
   sinceDate?: Record<Instrument, {
@@ -42,7 +44,7 @@ const T = {
     peak: 'Pico máx. (5a)', peakIn: 'en ~', peak5: 'Pico máx. (a hoy)', peak5Note: 'Pico desde cada día hasta hoy (ningún día de los últimos 5 años tiene 5 años completos).',
     winAll: 'Toda la historia', win5: 'Últimos 5 años', winTitle: 'Días del rango que entran a los promedios', peakNote: 'Pico dentro de 5 años; fecha = día + tiempo promedio al pico.', loading: 'Calculando…', error: 'No se pudo calcular.',
     note: 'Promedios de días históricos (se traslapan; n = días con dato). No es una recomendación de inversión.',
-    cagr: 'CAGR', cagrTitle: 'Rendimiento anual compuesto equivalente al promedio del plazo',
+    pctl: 'percentil', cagr: 'CAGR', cagrTitle: 'Rendimiento anual compuesto equivalente al promedio del plazo',
     since: 'Comprando en esta fecha y manteniendo hasta hoy', atPeak: 'Comprando en esta fecha y vendiendo en el pico máximo', peakCol: 'Pico', dateCol: 'Fecha', noPeak: 'no superó la compra', buy: 'Compra', last: 'Último', total: 'Total', yrs: 'Años', short: '< 1 año', sinceNote: 'CAGR solo con al menos 1 año de tenencia.',
     base: 'Compra', y: 'a', d: 'd',
   },
@@ -52,7 +54,7 @@ const T = {
     peak: 'Max peak (5y)', peakIn: 'in ~', peak5: 'Max peak (to today)', peak5Note: 'Peak from each day until today (no day in the last 5 years has a full 5-year window).',
     winAll: 'All history', win5: 'Last 5 years', winTitle: 'Range days included in the averages', peakNote: 'Peak within 5 years; date = day + average time to peak.', loading: 'Computing…', error: 'Could not compute.',
     note: 'Averages of historical days (overlapping; n = days with data). Not investment advice.',
-    cagr: 'CAGR', cagrTitle: 'Compound annual rate equivalent to the horizon average',
+    pctl: 'percentile', cagr: 'CAGR', cagrTitle: 'Compound annual rate equivalent to the horizon average',
     since: 'Buying on this date and holding until today', atPeak: 'Buying on this date and selling at the maximum peak', peakCol: 'Peak', dateCol: 'Date', noPeak: 'never above the buy price', buy: 'Buy', last: 'Last', total: 'Total', yrs: 'Years', short: '< 1 year', sinceNote: 'CAGR only with at least 1 year held.',
     base: 'Buy', y: 'y', d: 'd',
   },
@@ -100,12 +102,31 @@ export default function BhtStrategyView({ date, locale, adviceLabel, adviceText 
         </div>
         {r && (
           <span className="font-mono text-[11px] text-slate-400">
-            {t.range} <span className="font-bold" style={{ color: capeScoreColor(r.bht) }}>{r.bht.toFixed(1)}</span> → {t.rangeOf} <span className="text-slate-100">{r.range[0]}–{r.range[1]}</span>
+            {t.range} <span className="font-bold" style={{ color: capeScoreColor(r.bht) }}>{r.bht.toFixed(1)}</span> → {t.rangeOf} <span className="text-slate-100">{Math.max(0, r.range[0])}–{Math.min(100, r.range[1])}</span>
             {' · '}{t.freq}: <span className="text-slate-100">{r.frequency.all.count.toLocaleString('en-US')}</span> {t.days} ({r.frequency.all.pct.toFixed(1)}% {t.hist})
             {' · '}<span className="text-slate-100">{r.frequency.last5y.count}</span> ({r.frequency.last5y.pct.toFixed(1)}% {t.last5})
           </span>
         )}
       </div>
+
+      {r?.percentile && (() => {
+        // Percentil en la ventana elegida (toda la historia / últimos 5 años), con el color del semáforo del BHT.
+        const p = win === '5y' ? r.percentile.last5y : r.percentile.all;
+        const m = opportunityMessage(p, locale);
+        const color = bhtBand(r.bht).color;
+        return (
+          <div className="flex items-center gap-3 p-2 rounded-lg border" style={{ borderColor: `${color}66`, backgroundColor: `${color}14` }}>
+            <div className="shrink-0 text-center leading-none">
+              <div className="font-mono text-lg font-bold" style={{ color }}>{fmtPct(p)}%</div>
+              <div className="text-[9px] uppercase tracking-wide text-slate-500 mt-0.5">{t.pctl}</div>
+            </div>
+            <div className="leading-snug">
+              <div className="font-bold" style={{ color }}>{m.label}</div>
+              <div className="text-slate-300">{m.text} <span className="text-slate-500">({win === '5y' ? t.win5 : t.winAll})</span></div>
+            </div>
+          </div>
+        );
+      })()}
 
       {r === undefined ? <div className="font-mono text-slate-500">{t.loading}</div> : r === null ? <div className="font-mono text-risk-300">{t.error}</div> : (
         <div className={`space-y-2 transition-opacity ${fresh ? '' : 'opacity-50'}`}>
