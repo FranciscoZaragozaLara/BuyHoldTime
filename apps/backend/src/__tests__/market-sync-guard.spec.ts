@@ -15,6 +15,7 @@ describe("MarketSync full-sync guard Suite", () => {
     let bhCalls = 0;
     (svc as any).runPython = async () => { pyCalls++; await sleep(50); };
     (svc as any).patchBHPerformance = async () => { bhCalls++; };
+    (svc as any).syncProvisional = async () => {};
     (svc as any).runTsScript = async () => {};
     (svc as any).kickFullSyncBackground();
     (svc as any).kickFullSyncBackground();
@@ -28,6 +29,7 @@ describe("MarketSync full-sync guard Suite", () => {
     let pyCalls = 0;
     (svc as any).runPython = async () => { pyCalls++; };
     (svc as any).patchBHPerformance = async () => {};
+    (svc as any).syncProvisional = async () => {};
     (svc as any).runTsScript = async () => {};
     (svc as any).kickFullSyncBackground();
     await sleep(50);
@@ -41,6 +43,7 @@ describe("MarketSync full-sync guard Suite", () => {
     const calls: Array<{ script: string; env: any }> = [];
     (svc as any).runPython = async () => {};
     (svc as any).patchBHPerformance = async () => {};
+    (svc as any).syncProvisional = async () => {};
     (svc as any).runTsScript = async (script: string, env: any) => { calls.push({ script, env }); };
     await svc.runNow();
     expect(calls.map((c) => c.script)).toEqual([

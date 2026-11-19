@@ -2,6 +2,7 @@ import 'dotenv/config';
 import { Pool } from 'pg';
 import { computeThermoDay, PriceMap, THERMO_TICKERS } from '../src/modules/backtesting/thermo-history';
 import { trendAt, trendRegimeSeries } from '../src/modules/backtesting/trend-regime';
+import { PROVISIONAL_OF, withProvisional } from '../src/modules/backtesting/provisional-series';
 
 // Historifica el Termómetro BuyHoldTime al cierre en bt_thermo_history.
 // Idempotente (upsert por fecha): reejecutable a diario tras el sync.
@@ -39,8 +40,12 @@ async function main() {
   // BtMarketData a mapas por ticker
   const series: Record<string, PriceMap> = {};
   for (const t of TICKERS) series[t] = new Map();
-  const { rows } = await pool.query('SELECT ticker, date::text AS d, close FROM "bt_market_data" WHERE ticker = ANY($1)', [TICKERS]);
+  const provTickers = TICKERS.map((t) => PROVISIONAL_OF[t]).filter(Boolean);
+  for (const t of provTickers) series[t] = new Map();
+  const { rows } = await pool.query('SELECT ticker, date::text AS d, close FROM "bt_market_data" WHERE ticker = ANY($1)', [[...TICKERS, ...provTickers]]);
   for (const r of rows) series[r.ticker]?.set(r.d.slice(0, 10), Number(r.close));
+  // Series oficiales con retraso (WTI de FRED): los días aún no publicados toman el proxy provisional (CL=F).
+  for (const t of TICKERS) if (PROVISIONAL_OF[t]) series[t] = withProvisional(series[t], series[PROVISIONAL_OF[t]]);
   console.log(`tickers cargados: ${TICKERS.map((t) => `${t}=${series[t].size}`).join(' ')}`);
   // Régimen tendencial del S&P 500 con toda su historia (las SMA necesitan 200 sesiones previas a FROM).
   const trend = trendRegimeSeries(series['^GSPC']);

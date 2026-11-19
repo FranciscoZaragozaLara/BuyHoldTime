@@ -7,6 +7,7 @@ import { monthlyPartsFromDaily } from './bht-forward';
 import { computeBhtStrategy, type Instrument as StrategyInstrument, type SampleWindow, type StrategySeries } from './bht-strategy';
 import { computeBhtDrawdowns } from './bht-drawdowns';
 import { liveTrend } from './trend-regime';
+import { PROVISIONAL_OF, rowsWithProvisional, withProvisional } from './provisional-series';
 
 /** Tickers cuyo precio en vivo se toma de otro símbolo de Yahoo (la serie histórica viene de otra fuente). */
 export const YAHOO_LIVE_ALIAS: Record<string, string> = { DCOILWTICO: 'CL=F' };
@@ -65,7 +66,11 @@ export class BacktestingService {
 
   async getStrategies() { return this.prisma.btStrategy.findMany({ orderBy: { code: 'asc' } }); }
   async getMarketData(ticker: string, from?: string, to?: string) {
-    const rows = await this.prisma.btMarketData.findMany({ where: { ticker, ...(from || to ? { date: { gte: from ? new Date(from) : undefined, lte: to ? new Date(to) : undefined } } : {}) }, orderBy: { date: 'asc' }, take: 20000 });
+    const range = from || to ? { date: { gte: from ? new Date(from) : undefined, lte: to ? new Date(to) : undefined } } : {};
+    let rows: any[] = await this.prisma.btMarketData.findMany({ where: { ticker, ...range }, orderBy: { date: 'asc' }, take: 20000 });
+    // Serie oficial con retraso (p. ej. WTI de FRED): se completa con el proxy provisional para las fechas aún no publicadas.
+    const prov = PROVISIONAL_OF[ticker];
+    if (prov) rows = rowsWithProvisional(rows, await this.prisma.btMarketData.findMany({ where: { ticker: prov, ...range }, orderBy: { date: 'asc' } }));
     return rows.map(r => ({ ...r, volume: r.volume.toString() }));
   }
   async getStartDates() {
@@ -708,13 +713,15 @@ export class BacktestingService {
     if (cached) return cached;
     const iso = new Date().toISOString().slice(0, 10);
     const from = new Date(); from.setFullYear(from.getFullYear() - 8);
+    const provTickers = THERMO_TICKERS.map((t) => PROVISIONAL_OF[t]).filter(Boolean);
     const rows = await this.prisma.btMarketData.findMany({
-      where: { ticker: { in: THERMO_TICKERS }, date: { gte: from, lte: new Date(iso) } },
+      where: { ticker: { in: [...THERMO_TICKERS, ...provTickers] }, date: { gte: from, lte: new Date(iso) } },
       select: { ticker: true, date: true, close: true },
     });
     const s: Record<string, PriceMap> = {};
-    for (const t of THERMO_TICKERS) s[t] = new Map();
+    for (const t of [...THERMO_TICKERS, ...provTickers]) s[t] = new Map();
     for (const r of rows) s[r.ticker]?.set(r.date.toISOString().slice(0, 10), Number(r.close));
+    for (const t of THERMO_TICKERS) if (PROVISIONAL_OF[t]) s[t] = withProvisional(s[t], s[PROVISIONAL_OF[t]]);
     const live: LivePoints = {};
     const liveMeta: Record<string, { date: string; source: string }> = {};
     await Promise.all(THERMO_LIVE_TICKERS.map(async (t) => {
@@ -836,8 +843,9 @@ export class BacktestingService {
     let oilPrice: number | null = null, oilRatio: number | null = null;
     try {
       const iso = r.date.toISOString().slice(0, 10);
-      const oilRows = await this.prisma.btMarketData.findMany({ where: { ticker: 'DCOILWTICO', date: { lte: r.date } }, orderBy: { date: 'desc' }, take: 1300 });
-      const oilMap: PriceMap = new Map(oilRows.map((x: any) => [x.date.toISOString().slice(0, 10), Number(x.close)]));
+      const oilRows = await this.prisma.btMarketData.findMany({ where: { ticker: { in: ['DCOILWTICO', PROVISIONAL_OF.DCOILWTICO] }, date: { lte: r.date } }, orderBy: { date: 'desc' }, take: 1400 });
+      const oilOf = (t: string): PriceMap => new Map(oilRows.filter((x: any) => x.ticker === t).map((x: any) => [x.date.toISOString().slice(0, 10), Number(x.close)]));
+      const oilMap = withProvisional(oilOf('DCOILWTICO'), oilOf(PROVISIONAL_OF.DCOILWTICO));
       const ob = getOilBonus(oilMap, iso);
       oilPrice = ob.price; oilRatio = ob.ratio;
     } catch {}

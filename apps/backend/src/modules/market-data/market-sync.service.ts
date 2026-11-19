@@ -10,6 +10,7 @@ import { logSourceRun, SourceRunTracker } from '../admin/data-source-runs';
 import { wsjPointChanged } from './wsj-pe';
 import { syncIndicatorsTable } from './indicator-sync';
 import { notifyFrontendRevalidate } from './frontend-revalidate';
+import { PROVISIONAL_OF } from '../backtesting/provisional-series';
 
 /**
  * Construye la línea planchada del día `date` para shiller_daily.csv SIN asumir
@@ -104,6 +105,7 @@ export class MarketSyncService {
     this.logger.log('Full sync background start (daily_update.py + BH patch)');
     this.restoreShillerCsv()
       .then(() => this.runPython('daily_update.py', []))
+      .then(() => this.syncProvisional())
       .then(() => this.patchBHPerformance())
       .then(() => this.syncShillerDb())
       .then(() => this.syncIndicators())
@@ -112,6 +114,45 @@ export class MarketSyncService {
       .then(() => this.logger.log('Full sync background done'))
       .catch((e: any) => this.logger.error(`Full sync background failed: ${e.message?.slice(0, 200)}`))
       .finally(() => { this.fullSyncRunning = false; });
+  }
+
+  /** Cierres diarios de Yahoo (último mes) a bt_market_data; devuelve filas escritas y el último cierre. */
+  private async upsertYahoo(ticker: string, range = '1mo'): Promise<{ upserts: number; after: number | null; afterDate: string | null }> {
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1d&range=${range}`;
+    const r: any = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' } as any, signal: AbortSignal.timeout(8000) } as any);
+    if (!r.ok) throw new Error(`yahoo ${r.status}`);
+    const j: any = await r.json();
+    const result = j?.chart?.result?.[0];
+    const q = result?.indicators?.quote?.[0] ?? {};
+    const closes: number[] = q.close || [], highs: number[] = q.high || [], lows: number[] = q.low || [], opens: number[] = q.open || [], volumes: number[] = q.volume || [];
+    const timestamps: number[] = result?.timestamp || [];
+    let upserts = 0, after: number | null = null, afterDate: string | null = null;
+    for (let i = 0; i < timestamps.length; i++) {
+      const c = closes[i];
+      if (c == null || isNaN(c)) continue;
+      const d = new Date(timestamps[i] * 1000).toISOString().slice(0, 10);
+      const o = opens[i] ?? c, h = highs[i] ?? c, l = lows[i] ?? c, v = volumes[i] ?? 0;
+      await this.prisma.btMarketData.upsert({
+        where: { ticker_date: { ticker, date: new Date(d) } },
+        update: { open: Number(o), high: Number(h), low: Number(l), close: Number(c), adjClose: Number(c), volume: BigInt(Math.round(Number(v) || 0)), isValidated: true },
+        create: { ticker, date: new Date(d), open: Number(o), high: Number(h), low: Number(l), close: Number(c), adjClose: Number(c), volume: BigInt(Math.round(Number(v) || 0)), isValidated: true, source: 'yfinance' },
+      });
+      upserts++;
+      after = Number(c); afterDate = d;
+    }
+    return { upserts, after, afterDate };
+  }
+
+  // Series provisionales (p. ej. WTI CL=F mientras FRED publica DCOILWTICO): el cron usa daily_update.py, que no las baja.
+  private async syncProvisional(): Promise<void> {
+    for (const t of Object.values(PROVISIONAL_OF)) {
+      try {
+        const y = await this.upsertYahoo(t, '1mo');
+        this.logger.log(`Provisional ${t}: ${y.upserts} filas (último ${y.afterDate} ${y.after})`);
+      } catch (e: any) {
+        this.logger.warn(`Provisional ${t} falló: ${String(e?.message ?? e).slice(0, 120)}`);
+      }
+    }
   }
 
   // CAPE diario: el CSV (/tmp) es solo intercambio con BackTesting; la fuente es
@@ -197,6 +238,7 @@ export class MarketSyncService {
     try {
       await this.restoreShillerCsv();
       await this.runPython('daily_update.py', []);
+      await this.syncProvisional();
       await this.patchBHPerformance();
       await this.syncShillerDb();
       await this.syncIndicators();
@@ -495,6 +537,7 @@ export class MarketSyncService {
       { ticker: 'M2SL', name: 'M2SL', purpose: 'M2 oferta monetaria — liquidez semáforo', source: 'FRED', api: 'https://fred.stlouisfed.org/graph/fredgraph.csv?id=M2SL', kind: 'fred' },
       { ticker: 'BOGMBASE', name: 'BOGMBASE', purpose: 'Base monetaria M0 — inyección Fed semáforo', source: 'FRED', api: 'https://fred.stlouisfed.org/graph/fredgraph.csv?id=BOGMBASE', kind: 'fred' },
       { ticker: 'DCOILWTICO', name: 'DCOILWTICO', purpose: 'WTI petróleo — shock inflación semáforo', source: 'FRED', api: 'https://fred.stlouisfed.org/graph/fredgraph.csv?id=DCOILWTICO', kind: 'fred' },
+      { ticker: 'CL=F', name: 'WTI futuro (CL=F)', purpose: 'WTI provisional: cubre los días que FRED aún no publica (DCOILWTICO llega con retraso)', source: 'yfinance', api: 'https://query1.finance.yahoo.com/v8/finance/chart/CL=F', kind: 'yahoo' },
       { ticker: 'CAPE', name: 'CAPE', purpose: 'Shiller CAPE — valuación R1', source: 'Shiller', api: 'BackTesting/data/shiller_daily.csv → bt_shiller_daily', kind: 'cape' },
       // Después de ^GSPC (el EPS implícito usa el cierre del S&P 500 de la fecha de corte) y antes del recálculo del termómetro.
       { ticker: 'SPX_FWD_EPS', name: 'SPX_FWD_EPS', purpose: 'EPS estimado S&P 500 (P/E de Birinyi) — Fwd PE del semáforo', source: 'WSJ / Birinyi', api: 'https://www.wsj.com/market-data/stocks/peyields', kind: 'wsjpe' },
@@ -539,39 +582,9 @@ export class MarketSyncService {
         if (ind.kind === 'yahoo' || ind.kind === 'fred') {
           // For yahoo/fred we can reuse daily_update per ticker but to keep incremental we call Node fetch + upsert
           if (ind.kind === 'yahoo') {
-            const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ind.ticker)}?interval=1d&range=1mo`;
-            let r: any;
-            {
-              const ac = new AbortController();
-              const to = setTimeout(() => { try { ac.abort(); } catch {} }, 8000);
-              try {
-                r = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' } as any, signal: ac.signal as any } as any);
-              } finally { clearTimeout(to); }
-            }
-            if (!r.ok) throw new Error(`yahoo ${r.status}`);
-            const j: any = await r.json();
-            const result = j?.chart?.result?.[0];
-            const closes: number[] = result?.indicators?.quote?.[0]?.close || [];
-            const highs: number[] = result?.indicators?.quote?.[0]?.high || [];
-            const lows: number[] = result?.indicators?.quote?.[0]?.low || [];
-            const opens: number[] = result?.indicators?.quote?.[0]?.open || [];
-            const volumes: number[] = result?.indicators?.quote?.[0]?.volume || [];
-            const timestamps: number[] = result?.timestamp || [];
-            let upserts = 0;
-            for (let i = 0; i < timestamps.length; i++) {
-              const c = closes[i];
-              if (c == null || isNaN(c)) continue;
-              const d = new Date(timestamps[i] * 1000).toISOString().slice(0, 10);
-              const o = opens[i] ?? c, h = highs[i] ?? c, l = lows[i] ?? c, v = volumes[i] ?? 0;
-              await this.prisma.btMarketData.upsert({
-                where: { ticker_date: { ticker: ind.ticker, date: new Date(d) } },
-                update: { open: Number(o), high: Number(h), low: Number(l), close: Number(c), adjClose: Number(c), volume: BigInt(Math.round(Number(v) || 0)), isValidated: true },
-                create: { ticker: ind.ticker, date: new Date(d), open: Number(o), high: Number(h), low: Number(l), close: Number(c), adjClose: Number(c), volume: BigInt(Math.round(Number(v) || 0)), isValidated: true, source: 'yfinance' },
-              });
-              upserts++;
-              after = Number(c); afterDate = d;
-            }
-            daysExtracted = upserts; // yahoo cubre ~22 días (10 previos incluidos) con upsert -> plancha parcial a final
+            const y = await this.upsertYahoo(ind.ticker, '1mo');
+            after = y.after; afterDate = y.afterDate;
+            daysExtracted = y.upserts; // yahoo cubre ~22 días (10 previos incluidos) con upsert -> plancha parcial a final
           } else if (ind.kind === 'fred') {
             const url = `https://fred.stlouisfed.org/graph/fredgraph.csv?id=${encodeURIComponent(ind.ticker)}&cosd=1990-01-01`;
             let r: any;
