@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildValuationChart, signalMarkers, signalState, CROSS_MIN_SESSIONS, SIGNAL_COOLDOWN, type ChartPoint, type DailyValuation, type MonthlyRow } from './valuationChart';
+import { buildValuationChart, signalMarkers, signalState, CROSS_MIN_SESSIONS, SIGNAL_COOLDOWN, SIGNAL_REPEAT, type ChartPoint, type DailyValuation, type MonthlyRow } from './valuationChart';
 
 const monthly: MonthlyRow[] = [
   { date: '1989-11', sp500Price: 340, peRatio: 14, shillerPe: 17 },
@@ -77,6 +77,21 @@ describe('señales BHT × tendencia y cruces', () => {
     const p = pts(20, (k) => ({ bht: k < 5 ? 55 : k < 10 ? 45 : k < 15 ? 30 : 45, trend: 'U' }));
     expect(signalMarkers(p).map((x) => [x.kind, x.time])).toEqual([['starter', day(0)], ['buy', day(5)], ['strong', day(10)]]);
     expect(signalMarkers(p)[0]).toMatchObject({ text: '¼$' });
+  });
+
+  it('recordatorio mensual mientras el estado de compra se mantiene', () => {
+    // 70 sesiones seguidas con BHT 30 y tendencia alcista: $$ al entrar y cada 21 sesiones
+    const p = pts(70, () => ({ bht: 30, trend: 'U' }));
+    expect(signalMarkers(p).map((x) => x.time)).toEqual([day(0), day(21), day(42), day(63)]);
+    expect(SIGNAL_REPEAT).toBe(21);
+  });
+
+  it('la alerta se repite solo si el precio subió desde la anterior', () => {
+    // 50 sesiones en peligro (BHT 60, tendencia bajista): precio baja las primeras 30 y luego sube
+    const p = pts(50, (k) => ({ bht: 60, trend: 'D', sp500Price: k < 30 ? 100 - k : 70 + (k - 30) * 3 }));
+    const m = signalMarkers(p).filter((x) => x.kind === 'danger');
+    // día 0 (entrada, precio 100); día 21 precio 79 < 100 → no; sube: día 40 precio 100 ≯ 100; día 41 precio 103 > 100 → sí
+    expect(m.map((x) => x.time)).toEqual([day(0), day(41)]);
   });
 
   it('peligro con BHT neutral y tendencia bajista', () => {

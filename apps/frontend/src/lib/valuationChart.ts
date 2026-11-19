@@ -87,6 +87,11 @@ export type SignalMarker = {
  * nivel de compra no espera), y duración mínima de un cruce para contarlo.
  */
 export const SIGNAL_COOLDOWN = 40;
+/**
+ * Recordatorio mientras un estado se mantiene: cada ~1 mes (sesiones) se repite el icono. Compras: con solo mantenerse;
+ * alerta (⚠): solo si el precio subió desde la alerta anterior.
+ */
+export const SIGNAL_REPEAT = 21;
 export const CROSS_MIN_SESSIONS = 10;
 
 const STYLE: Record<SignalKind, Omit<SignalMarker, 'time' | 'kind'>> = {
@@ -119,8 +124,9 @@ export function signalState(bht: number | undefined, trend: string | undefined):
 }
 
 /**
- * Señales de la gráfica: $$ / $ / ⚠ al ENTRAR en cada estado (no cada día), con SIGNAL_COOLDOWN sesiones entre
- * dos de la misma familia; y cruces de la SMA 50 sobre la SMA 200 del precio mostrado (Golden Cross hacia arriba,
+ * Señales de la gráfica: $$ / $ / ¼$ / ⚠ al ENTRAR en cada estado (no cada día), con SIGNAL_COOLDOWN sesiones entre
+ * dos de la misma familia; si el estado se mantiene, un recordatorio cada SIGNAL_REPEAT sesiones (⚠ solo si el
+ * precio subió); y cruces de la SMA 50 sobre la SMA 200 del precio mostrado (Golden Cross hacia arriba,
  * Death Cross hacia abajo), descartando los que se revierten en menos de CROSS_MIN_SESSIONS sesiones.
  */
 export function signalMarkers(points: ChartPoint[]): SignalMarker[] {
@@ -130,14 +136,28 @@ export function signalMarkers(points: ChartPoint[]): SignalMarker[] {
   let prev: string | null = null;
   const fam = (k: string) => (k === 'danger' ? 'danger' : 'buy');
   const last: Record<string, { i: number; kind: string } | undefined> = {};
+  // Última marca dentro del estado vigente (para los recordatorios) y su precio.
+  let runMark: { i: number; price: number } | null = null;
   daily.forEach((p, i) => {
     const st = signalState(p.bht, p.trend);
+    const price = p.sp500Price!;
     if (st && st !== prev) {
+      runMark = null;
       const l = last[fam(st)];
       const upgrade = st !== 'danger' && !!l && (BUY_RANK[st] ?? 0) > (BUY_RANK[l.kind] ?? 0);
       if (!l || upgrade || i - l.i >= SIGNAL_COOLDOWN) {
         out.push({ time: p.time, kind: st });
         last[fam(st)] = { i, kind: st };
+        runMark = { i, price };
+      }
+    } else if (st && st === prev) {
+      // El estado se mantiene: recordatorio mensual (desde la última marca de la familia si la entrada esperó).
+      const ref = runMark ?? (last[fam(st)] ? { i: last[fam(st)]!.i, price: daily[last[fam(st)]!.i].sp500Price! } : null);
+      const due = !ref || i - ref.i >= SIGNAL_REPEAT;
+      if (due && (st !== 'danger' || !ref || price > ref.price)) {
+        out.push({ time: p.time, kind: st });
+        last[fam(st)] = { i, kind: st };
+        runMark = { i, price };
       }
     }
     prev = st;
