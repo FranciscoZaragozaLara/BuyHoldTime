@@ -2,7 +2,8 @@
 // 1) Rango del BHT del día ±2 puntos (63 → 61–65): días históricos y de los últimos 5 años en ese rango.
 // 2) Rendimiento promedio de esos días a 1, 2, 3 y 5 años y pico máximo dentro de 5 años, proyectado
 //    sobre el precio del día (precio nominal esperado y fecha).
-// 3) Comprando en esta fecha y manteniendo hasta hoy, para cada instrumento: rendimiento total y CAGR.
+// 3) Comprando en esta fecha y manteniendo hasta hoy, para cada instrumento: rendimiento total y CAGR; y lo mismo
+//    si se vendiera en el pico máximo alcanzado desde la compra.
 // Los tramos de compra/venta y las caídas por año están en la vista Drawdowns (bht-drawdowns.ts).
 export type Instrument = 'spx' | 'qqq' | 'tqqq';
 /** Días del rango que entran a los promedios: toda la historia o solo los últimos 5 años. */
@@ -46,7 +47,11 @@ export type StrategyResult = {
   base: { price: number | null; today: string; todayPrice: number | null };
   perf: Array<{ years: number; n: number; avgPct: number | null; medianPct: number | null; positivePct: number | null; nominal: number | null; targetDate: string; cagrPct: number | null }>;
   /** Comprar en la fecha y mantener hasta hoy (último cierre), por instrumento. CAGR solo con ≥ 1 año. */
-  sinceDate: Record<Instrument, { buyPrice: number | null; lastPrice: number | null; lastDate: string | null; years: number | null; totalPct: number | null; cagrPct: number | null }>;
+  sinceDate: Record<Instrument, {
+    buyPrice: number | null; lastPrice: number | null; lastDate: string | null; years: number | null; totalPct: number | null; cagrPct: number | null;
+    /** Vendiendo en el precio más alto desde la compra (null si nunca superó el precio de compra). */
+    peak: { price: number; date: string; bht: number | null; years: number; totalPct: number; cagrPct: number | null } | null;
+  }>;
   peak: { n: number; avgPct: number | null; avgDays: number | null; nominal: number | null; date: string | null };
 };
 
@@ -121,9 +126,21 @@ export function computeBhtStrategy(s: StrategySeries, date: string, instrument: 
     const pN = k > i ? p[k] : null;
     const yrs = pN != null ? daysBetween(s.dates[i], s.dates[k]) / 365.25 : null;
     const total = p0 != null && pN != null ? (pN / p0 - 1) * 100 : null;
+    // Pico: el cierre más alto después de la compra (con el último BHT disponible ese día).
+    let hi = -1;
+    if (p0 != null) for (let j = i + 1; j <= last; j++) { const v = p[j]; if (v != null && v > p0 && (hi < 0 || v > p[hi]!)) hi = j; }
+    let peak: StrategyResult['sinceDate'][Instrument]['peak'] = null;
+    if (hi > 0) {
+      let b: number | null = null;
+      for (let j = hi; j >= 0 && b == null; j--) b = s.bht[j];
+      const py = daysBetween(s.dates[i], s.dates[hi]) / 365.25;
+      const pt = (p[hi]! / p0! - 1) * 100;
+      peak = { price: p[hi]!, date: s.dates[hi], bht: b, years: py, totalPct: pt, cagrPct: py >= 1 ? cagr(pt, py) : null };
+    }
     sinceDate[inst] = {
       buyPrice: p0, lastPrice: pN ?? null, lastDate: pN != null ? s.dates[k] : null,
       years: yrs, totalPct: total, cagrPct: yrs != null && yrs >= 1 ? cagr(total, yrs) : null,
+      peak,
     };
   }
 

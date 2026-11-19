@@ -12,7 +12,10 @@ type Result = {
   frequency: { all: { count: number; total: number; pct: number }; last5y: { count: number; total: number; pct: number } };
   base: { price: number | null; today: string; todayPrice: number | null };
   perf: Array<{ years: number; n: number; avgPct: number | null; medianPct: number | null; positivePct: number | null; nominal: number | null; targetDate: string; cagrPct?: number | null }>;
-  sinceDate?: Record<Instrument, { buyPrice: number | null; lastPrice: number | null; lastDate: string | null; years: number | null; totalPct: number | null; cagrPct: number | null }>;
+  sinceDate?: Record<Instrument, {
+    buyPrice: number | null; lastPrice: number | null; lastDate: string | null; years: number | null; totalPct: number | null; cagrPct: number | null;
+    peak?: { price: number; date: string; bht: number | null; years: number; totalPct: number; cagrPct: number | null } | null;
+  }>;
   peak: { n: number; avgPct: number | null; avgDays: number | null; nominal: number | null; date: string | null };
 };
 
@@ -40,7 +43,7 @@ const T = {
     winAll: 'Toda la historia', win5: 'Últimos 5 años', winTitle: 'Días del rango que entran a los promedios', peakNote: 'Pico dentro de 5 años; fecha = día + tiempo promedio al pico.', loading: 'Calculando…', error: 'No se pudo calcular.',
     note: 'Promedios de días históricos (se traslapan; n = días con dato). No es una recomendación de inversión.',
     cagr: 'CAGR', cagrTitle: 'Rendimiento anual compuesto equivalente al promedio del plazo',
-    since: 'Comprando en esta fecha y manteniendo hasta hoy', buy: 'Compra', last: 'Último', total: 'Total', yrs: 'Años', short: '< 1 año', sinceNote: 'CAGR solo con al menos 1 año de tenencia.',
+    since: 'Comprando en esta fecha y manteniendo hasta hoy', atPeak: 'Comprando en esta fecha y vendiendo en el pico máximo', peakCol: 'Pico', dateCol: 'Fecha', noPeak: 'no superó la compra', buy: 'Compra', last: 'Último', total: 'Total', yrs: 'Años', short: '< 1 año', sinceNote: 'CAGR solo con al menos 1 año de tenencia.',
     base: 'Compra', y: 'a', d: 'd',
   },
   en: {
@@ -50,7 +53,7 @@ const T = {
     winAll: 'All history', win5: 'Last 5 years', winTitle: 'Range days included in the averages', peakNote: 'Peak within 5 years; date = day + average time to peak.', loading: 'Computing…', error: 'Could not compute.',
     note: 'Averages of historical days (overlapping; n = days with data). Not investment advice.',
     cagr: 'CAGR', cagrTitle: 'Compound annual rate equivalent to the horizon average',
-    since: 'Buying on this date and holding until today', buy: 'Buy', last: 'Last', total: 'Total', yrs: 'Years', short: '< 1 year', sinceNote: 'CAGR only with at least 1 year held.',
+    since: 'Buying on this date and holding until today', atPeak: 'Buying on this date and selling at the maximum peak', peakCol: 'Peak', dateCol: 'Date', noPeak: 'never above the buy price', buy: 'Buy', last: 'Last', total: 'Total', yrs: 'Years', short: '< 1 year', sinceNote: 'CAGR only with at least 1 year held.',
     base: 'Buy', y: 'y', d: 'd',
   },
 };
@@ -161,6 +164,41 @@ export default function BhtStrategyView({ date, locale, adviceLabel, adviceText 
                         <td className="text-right text-slate-500">{x.years != null ? x.years.toFixed(1) : '—'}</td>
                         <td className={`text-right ${pctCls(x.totalPct)}`}>{pctTxt(x.totalPct)}</td>
                         <td className={`text-right font-bold ${pctCls(x.cagrPct)}`}>{x.cagrPct != null ? pctTxt(x.cagrPct) : x.totalPct != null ? <span className="font-normal text-slate-500">{t.short}</span> : '—'}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+
+              <div className="text-[11px] font-semibold text-slate-100 mt-2 mb-1">{t.atPeak} ({r.date})</div>
+              <table className="w-full font-mono text-[11px]">
+                <thead className="text-[9px] uppercase tracking-wide text-slate-500">
+                  <tr className="border-b border-slate-700/70">
+                    <th className="text-left font-normal py-0.5" /><th className="text-right font-normal">{t.buy}</th><th className="text-right font-normal">{t.peakCol}</th>
+                    <th className="text-right font-normal">{t.dateCol}</th><th className="text-right font-normal">BHT</th>
+                    <th className="text-right font-normal">{t.yrs}</th><th className="text-right font-normal">{t.total}</th><th className="text-right font-normal">{t.cagr}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(Object.keys(INST) as Instrument[]).map((k) => {
+                    const x = r.sinceDate![k];
+                    const pk = x.peak;
+                    return (
+                      <tr key={k} className={`border-b border-slate-800/60 ${k === inst ? 'bg-slate-800/40' : ''}`}>
+                        <td className="py-[1px] text-slate-300">{INST[k]}</td>
+                        <td className="text-right text-slate-300">{money(x.buyPrice)}</td>
+                        {pk ? (
+                          <>
+                            <td className="text-right text-slate-100">{money(pk.price)}</td>
+                            <td className="text-right text-slate-400">{pk.date}</td>
+                            <td className="text-right font-bold" style={pk.bht != null ? { color: capeScoreColor(pk.bht) } : undefined}>{pk.bht != null ? pk.bht.toFixed(1) : '—'}</td>
+                            <td className="text-right text-slate-500">{pk.years.toFixed(1)}</td>
+                            <td className={`text-right ${pctCls(pk.totalPct)}`}>{pctTxt(pk.totalPct)}</td>
+                            <td className={`text-right font-bold ${pctCls(pk.cagrPct)}`}>{pk.cagrPct != null ? pctTxt(pk.cagrPct) : <span className="font-normal text-slate-500">{t.short}</span>}</td>
+                          </>
+                        ) : (
+                          <td colSpan={6} className="text-right text-slate-500">{x.buyPrice == null ? '—' : t.noPeak}</td>
+                        )}
                       </tr>
                     );
                   })}

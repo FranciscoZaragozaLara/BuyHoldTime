@@ -86,3 +86,19 @@ describe('CAGR', () => {
     expect(computeBhtStrategy(s, '2007-06-01', 'spx')!.sinceDate.spx.cagrPct).toBeNull(); // < 1 año
   });
 });
+
+describe('vendiendo en el pico', () => {
+  test('pico máximo desde la compra con su fecha, BHT, total y CAGR', () => {
+    // mensual 2000-2003: sube a 200 en 2002-01 (BHT 80) y luego baja
+    const dates = Array.from({ length: 48 }, (_, k) => `${2000 + Math.floor(k / 12)}-${String((k % 12) + 1).padStart(2, '0')}-01`);
+    const spx = dates.map((_, k) => (k <= 24 ? 100 + (k * 100) / 24 : 150));
+    const bht = dates.map((_, k) => (k === 24 ? 80 : 50));
+    const r = computeBhtStrategy({ dates, bht, px: { spx, qqq: dates.map(() => null), tqqq: dates.map(() => 90) } }, '2000-01-01', 'spx')!;
+    const pk = r.sinceDate.spx.peak!;
+    expect([pk.price, pk.date, pk.bht]).toEqual([200, '2002-01-01', 80]);
+    expect(pk.totalPct).toBeCloseTo(100, 9);
+    expect(pk.cagrPct!).toBeCloseTo(cagr(100, pk.years)!, 9);
+    expect(r.sinceDate.qqq.peak).toBeNull(); // sin precio
+    expect(r.sinceDate.tqqq.peak).toBeNull(); // nunca superó el precio de compra
+  });
+});
