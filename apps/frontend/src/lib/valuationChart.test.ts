@@ -8,24 +8,34 @@ const monthly: MonthlyRow[] = [
 ];
 
 describe('valuationChart', () => {
-  it('sin serie diaria: puntos mensuales con EMA aproximada en meses (comportamiento previo)', () => {
+  it('sin serie diaria: puntos mensuales con SMA de 3 y 10 meses (≈ 50 y 200 sesiones)', () => {
     const p = buildValuationChart(monthly, null);
     expect(p.map((x) => x.time)).toEqual(['1989-11-01', '1989-12-01', '1990-01-01']);
     expect(p[0].sp500PriceMa50).toBe(340);
-    expect(p[1].sp500PriceMa50).toBeCloseTo(340 + 10 * (2 / 3.4), 2);
+    expect(p[1].sp500PriceMa50).toBe(345); // media de 340 y 350
+    expect(p[2].sp500PriceMa50).toBeCloseTo((340 + 350 + 330) / 3, 2);
+    expect(p[2].sp500PriceMa200).toBeCloseTo((340 + 350 + 330) / 3, 2); // menos de 10 meses: media de lo disponible
     expect(p.every((x) => !x.daily)).toBe(true);
   });
-  it('híbrida: mensual antes del primer día diario, diaria después; EMA continua', () => {
+
+  it('diaria: SMA 50 y 200 de las últimas sesiones (las mismas que usan los cruces)', () => {
+    const dates = Array.from({ length: 260 }, (_, k) => new Date(Date.UTC(2020, 0, 1) + k * 86400000).toISOString().slice(0, 10));
+    const spx = dates.map((_, k) => 100 + k);
+    const p = buildValuationChart([], { dates, spx, pe: spx.map(() => null), cape: spx.map(() => null) });
+    const last = p[p.length - 1];
+    expect(last.sp500PriceMa50).toBeCloseTo(spx.slice(-50).reduce((a, b) => a + b) / 50, 2);
+    expect(last.sp500PriceMa200).toBeCloseTo(spx.slice(-200).reduce((a, b) => a + b) / 200, 2);
+  });
+  it('híbrida: mensual antes del primer día diario, diaria después', () => {
     const daily: DailyValuation = { dates: ['1990-01-01', '1990-01-02', '1990-01-03'], spx: [null, 353.4, 355.67], pe: [null, 15.1, 15.2], cape: [17.9, 17.95, 18.0], bht: [null, 52.3, 71] };
     const p = buildValuationChart(monthly, daily);
     expect(p.map((x) => x.time)).toEqual(['1989-11-01', '1989-12-01', '1990-01-01', '1990-01-02', '1990-01-03']);
     expect(p[2]).toMatchObject({ daily: true, shillerPe: 17.9, sp500Price: undefined, sp500PriceMa50: undefined });
-    const e50Dec = p[1].sp500PriceMa50!;
-    expect(p[3].sp500PriceMa50).toBeCloseTo(e50Dec + (353.4 - e50Dec) * (2 / 51), 1); // sembrada con el mensual
-    expect(Math.abs(p[3].sp500PriceMa200! - p[1].sp500PriceMa200!)).toBeLessThan(1);
+    expect(p[3].sp500PriceMa50).toBe(353.4); // primera sesión con precio: la SMA arranca con él
+    expect(p[4].sp500PriceMa50).toBeCloseTo((353.4 + 355.67) / 2, 1); // redondeado a 2 decimales
     expect(p.map((x) => x.bht)).toEqual([undefined, undefined, undefined, 52.3, 71]); // BHT del día solo en el tramo diario
   });
-  it('Nasdaq 100 / TQQQ: sin tramo mensual; precio, P/E y EMA del instrumento; CAPE y BHT del mercado', () => {
+  it('Nasdaq 100 / TQQQ: sin tramo mensual; precio, P/E y SMA del instrumento; CAPE y BHT del mercado', () => {
     const daily: DailyValuation = {
       dates: ['1999-03-09', '1999-03-10', '1999-03-11'], spx: [1280, 1286, 1290], pe: [30, 30.1, 30.2], cape: [40, 40.1, 40.2], bht: [70, 71, 72],
       qqq: [null, 100, 102], tqqq: [null, null, null], ndxPe: [null, 70, 71.4],
@@ -33,7 +43,7 @@ describe('valuationChart', () => {
     const n = buildValuationChart(monthly, daily, 'ndx');
     expect(n.every((x) => x.daily)).toBe(true);
     expect(n.map((x) => [x.sp500Price, x.peRatio, x.shillerPe, x.bht])).toEqual([[undefined, undefined, 40, 70], [100, 70, 40.1, 71], [102, 71.4, 40.2, 72]]);
-    expect(n[1].sp500PriceMa50).toBe(100); // EMA arranca con el primer precio del instrumento
+    expect(n[1].sp500PriceMa50).toBe(100); // la SMA arranca con el primer precio del instrumento
     const t = buildValuationChart(monthly, daily, 'tqqq');
     expect(t.map((x) => x.peRatio)).toEqual([undefined, 70, 71.4]); // P/E del subyacente
     expect(t.every((x) => x.sp500Price === undefined)).toBe(true);

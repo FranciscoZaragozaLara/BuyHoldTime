@@ -1,7 +1,7 @@
 // Serie de la gráfica "Market Valuation" (/indicators): mensual de Shiller antes del primer dato diario
-// y diaria desde 1990 (S&P 500, P/E registrado, CAPE). EMA 50/200: en el tramo mensual se aproximan
-// en meses (50 días ≈ 2.4 meses, 200 ≈ 9.5); en el diario son EMA reales de 50 y 200 días, sembradas
-// con el valor mensual previo para que la línea no salte. Señales: BHT × tendencia ($$, $, ⚠) y cruces
+// y diaria desde 1990 (S&P 500, P/E registrado, CAPE). Medias SMA 50/200 (mismas que el régimen tendencial y los
+// cruces Golden/Death): en el tramo diario son medias simples de 50 y 200 sesiones del instrumento (con menos
+// historia, la media de lo disponible); en el mensual, SMA de 3 y 10 meses (≈ 50 y 200 sesiones). Señales: BHT × tendencia ($$, $, ⚠) y cruces
 // SMA 50/200 del instrumento (Golden / Death Cross).
 import { TOKENS } from './designTokens';
 import { toTrendRegime } from './trendRegime';
@@ -13,7 +13,7 @@ export type DailyValuation = {
   /** Régimen tendencial del S&P 500 en una letra: U alcista · P corrección · R rebote · D bajista. */
   trend?: (string | null)[];
 };
-/** Instrumento de la gráfica: precio, EMA y P/E son los suyos; CAPE y BHT son del mercado (independientes). */
+/** Instrumento de la gráfica: precio, SMA y P/E son los suyos; CAPE y BHT son del mercado (independientes). */
 export type Instrument = 'spx' | 'ndx' | 'tqqq';
 const PRICE_KEY: Record<Instrument, 'spx' | 'qqq' | 'tqqq'> = { spx: 'spx', ndx: 'qqq', tqqq: 'tqqq' };
 const PE_KEY: Record<Instrument, 'pe' | 'ndxPe'> = { spx: 'pe', ndx: 'ndxPe', tqqq: 'ndxPe' };
@@ -31,10 +31,15 @@ export type ChartPoint = {
 
 const r2 = (v: number) => Math.round(v * 100) / 100;
 
-/** EMA recursiva; si no hay valor, el punto queda sin EMA y se conserva el estado. */
-function emaStep(prev: number | undefined, v: number | undefined, alpha: number): number | undefined {
-  if (v == null) return prev;
-  return prev == null ? v : prev + (v - prev) * alpha;
+/** Media simple móvil de los últimos `n` valores (con menos, la media de los disponibles). */
+function smaWindow(n: number) {
+  const buf: number[] = [];
+  let sum = 0;
+  return (v: number): number => {
+    buf.push(v); sum += v;
+    if (buf.length > n) sum -= buf.shift()!;
+    return sum / buf.length;
+  };
 }
 
 export function buildValuationChart(monthly: MonthlyRow[], daily: DailyValuation | null, instrument: Instrument = 'spx'): ChartPoint[] {
@@ -43,34 +48,31 @@ export function buildValuationChart(monthly: MonthlyRow[], daily: DailyValuation
   const firstDaily = daily?.dates.find((_, i) => daily.spx[i] != null || daily.cape[i] != null);
   const cutMonth = firstDaily ? firstDaily.slice(0, 7) : null;
   const out: ChartPoint[] = [];
-  const m50 = 2 / (2.4 + 1), m200 = 2 / (9.5 + 1);
-  let e50: number | undefined, e200: number | undefined;
+  const m50 = smaWindow(3), m200 = smaWindow(10);
   for (const row of monthly) {
     if (cutMonth && row.date >= cutMonth) break;
-    e50 = emaStep(e50, row.sp500Price, m50);
-    e200 = emaStep(e200, row.sp500Price, m200);
+    const px = row.sp500Price;
     out.push({
       time: `${row.date}-01`, daily: false,
-      sp500Price: row.sp500Price, peRatio: row.peRatio, shillerPe: row.shillerPe,
-      sp500PriceMa50: row.sp500Price != null && e50 != null ? r2(e50) : undefined,
-      sp500PriceMa200: row.sp500Price != null && e200 != null ? r2(e200) : undefined,
+      sp500Price: px, peRatio: row.peRatio, shillerPe: row.shillerPe,
+      sp500PriceMa50: px != null ? r2(m50(px)) : undefined,
+      sp500PriceMa200: px != null ? r2(m200(px)) : undefined,
     });
   }
   if (!daily || !cutMonth) return out;
-  const d50 = 2 / 51, d200 = 2 / 201;
+  const d50 = smaWindow(50), d200 = smaWindow(200);
   const prices = daily[PRICE_KEY[instrument]] ?? [];
   const pes = daily[PE_KEY[instrument]] ?? [];
   daily.dates.forEach((d, i) => {
     if (d < firstDaily!) return;
     const px = prices[i] ?? undefined;
-    e50 = emaStep(e50, px, d50);
-    e200 = emaStep(e200, px, d200);
+    const s50 = px != null ? d50(px) : undefined, s200 = px != null ? d200(px) : undefined;
     out.push({
       time: d, daily: true,
       sp500Price: px, peRatio: pes[i] ?? undefined, shillerPe: daily.cape[i] ?? undefined, bht: daily.bht?.[i] ?? undefined,
       trend: daily.trend?.[i] ?? undefined,
-      sp500PriceMa50: px != null && e50 != null ? r2(e50) : undefined,
-      sp500PriceMa200: px != null && e200 != null ? r2(e200) : undefined,
+      sp500PriceMa50: s50 != null ? r2(s50) : undefined,
+      sp500PriceMa200: s200 != null ? r2(s200) : undefined,
     });
   });
   return out;

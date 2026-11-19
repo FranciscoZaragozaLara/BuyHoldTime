@@ -38,12 +38,12 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
 }) => {
   const locale = useLocale();
   
-  // Líneas visibles: por defecto solo el instrumento base y el BHT; P/E, CAPE y EMA se encienden a mano.
+  // Líneas visibles: por defecto solo el instrumento base y el BHT; P/E, CAPE y SMA se encienden a mano.
   const [showSp500Price, setShowSp500Price] = useState(true);
   const [showPeRatio, setShowPeRatio] = useState(false);
   const [showShillerPe, setShowShillerPe] = useState(false);
   const [showBht, setShowBht] = useState(true);
-  // Un instrumento a la vez: precio, EMA 50/200 y P/E son los suyos; CAPE y BHT no cambian.
+  // Un instrumento a la vez: precio, SMA 50/200 y P/E son los suyos; CAPE y BHT no cambian.
   const [instrument, setInstrument] = useState<Instrument>('spx');
   const INSTRUMENTS: Record<Instrument, { label: string; color: string; pe: string }> = {
     spx: { label: 'S&P 500', color: TOKENS.accent, pe: 'P/E S&P 500' },
@@ -184,7 +184,7 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
     pinned: bhtPin.pinnedDate,
   };
 
-  // Puntos de la gráfica (mensual antes de 1990, diaria después) con EMA 50/200 y marcadores mensuales.
+  // Puntos de la gráfica (mensual antes de 1990, diaria después) con SMA 50/200 y señales BHT × tendencia.
   const points = useMemo(() => buildValuationChart(mergedData, daily, instrument), [mergedData, daily, instrument]);
   // Señales BHT × tendencia ($$, $, ⚠) y cruces SMA 50/200 (Golden / Death Cross) sobre la línea del precio.
   const opportunityMarkers = useMemo(() => signalMarkers(points, locale), [points, locale]);
@@ -238,7 +238,7 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
       priceScaleId: 'right',
       priceLineVisible: false,
       visible: showMa50,
-      title: 'EMA 50',
+      title: 'SMA 50',
     });
 
     const ema200Series = chart.addSeries(LineSeries, {
@@ -248,7 +248,7 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
       priceScaleId: 'right',
       priceLineVisible: false,
       visible: showMa200,
-      title: 'EMA 200',
+      title: 'SMA 200',
     });
 
     const peSeries = chart.addSeries(LineSeries, {
@@ -713,7 +713,7 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
           >
             {showMa50 ? <Eye size={14} /> : <EyeOff size={14} />}
             <span className="w-2.5 h-2.5 rounded-full bg-elevated-500" />
-            <span>EMA 50 {inst.label}{hoveredData?.sp500Ema50 ? `: $${hoveredData.sp500Ema50.toFixed(2)}` : ''}</span>
+            <span>SMA 50 {inst.label}{hoveredData?.sp500Ema50 ? `: $${hoveredData.sp500Ema50.toFixed(2)}` : ''}</span>
           </button>
 
           <button
@@ -726,7 +726,7 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
           >
             {showMa200 ? <Eye size={14} /> : <EyeOff size={14} />}
             <span className="w-2.5 h-2.5 rounded-full bg-favorable-500" />
-            <span>EMA 200 {inst.label}{hoveredData?.sp500Ema200 ? `: $${hoveredData.sp500Ema200.toFixed(2)}` : ''}</span>
+            <span>SMA 200 {inst.label}{hoveredData?.sp500Ema200 ? `: $${hoveredData.sp500Ema200.toFixed(2)}` : ''}</span>
           </button>
         </div>
 
