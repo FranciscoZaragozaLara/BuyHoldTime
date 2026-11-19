@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildValuationChart, signalMarkers, signalState, CROSS_MIN_SESSIONS, SIGNAL_COOLDOWN, SIGNAL_REPEAT, type ChartPoint, type DailyValuation, type MonthlyRow } from './valuationChart';
+import { buildValuationChart, signalMarkers, signalState, thinMarkers, CROSS_MIN_SESSIONS, SIGNAL_COOLDOWN, SIGNAL_REPEAT, type ChartPoint, type DailyValuation, type MonthlyRow } from './valuationChart';
 
 const monthly: MonthlyRow[] = [
   { date: '1989-11', sp500Price: 340, peRatio: 14, shillerPe: 17 },
@@ -108,5 +108,21 @@ describe('señales BHT × tendencia y cruces', () => {
     expect(m[0]).toMatchObject({ text: 'Golden Cross', shape: 'arrowUp' });
     expect(m[1]).toMatchObject({ text: 'Death Cross', shape: 'arrowDown' });
     expect(CROSS_MIN_SESSIONS).toBe(10);
+  });
+});
+
+describe('raleo de señales por zoom', () => {
+  const m = (time: string, kind: any, priority: number, position: 'aboveBar' | 'belowBar' = 'belowBar') => ({ time, kind, priority, position });
+  const idx = (t: string) => Number(t);
+  it('mantiene la distancia mínima por carril y prioriza cruces y entradas sobre recordatorios', () => {
+    const list = [m('0', 'strong', 2), m('5', 'strong', 1), m('8', 'golden', 3), m('20', 'strong', 1), m('6', 'danger', 2, 'aboveBar')];
+    // gap 10: el cruce (8) gana; la entrada en 0 choca con el cruce (8) → fuera; el recordatorio de 5 también; 20 queda
+    expect(thinMarkers(list, idx, 10).map((x) => x.time)).toEqual(['8', '20', '6']);
+    // zoom cercano (gap 1): todas
+    expect(thinMarkers(list, idx, 1)).toHaveLength(5);
+  });
+  it('a igual prioridad, $$ antes que ¼$', () => {
+    const list = [m('0', 'starter', 2), m('3', 'strong', 2)];
+    expect(thinMarkers(list, idx, 10).map((x) => x.kind)).toEqual(['strong']);
   });
 });

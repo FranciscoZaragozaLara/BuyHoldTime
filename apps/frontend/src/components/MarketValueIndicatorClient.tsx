@@ -7,7 +7,7 @@ import { Eye, EyeOff, Calendar, Table, LineChart as ChartIcon, Sparkles } from '
 import { IndicatorDetails } from '@/services/api';
 import { TOKENS } from '@/lib/designTokens';
 import { getApiBase } from '@/lib/apiBase';
-import { buildValuationChart, signalMarkers, type DailyValuation, type Instrument } from '@/lib/valuationChart';
+import { buildValuationChart, signalMarkers, thinMarkers, MARKER_MIN_PX, type DailyValuation, type Instrument } from '@/lib/valuationChart';
 import { BHT_BANDS, bhtBandColor } from '@/components/backtesting/bhtBands';
 import { BhtDetailPopover, BhtHoverTip, useBhtDetail, useBhtPin } from '@/components/backtesting/BhtDetail';
 import { attachBhtChartPin, type BhtPoint } from '@/components/backtesting/bhtChartPin';
@@ -187,7 +187,7 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
   // Puntos de la gráfica (mensual antes de 1990, diaria después) con EMA 50/200 y marcadores mensuales.
   const points = useMemo(() => buildValuationChart(mergedData, daily, instrument), [mergedData, daily, instrument]);
   // Señales BHT × tendencia ($$, $, ⚠) y cruces SMA 50/200 (Golden / Death Cross) sobre la línea del precio.
-  const opportunityMarkers = useMemo(() => signalMarkers(points).map(({ kind: _k, ...m }) => m), [points]);
+  const opportunityMarkers = useMemo(() => signalMarkers(points), [points]);
 
   // Lightweight charts initialization and synchronization
   useEffect(() => {
@@ -289,9 +289,27 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
     // Sin dato → punto vacío (hueco), no 0: el 0 dibujaba caídas verticales al final de cada serie.
     type PointKey = 'sp500Price' | 'peRatio' | 'shillerPe' | 'sp500PriceMa50' | 'sp500PriceMa200';
     const line = (k: PointKey) => chartPoints.map(p => (p[k] == null ? { time: p.time } : { time: p.time, value: p[k] as number }));
+    // Señales con raleo según el zoom: distancia mínima en píxeles por carril, convertida a sesiones con el ancho
+    // de cada sesión en pantalla; se recalcula al hacer zoom o desplazar (cruces y entradas tienen prioridad).
+    let detachMarkers = () => {};
     if (showSp500Price) {
       sp500Series.setData(line('sp500Price'));
-      createSeriesMarkers(sp500Series, opportunityMarkers);
+      const markerApi = createSeriesMarkers(sp500Series, []);
+      const idxOf = new Map(chartPoints.map((p, k) => [p.time, k]));
+      const applyMarkers = () => {
+        const ts = chart.timeScale();
+        const lr = ts.getVisibleLogicalRange();
+        const bars = lr ? Math.max(1, lr.to - lr.from) : chartPoints.length;
+        const pxPerBar = ts.width() / bars;
+        const gap = Math.ceil(MARKER_MIN_PX / Math.max(pxPerBar, 0.001));
+        markerApi.setMarkers(thinMarkers(opportunityMarkers, (t) => idxOf.get(t), gap)
+          .map(({ time, position, color, shape, text, size }) => ({ time, position, color, shape, text, size })));
+      };
+      let raf = 0;
+      const onRange = () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(applyMarkers); };
+      chart.timeScale().subscribeVisibleLogicalRangeChange(onRange);
+      onRange();
+      detachMarkers = () => { cancelAnimationFrame(raf); try { chart.timeScale().unsubscribeVisibleLogicalRangeChange(onRange); } catch { /* noop */ } };
     }
     
     if (showMa50) ema50Series.setData(line('sp500PriceMa50'));
@@ -468,6 +486,7 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
       clearTimeout(maxLineTimer);
       chart.timeScale().unsubscribeVisibleTimeRangeChange(updateMaxLine);
       chart.timeScale().unsubscribeVisibleTimeRangeChange(rememberView);
+      detachMarkers();
       chart.remove();
       chartRef.current = null;
     };

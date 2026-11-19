@@ -79,6 +79,8 @@ export function buildValuationChart(monthly: MonthlyRow[], daily: DailyValuation
 export type SignalKind = 'strong' | 'buy' | 'starter' | 'danger' | 'golden' | 'death';
 export type SignalMarker = {
   time: string; kind: SignalKind;
+  /** 3 cruce · 2 entrada a un estado / subida de nivel · 1 recordatorio mensual (para el raleo por zoom). */
+  priority: number;
   position: 'aboveBar' | 'belowBar'; color: string; shape: 'circle' | 'square' | 'arrowUp' | 'arrowDown'; text: string; size: number;
 };
 
@@ -94,7 +96,7 @@ export const SIGNAL_COOLDOWN = 40;
 export const SIGNAL_REPEAT = 21;
 export const CROSS_MIN_SESSIONS = 10;
 
-const STYLE: Record<SignalKind, Omit<SignalMarker, 'time' | 'kind'>> = {
+const STYLE: Record<SignalKind, Omit<SignalMarker, 'time' | 'kind' | 'priority'>> = {
   strong: { position: 'belowBar', color: TOKENS.favorable, shape: 'circle', text: '$$', size: 1.2 },
   buy: { position: 'belowBar', color: TOKENS.accent, shape: 'circle', text: '$', size: 0.9 },
   starter: { position: 'belowBar', color: TOKENS.caution, shape: 'circle', text: '¼$', size: 0.7 },
@@ -131,7 +133,7 @@ export function signalState(bht: number | undefined, trend: string | undefined):
  */
 export function signalMarkers(points: ChartPoint[]): SignalMarker[] {
   const daily = points.filter((p) => p.daily && p.sp500Price != null);
-  const out: Array<{ time: string; kind: SignalKind }> = [];
+  const out: Array<{ time: string; kind: SignalKind; priority: number }> = [];
   // 1) BHT × tendencia
   let prev: string | null = null;
   const fam = (k: string) => (k === 'danger' ? 'danger' : 'buy');
@@ -146,7 +148,7 @@ export function signalMarkers(points: ChartPoint[]): SignalMarker[] {
       const l = last[fam(st)];
       const upgrade = st !== 'danger' && !!l && (BUY_RANK[st] ?? 0) > (BUY_RANK[l.kind] ?? 0);
       if (!l || upgrade || i - l.i >= SIGNAL_COOLDOWN) {
-        out.push({ time: p.time, kind: st });
+        out.push({ time: p.time, kind: st, priority: 2 });
         last[fam(st)] = { i, kind: st };
         runMark = { i, price };
       }
@@ -155,7 +157,7 @@ export function signalMarkers(points: ChartPoint[]): SignalMarker[] {
       const ref = runMark ?? (last[fam(st)] ? { i: last[fam(st)]!.i, price: daily[last[fam(st)]!.i].sp500Price! } : null);
       const due = !ref || i - ref.i >= SIGNAL_REPEAT;
       if (due && (st !== 'danger' || !ref || price > ref.price)) {
-        out.push({ time: p.time, kind: st });
+        out.push({ time: p.time, kind: st, priority: 1 }); // recordatorio
         last[fam(st)] = { i, kind: st };
         runMark = { i, price };
       }
@@ -181,8 +183,34 @@ export function signalMarkers(points: ChartPoint[]): SignalMarker[] {
     const next = flips[k + 1], before = flips[k - 1];
     return !(next && next.i - f.i < CROSS_MIN_SESSIONS) && !(before && f.i - before.i < CROSS_MIN_SESSIONS);
   });
-  for (const f of keep) out.push({ time: daily[f.i].time, kind: f.up ? 'golden' : 'death' });
+  for (const f of keep) out.push({ time: daily[f.i].time, kind: f.up ? 'golden' : 'death', priority: 3 });
   return out
     .sort((a, b) => a.time.localeCompare(b.time))
     .map((m) => ({ ...m, ...STYLE[m.kind] }));
+}
+
+/** Distancia mínima en píxeles entre dos señales del mismo carril (arriba / abajo de la línea). */
+export const MARKER_MIN_PX = 30;
+
+/**
+ * Raleo según el zoom: en cada carril (position) se acepta una señal solo si no hay otra aceptada a menos de
+ * `minGapBars` sesiones. Se decide por prioridad (cruces, luego entradas, luego recordatorios; a igual prioridad,
+ * $$ sobre $ y ¼$) y luego por fecha, así lo importante nunca se pierde. `indexOf` da la posición de cada fecha.
+ */
+export function thinMarkers<T extends Pick<SignalMarker, 'time' | 'kind' | 'priority' | 'position'>>(markers: T[], indexOf: (time: string) => number | undefined, minGapBars: number): T[] {
+  if (minGapBars <= 1) return markers;
+  const KIND_RANK: Partial<Record<SignalKind, number>> = { strong: 3, danger: 3, buy: 2, starter: 1 };
+  const order = markers
+    .map((m, k) => ({ m, k, idx: indexOf(m.time) }))
+    .filter((x) => x.idx != null)
+    .sort((a, b) => b.m.priority - a.m.priority || (KIND_RANK[b.m.kind] ?? 0) - (KIND_RANK[a.m.kind] ?? 0) || a.idx! - b.idx!);
+  const taken: Record<string, number[]> = {};
+  const keep = new Set<number>();
+  for (const x of order) {
+    const lane = (taken[x.m.position] ??= []);
+    if (lane.some((j) => Math.abs(j - x.idx!) < minGapBars)) continue;
+    lane.push(x.idx!);
+    keep.add(x.k);
+  }
+  return markers.filter((_, k) => keep.has(k));
 }
