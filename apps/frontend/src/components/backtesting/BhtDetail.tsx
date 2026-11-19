@@ -10,6 +10,7 @@ import { OrbHistoryTable } from './ThermoOrbs';
 import { createPortal } from 'react-dom';
 import dynamic from 'next/dynamic';
 import { placePinned, placePopover } from '@/lib/popoverPlacement';
+import { TrendBadge } from './TrendBadge';
 
 // Vista Estrategia: su código se descarga solo cuando se pulsa el botón (lazy) y calcula en el backend bajo demanda.
 const BhtStrategyView = dynamic(() => import('./BhtStrategyView'), { ssr: false, loading: () => <div className="mt-2 font-mono text-slate-500">…</div> });
@@ -99,7 +100,7 @@ export function useBhtPin() {
 }
 
 /** Tooltip compacto del cursor: fecha, BHT con su banda y precios del día. No recibe el mouse. */
-export function BhtHoverTip({ point, bht, prices }: { point: { d: string; x: number; y: number }; bht: number | null; prices: [string, number | null | undefined][] }) {
+export function BhtHoverTip({ point, bht, prices, trend }: { point: { d: string; x: number; y: number }; bht: number | null; prices: [string, number | null | undefined][]; trend?: string | null }) {
   const ti = useTranslations('Backtesting.indicators');
   const loc = useLocale();
   const ref = useRef<HTMLDivElement>(null);
@@ -115,6 +116,7 @@ export function BhtHoverTip({ point, bht, prices }: { point: { d: string; x: num
       style={pos ? { left: pos.left, top: pos.top } : { left: -9999, top: 0 }}>
       <div className="font-bold"><span className="text-sky-300">{point.d}</span>{bht != null && <> <span className="text-slate-100">· BHT</span> <span className="font-mono" style={{ color: capeScoreColor(bht) }}>{bht.toFixed(1)}</span></>}</div>
       {band && <div className="font-semibold" style={{ color: band.color }}>{ti(`bht.b${BHT_BANDS.indexOf(band)}.label`)}</div>}
+      {trend && <div className="mt-0.5"><TrendBadge trend={{ regime: trend }} size="xs" /></div>}
       <div className="mt-1 font-mono space-y-px">
         {prices.filter(([, v]) => v != null).map(([k, v]) => (
           <div key={k} className="flex justify-between gap-3"><span className="text-slate-400">{k}</span><span className="text-slate-100">{Number(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></div>
@@ -164,7 +166,7 @@ export function BhtDetailPopover({ hover, detail, onLeave, onHold, liveValue, on
   return createPortal(
     <div ref={popRef} data-bht-pop className="fixed z-[9999] w-[720px] max-w-[calc(100vw-16px)] max-h-[calc(100vh-16px)] overflow-y-auto p-3 rounded-xl bg-slate-900 border border-slate-700 shadow-2xl text-xs leading-snug text-slate-200  text-left" style={pos ? { left: pos.left, top: pos.top } : { left: -9999, top: 0 }} onMouseEnter={() => onHold?.()} onMouseLeave={onLeave}>
       <div className="flex items-start justify-between gap-2 mb-1.5">
-      <div className="font-bold"><span className="text-sky-300">{hover.d}</span> <span className="text-slate-100">· BHT</span> {headV != null && <span className="font-mono" style={{ color: capeScoreColor(headV) }}>{headV.toFixed(1)}/100</span>}{liveValue != null && <span className="ml-1.5 text-[10px] px-1.5 py-px rounded-full bg-accent-500/20 text-accent-300 font-bold" title={ti('liveTitle')}>{ti('live')}</span>}{detail?.prices && (
+      <div className="font-bold"><span className="text-sky-300">{hover.d}</span> <span className="text-slate-100">· BHT</span> {headV != null && <span className="font-mono" style={{ color: capeScoreColor(headV) }}>{headV.toFixed(1)}/100</span>}{liveValue != null && <span className="ml-1.5 text-[10px] px-1.5 py-px rounded-full bg-accent-500/20 text-accent-300 font-bold" title={ti('liveTitle')}>{ti('live')}</span>}{detail?.trend && <TrendBadge trend={detail.trend} size="xs" className="ml-1.5" />}{detail?.prices && (
         <span className="ml-2 font-mono font-normal text-[11px] text-slate-400 align-middle">
           {([['S&P 500', detail.prices.spx], ['QQQ (Nasdaq-100)', detail.prices.qqq], ['TQQQ', detail.prices.tqqq]] as [string, number | null][])
             .filter(([, v]) => v != null)

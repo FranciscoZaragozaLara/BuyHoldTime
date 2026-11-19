@@ -1,4 +1,6 @@
 'use client';
+import { TrendBadge } from './TrendBadge';
+import { TREND_ORDER } from '@/lib/trendRegime';
 import { getApiBase } from '@/lib/apiBase';
 import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import { peakGainPct, peakSinceMap, type Peak } from '@/lib/peakSince';
@@ -9,7 +11,7 @@ import { useBhtDetail, bhtLeaveGuard, BhtDetailPopover } from './BhtDetail';
 
 // Tabla BHT Forward: BHT Index + precios y retornos forward maduros 1/2/3/5Y.
 // Solo pinta horizontes con fecha objetivo ya cumplida (el resto es '—').
-export function BhtForwardTable({ live }: { live: { current: { v: number | null; d: string | null } } }) {
+export function BhtForwardTable({ live }: { live: { current: { v: number | null; d: string | null; trend?: { regime: string; close: number | null; sma50: number | null; sma200: number | null } | null } } }) {
   const ti = useTranslations('Backtesting.indicators');
   const loc = useLocale();
   const liveBht = live.current.v;
@@ -54,6 +56,9 @@ export function BhtForwardTable({ live }: { live: { current: { v: number | null;
     const d0 = (r.date || '').slice(0, 10);
     const o: any = { ...r };
     for (const k of ['spx', 'ndx', 'tqqq'] as const) o[`${k}PeakPct`] = peakGainPct(r[k], peaks[k].get(d0));
+    // Régimen tendencial: rango 1 (alcista) … 4 (bajista) para poder ordenar la columna.
+    const ti0 = TREND_ORDER.indexOf(r.trendRegime);
+    o.trendRank = ti0 >= 0 ? ti0 + 1 : null;
     return o;
   });
   const maxDate = list.reduce((mm: any, r: any) => r.date > mm ? r.date : mm, list[0].date);
@@ -66,6 +71,7 @@ export function BhtForwardTable({ live }: { live: { current: { v: number | null;
   const cols: { k: string; label: string; cls: string }[] = [
     { k: 'date', label: view === 'monthly' ? 'Mes' : view === 'yearly' ? 'Año' : 'Fecha', cls: 'text-left w-[92px] min-w-[92px] max-w-[92px] sticky left-0 bg-slate-900 z-20 shadow-[2px_0_4px_rgba(0,0,0,0.3)]' },
     { k: 'bhtValue', label: 'BHT', cls: 'text-right' },
+    { k: 'trendRank', label: 'Tendencia', cls: 'text-left' },
     { k: 'spx', label: 'SP500', cls: 'text-right text-sky-300' },
     { k: 'spxPeakPct', label: ti('fwdPeak', { name: 'SP500' }), cls: 'text-right text-violet-300' },
     { k: 'ndx', label: 'Nasdaq', cls: 'text-right text-sky-300' },
@@ -128,6 +134,7 @@ export function BhtForwardTable({ live }: { live: { current: { v: number | null;
                 <tr key={r.date} ref={isLast ? sentinelRef : null} className={`${isCurrent ? 'bg-accent-500/[0.08] border-l-2 border-l-accent-500 ring-1 ring-accent-500/15' : 'hover:bg-slate-900/40'} transition-colors`}>
                   <td className={`p-1.5 px-2 font-mono whitespace-nowrap w-[92px] min-w-[92px] max-w-[92px] align-top sticky left-0 z-10 shadow-[2px_0_4px_rgba(0,0,0,0.25)] ${isCurrent ? 'bg-slate-900' : 'bg-slate-950 group-hover:bg-slate-900'}`}><div className="flex flex-col items-start leading-none gap-0.5"><span className={`${isCurrent ? 'text-accent-300 font-bold' : 'text-slate-200'} text-xs`}>{view === 'yearly' ? d.slice(0, 4) : view === 'monthly' ? d.slice(0, 7) : d}</span>{isCurrent && <span className="text-[9px] px-1 py-0.5 rounded bg-accent-500 text-white font-bold leading-none">Actual</span>}</div></td>
                   {(() => { const isLive = isCurrent && liveBht != null; const v = isLive ? liveBht : r.bhtValue; if (v == null) return <td className="p-2 text-right font-mono text-slate-600 whitespace-nowrap">—</td>; return <td className="p-2 text-right font-mono font-semibold whitespace-nowrap cursor-help" style={{ color: capeScoreColor(v) }} onMouseEnter={(e) => { bhtDet.setHover({ d, x: e.clientX, y: e.clientY }); bhtDet.load(d); }} onMouseMove={(e) => bhtDet.setHover((s) => s && s.d === d ? { ...s, x: e.clientX, y: e.clientY } : s)} onMouseLeave={(e) => bhtLeaveGuard(e, bhtDet)}><span className="border-b border-dotted border-slate-400/40" title={isLive ? 'En vivo (igual que el semáforo)' : undefined}>{Number(v).toFixed(1)}{isLive && <span className="text-accent-300"> •</span>}</span></td>; })()}
+                  {(() => { const tr = (isCurrent && live.current.trend) || (r.trendRegime ? { regime: r.trendRegime } : null); return <td className="p-2 whitespace-nowrap">{tr ? <TrendBadge trend={tr} size="xs" /> : <span className="font-mono text-slate-600">—</span>}</td>; })()}
                   <td className="p-2 text-right font-mono text-sky-300 whitespace-nowrap">{r.spx != null ? `$${Number(r.spx).toFixed(2)}` : '—'}</td>
                   {peakTd(r, 'spx')}
                   <td className="p-2 text-right font-mono text-sky-300 whitespace-nowrap">{r.ndx != null ? `$${Number(r.ndx).toFixed(2)}` : '—'}</td>

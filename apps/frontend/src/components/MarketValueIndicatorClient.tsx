@@ -706,7 +706,7 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
           {bhtPin.tip && bhtPin.tip.d !== bhtPin.pin?.d && daily && (() => {
             const i = dailyIdx.get(bhtPin.tip.d);
             if (i == null) return null;
-            return <BhtHoverTip point={bhtPin.tip} bht={daily.bht?.[i] ?? null}
+            return <BhtHoverTip point={bhtPin.tip} bht={daily.bht?.[i] ?? null} trend={daily.trend?.[i] ?? null}
               prices={[['S&P 500', daily.spx[i]], ['QQQ (Nasdaq-100)', daily.qqq?.[i]], ['TQQQ', daily.tqqq?.[i]]]} />;
           })()}
           {bhtPin.pin && (

@@ -8,6 +8,8 @@ export type MonthlyRow = { date: string; sp500Price?: number; peRatio?: number; 
 export type DailyValuation = {
   dates: string[]; spx: (number | null)[]; pe: (number | null)[]; cape: (number | null)[]; bht?: (number | null)[];
   qqq?: (number | null)[]; tqqq?: (number | null)[]; ndxPe?: (number | null)[];
+  /** Régimen tendencial del S&P 500 en una letra: U alcista · P corrección · R rebote · D bajista. */
+  trend?: (string | null)[];
 };
 /** Instrumento de la gráfica: precio, EMA y P/E son los suyos; CAPE y BHT son del mercado (independientes). */
 export type Instrument = 'spx' | 'ndx' | 'tqqq';

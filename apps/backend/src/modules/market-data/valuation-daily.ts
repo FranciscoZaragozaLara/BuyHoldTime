@@ -4,6 +4,7 @@
 // - Nasdaq 100: precio de QQQ (desde 1999) y P/E diario del índice = cierre ÷ EPS implícito del mes
 //   (cierre de fin de mes ÷ P/E mensual; el mes en curso usa el dato de WSJ). TQQQ usa el mismo P/E (subyacente).
 // - CAPE registrado (independiente del instrumento) y BHT del día (color de su línea).
+// - Régimen tendencial del S&P 500 en una letra (U alcista · P corrección · R rebote · D bajista) para el tooltip.
 import type { PriceMap } from '../backtesting/thermo-history';
 import { buildEpsSchedule, epsAt } from './spx-eps';
 
@@ -12,7 +13,10 @@ export type ValuationDaily = {
   spx: (number | null)[]; pe: (number | null)[];
   qqq: (number | null)[]; tqqq: (number | null)[]; ndxPe: (number | null)[];
   cape: (number | null)[]; bht: (number | null)[];
+  trend: (TrendCode | null)[];
 };
+export type TrendCode = 'U' | 'P' | 'R' | 'D';
+const TREND_CODE: Record<string, TrendCode> = { UPTREND: 'U', PULLBACK: 'P', REBOUND: 'R', DOWNTREND: 'D' };
 
 const r2 = (v: number | null | undefined) => (v == null || !Number.isFinite(v) ? null : Math.round(v * 100) / 100);
 
@@ -55,14 +59,15 @@ export function spliceSeries(older: PriceMap, newer: PriceMap): PriceMap {
 
 export function buildValuationDaily(
   spx: PriceMap, spxEps: PriceMap, cape: PriceMap, bht: PriceMap = new Map(),
-  nasdaq: { qqq?: PriceMap; tqqq?: PriceMap; ndxMonthlyPe?: Map<string, number>; ndxPeAnchors?: Map<string, string> } = {},
+  nasdaq: { qqq?: PriceMap; tqqq?: PriceMap; ndxMonthlyPe?: Map<string, number>; ndxPeAnchors?: Map<string, string>; trend?: Map<string, string> } = {},
   from = '1990-01-01',
 ): ValuationDaily {
   const sched = buildEpsSchedule(spxEps);
   const qqq = nasdaq.qqq ?? new Map(), tqqq = nasdaq.tqqq ?? new Map();
   const ndxPe = dailyPeFromMonthly(qqq, nasdaq.ndxMonthlyPe ?? new Map(), nasdaq.ndxPeAnchors);
   const dates = [...new Set([...spx.keys(), ...cape.keys(), ...qqq.keys(), ...tqqq.keys()])].filter((d) => d >= from).sort();
-  const out: ValuationDaily = { dates, spx: [], pe: [], qqq: [], tqqq: [], ndxPe: [], cape: [], bht: [] };
+  const trend = nasdaq.trend ?? new Map<string, string>();
+  const out: ValuationDaily = { dates, spx: [], pe: [], qqq: [], tqqq: [], ndxPe: [], cape: [], bht: [], trend: [] };
   for (const d of dates) {
     const px = spx.get(d);
     const eps = px != null ? epsAt(sched, d)?.eps : undefined;
@@ -73,6 +78,7 @@ export function buildValuationDaily(
     out.ndxPe.push(r2(ndxPe.get(d)));
     out.cape.push(r2(cape.get(d)));
     out.bht.push(r2(bht.get(d)));
+    out.trend.push(TREND_CODE[trend.get(d) ?? ''] ?? null);
   }
   return out;
 }

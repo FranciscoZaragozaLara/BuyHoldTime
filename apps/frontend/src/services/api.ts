@@ -224,6 +224,8 @@ export interface ThermoToday {
   hy: { bonus: number; label: string };
   liq: { bonus: number; label: string };
   oil: { bonus: number; label: string };
+  /** Régimen tendencial del S&P 500 de hoy (cierre en vivo vs SMA 50/200). */
+  trend?: { regime: string; close: number | null; sma50: number | null; sma200: number | null } | null;
 }
 export async function getThermoLive(): Promise<ThermoToday | null> {
   try {

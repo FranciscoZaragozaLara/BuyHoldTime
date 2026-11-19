@@ -22,6 +22,7 @@ import { TOKENS } from '@/lib/designTokens';
 import { capeRiskScore, fwdRiskScore, ratioRiskScore, CPI_LVL_SEGS, CPI_TRD_SEGS, cpiMScore, Y2M_LVL_SEGS, Y2M_TRD_SEGS, Y30M_LVL_SEGS, y30mRiskScore, MG_SEGS, MG_TRD_SEGS, vixRiskScore, msRiskScore, gdpRiskScore, partName, partLabel, fwdBandLabel, CAPE_BANDS, RATIO_BANDS, ratioBandLabel, CPI_BANDS, cpiBandLabel, Y2M_BANDS, y2mBandLabel, Y30_BANDS, y30mBandLabel, hyBandLabel, MG_BANDS, mgBandLabel, GDP_BANDS, MS_BANDS, VIX_BANDS, oilRiskScore, OIL_BANDS, fgRiskScore, FG_BANDS, FWD_BANDS, type MomBlend, momBlend } from '@/lib/thermoScoring';
 import { type ThermoLive, useThermoLive, useLiveTicker } from './useThermoLive';
 import { BhtHistoryBlock, ScoreOrb } from './ThermoOrbs';
+import { TrendBadge } from './TrendBadge';
 import { CapeHistoryTable } from './CapeHistoryTable';
 import { BhtGauge } from '@/components/BhtGauge';
 
@@ -43,8 +44,8 @@ export function IndicatorsPanel() {
   const epsSchedule = useMemo(() => buildEpsSchedule(marketHistory['SPX_EPS']), [marketHistory]);
   const regEps = (d: string): number | null => epsAt(epsSchedule, d)?.eps ?? null;
   const [volHistory, setVolHistory] = useState<Record<string, Map<string, number>>>({});
-  const [thermoHist, setThermoHist] = useState<Record<string, { value: number; numerator: number; denominator: number; coverage: number; bonus?: number; bonusLabel?: string; liqBonus?: number; liqBonusLabel?: string; oilBonus?: number; oilBonusLabel?: string }>>({});
-  const liveBhtRef = useRef<{ v: number | null; d: string | null }>({ v: null, d: null });
+  const [thermoHist, setThermoHist] = useState<Record<string, { value: number; numerator: number; denominator: number; coverage: number; bonus?: number; bonusLabel?: string; liqBonus?: number; liqBonusLabel?: string; oilBonus?: number; oilBonusLabel?: string; trendRegime?: string | null; spxSma50?: number | null; spxSma200?: number | null }>>({});
+  const liveBhtRef = useRef<{ v: number | null; d: string | null; trend?: { regime: string; close: number | null; sma50: number | null; sma200: number | null } | null }>({ v: null, d: null });
   const [loading, setLoading] = useState(true);
   const tSync = useTranslations('Backtesting.regimes');
   const isAdmin = useIsAdmin();
@@ -250,7 +251,7 @@ export function IndicatorsPanel() {
         const liqB = liqBonusNow;
         const oilB = oilBonusNow;
         const riskScore = thermoLive?.value ?? thermoLastStored?.value ?? 0;
-        liveBhtRef.current = { v: riskScore, d: new Date().toISOString().slice(0, 10) };
+        liveBhtRef.current = { v: riskScore, d: new Date().toISOString().slice(0, 10), trend: thermoLive?.trend ?? null };
         const band = bhtBand(riskScore);
         const riskLabel = band.label;
         const riskColor = band.textClass;
@@ -278,6 +279,8 @@ export function IndicatorsPanel() {
             <div className="flex-1 w-full text-center lg:text-left">
               <div className="font-mono text-5xl font-bold text-slate-100">{riskScore}<span className="text-lg text-slate-500">/100</span></div>
               <div className={`text-base font-semibold mt-1 ${riskColor}`}>{ti(`bht.b${BHT_BANDS.indexOf(band)}.label`)}</div>
+              {/* Régimen tendencial del S&P 500 (cierre en vivo vs SMA 50/200), acompañando al BHT. */}
+              {thermoLive?.trend && <div className="mt-2"><TrendBadge trend={thermoLive.trend} size="sm" showRule /></div>}
             </div>
             <ul className="flex-[1.4] w-full space-y-1">
               {BHT_BANDS.map((b) => {

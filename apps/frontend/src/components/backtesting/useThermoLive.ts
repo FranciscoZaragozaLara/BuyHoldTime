@@ -13,6 +13,8 @@ export type ThermoLive = {
   hy: { bonus: number; label: string; hy: number | null; z: number | null; d1: number | null };
   liq: { bonus: number; label: string; yoy: number | null; m0d3: number | null; drop: number | null };
   oil: { bonus: number; label: string; ratio: number | null; price: number | null };
+  /** Régimen tendencial del S&P 500 de hoy (cierre en vivo vs SMA 50/200). */
+  trend?: { regime: string; close: number | null; sma50: number | null; sma200: number | null } | null;
 };
 export function useThermoLive(){
   return useQuery({

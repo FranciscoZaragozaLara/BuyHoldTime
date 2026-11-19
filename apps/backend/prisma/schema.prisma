@@ -328,6 +328,10 @@ model BtThermoHistory {
   liqBonusLabel String? @map("liq_bonus_label")
   oilBonus    Float    @default(0) @map("oil_bonus")
   oilBonusLabel String? @map("oil_bonus_label")
+  // Régimen tendencial del S&P 500 (cierre vs SMA 50/200): UPTREND · PULLBACK · REBOUND · DOWNTREND.
+  trendRegime String?  @map("trend_regime")
+  spxSma50    Float?   @map("spx_sma50")
+  spxSma200   Float?   @map("spx_sma200")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
   @@map("bt_thermo_history")

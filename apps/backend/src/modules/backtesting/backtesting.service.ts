@@ -6,6 +6,7 @@ import { toShillerApiRow } from './shiller-daily';
 import { monthlyPartsFromDaily } from './bht-forward';
 import { computeBhtStrategy, type Instrument as StrategyInstrument, type SampleWindow, type StrategySeries } from './bht-strategy';
 import { computeBhtDrawdowns } from './bht-drawdowns';
+import { liveTrend } from './trend-regime';
 import { spliceSeries } from '../market-data/valuation-daily';
 import { computeThermoLive, LivePoints, THERMO_LIVE_TICKERS, THERMO_TICKERS, getHyBonus, getHySigma24, getLiqBonus, getOilBonus, PriceMap } from './thermo-history';
 
@@ -636,9 +637,9 @@ export class BacktestingService {
     const rows = await this.prisma.btThermoHistory.findMany({
       where: { date: { ...(from ? { gte: new Date(from) } : {}), ...(to ? { lte: new Date(to) } : {}) } },
       orderBy: { date: 'asc' },
-      select: { date: true, value: true, numerator: true, denominator: true, coverage: true, bonus: true, bonusLabel: true, liqBonus: true, liqBonusLabel: true, oilBonus: true, oilBonusLabel: true },
+      select: { date: true, value: true, numerator: true, denominator: true, coverage: true, bonus: true, bonusLabel: true, liqBonus: true, liqBonusLabel: true, oilBonus: true, oilBonusLabel: true, trendRegime: true, spxSma50: true, spxSma200: true },
     });
-    return rows.map((r) => ({ date: r.date.toISOString().slice(0, 10), value: r.value, numerator: r.numerator, denominator: r.denominator, coverage: r.coverage, bonus: r.bonus, bonusLabel: r.bonusLabel, liqBonus: (r as any).liqBonus ?? 0, liqBonusLabel: (r as any).liqBonusLabel ?? null, oilBonus: (r as any).oilBonus ?? 0, oilBonusLabel: (r as any).oilBonusLabel ?? null }));
+    return rows.map((r) => ({ date: r.date.toISOString().slice(0, 10), value: r.value, numerator: r.numerator, denominator: r.denominator, coverage: r.coverage, bonus: r.bonus, bonusLabel: r.bonusLabel, liqBonus: (r as any).liqBonus ?? 0, liqBonusLabel: (r as any).liqBonusLabel ?? null, oilBonus: (r as any).oilBonus ?? 0, oilBonusLabel: (r as any).oilBonusLabel ?? null, trendRegime: r.trendRegime ?? null, spxSma50: r.spxSma50 ?? null, spxSma200: r.spxSma200 ?? null }));
   }
 
   /**
@@ -666,10 +667,13 @@ export class BacktestingService {
   }
 
   async getBhtForward(from?: string, to?: string) {
-    const rows = await this.prisma.btBhtForward.findMany({
-      where: { date: { ...(from ? { gte: new Date(from) } : {}), ...(to ? { lte: new Date(to) } : {}) } },
-      orderBy: { date: 'asc' },
-    });
+    const where = { date: { ...(from ? { gte: new Date(from) } : {}), ...(to ? { lte: new Date(to) } : {}) } };
+    const [rows, trendRows] = await Promise.all([
+      this.prisma.btBhtForward.findMany({ where, orderBy: { date: 'asc' } }),
+      this.prisma.btThermoHistory.findMany({ where, select: { date: true, trendRegime: true } }),
+    ]);
+    // Régimen tendencial del S&P 500 de cada día (tabla diaria y línea de tiempo).
+    const trendBy = new Map(trendRows.map((t) => [t.date.toISOString().slice(0, 10), t.trendRegime]));
     // Últimos cierres para el "a hoy" de horizontes no maduros.
     const latest = await Promise.all(
       ['^GSPC', '^IXIC', 'TQQQ'].map((t) => this.prisma.btMarketData.findFirst({ where: { ticker: t }, orderBy: { date: 'desc' } })),
@@ -689,6 +693,7 @@ export class BacktestingService {
       ndx1y: r.ndx1y, ndx2y: r.ndx2y, ndx3y: r.ndx3y, ndx5y: r.ndx5y,
       tqqq1y: r.tqqq1y, tqqq2y: r.tqqq2y, tqqq3y: r.tqqq3y, tqqq5y: r.tqqq5y,
       spxTt: tt(r.spx, L.spx), ndxTt: tt(r.ndx, L.ndx), tqqqTt: tt(r.tqqq, L.tqqq),
+      trendRegime: trendBy.get(r.date.toISOString().slice(0, 10)) ?? null,
     }));
   }
 
@@ -719,6 +724,11 @@ export class BacktestingService {
     const capeRow = await this.prisma.btShillerDaily.findFirst({ where: { date: { lte: new Date(iso) } }, orderBy: { date: 'desc' } });
     const cape = { cape: capeRow?.cape ?? null, ratio: capeRow?.cape != null && capeRow.mean3y ? capeRow.cape / capeRow.mean3y : null };
     const { day, hy, liq, oil } = computeThermoLive(iso, s, cape, live);
+    // Régimen tendencial de hoy con el precio en vivo del S&P 500 (o el último cierre si no hay dato en vivo).
+    const spxCloses = [...s['^GSPC'].entries()].sort(([a], [b]) => (a < b ? -1 : 1)).map(([date, close]) => ({ date, close }));
+    const spxNow = live['^GSPC']?.value ?? spxCloses[spxCloses.length - 1]?.close;
+    const spxDay = live['^GSPC']?.date ?? spxCloses[spxCloses.length - 1]?.date ?? iso;
+    const trend = spxNow != null ? liveTrend(spxCloses, spxDay, spxNow) : null;
     const out = {
       date: iso,
       value: day?.value ?? null,
@@ -728,6 +738,7 @@ export class BacktestingService {
       hy: { bonus: hy.bonus, label: hy.label, hy: hy.hy, z: hy.z, d1: hy.d1 },
       liq: { bonus: liq.bonus, label: liq.label, yoy: liq.yoy, m0d3: liq.m0d3, drop: liq.drop },
       oil: { bonus: oil.bonus, label: oil.label, ratio: oil.ratio, price: oil.price },
+      trend,
       cape: { date: capeRow?.date.toISOString().slice(0, 10) ?? null, ...cape },
       live: liveMeta,
     };
@@ -792,7 +803,7 @@ export class BacktestingService {
     const parts = (r.parts as any[]) ?? [];
     const numerator = parts.reduce((m, p) => m + Number(p.score) * Number(p.weight), 0);
     const denominator = parts.reduce((m, p) => m + Number(p.weight), 0);
-    const th = await this.prisma.btThermoHistory.findUnique({ where: { date: r.date }, select: { bonus: true, bonusLabel: true, liqBonus: true, liqBonusLabel: true, oilBonus: true, oilBonusLabel: true } });
+    const th = await this.prisma.btThermoHistory.findUnique({ where: { date: r.date }, select: { bonus: true, bonusLabel: true, liqBonus: true, liqBonusLabel: true, oilBonus: true, oilBonusLabel: true, trendRegime: true, spxSma50: true, spxSma200: true } });
     // Insumos del trigger del bonus HY (valor, Δ1M, z y σ24) para transparentar el disparo en el hover.
     let bonusHy: number | null = null, bonusD1: number | null = null, bonusZ: number | null = null, bonusSigma: number | null = null, bonusFed: number | null = null;
     try {
@@ -830,6 +841,8 @@ export class BacktestingService {
       date: r.date.toISOString().slice(0, 10), value: r.bhtValue, numerator, denominator, coverage: parts.length,
       // Cierres del día para el encabezado del hover: S&P 500, QQQ (Nasdaq-100, misma serie que la gráfica de /indicators) y TQQQ.
       prices: { spx: r.spx ?? null, qqq: qqqClose, tqqq: r.tqqq ?? null },
+      // Régimen tendencial del S&P 500 ese día (cierre vs SMA 50/200).
+      trend: th?.trendRegime ? { regime: th.trendRegime, sma50: th.spxSma50, sma200: th.spxSma200, close: r.spx ?? null } : null,
       bonus: th?.bonus ?? 0, bonusLabel: th?.bonusLabel ?? null, bonusHy, bonusD1, bonusZ, bonusSigma, bonusFed,
       liqBonus: (th as any)?.liqBonus ?? 0, liqBonusLabel: (th as any)?.liqBonusLabel ?? null, liqYoy, liqM0d3, liqDrop,
       oilBonus: (th as any)?.oilBonus ?? 0, oilBonusLabel: (th as any)?.oilBonusLabel ?? null, oilPrice, oilRatio,

@@ -17,7 +17,7 @@ const C_SPX = '#38bdf8';
 const C_NDX = '#a78bfa';
 const C_TQQQ = '#f472b6';
 
-type Row = { date: string; bht: number | null; spx: number | null; ndx: number | null; tqqq: number | null };
+type Row = { date: string; bht: number | null; spx: number | null; ndx: number | null; tqqq: number | null; trend: string | null };
 
 // Banda del semáforo para un valor BHT (cortes ascendentes en ./bhtBands).
 const bandOf = (v: number): number => {
@@ -80,6 +80,7 @@ export function BhtTimeline() {
           spx: r.spx != null ? Number(r.spx) : null,
           ndx: r.ndx != null ? Number(r.ndx) : null,
           tqqq: r.tqqq != null ? Number(r.tqqq) : null,
+          trend: r.trendRegime ?? null,
         })));
         setLoading(false);
       })
@@ -299,7 +300,7 @@ export function BhtTimeline() {
       <p className="text-[11px] text-slate-500 mt-1">{tb('timelineHint', { assets: shownAssets ? ` + ${shownAssets}` : '' })}</p>
       {bhtPin.tip && bhtPin.tip.d !== bhtPin.pin?.d && (() => {
         const r = rowByDate.get(bhtPin.tip.d);
-        return r ? <BhtHoverTip point={bhtPin.tip} bht={r.bht} prices={[['S&P 500', r.spx], ['Nasdaq 100', r.ndx], ['TQQQ', r.tqqq]]} /> : null;
+        return r ? <BhtHoverTip point={bhtPin.tip} bht={r.bht} trend={r.trend} prices={[['S&P 500', r.spx], ['Nasdaq 100', r.ndx], ['TQQQ', r.tqqq]]} /> : null;
       })()}
       {bhtPin.pin && (
         <BhtDetailPopover

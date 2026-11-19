@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { getTranslations } from 'next-intl/server';
 import { ArrowRight, Activity } from 'lucide-react';
 import { BhtGauge } from '@/components/BhtGauge';
+import { TrendBadge } from '@/components/backtesting/TrendBadge';
 import { BHT_BANDS, bhtBand } from '@/components/backtesting/bhtBands';
 import { RiskDisclaimer } from '@/components/RiskDisclaimer';
 import { indicatorsHref } from '@/lib/homeThermo';
@@ -32,6 +33,8 @@ export async function HomeThermoCard({ locale, thermo }: { locale: string; therm
         <div className="text-center sm:text-left">
           <div className="font-mono text-6xl font-black text-white leading-none">{score.toFixed(1)}<span className="text-lg text-slate-500 font-bold">/100</span></div>
           <div className="mt-2 inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm font-bold text-slate-950" style={{ background: band.color }}>{ti(`bht.b${bi}.label`)}</div>
+          {/* Régimen tendencial del S&P 500 (SMA 50/200), acompañando a la banda del BHT. */}
+          {thermo.trend && <div className="mt-2"><TrendBadge trend={thermo.trend} size="sm" /></div>}
           <p className="text-[11px] text-slate-500 mt-2">{t('thermoScale')}</p>
         </div>
       </div>

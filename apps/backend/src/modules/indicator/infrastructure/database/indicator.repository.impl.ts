@@ -99,7 +99,7 @@ export class IndicatorRepositoryImpl implements IIndicatorRepository {
       const rows = await this.prisma.btMarketData.findMany({ where: { ticker, date: { gte: new Date(`${from}T00:00:00Z`) } }, select: { date: true, close: true } });
       return toMap(rows.map((r) => ({ d: r.date.toISOString().slice(0, 10), v: r.close })));
     };
-    const [spx, spxEps, cape, bht, qqqOld, qqq, tqqq, qqqTicker, ndxPeWsj] = await Promise.all([
+    const [spx, spxEps, cape, bht, qqqOld, qqq, tqqq, qqqTicker, ndxPeWsj, trendRows] = await Promise.all([
       daily('^GSPC', '1990-01-01'),
       daily('SPX_EPS', '1871-01-01'),
       this.prisma.$queryRawUnsafe(`SELECT date::text AS d, cape AS v FROM bt_shiller_daily WHERE cape IS NOT NULL AND date >= '1990-01-01'`).then((r) => toMap(r as Array<{ d: string; v: unknown }>)),
@@ -110,6 +110,7 @@ export class IndicatorRepositoryImpl implements IIndicatorRepository {
       daily('TQQQ', '1990-01-01'),
       this.prisma.ticker.findFirst({ where: { symbol: 'QQQ' }, select: { historicalEpsQuarterly: true } }),
       daily('NDX_PE', '2026-01-01'),
+      this.prisma.$queryRawUnsafe(`SELECT date::text AS d, trend_regime AS r FROM bt_thermo_history WHERE trend_regime IS NOT NULL AND date >= '1990-01-01'`) as Promise<Array<{ d: string; r: string }>>,
     ]);
     // P/E mensual del Nasdaq 100: entradas mensuales del ticker QQQ (GuruFocus hasta oct-2026, WSJ/Birinyi después).
     const ndxMonthlyPe = new Map<string, number>();
@@ -121,6 +122,7 @@ export class IndicatorRepositoryImpl implements IIndicatorRepository {
     for (const d of [...ndxPeWsj.keys()].sort()) ndxPeAnchors.set(d.slice(0, 7), d);
     // historical_prices trae el cierre sin ajustar y bt_market_data el ajustado: se unen con el factor del primer día común.
     const qqqAll = spliceSeries(qqqOld, qqq);
-    return buildValuationDaily(spx, spxEps, cape, bht, { qqq: qqqAll, tqqq, ndxMonthlyPe, ndxPeAnchors });
+    const trend = new Map(trendRows.map((x) => [x.d, x.r]));
+    return buildValuationDaily(spx, spxEps, cape, bht, { qqq: qqqAll, tqqq, ndxMonthlyPe, ndxPeAnchors, trend });
   }
 }
