@@ -1,8 +1,11 @@
 // Serie de la gráfica "Market Valuation" (/indicators): mensual de Shiller antes del primer dato diario
 // y diaria desde 1990 (S&P 500, P/E registrado, CAPE). EMA 50/200: en el tramo mensual se aproximan
 // en meses (50 días ≈ 2.4 meses, 200 ≈ 9.5); en el diario son EMA reales de 50 y 200 días, sembradas
-// con el valor mensual previo para que la línea no salte. Marcadores de oportunidad: uno por mes como máximo.
+// con el valor mensual previo para que la línea no salte. Señales: BHT × tendencia ($$, $, ⚠) y cruces
+// SMA 50/200 del instrumento (Golden / Death Cross).
 import { TOKENS } from './designTokens';
+import { trendAdvice } from './bhtTrendAdvice';
+import { toTrendRegime } from './trendRegime';
 
 export type MonthlyRow = { date: string; sp500Price?: number; peRatio?: number; shillerPe?: number };
 export type DailyValuation = {
@@ -23,6 +26,8 @@ export type ChartPoint = {
   sp500PriceMa50?: number; sp500PriceMa200?: number;
   /** BHT Index del día (desde 1993): da el color de la línea del S&P 500 y el detalle en el hover. */
   bht?: number;
+  /** Régimen tendencial del S&P 500 del día (letra U/P/R/D o código completo). */
+  trend?: string;
 };
 
 const r2 = (v: number) => Math.round(v * 100) / 100;
@@ -64,6 +69,7 @@ export function buildValuationChart(monthly: MonthlyRow[], daily: DailyValuation
     out.push({
       time: d, daily: true,
       sp500Price: px, peRatio: pes[i] ?? undefined, shillerPe: daily.cape[i] ?? undefined, bht: daily.bht?.[i] ?? undefined,
+      trend: daily.trend?.[i] ?? undefined,
       sp500PriceMa50: px != null && e50 != null ? r2(e50) : undefined,
       sp500PriceMa200: px != null && e200 != null ? r2(e200) : undefined,
     });
@@ -71,23 +77,87 @@ export function buildValuationChart(monthly: MonthlyRow[], daily: DailyValuation
   return out;
 }
 
-export type OpportunityMarker = { time: string; position: 'aboveBar'; color: string; shape: 'circle'; text: string; size: number };
+export type SignalKind = 'strong' | 'buy' | 'danger' | 'golden' | 'death';
+export type SignalMarker = {
+  time: string; kind: SignalKind;
+  position: 'aboveBar' | 'belowBar'; color: string; shape: 'circle' | 'square' | 'arrowUp' | 'arrowDown'; text: string; size: number;
+};
 
 /**
- * Zonas de oportunidad del S&P 500 vs sus EMA (precio entre EMA200 y el punto medio EMA50/EMA200 = $,
- * hasta 10% bajo la EMA200 = $$, más abajo = $$ 🌟). Se evalúa el último punto de cada mes, así que en el
- * tramo diario siguen apareciendo como mucho uno por mes y zona.
+ * Espera mínima (sesiones, ~2 meses) entre señales de la misma familia ($/$$ comparten una; ⚠ la suya; subir de $ a
+ * $$ no espera), y duración mínima de un cruce para contarlo.
  */
-export function monthlyOpportunityMarkers(points: ChartPoint[]): OpportunityMarker[] {
-  const lastOfMonth = new Map<string, ChartPoint>();
-  for (const p of points) if (p.sp500Price != null && p.sp500PriceMa50 != null && p.sp500PriceMa200 != null) lastOfMonth.set(p.time.slice(0, 7), p);
-  const out: OpportunityMarker[] = [];
-  for (const p of [...lastOfMonth.values()].sort((a, b) => a.time.localeCompare(b.time))) {
-    const price = p.sp500Price!, e50 = p.sp500PriceMa50!, e200 = p.sp500PriceMa200!;
-    const mid = (e50 + e200) / 2;
-    if (price > e200 && price < mid) out.push({ time: p.time, position: 'aboveBar', color: '#3b82f6', shape: 'circle', text: '$', size: 1 });
-    else if (price <= e200 && price > e200 * 0.9) out.push({ time: p.time, position: 'aboveBar', color: TOKENS.favorable, shape: 'circle', text: '$$', size: 1.15 });
-    else if (price <= e200 * 0.9) out.push({ time: p.time, position: 'aboveBar', color: '#eab308', shape: 'circle', text: '$$ 🌟', size: 1.15 });
+export const SIGNAL_COOLDOWN = 40;
+export const CROSS_MIN_SESSIONS = 10;
+
+const STYLE: Record<SignalKind, Omit<SignalMarker, 'time' | 'kind'>> = {
+  strong: { position: 'belowBar', color: TOKENS.favorable, shape: 'circle', text: '$$', size: 1.2 },
+  buy: { position: 'belowBar', color: TOKENS.accent, shape: 'circle', text: '$', size: 0.9 },
+  danger: { position: 'aboveBar', color: TOKENS.risk, shape: 'square', text: '⚠', size: 1 },
+  golden: { position: 'belowBar', color: TOKENS.caution, shape: 'arrowUp', text: 'Golden Cross', size: 1.1 },
+  death: { position: 'aboveBar', color: '#94a3b8', shape: 'arrowDown', text: 'Death Cross', size: 1.1 },
+};
+
+/**
+ * Estado BHT × tendencia de un día (misma lectura que el consejo combinado de la vista Estrategia):
+ *  strong ($$): BHT < 40 con el S&P 500 arriba de su SMA 200 · buy ($): BHT < 40 abajo de la SMA 200, o BHT 40–49
+ *  arriba de ella · danger (⚠): combinaciones de riesgo (BHT 50–69 abajo de la SMA 200, o BHT 70+).
+ */
+export function signalState(bht: number | undefined, trend: string | undefined): 'strong' | 'buy' | 'danger' | null {
+  const regime = toTrendRegime(trend);
+  if (bht == null || !regime) return null;
+  const band = bht < 40 ? 0 : bht < 50 ? 1 : bht < 62 ? 2 : bht < 70 ? 3 : 4;
+  const tone = trendAdvice(band, regime, 'es')!.tone;
+  if (band === 0) return tone === 'good' ? 'strong' : 'buy';
+  if (band === 1 && tone === 'good') return 'buy';
+  return tone === 'bad' ? 'danger' : null;
+}
+
+/**
+ * Señales de la gráfica: $$ / $ / ⚠ al ENTRAR en cada estado (no cada día), con SIGNAL_COOLDOWN sesiones entre
+ * dos de la misma familia; y cruces de la SMA 50 sobre la SMA 200 del precio mostrado (Golden Cross hacia arriba,
+ * Death Cross hacia abajo), descartando los que se revierten en menos de CROSS_MIN_SESSIONS sesiones.
+ */
+export function signalMarkers(points: ChartPoint[]): SignalMarker[] {
+  const daily = points.filter((p) => p.daily && p.sp500Price != null);
+  const out: Array<{ time: string; kind: SignalKind }> = [];
+  // 1) BHT × tendencia
+  let prev: string | null = null;
+  const fam = (k: string) => (k === 'danger' ? 'danger' : 'buy');
+  const last: Record<string, { i: number; kind: string } | undefined> = {};
+  daily.forEach((p, i) => {
+    const st = signalState(p.bht, p.trend);
+    if (st && st !== prev) {
+      const l = last[fam(st)];
+      const upgrade = st === 'strong' && l?.kind === 'buy';
+      if (!l || upgrade || i - l.i >= SIGNAL_COOLDOWN) {
+        out.push({ time: p.time, kind: st });
+        last[fam(st)] = { i, kind: st };
+      }
+    }
+    prev = st;
+  });
+  // 2) Cruces SMA 50 / SMA 200 del precio mostrado
+  const px = daily.map((p) => p.sp500Price!);
+  let s50 = 0, s200 = 0, sign = 0;
+  const flips: Array<{ i: number; up: boolean }> = [];
+  for (let i = 0; i < px.length; i++) {
+    s50 += px[i]; s200 += px[i];
+    if (i >= 50) s50 -= px[i - 50];
+    if (i >= 200) s200 -= px[i - 200];
+    if (i < 199) continue;
+    const d = s50 / 50 - s200 / 200;
+    const sg = d > 0 ? 1 : d < 0 ? -1 : 0;
+    if (sg !== 0 && sign !== 0 && sg !== sign) flips.push({ i, up: sg > 0 });
+    if (sg !== 0) sign = sg;
   }
-  return out;
+  // Un cruce que se revierte antes de CROSS_MIN_SESSIONS es ruido: se descartan ambos.
+  const keep = flips.filter((f, k) => {
+    const next = flips[k + 1], before = flips[k - 1];
+    return !(next && next.i - f.i < CROSS_MIN_SESSIONS) && !(before && f.i - before.i < CROSS_MIN_SESSIONS);
+  });
+  for (const f of keep) out.push({ time: daily[f.i].time, kind: f.up ? 'golden' : 'death' });
+  return out
+    .sort((a, b) => a.time.localeCompare(b.time))
+    .map((m) => ({ ...m, ...STYLE[m.kind] }));
 }

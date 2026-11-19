@@ -7,7 +7,7 @@ import { Eye, EyeOff, Calendar, Table, LineChart as ChartIcon, Sparkles } from '
 import { IndicatorDetails } from '@/services/api';
 import { TOKENS } from '@/lib/designTokens';
 import { getApiBase } from '@/lib/apiBase';
-import { buildValuationChart, monthlyOpportunityMarkers, type DailyValuation, type Instrument } from '@/lib/valuationChart';
+import { buildValuationChart, signalMarkers, type DailyValuation, type Instrument } from '@/lib/valuationChart';
 import { BHT_BANDS, bhtBandColor } from '@/components/backtesting/bhtBands';
 import { BhtDetailPopover, BhtHoverTip, useBhtDetail, useBhtPin } from '@/components/backtesting/BhtDetail';
 import { attachBhtChartPin, type BhtPoint } from '@/components/backtesting/bhtChartPin';
@@ -186,7 +186,8 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
 
   // Puntos de la gráfica (mensual antes de 1990, diaria después) con EMA 50/200 y marcadores mensuales.
   const points = useMemo(() => buildValuationChart(mergedData, daily, instrument), [mergedData, daily, instrument]);
-  const opportunityMarkers = useMemo(() => monthlyOpportunityMarkers(points), [points]);
+  // Señales BHT × tendencia ($$, $, ⚠) y cruces SMA 50/200 (Golden / Death Cross) sobre la línea del precio.
+  const opportunityMarkers = useMemo(() => signalMarkers(points).map(({ kind: _k, ...m }) => m), [points]);
 
   // Lightweight charts initialization and synchronization
   useEffect(() => {
@@ -718,6 +719,14 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
             </div>
           )}
           <div ref={chartContainerRef} data-bht-chart className="h-[400px] w-full" />
+          {/* Leyenda de las señales sobre la línea del precio. */}
+          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-slate-400">
+            <span><b style={{ color: TOKENS.favorable }}>$$</b> {locale === 'es' ? 'BHT < 40 con tendencia alcista (SMA 200)' : 'BHT < 40 with the trend up (200-day SMA)'}</span>
+            <span><b style={{ color: TOKENS.accent }}>$</b> {locale === 'es' ? 'BHT < 40 en tendencia bajista o 40–49 en alcista' : 'BHT < 40 in a downtrend or 40–49 in an uptrend'}</span>
+            <span><b style={{ color: TOKENS.risk }}>⚠</b> {locale === 'es' ? 'Riesgo: BHT 50–69 abajo de la SMA 200, o 70+' : 'Risk: BHT 50–69 below the 200-day SMA, or 70+'}</span>
+            <span><b style={{ color: TOKENS.caution }}>▲ Golden Cross</b> / <b className="text-slate-400">▼ Death Cross</b> {locale === 'es' ? 'SMA 50 cruza la SMA 200 del instrumento' : 'instrument 50-day SMA crosses its 200-day SMA'}</span>
+            <span className="text-slate-500">{locale === 'es' ? 'Se marcan al entrar en cada estado. Lectura del modelo, no recomendación.' : 'Marked when each state begins. Model reading, not advice.'}</span>
+          </div>
           {bhtPin.tip && bhtPin.tip.d !== bhtPin.pin?.d && daily && (() => {
             const i = dailyIdx.get(bhtPin.tip.d);
             if (i == null) return null;
