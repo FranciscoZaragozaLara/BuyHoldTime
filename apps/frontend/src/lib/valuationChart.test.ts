@@ -48,10 +48,13 @@ describe('señales BHT × tendencia y cruces', () => {
     expect(signalState(30, 'D')).toBe('buy');
     expect(signalState(45, 'U')).toBe('buy');
     expect(signalState(45, 'D')).toBeNull();
-    expect(signalState(55, 'U')).toBeNull();
+    expect(signalState(55, 'U')).toBe('starter'); // primer tramo pequeño con BHT 50–60 y tendencia alcista
+    expect(signalState(60.5, 'P')).toBe('starter');
+    expect(signalState(64, 'U')).toBeNull();
     expect(signalState(55, 'R')).toBe('danger');
     expect(signalState(65, 'D')).toBe('danger');
-    expect(signalState(75, 'U')).toBe('danger');
+    expect(signalState(75, 'U')).toBeNull(); // rally con BHT alto y tendencia alcista: sin alerta
+    expect(signalState(75, 'D')).toBe('danger');
     expect(signalState(undefined, 'U')).toBeNull();
     expect(signalState(30, undefined)).toBeNull();
   });
@@ -61,23 +64,25 @@ describe('señales BHT × tendencia y cruces', () => {
     Array.from({ length: n }, (_, k) => ({ time: day(k), daily: true, sp500Price: 100, ...f(k) }));
 
   it('se marca al entrar en el estado, no cada día, y respeta la espera entre señales iguales', () => {
-    // 0-9 miedo con tendencia alcista ($$), 10-14 neutral, 15-19 otra vez $$ (dentro de la espera), 45 de nuevo $$
-    const p = pts(60, (k) => ({ bht: (k < 10 || (k >= 15 && k < 20) || k >= 45) ? 30 : 55, trend: 'U' }));
+    // 0-9 miedo con tendencia alcista ($$), 10-14 codicia (sin señal), 15-19 otra vez $$ (en la espera), 45 de nuevo $$
+    const p = pts(60, (k) => ({ bht: (k < 10 || (k >= 15 && k < 20) || k >= 45) ? 30 : 65, trend: 'U' }));
     const m = signalMarkers(p).filter((x) => x.kind === 'strong');
     expect(m.map((x) => x.time)).toEqual([day(0), day(45)]);
     expect(SIGNAL_COOLDOWN).toBe(40);
     expect(m[0]).toMatchObject({ text: '$$', position: 'belowBar' });
   });
 
-  it('subir de $ a $$ no espera; $ después de $$ sí', () => {
-    // 0-4 $ (BHT 45 alcista), 5-9 $$ (BHT 30 alcista), 10-14 $ otra vez → dentro de la espera, no se marca
-    const p = pts(20, (k) => ({ bht: k < 5 ? 45 : k < 10 ? 30 : 45, trend: 'U' }));
-    expect(signalMarkers(p).map((x) => [x.kind, x.time])).toEqual([['buy', day(0)], ['strong', day(5)]]);
+  it('subir de nivel (¼$ → $ → $$) no espera; bajar de nivel sí', () => {
+    // 0-4 ¼$ (BHT 55), 5-9 $ (45), 10-14 $$ (30), 15-19 $ otra vez → dentro de la espera, no se marca
+    const p = pts(20, (k) => ({ bht: k < 5 ? 55 : k < 10 ? 45 : k < 15 ? 30 : 45, trend: 'U' }));
+    expect(signalMarkers(p).map((x) => [x.kind, x.time])).toEqual([['starter', day(0)], ['buy', day(5)], ['strong', day(10)]]);
+    expect(signalMarkers(p)[0]).toMatchObject({ text: '¼$' });
   });
 
   it('peligro con BHT neutral y tendencia bajista', () => {
     const p = pts(10, (k) => ({ bht: 58, trend: k < 5 ? 'U' : 'D' }));
-    expect(signalMarkers(p).map((x) => [x.kind, x.time])).toEqual([['danger', day(5)]]);
+    // BHT 58: primer tramo pequeño mientras la tendencia es alcista; alerta al perder la SMA 200
+    expect(signalMarkers(p).map((x) => [x.kind, x.time])).toEqual([['starter', day(0)], ['danger', day(5)]]);
   });
 
   it('Golden Cross y Death Cross del precio (SMA 50 cruzando la SMA 200)', () => {

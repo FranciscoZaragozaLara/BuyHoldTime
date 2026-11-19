@@ -4,7 +4,6 @@
 // con el valor mensual previo para que la línea no salte. Señales: BHT × tendencia ($$, $, ⚠) y cruces
 // SMA 50/200 del instrumento (Golden / Death Cross).
 import { TOKENS } from './designTokens';
-import { trendAdvice } from './bhtTrendAdvice';
 import { toTrendRegime } from './trendRegime';
 
 export type MonthlyRow = { date: string; sp500Price?: number; peRatio?: number; shillerPe?: number };
@@ -77,15 +76,15 @@ export function buildValuationChart(monthly: MonthlyRow[], daily: DailyValuation
   return out;
 }
 
-export type SignalKind = 'strong' | 'buy' | 'danger' | 'golden' | 'death';
+export type SignalKind = 'strong' | 'buy' | 'starter' | 'danger' | 'golden' | 'death';
 export type SignalMarker = {
   time: string; kind: SignalKind;
   position: 'aboveBar' | 'belowBar'; color: string; shape: 'circle' | 'square' | 'arrowUp' | 'arrowDown'; text: string; size: number;
 };
 
 /**
- * Espera mínima (sesiones, ~2 meses) entre señales de la misma familia ($/$$ comparten una; ⚠ la suya; subir de $ a
- * $$ no espera), y duración mínima de un cruce para contarlo.
+ * Espera mínima (sesiones, ~2 meses) entre señales de la misma familia (¼$/$/$$ comparten una; ⚠ la suya; subir de
+ * nivel de compra no espera), y duración mínima de un cruce para contarlo.
  */
 export const SIGNAL_COOLDOWN = 40;
 export const CROSS_MIN_SESSIONS = 10;
@@ -93,24 +92,30 @@ export const CROSS_MIN_SESSIONS = 10;
 const STYLE: Record<SignalKind, Omit<SignalMarker, 'time' | 'kind'>> = {
   strong: { position: 'belowBar', color: TOKENS.favorable, shape: 'circle', text: '$$', size: 1.2 },
   buy: { position: 'belowBar', color: TOKENS.accent, shape: 'circle', text: '$', size: 0.9 },
+  starter: { position: 'belowBar', color: TOKENS.caution, shape: 'circle', text: '¼$', size: 0.7 },
   danger: { position: 'aboveBar', color: TOKENS.risk, shape: 'square', text: '⚠', size: 1 },
   golden: { position: 'belowBar', color: TOKENS.caution, shape: 'arrowUp', text: 'Golden Cross', size: 1.1 },
   death: { position: 'aboveBar', color: '#94a3b8', shape: 'arrowDown', text: 'Death Cross', size: 1.1 },
 };
 
+export type SignalState = 'strong' | 'buy' | 'starter' | 'danger';
+/** Nivel de las señales de compra (subir de nivel no espera la pausa entre señales). */
+const BUY_RANK: Record<string, number> = { starter: 1, buy: 2, strong: 3 };
+
 /**
- * Estado BHT × tendencia de un día (misma lectura que el consejo combinado de la vista Estrategia):
- *  strong ($$): BHT < 40 con el S&P 500 arriba de su SMA 200 · buy ($): BHT < 40 abajo de la SMA 200, o BHT 40–49
- *  arriba de ella · danger (⚠): combinaciones de riesgo (BHT 50–69 abajo de la SMA 200, o BHT 70+).
+ * Estado BHT × tendencia de un día ("arriba" = S&P 500 arriba de su SMA 200, régimen alcista o corrección):
+ *  strong ($$): BHT < 40 arriba · buy ($): BHT < 40 abajo, o 40–49 arriba · starter (¼$, primer tramo pequeño):
+ *  BHT 50–60 arriba · danger (⚠): BHT ≥ 50 abajo de la SMA 200 (tendencia rota). Con BHT alto y tendencia alcista no
+ *  hay alerta: los rallies con BHT 70+ suelen seguir, y marcarlos como peligro hacía salir demasiado pronto.
  */
-export function signalState(bht: number | undefined, trend: string | undefined): 'strong' | 'buy' | 'danger' | null {
+export function signalState(bht: number | undefined, trend: string | undefined): SignalState | null {
   const regime = toTrendRegime(trend);
   if (bht == null || !regime) return null;
-  const band = bht < 40 ? 0 : bht < 50 ? 1 : bht < 62 ? 2 : bht < 70 ? 3 : 4;
-  const tone = trendAdvice(band, regime, 'es')!.tone;
-  if (band === 0) return tone === 'good' ? 'strong' : 'buy';
-  if (band === 1 && tone === 'good') return 'buy';
-  return tone === 'bad' ? 'danger' : null;
+  const above = regime === 'UPTREND' || regime === 'PULLBACK';
+  if (bht < 40) return above ? 'strong' : 'buy';
+  if (bht < 50) return above ? 'buy' : null;
+  if (!above) return 'danger';
+  return bht < 61 ? 'starter' : null;
 }
 
 /**
@@ -129,7 +134,7 @@ export function signalMarkers(points: ChartPoint[]): SignalMarker[] {
     const st = signalState(p.bht, p.trend);
     if (st && st !== prev) {
       const l = last[fam(st)];
-      const upgrade = st === 'strong' && l?.kind === 'buy';
+      const upgrade = st !== 'danger' && !!l && (BUY_RANK[st] ?? 0) > (BUY_RANK[l.kind] ?? 0);
       if (!l || upgrade || i - l.i >= SIGNAL_COOLDOWN) {
         out.push({ time: p.time, kind: st });
         last[fam(st)] = { i, kind: st };
