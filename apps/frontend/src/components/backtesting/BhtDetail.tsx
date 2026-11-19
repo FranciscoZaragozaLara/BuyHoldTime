@@ -130,10 +130,11 @@ export function BhtDetailPopover({ hover, detail, onLeave, onHold, liveValue, on
   const ti = useTranslations('Backtesting.indicators');
   const loc = useLocale();
   const popRef = useRef<HTMLDivElement>(null);
-  // La vista va atada a la fecha: cada fecha nueva abre en Historia y la Estrategia se calcula solo si se pide.
+  // La vista va atada a la fecha: cada fecha nueva abre en Estrategia (vista por defecto); Historia y Drawdowns se
+  // calculan solo si se piden.
   // Fijado (con ✕), la vista elegida se conserva al cambiar de fecha con clic o con ← →.
-  const [viewFor, setViewFor] = useState<{ d: string; v: PopView }>({ d: hover.d, v: 'history' });
-  const view = onClose || viewFor.d === hover.d ? viewFor.v : 'history';
+  const [viewFor, setViewFor] = useState<{ d: string; v: PopView }>({ d: hover.d, v: 'strategy' });
+  const view = onClose || viewFor.d === hover.d ? viewFor.v : 'strategy';
   const setView = (v: PopView) => setViewFor({ d: hover.d, v });
   const hist = useThermoPartsMonthly(view === 'history', hover.d);
   // Posición fija a un lado del cursor (no tapa el crosshair), medida con el tamaño real y dentro de la pantalla.
@@ -172,11 +173,11 @@ export function BhtDetailPopover({ hover, detail, onLeave, onHold, liveValue, on
       )}</div>
       {/* Interruptor Historia / Estrategia en la esquina: siempre en el mismo lugar y fácil de alcanzar. */}
       <div className="shrink-0 inline-flex rounded-lg border border-slate-700 bg-slate-950/60 p-0.5 text-[11px] font-bold">
-        <button type="button" onClick={(e) => { e.stopPropagation(); setView('history'); }}
-          className={`px-2 py-0.5 rounded-md transition ${view === 'history' ? 'bg-slate-700 text-white' : 'text-slate-400 hover:text-slate-200'}`}>{loc === 'es' ? 'Historia' : 'History'}</button>
         <button type="button" onClick={(e) => { e.stopPropagation(); setView('strategy'); }}
           className={`px-2 py-0.5 rounded-md transition ${view === 'strategy' ? 'text-slate-900' : 'text-slate-400 hover:text-slate-200'}`}
           style={view === 'strategy' && bd ? { backgroundColor: bd.color } : undefined}>{ti('strategyButton')} ▸</button>
+        <button type="button" onClick={(e) => { e.stopPropagation(); setView('history'); }}
+          className={`px-2 py-0.5 rounded-md transition ${view === 'history' ? 'bg-slate-700 text-white' : 'text-slate-400 hover:text-slate-200'}`}>{loc === 'es' ? 'Historia' : 'History'}</button>
         <button type="button" onClick={(e) => { e.stopPropagation(); setView('drawdowns'); }}
           className={`px-2 py-0.5 rounded-md transition ${view === 'drawdowns' ? 'bg-risk-500/80 text-white' : 'text-slate-400 hover:text-slate-200'}`}>Drawdowns</button>
       </div>
