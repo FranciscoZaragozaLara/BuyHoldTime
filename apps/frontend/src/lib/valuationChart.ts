@@ -94,6 +94,11 @@ export const SIGNAL_COOLDOWN = 40;
  * alerta (⚠): solo si el precio subió desde la alerta anterior.
  */
 export const SIGNAL_REPEAT = 21;
+/**
+ * El Death Cross solo se marca con BHT ≥ este nivel: con el BHT barato llega tarde (cerca de los pisos: dic-2018,
+ * mar-2020, abr-2025) y se leía como "no compres" justo en las oportunidades.
+ */
+export const DEATH_CROSS_MIN_BHT = 50;
 export const CROSS_MIN_SESSIONS = 10;
 
 const STYLE: Record<SignalKind, Omit<SignalMarker, 'time' | 'kind' | 'priority'>> = {
@@ -183,7 +188,11 @@ export function signalMarkers(points: ChartPoint[]): SignalMarker[] {
     const next = flips[k + 1], before = flips[k - 1];
     return !(next && next.i - f.i < CROSS_MIN_SESSIONS) && !(before && f.i - before.i < CROSS_MIN_SESSIONS);
   });
-  for (const f of keep) out.push({ time: daily[f.i].time, kind: f.up ? 'golden' : 'death', priority: 3 });
+  for (const f of keep) {
+    const b = daily[f.i].bht;
+    if (!f.up && b != null && b < DEATH_CROSS_MIN_BHT) continue; // Death Cross con BHT barato: rezagado, se omite
+    out.push({ time: daily[f.i].time, kind: f.up ? 'golden' : 'death', priority: 3 });
+  }
   return out
     .sort((a, b) => a.time.localeCompare(b.time))
     .map((m) => ({ ...m, ...STYLE[m.kind] }));

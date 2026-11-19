@@ -744,7 +744,7 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
             <span><b style={{ color: TOKENS.accent }}>$</b> {locale === 'es' ? 'BHT < 40 en tendencia bajista o 40–49 en alcista' : 'BHT < 40 in a downtrend or 40–49 in an uptrend'}</span>
             <span><b style={{ color: TOKENS.caution }}>¼$</b> {locale === 'es' ? 'primer tramo pequeño: BHT 50–60 con tendencia alcista' : 'small first tranche: BHT 50–60 in an uptrend'}</span>
             <span><b style={{ color: TOKENS.risk }}>⚠</b> {locale === 'es' ? 'Riesgo: BHT ≥ 50 con el S&P 500 abajo de su SMA 200' : 'Risk: BHT ≥ 50 with the S&P 500 below its 200-day SMA'}</span>
-            <span><b style={{ color: TOKENS.caution }}>▲ Golden Cross</b> / <b className="text-slate-400">▼ Death Cross</b> {locale === 'es' ? 'SMA 50 cruza la SMA 200 del instrumento' : 'instrument 50-day SMA crosses its 200-day SMA'}</span>
+            <span><b style={{ color: TOKENS.caution }}>▲ Golden Cross</b> / <b className="text-slate-400">▼ Death Cross</b> {locale === 'es' ? 'SMA 50 cruza la SMA 200 del instrumento (el Death Cross solo con BHT ≥ 50: con BHT bajo llega tarde, cerca de los pisos)' : 'instrument 50-day SMA crosses its 200-day SMA (Death Cross only with BHT ≥ 50: with a low BHT it comes late, near bottoms)'}</span>
             <span className="text-slate-500">{locale === 'es' ? 'Se marcan al entrar en cada estado. Lectura del modelo, no recomendación.' : 'Marked when each state begins. Model reading, not advice.'}</span>
           </div>
           {bhtPin.tip && bhtPin.tip.d !== bhtPin.pin?.d && daily && (() => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildValuationChart, signalMarkers, signalState, thinMarkers, CROSS_MIN_SESSIONS, SIGNAL_COOLDOWN, SIGNAL_REPEAT, type ChartPoint, type DailyValuation, type MonthlyRow } from './valuationChart';
+import { buildValuationChart, signalMarkers, signalState, thinMarkers, DEATH_CROSS_MIN_BHT, CROSS_MIN_SESSIONS, SIGNAL_COOLDOWN, SIGNAL_REPEAT, type ChartPoint, type DailyValuation, type MonthlyRow } from './valuationChart';
 
 const monthly: MonthlyRow[] = [
   { date: '1989-11', sp500Price: 340, peRatio: 14, shillerPe: 17 },
@@ -107,6 +107,10 @@ describe('señales BHT × tendencia y cruces', () => {
     expect(m.map((x) => x.kind)).toEqual(['golden', 'death']);
     expect(m[0]).toMatchObject({ text: 'Golden Cross', shape: 'arrowUp' });
     expect(m[1]).toMatchObject({ text: 'Death Cross', shape: 'arrowDown' });
+    // con el BHT barato (< 50) el Death Cross se omite; el Golden Cross se mantiene
+    const cheap = signalMarkers(pts(700, (k) => ({ sp500Price: price(k), bht: 30, trend: undefined })));
+    expect(cheap.map((x) => x.kind)).toEqual(['golden']);
+    expect(DEATH_CROSS_MIN_BHT).toBe(50);
     expect(CROSS_MIN_SESSIONS).toBe(10);
   });
 });
