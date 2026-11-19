@@ -164,7 +164,9 @@ export function BhtDetailPopover({ hover, detail, onLeave, onHold, liveValue, on
   // Portal al body: un ancestro con transform/backdrop-filter haría que `fixed` se midiera desde él y no desde la pantalla.
   if (typeof document === 'undefined') return null;
   return createPortal(
-    <div ref={popRef} data-bht-pop className="fixed z-[9999] w-[720px] max-w-[calc(100vw-16px)] max-h-[calc(100vh-16px)] overflow-y-auto p-3 rounded-xl bg-slate-900 border border-slate-700 shadow-2xl text-xs leading-snug text-slate-200  text-left" style={pos ? { left: pos.left, top: pos.top } : { left: -9999, top: 0 }} onMouseEnter={() => onHold?.()} onMouseLeave={onLeave}>
+    // pr-6: la barra de desplazamiento (flotante en macOS) se dibuja encima del contenido; con el margen normal (12 px)
+    // tapaba la última columna de las tablas. scrollbar-gutter reserva su espacio cuando la barra no es flotante.
+    <div ref={popRef} data-bht-pop className="fixed z-[9999] w-[740px] max-w-[calc(100vw-16px)] max-h-[calc(100vh-16px)] overflow-y-auto overflow-x-hidden [scrollbar-gutter:stable] p-3 pr-6 rounded-xl bg-slate-900 border border-slate-700 shadow-2xl text-xs leading-snug text-slate-200  text-left" style={pos ? { left: pos.left, top: pos.top } : { left: -9999, top: 0 }} onMouseEnter={() => onHold?.()} onMouseLeave={onLeave}>
       <div className="flex items-start justify-between gap-2 mb-1.5">
       <div className="font-bold"><span className="text-sky-300">{hover.d}</span> <span className="text-slate-100">· BHT</span> {headV != null && <span className="font-mono" style={{ color: capeScoreColor(headV) }}>{headV.toFixed(1)}/100</span>}{liveValue != null && <span className="ml-1.5 text-[10px] px-1.5 py-px rounded-full bg-accent-500/20 text-accent-300 font-bold" title={ti('liveTitle')}>{ti('live')}</span>}{detail?.trend && <TrendBadge trend={detail.trend} size="xs" className="ml-1.5" />}{detail?.prices && (
         <span className="ml-2 font-mono font-normal text-[11px] text-slate-400 align-middle">
