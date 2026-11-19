@@ -76,7 +76,7 @@ export default function BhtStrategyView({ date, locale, adviceLabel, adviceText 
   const t = T[locale === 'es' ? 'es' : 'en'];
   const [inst, setInst] = useState<Instrument>('spx');
   // Días del rango que entran a los promedios (rendimiento y pico).
-  const [win, setWin] = useState<Win>('all');
+  const [win, setWin] = useState<Win>('5y'); // por defecto los últimos 5 años (más cercanos al mercado actual)
   const [showMx, setShowMx] = useState(false);
   const [state, setState] = useState<{ key: string; data: Result | null } | null>(null);
   const key = `${date}:${inst}:${win}`;
