@@ -2,13 +2,25 @@
 // 1) Rango del BHT del día ±2 puntos (63 → 61–65): días históricos y de los últimos 5 años en ese rango.
 // 2) Rendimiento promedio de esos días a 1, 2, 3 y 5 años y pico máximo dentro de 5 años, proyectado
 //    sobre el precio del día (precio nominal esperado y fecha).
+// 4) Matriz BHT × tendencia: para cada banda del BHT y régimen tendencial, rendimiento a 12 meses, % positivo,
+//    caída máxima promedio en esos 12 meses y probabilidad de caer más de 15% (días de la ventana elegida).
 // 3) Comprando en esta fecha y manteniendo hasta hoy, para cada instrumento: rendimiento total y CAGR; y lo mismo
 //    si se vendiera en el pico máximo alcanzado desde la compra.
 // Los tramos de compra/venta y las caídas por año están en la vista Drawdowns (bht-drawdowns.ts).
 export type Instrument = 'spx' | 'qqq' | 'tqqq';
 /** Días del rango que entran a los promedios: toda la historia o solo los últimos 5 años. */
 export type SampleWindow = 'all' | '5y';
-export type StrategySeries = { dates: string[]; bht: (number | null)[]; px: Record<Instrument, (number | null)[]> };
+export type StrategySeries = {
+  dates: string[]; bht: (number | null)[]; px: Record<Instrument, (number | null)[]>;
+  /** Régimen tendencial del S&P 500 de cada día (UPTREND · PULLBACK · REBOUND · DOWNTREND). */
+  trend?: (string | null)[];
+};
+
+/** Bandas del BHT (mismos cortes que el semáforo) y regímenes, en orden de riesgo. */
+export const BAND_LO = [0, 40, 50, 62, 70] as const;
+export const REGIMES = ['UPTREND', 'PULLBACK', 'REBOUND', 'DOWNTREND'] as const;
+export const bandOf = (b: number) => (b < 40 ? 0 : b < 50 ? 1 : b < 62 ? 2 : b < 70 ? 3 : 4);
+export type MatrixCell = { band: number; regime: string; n: number; avg12m: number | null; pos12m: number | null; avgMdd: number | null; pDd15: number | null };
 
 export const HORIZONS = [1, 2, 3, 5] as const;
 const PEAK_YEARS = 5;
@@ -48,6 +60,9 @@ export type StrategyResult = {
   percentile: { all: number; last5y: number };
   base: { price: number | null; today: string; todayPrice: number | null };
   perf: Array<{ years: number; n: number; avgPct: number | null; medianPct: number | null; positivePct: number | null; nominal: number | null; targetDate: string; cagrPct: number | null }>;
+  /** Régimen del día y celda de la matriz BHT × tendencia que le toca. */
+  trend: string | null;
+  matrix: { cells: MatrixCell[]; current: { band: number; regime: string | null } };
   /** Comprar en la fecha y mantener hasta hoy (último cierre), por instrumento. CAGR solo con ≥ 1 año. */
   sinceDate: Record<Instrument, {
     buyPrice: number | null; lastPrice: number | null; lastDate: string | null; years: number | null; totalPct: number | null; cagrPct: number | null;
@@ -147,8 +162,44 @@ export function computeBhtStrategy(s: StrategySeries, date: string, instrument: 
     };
   }
 
+  // 4) Matriz BHT × tendencia (12 meses hacia adelante; caída = peor cierre de esos 12 meses contra la entrada).
+  const acc = new Map<string, { rets: number[]; mdds: number[] }>();
+  if (s.trend) {
+    for (let k = 0; k < s.dates.length; k++) {
+      const b = s.bht[k], r = s.trend[k], p0 = px[k];
+      if (b == null || !r || p0 == null) continue;
+      if (window === '5y' && s.dates[k] < from5y) continue;
+      const j = firstOnOrAfter(s.dates, addYears(s.dates[k], 1));
+      if (j === -1 || px[j] == null) continue;
+      let lo = p0;
+      for (let m = k + 1; m <= j; m++) { const v = px[m]; if (v != null && v < lo) lo = v; }
+      const key = `${bandOf(b)}|${r}`;
+      const a = acc.get(key) ?? { rets: [], mdds: [] };
+      a.rets.push((px[j]! / p0 - 1) * 100);
+      a.mdds.push((lo / p0 - 1) * 100);
+      acc.set(key, a);
+    }
+  }
+  const cells: MatrixCell[] = [];
+  for (let band = 0; band < BAND_LO.length; band++) {
+    for (const regime of REGIMES) {
+      const a = acc.get(`${band}|${regime}`);
+      const n = a?.rets.length ?? 0;
+      cells.push({
+        band, regime, n,
+        avg12m: n ? avg(a!.rets) : null,
+        pos12m: n ? (a!.rets.filter((x) => x > 0).length / n) * 100 : null,
+        avgMdd: n ? avg(a!.mdds) : null,
+        pDd15: n ? (a!.mdds.filter((x) => x < -15).length / n) * 100 : null,
+      });
+    }
+  }
+  const trendToday = s.trend?.[i] ?? null;
+
   return {
     date: s.dates[i], instrument, window, bht, range,
+    trend: trendToday,
+    matrix: { cells, current: { band: bandOf(bht), regime: trendToday } },
     frequency: { all: { count: allC, total: allN, pct: pct(allC, allN) }, last5y: { count: c5, total: n5, pct: pct(c5, n5) } },
     percentile: { all: pct(allLe, allN), last5y: pct(le5, n5) },
     base: { price: basePrice ?? null, today, todayPrice: todayPrice ?? null },

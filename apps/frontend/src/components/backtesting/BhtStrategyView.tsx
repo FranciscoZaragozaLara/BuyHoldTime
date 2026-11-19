@@ -5,6 +5,11 @@ import { useEffect, useState } from 'react';
 import { getApiBase } from '@/lib/apiBase';
 import { bhtBand, capeScoreColor } from './bhtBands';
 import { fmtPct, opportunityMessage } from '@/lib/bhtOpportunity';
+import { trendAdvice, type AdviceTone } from '@/lib/bhtTrendAdvice';
+import { toTrendRegime, TREND_META, TREND_ORDER, trendText } from '@/lib/trendRegime';
+import { BHT_BANDS } from './bhtBands';
+import { TOKENS } from '@/lib/designTokens';
+import { TrendBadge } from './TrendBadge';
 
 type Instrument = 'spx' | 'qqq' | 'tqqq';
 type Win = 'all' | '5y';
@@ -12,6 +17,8 @@ type Result = {
   date: string; bht: number; range: [number, number];
   frequency: { all: { count: number; total: number; pct: number }; last5y: { count: number; total: number; pct: number } };
   percentile?: { all: number; last5y: number };
+  trend?: string | null;
+  matrix?: { cells: Array<{ band: number; regime: string; n: number; avg12m: number | null; pos12m: number | null; avgMdd: number | null; pDd15: number | null }>; current: { band: number; regime: string | null } };
   base: { price: number | null; today: string; todayPrice: number | null };
   perf: Array<{ years: number; n: number; avgPct: number | null; medianPct: number | null; positivePct: number | null; nominal: number | null; targetDate: string; cagrPct?: number | null }>;
   sinceDate?: Record<Instrument, {
@@ -44,6 +51,7 @@ const T = {
     peak: 'Pico máx. (5a)', peakIn: 'en ~', peak5: 'Pico máx. (a hoy)', peak5Note: 'Pico desde cada día hasta hoy (ningún día de los últimos 5 años tiene 5 años completos).',
     winAll: 'Toda la historia', win5: 'Últimos 5 años', winTitle: 'Días del rango que entran a los promedios', peakNote: 'Pico dentro de 5 años; fecha = día + tiempo promedio al pico.', loading: 'Calculando…', error: 'No se pudo calcular.',
     note: 'Promedios de días históricos (se traslapan; n = días con dato). No es una recomendación de inversión.',
+    mxTitle: 'BHT × tendencia', mxShow: 'Ver matriz BHT × tendencia', mxHide: 'Ocultar matriz', mxCell: 'Esta combinación', mxRet: 'rend. 12m', mxPos: 'positivo', mxDd: 'caída máx. prom.', mxP15: 'prob. caer >15%', mxDays: 'días', mxNote: 'Cada celda: rendimiento promedio a 12 meses y, debajo, caída máxima promedio y probabilidad de caer más de 15% en esos 12 meses. Celdas con pocos días se ven tenues.', mxBand: 'Banda BHT',
     pctl: 'percentil', cagr: 'CAGR', cagrTitle: 'Rendimiento anual compuesto equivalente al promedio del plazo',
     since: 'Comprando en esta fecha y manteniendo hasta hoy', atPeak: 'Comprando en esta fecha y vendiendo en el pico máximo', peakCol: 'Pico', dateCol: 'Fecha', noPeak: 'no superó la compra', buy: 'Compra', last: 'Último', total: 'Total', yrs: 'Años', short: '< 1 año', sinceNote: 'CAGR solo con al menos 1 año de tenencia.',
     base: 'Compra', y: 'a', d: 'd',
@@ -54,6 +62,7 @@ const T = {
     peak: 'Max peak (5y)', peakIn: 'in ~', peak5: 'Max peak (to today)', peak5Note: 'Peak from each day until today (no day in the last 5 years has a full 5-year window).',
     winAll: 'All history', win5: 'Last 5 years', winTitle: 'Range days included in the averages', peakNote: 'Peak within 5 years; date = day + average time to peak.', loading: 'Computing…', error: 'Could not compute.',
     note: 'Averages of historical days (overlapping; n = days with data). Not investment advice.',
+    mxTitle: 'BHT × trend', mxShow: 'Show BHT × trend matrix', mxHide: 'Hide matrix', mxCell: 'This combination', mxRet: '12m return', mxPos: 'positive', mxDd: 'avg max drawdown', mxP15: 'prob. of falling >15%', mxDays: 'days', mxNote: 'Each cell: average 12-month return and, below, average max drawdown and probability of falling more than 15% within those 12 months. Cells with few days are dimmed.', mxBand: 'BHT band',
     pctl: 'percentile', cagr: 'CAGR', cagrTitle: 'Compound annual rate equivalent to the horizon average',
     since: 'Buying on this date and holding until today', atPeak: 'Buying on this date and selling at the maximum peak', peakCol: 'Peak', dateCol: 'Date', noPeak: 'never above the buy price', buy: 'Buy', last: 'Last', total: 'Total', yrs: 'Years', short: '< 1 year', sinceNote: 'CAGR only with at least 1 year held.',
     base: 'Buy', y: 'y', d: 'd',
@@ -67,6 +76,7 @@ export default function BhtStrategyView({ date, locale, adviceLabel, adviceText 
   const [inst, setInst] = useState<Instrument>('spx');
   // Días del rango que entran a los promedios (rendimiento y pico).
   const [win, setWin] = useState<Win>('all');
+  const [showMx, setShowMx] = useState(false);
   const [state, setState] = useState<{ key: string; data: Result | null } | null>(null);
   const key = `${date}:${inst}:${win}`;
   useEffect(() => {
@@ -124,6 +134,66 @@ export default function BhtStrategyView({ date, locale, adviceLabel, adviceText 
               <div className="font-bold" style={{ color }}>{m.label}</div>
               <div className="text-slate-300">{m.text} <span className="text-slate-500">({win === '5y' ? t.win5 : t.winAll})</span></div>
             </div>
+          </div>
+        );
+      })()}
+
+      {r?.matrix && (() => {
+        // Consejo combinado BHT × tendencia, con los números históricos de la celda de hoy y la matriz completa.
+        const regime = toTrendRegime(r.matrix.current.regime);
+        const adv = trendAdvice(r.matrix.current.band, regime, locale);
+        if (!adv || !regime) return null;
+        const toneColor: Record<AdviceTone, string> = { good: TOKENS.favorable, ok: TOKENS.caution, warn: TOKENS.elevated, bad: TOKENS.risk };
+        const c = toneColor[adv.tone];
+        const cell = r.matrix.cells.find((x) => x.band === r.matrix!.current.band && x.regime === regime);
+        return (
+          <div className="p-2 rounded-lg border space-y-1.5" style={{ borderColor: `${c}66`, backgroundColor: `${c}10` }}>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-[10px] uppercase tracking-wide text-slate-500">{t.mxTitle}</span>
+              <span className="font-bold" style={{ color: bhtBand(r.bht).color }}>{BHT_BANDS[r.matrix.current.band]?.range}</span>
+              <span className="text-slate-500">×</span>
+              <TrendBadge trend={{ regime }} size="xs" />
+            </div>
+            <div className="font-bold" style={{ color: c }}>{adv.title}</div>
+            <div className="text-slate-300 leading-snug">{adv.text}</div>
+            {cell && cell.n > 0 && (
+              <div className="font-mono text-[11px] text-slate-400">
+                {t.mxCell} ({win === '5y' ? t.win5 : t.winAll}, {cell.n} {t.mxDays}): {t.mxRet} <span className={`font-bold ${pctCls(cell.avg12m)}`}>{pctTxt(cell.avg12m)}</span>
+                {' · '}{cell.pos12m?.toFixed(0)}% {t.mxPos} · {t.mxDd} <span className="text-risk-300">{pctTxt(cell.avgMdd)}</span> · {t.mxP15} <span className="text-slate-100">{cell.pDd15?.toFixed(0)}%</span>
+              </div>
+            )}
+            <button type="button" onClick={(e) => { e.stopPropagation(); setShowMx((v) => !v); }} className="text-[11px] text-accent-400 hover:text-accent-300">{showMx ? t.mxHide : t.mxShow}</button>
+            {showMx && (
+              <div>
+                <table className="w-full font-mono text-[10px]">
+                  <thead className="text-[9px] uppercase tracking-wide text-slate-500">
+                    <tr className="border-b border-slate-700/70">
+                      <th className="text-left font-normal py-0.5">{t.mxBand}</th>
+                      {TREND_ORDER.map((g) => <th key={g} className="text-right font-normal" style={{ color: TREND_META[g].color }}>{TREND_META[g].arrow} {trendText(g, locale).name}</th>)}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {BHT_BANDS.map((b, bi) => (
+                      <tr key={b.range} className="border-b border-slate-800/60">
+                        <td className="py-0.5 whitespace-nowrap"><span className="inline-block w-2 h-2 rounded-full mr-1 align-middle" style={{ background: b.color }} />{b.range}</td>
+                        {TREND_ORDER.map((g) => {
+                          const x = r.matrix!.cells.find((y) => y.band === bi && y.regime === g);
+                          const cur = bi === r.matrix!.current.band && g === regime;
+                          if (!x || !x.n) return <td key={g} className="text-right text-slate-600">—</td>;
+                          return (
+                            <td key={g} className={`text-right px-1 rounded ${cur ? 'ring-1 ring-white/70 bg-slate-800/70' : ''} ${x.n < 60 ? 'opacity-50' : ''}`} title={`${x.n} ${t.mxDays} · ${x.pos12m?.toFixed(0)}% ${t.mxPos}`}>
+                              <div className={`font-bold ${pctCls(x.avg12m)}`}>{pctTxt(x.avg12m)}</div>
+                              <div className="text-slate-500">{x.avgMdd?.toFixed(0)}% · {x.pDd15?.toFixed(0)}%</div>
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <div className="text-[10px] text-slate-500 mt-0.5">{t.mxNote}</div>
+              </div>
+            )}
           </div>
         );
       })()}

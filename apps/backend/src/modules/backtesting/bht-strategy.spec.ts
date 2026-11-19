@@ -113,3 +113,26 @@ describe('percentil del BHT', () => {
     expect(r.percentile.last5y).toBe(0); // los últimos 5 años tienen BHT ≥ 35
   });
 });
+
+describe('matriz BHT × tendencia', () => {
+  test('rendimiento a 12m, % positivo, caída máxima y prob. de caer >15% por banda y régimen', () => {
+    // mensual 2000-2003: BHT 55 (Neutral) todo el periodo; régimen alcista en 2000 y bajista en 2001
+    const dates = Array.from({ length: 48 }, (_, k) => `${2000 + Math.floor(k / 12)}-${String((k % 12) + 1).padStart(2, '0')}-01`);
+    const bht = dates.map(() => 55);
+    const trend = dates.map((_, k) => (k < 12 ? 'UPTREND' : k < 24 ? 'DOWNTREND' : 'UPTREND'));
+    // precio: sube +10% en 2000, cae -30% durante 2001, luego plano
+    const spx = dates.map((_, k) => (k <= 12 ? 100 + (10 * k) / 12 : k <= 24 ? 110 - (33 * (k - 12)) / 12 : 77));
+    const r = computeBhtStrategy({ dates, bht, px: { spx, qqq: dates.map(() => null), tqqq: dates.map(() => null) }, trend }, '2001-06-01', 'spx')!;
+    expect(r.trend).toBe('DOWNTREND');
+    expect(r.matrix.current).toEqual({ band: 2, regime: 'DOWNTREND' });
+    const up = r.matrix.cells.find((c) => c.band === 2 && c.regime === 'UPTREND')!;
+    const down = r.matrix.cells.find((c) => c.band === 2 && c.regime === 'DOWNTREND')!;
+    expect(down.n).toBe(12);
+    expect(down.avg12m!).toBeLessThan(0);
+    expect(down.pos12m).toBe(0);
+    expect(down.avgMdd!).toBeLessThan(up.avgMdd!);
+    expect(down.pDd15!).toBeGreaterThan(0);
+    expect(r.matrix.cells).toHaveLength(20);
+    expect(r.matrix.cells.find((c) => c.band === 0 && c.regime === 'REBOUND')!.n).toBe(0);
+  });
+});

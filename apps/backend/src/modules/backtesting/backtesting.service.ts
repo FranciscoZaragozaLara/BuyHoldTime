@@ -752,8 +752,9 @@ export class BacktestingService {
   private async strategySeries(): Promise<StrategySeries> {
     const hit = this.strategyCache.get<StrategySeries>('series');
     if (hit) return hit;
-    const rows = await this.prisma.$queryRawUnsafe<Array<{ d: string; b: number | null; spx: number | null; tqqq: number | null }>>(
-      `SELECT date::text AS d, bht_value AS b, spx, tqqq FROM bt_bht_forward ORDER BY date`);
+    // Con el régimen tendencial del S&P 500 de cada día (de bt_thermo_history) para la matriz BHT × tendencia.
+    const rows = await this.prisma.$queryRawUnsafe<Array<{ d: string; b: number | null; spx: number | null; tqqq: number | null; r: string | null }>>(
+      `SELECT f.date::text AS d, f.bht_value AS b, f.spx, f.tqqq, t.trend_regime AS r FROM bt_bht_forward f LEFT JOIN bt_thermo_history t ON t.date = f.date ORDER BY f.date`);
     const toMap = (r: Array<{ d: string; v: unknown }>): PriceMap => new Map(r.filter((x) => x.v != null).map((x) => [x.d, Number(x.v)]));
     // QQQ: listado de tickers desde 1999 unido a bt_market_data (misma serie que la gráfica de /indicators).
     const [qOld, qNew] = await Promise.all([
@@ -765,6 +766,7 @@ export class BacktestingService {
     const series: StrategySeries = {
       dates: rows.map((r) => r.d), bht: rows.map((r) => num(r.b)),
       px: { spx: rows.map((r) => num(r.spx)), qqq: rows.map((r) => qqq.get(r.d) ?? null), tqqq: rows.map((r) => num(r.tqqq)) },
+      trend: rows.map((r) => r.r ?? null),
     };
     this.strategyCache.set('series', series);
     return series;
