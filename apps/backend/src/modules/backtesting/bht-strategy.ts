@@ -2,6 +2,7 @@
 // 1) Rango del BHT del día ±2 puntos (63 → 61–65): días históricos y de los últimos 5 años en ese rango.
 // 2) Rendimiento promedio de esos días a 1, 2, 3 y 5 años y pico máximo dentro de 5 años, proyectado
 //    sobre el precio del día (precio nominal esperado y fecha).
+// 3) Comprando en esta fecha y manteniendo hasta hoy, para cada instrumento: rendimiento total y CAGR.
 // Los tramos de compra/venta y las caídas por año están en la vista Drawdowns (bht-drawdowns.ts).
 export type Instrument = 'spx' | 'qqq' | 'tqqq';
 /** Días del rango que entran a los promedios: toda la historia o solo los últimos 5 años. */
@@ -11,6 +12,10 @@ export type StrategySeries = { dates: string[]; bht: (number | null)[]; px: Reco
 export const HORIZONS = [1, 2, 3, 5] as const;
 const PEAK_YEARS = 5;
 const DAY = 86_400_000;
+
+/** Tasa anual compuesta equivalente a un rendimiento total en `years` años (null sin dato o con pérdida total). */
+export const cagr = (totalPct: number | null, years: number): number | null =>
+  totalPct == null || years <= 0 || totalPct <= -100 ? null : (Math.pow(1 + totalPct / 100, 1 / years) - 1) * 100;
 
 export const addYears = (d: string, n: number) => `${Number(d.slice(0, 4)) + n}${d.slice(4)}`;
 export const daysBetween = (a: string, b: string) => Math.round((Date.parse(b) - Date.parse(a)) / DAY);
@@ -39,7 +44,9 @@ export type StrategyResult = {
   date: string; instrument: Instrument; window: SampleWindow; bht: number; range: [number, number];
   frequency: { all: { count: number; total: number; pct: number }; last5y: { count: number; total: number; pct: number } };
   base: { price: number | null; today: string; todayPrice: number | null };
-  perf: Array<{ years: number; n: number; avgPct: number | null; medianPct: number | null; positivePct: number | null; nominal: number | null; targetDate: string }>;
+  perf: Array<{ years: number; n: number; avgPct: number | null; medianPct: number | null; positivePct: number | null; nominal: number | null; targetDate: string; cagrPct: number | null }>;
+  /** Comprar en la fecha y mantener hasta hoy (último cierre), por instrumento. CAGR solo con ≥ 1 año. */
+  sinceDate: Record<Instrument, { buyPrice: number | null; lastPrice: number | null; lastDate: string | null; years: number | null; totalPct: number | null; cagrPct: number | null }>;
   peak: { n: number; avgPct: number | null; avgDays: number | null; nominal: number | null; date: string | null };
 };
 
@@ -84,6 +91,7 @@ export function computeBhtStrategy(s: StrategySeries, date: string, instrument: 
       positivePct: rets.length ? (rets.filter((r) => r > 0).length / rets.length) * 100 : null,
       nominal: a != null && basePrice != null ? basePrice * (1 + a / 100) : null,
       targetDate: addYears(s.dates[i], years),
+      cagrPct: cagr(a, years),
     };
   });
   const peakPcts: number[] = [], peakDays: number[] = [];
@@ -103,11 +111,28 @@ export function computeBhtStrategy(s: StrategySeries, date: string, instrument: 
 
   const todayPrice = px[last];
 
+  // 3) Comprar en la fecha y mantener hasta el último cierre disponible, para cada instrumento.
+  const sinceDate = {} as StrategyResult['sinceDate'];
+  for (const inst of ['spx', 'qqq', 'tqqq'] as Instrument[]) {
+    const p = s.px[inst];
+    const p0 = p[i] ?? null;
+    let k = last;
+    while (k > i && p[k] == null) k--;
+    const pN = k > i ? p[k] : null;
+    const yrs = pN != null ? daysBetween(s.dates[i], s.dates[k]) / 365.25 : null;
+    const total = p0 != null && pN != null ? (pN / p0 - 1) * 100 : null;
+    sinceDate[inst] = {
+      buyPrice: p0, lastPrice: pN ?? null, lastDate: pN != null ? s.dates[k] : null,
+      years: yrs, totalPct: total, cagrPct: yrs != null && yrs >= 1 ? cagr(total, yrs) : null,
+    };
+  }
+
   return {
     date: s.dates[i], instrument, window, bht, range,
     frequency: { all: { count: allC, total: allN, pct: pct(allC, allN) }, last5y: { count: c5, total: n5, pct: pct(c5, n5) } },
     base: { price: basePrice ?? null, today, todayPrice: todayPrice ?? null },
     perf,
+    sinceDate,
     peak: {
       n: peakPcts.length, avgPct: pkPct, avgDays: pkDays,
       nominal: pkPct != null && basePrice != null ? basePrice * (1 + pkPct / 100) : null,

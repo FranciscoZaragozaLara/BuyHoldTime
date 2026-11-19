@@ -1,4 +1,4 @@
-import { computeBhtStrategy, type StrategySeries } from './bht-strategy';
+import { cagr, computeBhtStrategy, type StrategySeries } from './bht-strategy';
 
 // Serie sintética: un día por mes desde 2000 (fechas reales para los cálculos por años).
 function series(bht: number[], spx: number[]): StrategySeries {
@@ -61,3 +61,28 @@ describe('computeBhtStrategy', () => {
   });
 });
 
+
+describe('CAGR', () => {
+  test('tasa anual compuesta', () => {
+    expect(cagr(100, 2)).toBeCloseTo(41.421, 3); // ×2 en 2 años
+    expect(cagr(-50, 1)).toBeCloseTo(-50, 9);
+    expect(cagr(null, 2)).toBeNull();
+    expect(cagr(-100, 3)).toBeNull();
+  });
+  test('perf trae el CAGR del promedio y sinceDate compra en la fecha hasta el último cierre', () => {
+    const n = 96;
+    const s: StrategySeries = {
+      dates: Array.from({ length: n }, (_, k) => `${2000 + Math.floor(k / 12)}-${String((k % 12) + 1).padStart(2, '0')}-01`),
+      bht: Array.from({ length: n }, () => 63),
+      px: { spx: Array.from({ length: n }, (_, k) => 100 + k), qqq: Array.from({ length: n }, () => null), tqqq: Array.from({ length: n }, (_, k) => (k < 95 ? 50 : null)) },
+    };
+    const r = computeBhtStrategy(s, '2000-01-01', 'spx')!;
+    const y2 = r.perf.find((p) => p.years === 2)!;
+    expect(y2.cagrPct!).toBeCloseTo(cagr(y2.avgPct, 2)!, 9);
+    expect(r.sinceDate.spx.totalPct).toBeCloseTo(95, 9); // 195/100
+    expect(r.sinceDate.spx.cagrPct!).toBeCloseTo(cagr(95, r.sinceDate.spx.years!)!, 9);
+    expect(r.sinceDate.qqq).toMatchObject({ buyPrice: null, totalPct: null, cagrPct: null });
+    expect(r.sinceDate.tqqq.lastDate).toBe('2007-11-01'); // último cierre con dato
+    expect(computeBhtStrategy(s, '2007-06-01', 'spx')!.sinceDate.spx.cagrPct).toBeNull(); // < 1 año
+  });
+});
