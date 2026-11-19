@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildValuationChart, signalMarkers, signalState, thinMarkers, DEATH_CROSS_MIN_BHT, CROSS_MIN_SESSIONS, SIGNAL_REPEAT, type ChartPoint, type DailyValuation, type MonthlyRow } from './valuationChart';
+import { buildValuationChart, signalMarkers, signalState, thinMarkers, DEATH_CROSS_MIN_BHT, SELL_RESET_BELOW, CROSS_MIN_SESSIONS, SIGNAL_REPEAT, type ChartPoint, type DailyValuation, type MonthlyRow } from './valuationChart';
 
 const monthly: MonthlyRow[] = [
   { date: '1989-11', sp500Price: 340, peRatio: 14, shillerPe: 17 },
@@ -92,6 +92,22 @@ describe('señales BHT × tendencia y cruces', () => {
   it('la alerta se repite solo si el precio subió desde la anterior', () => {
     const p = pts(50, (k) => ({ bht: 60, trend: 'D', sp500Price: k < 30 ? 100 - k : 70 + (k - 30) * 3 }));
     expect(signalMarkers(p).filter((x) => x.kind === 'danger').map((x) => x.time)).toEqual([day(0), day(41)]);
+  });
+
+  it('salidas escalonadas: cruzar 75 y cada +5; se reinicia al bajar de 70', () => {
+    const bht = [60, 76, 79, 81, 86, 72, 76, 65, 77, 92];
+    const m = signalMarkers(pts(bht.length, (k) => ({ bht: bht[k], trend: 'U' })), 'es').filter((x) => x.kind === 'sell');
+    // 76 → 75, 81 → 80, 86 → 85; 72 no reinicia (≥ 70) y 76 no repite; 65 reinicia; 77 → 75; 92 salta a 90
+    expect(m.map((x) => [x.time, x.text])).toEqual([
+      [day(1), 'Vende 75'], [day(3), 'Vende 80'], [day(4), 'Vende 85'], [day(8), 'Vende 75'], [day(9), 'Vende 90'],
+    ]);
+    expect(m[0]).toMatchObject({ shape: 'arrowDown', position: 'aboveBar', size: 1 });
+    expect(m[4].size).toBeGreaterThan(m[0].size);
+    expect(signalMarkers(pts(2, (k) => ({ bht: [60, 80][k], trend: 'U' })), 'en').find((x) => x.kind === 'sell')!.text).toBe('Sell 80');
+    expect(SELL_RESET_BELOW).toBe(70);
+    // al ralear, la salida más alta gana aunque sea posterior
+    const thin = thinMarkers(m, (t) => m.findIndex((x) => x.time === t), 10);
+    expect(thin.map((x) => x.text)).toEqual(['Vende 90']);
   });
 
   it('Golden Cross y Death Cross del precio (SMA 50 cruzando la SMA 200)', () => {

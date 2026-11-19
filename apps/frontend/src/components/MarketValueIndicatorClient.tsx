@@ -187,7 +187,7 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
   // Puntos de la gráfica (mensual antes de 1990, diaria después) con EMA 50/200 y marcadores mensuales.
   const points = useMemo(() => buildValuationChart(mergedData, daily, instrument), [mergedData, daily, instrument]);
   // Señales BHT × tendencia ($$, $, ⚠) y cruces SMA 50/200 (Golden / Death Cross) sobre la línea del precio.
-  const opportunityMarkers = useMemo(() => signalMarkers(points), [points]);
+  const opportunityMarkers = useMemo(() => signalMarkers(points, locale), [points, locale]);
 
   // Lightweight charts initialization and synchronization
   useEffect(() => {
@@ -745,6 +745,7 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
               <b style={{ color: TOKENS.caution }}>¼$</b> BHT 50–60 · <b style={{ color: TOKENS.accent }}>$</b> 40–49 · <b style={{ color: TOKENS.favorable }}>$$</b> 30–39 · <b style={{ color: TOKENS.favorable }}>$$$</b> &lt; 30
               {locale === 'es' ? ' con tendencia alcista; abajo de la SMA 200 baja un nivel (40–49 → ¼$). Se repiten cada ~mes mientras siga barato.' : ' in an uptrend; below the 200-day SMA one level lower (40–49 → ¼$). Repeated about monthly while it stays cheap.'}
             </span>
+            <span><b style={{ color: TOKENS.elevated }}>▼ {locale === 'es' ? 'Vende 75 / 80 / 85…' : 'Sell 75 / 80 / 85…'}</b> {locale === 'es' ? 'salidas escalonadas: BHT cruza 75 y cada +5 (se reinicia al bajar de 70)' : 'staggered exits: BHT crosses 75 and every +5 (resets below 70)'}</span>
             <span><b style={{ color: TOKENS.risk }}>⚠</b> {locale === 'es' ? 'Riesgo: BHT ≥ 50 con el S&P 500 en tendencia bajista (abajo de su SMA 50 y 200); una por caída, salvo que el precio suba' : 'Risk: BHT ≥ 50 with the S&P 500 in a downtrend (below its 50- and 200-day SMA); once per decline unless price rises'}</span>
             <span><b style={{ color: TOKENS.caution }}>▲ Golden Cross</b> / <b className="text-slate-400">▼ Death Cross</b> {locale === 'es' ? 'SMA 50 cruza la SMA 200 del instrumento (el Death Cross solo con BHT ≥ 50: con BHT bajo llega tarde, cerca de los pisos)' : 'instrument 50-day SMA crosses its 200-day SMA (Death Cross only with BHT ≥ 50: with a low BHT it comes late, near bottoms)'}</span>
             <span className="text-slate-500">{locale === 'es' ? 'Lectura del modelo, no recomendación.' : 'Model reading, not advice.'}</span>

@@ -76,7 +76,7 @@ export function buildValuationChart(monthly: MonthlyRow[], daily: DailyValuation
   return out;
 }
 
-export type SignalKind = 'max' | 'strong' | 'buy' | 'starter' | 'danger' | 'golden' | 'death';
+export type SignalKind = 'max' | 'strong' | 'buy' | 'starter' | 'danger' | 'sell' | 'golden' | 'death';
 export type SignalMarker = {
   time: string; kind: SignalKind;
   /** 3 cruce · 2 entrada a un estado / subida de nivel · 1 recordatorio mensual (para el raleo por zoom). */
@@ -97,6 +97,10 @@ export const SIGNAL_REPEAT = 21;
  */
 export const DEATH_CROSS_MIN_BHT = 50;
 export const CROSS_MIN_SESSIONS = 10;
+/** Salidas escalonadas: primera al cruzar 75 y otra cada +5 (80, 85, 90…); la escalera se reinicia al bajar de 70. */
+export const SELL_START = 75;
+export const SELL_STEP = 5;
+export const SELL_RESET_BELOW = 70;
 
 // Compras: más barato = señal (y tramo) más grande.
 const STYLE: Record<SignalKind, Omit<SignalMarker, 'time' | 'kind' | 'priority'>> = {
@@ -105,6 +109,8 @@ const STYLE: Record<SignalKind, Omit<SignalMarker, 'time' | 'kind' | 'priority'>
   buy: { position: 'belowBar', color: TOKENS.accent, shape: 'circle', text: '$', size: 0.95 },
   starter: { position: 'belowBar', color: TOKENS.caution, shape: 'circle', text: '¼$', size: 0.7 },
   danger: { position: 'aboveBar', color: TOKENS.risk, shape: 'square', text: '⚠', size: 1 },
+  // Salida: el texto y el tamaño dependen del nivel (ver signalMarkers).
+  sell: { position: 'aboveBar', color: TOKENS.elevated, shape: 'arrowDown', text: 'Vende', size: 1 },
   golden: { position: 'belowBar', color: TOKENS.caution, shape: 'arrowUp', text: 'Golden Cross', size: 1.1 },
   death: { position: 'aboveBar', color: '#94a3b8', shape: 'arrowDown', text: 'Death Cross', size: 1.1 },
 };
@@ -138,9 +144,21 @@ export function signalState(bht: number | undefined, trend: string | undefined):
  * SIGNAL_COOLDOWN entre entradas), una por episodio bajista salvo que el precio suba. Y cruces de la SMA 50 sobre la SMA 200 del precio mostrado (Golden Cross hacia arriba,
  * Death Cross hacia abajo), descartando los que se revierten en menos de CROSS_MIN_SESSIONS sesiones.
  */
-export function signalMarkers(points: ChartPoint[]): SignalMarker[] {
+export function signalMarkers(points: ChartPoint[], locale = 'es'): SignalMarker[] {
   const daily = points.filter((p) => p.daily && p.sp500Price != null);
-  const out: Array<{ time: string; kind: SignalKind; priority: number }> = [];
+  const out: Array<{ time: string; kind: SignalKind; priority: number; level?: number }> = [];
+  // 0) Salidas con BHT muy alto: al cruzar 75 y cada +5; se reinicia al bajar de 70 (si salta varios niveles, el más alto).
+  let nextSell = SELL_START;
+  for (const p of daily) {
+    if (p.bht == null) continue;
+    if (p.bht < SELL_RESET_BELOW) nextSell = SELL_START;
+    if (p.bht >= nextSell) {
+      const level = SELL_START + SELL_STEP * Math.floor((p.bht - SELL_START) / SELL_STEP);
+      // Prioridad creciente con el nivel: al ralear por zoom gana la salida más alta (la de mayor riesgo).
+      out.push({ time: p.time, kind: 'sell', priority: 2.5 + (level - SELL_START) / 1000, level });
+      nextSell = level + SELL_STEP;
+    }
+  }
   // 1) BHT × tendencia
   let prev: string | null = null;
   let lastBuy: { i: number; kind: string } | null = null;
@@ -198,9 +216,16 @@ export function signalMarkers(points: ChartPoint[]): SignalMarker[] {
     if (!f.up && b != null && b < DEATH_CROSS_MIN_BHT) continue; // Death Cross con BHT barato: rezagado, se omite
     out.push({ time: daily[f.i].time, kind: f.up ? 'golden' : 'death', priority: 3 });
   }
+  const sellWord = locale === 'es' ? 'Vende' : 'Sell';
   return out
     .sort((a, b) => a.time.localeCompare(b.time))
-    .map((m) => ({ ...m, ...STYLE[m.kind] }));
+    .map(({ level, ...m }) => {
+      const st = { ...m, ...STYLE[m.kind] };
+      if (m.kind !== 'sell' || level == null) return st;
+      // Más alto = flecha más grande y más roja.
+      const step = (level - SELL_START) / SELL_STEP;
+      return { ...st, text: `${sellWord} ${level}`, size: 1 + 0.2 * Math.min(step, 4), color: step >= 2 ? TOKENS.risk : TOKENS.elevated };
+    });
 }
 
 /** Distancia mínima en píxeles entre dos señales del mismo carril (arriba / abajo de la línea). */
@@ -213,7 +238,7 @@ export const MARKER_MIN_PX = 30;
  */
 export function thinMarkers<T extends Pick<SignalMarker, 'time' | 'kind' | 'priority' | 'position'>>(markers: T[], indexOf: (time: string) => number | undefined, minGapBars: number): T[] {
   if (minGapBars <= 1) return markers;
-  const KIND_RANK: Partial<Record<SignalKind, number>> = { max: 4, strong: 3, danger: 3, buy: 2, starter: 1 };
+  const KIND_RANK: Partial<Record<SignalKind, number>> = { max: 4, sell: 4, strong: 3, danger: 3, buy: 2, starter: 1 };
   const order = markers
     .map((m, k) => ({ m, k, idx: indexOf(m.time) }))
     .filter((x) => x.idx != null)
