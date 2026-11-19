@@ -6,6 +6,7 @@
 //    - Compra (con el efectivo de lo vendido): BHT < 60 → 55 → 50 → 45, ≥15 días entre compras; si el BHT sube
 //      de 68, la escalera vuelve a 60.
 //    Comparado con Hold completo (todo invertido hasta hoy): rendimiento a hoy y caída máxima de cada estrategia.
+// 3) Desde la compra hasta hoy: la caída máxima (pico → valle) y el pico máximo, con precio, %, fecha y BHT del día.
 import { addYears, daysBetween, lastOnOrBefore, type Instrument, type StrategySeries } from './bht-strategy';
 
 export const SELL_LEVELS = [72, 77, 82, 87] as const;
@@ -30,10 +31,18 @@ export type TrancheTrade = {
   bhtPrev: number | null; bhtHit: number; vsBasePct: number; invested: number;
 };
 export type MaxDd = { pct: number; peakDate: string | null; troughDate: string | null };
+export type PricePoint = { date: string; price: number; bht: number | null };
+export type SinceBuy = {
+  /** Caída máxima desde la compra: del pico previo al valle (% y nominal), y el valle contra la compra. */
+  maxDd: { pct: number; nominal: number; vsBasePct: number; peak: PricePoint; trough: PricePoint } | null;
+  /** Precio más alto alcanzado desde la compra (% y nominal contra la compra). */
+  maxPeak: (PricePoint & { pct: number; nominal: number }) | null;
+};
 export type DrawdownResult = {
   date: string; instrument: Instrument; bht: number;
   base: { price: number | null; today: string; todayPrice: number | null };
   years: YearDrawdown[];
+  sinceBuy: SinceBuy;
   trades: TrancheTrade[];
   hold: { pct: number | null; maxDd: MaxDd | null };
   tranches: { pct: number | null; maxDd: MaxDd | null; invested: number; cashPct: number | null };
@@ -135,6 +144,31 @@ export function computeBhtDrawdowns(s: StrategySeries, date: string, instrument:
     years.push(row);
   }
 
+  // 3) Desde la compra hasta hoy: caída máxima y pico máximo, con el BHT del día (último BHT ≤ ese día).
+  const sinceBuy: SinceBuy = { maxDd: null, maxPeak: null };
+  if (p0 != null) {
+    let lastBht: number | null = null;
+    const bhtAt: (number | null)[] = [];
+    for (let k = 0; k <= last; k++) { if (s.bht[k] != null) lastBht = s.bht[k]; bhtAt[k] = lastBht; }
+    const pt = (k: number): PricePoint => ({ date: s.dates[k], price: px[k]!, bht: bhtAt[k] });
+    let peakK = i, hiK = i, best: { dd: number; peakK: number; k: number } | null = null;
+    for (let k = i + 1; k <= last; k++) {
+      const p = px[k];
+      if (p == null) continue;
+      if (p > px[peakK]!) peakK = k;
+      if (p > px[hiK]!) hiK = k;
+      const dd = (p / px[peakK]! - 1) * 100;
+      if (dd < 0 && (!best || dd < best.dd)) best = { dd, peakK, k };
+    }
+    if (best) {
+      sinceBuy.maxDd = {
+        pct: best.dd, nominal: px[best.k]! - px[best.peakK]!, vsBasePct: (px[best.k]! / p0 - 1) * 100,
+        peak: pt(best.peakK), trough: pt(best.k),
+      };
+    }
+    if (hiK > i) sinceBuy.maxPeak = { ...pt(hiK), pct: (px[hiK]! / p0 - 1) * 100, nominal: px[hiK]! - p0 };
+  }
+
   // 2) Tramos con el BHT vs Hold completo.
   const sim = simulateTranches(s, i, instrument);
   const endVal = sim.values.length ? sim.values[sim.values.length - 1] : null;
@@ -142,6 +176,7 @@ export function computeBhtDrawdowns(s: StrategySeries, date: string, instrument:
     date: s.dates[i], instrument, bht: s.bht[i]!,
     base: { price: p0, today, todayPrice: lastPx },
     years,
+    sinceBuy,
     trades: sim.trades,
     hold: { pct: p0 != null && lastPx != null ? (lastPx / p0 - 1) * 100 : null, maxDd: maxDrawdown(sim.dates, sim.hold) },
     tranches: {

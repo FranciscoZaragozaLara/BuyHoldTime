@@ -88,3 +88,26 @@ describe('tramos con el BHT', () => {
     expect(r.hold.pct).toBeNull();
   });
 });
+
+describe('desde la compra hasta hoy', () => {
+  test('caída máxima (pico → valle) y pico máximo con el BHT del día', () => {
+    const dates = monthly(6);
+    // compra 100; pico 150 (BHT 80); valle 90 (BHT 30); pico final 160 (BHT sin dato ese mes → el anterior)
+    const s = mk(dates, [50, 80, 60, 30, 55, null], [100, 150, 120, 90, 130, 160]);
+    const r = computeBhtDrawdowns(s, '2000-01-01', 'spx')!;
+    expect(r.sinceBuy.maxDd).toMatchObject({
+      pct: -40, nominal: -60,
+      peak: { date: '2000-02-01', price: 150, bht: 80 }, trough: { date: '2000-04-01', price: 90, bht: 30 },
+    });
+    expect(r.sinceBuy.maxDd!.vsBasePct).toBeCloseTo(-10, 9);
+    expect(r.sinceBuy.maxPeak).toMatchObject({ date: '2000-06-01', price: 160, bht: 55, nominal: 60 });
+    expect(r.sinceBuy.maxPeak!.pct).toBeCloseTo(60, 9);
+  });
+  test('solo subidas: sin caída; sin datos posteriores: nada', () => {
+    const up = computeBhtDrawdowns(mk(monthly(3), [50, 50, 50], [100, 110, 120]), '2000-01-01', 'spx')!;
+    expect(up.sinceBuy.maxDd).toBeNull();
+    expect(up.sinceBuy.maxPeak!.price).toBe(120);
+    const one = computeBhtDrawdowns(mk(monthly(1), [50], [100]), '2000-01-01', 'spx')!;
+    expect(one.sinceBuy).toEqual({ maxDd: null, maxPeak: null });
+  });
+});

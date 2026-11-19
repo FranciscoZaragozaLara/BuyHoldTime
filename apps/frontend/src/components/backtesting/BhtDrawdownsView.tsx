@@ -9,10 +9,15 @@ import { bhtBand, capeScoreColor } from './bhtBands';
 
 type Instrument = 'spx' | 'qqq' | 'tqqq';
 type MaxDd = { pct: number; peakDate: string | null; troughDate: string | null };
+type PricePoint = { date: string; price: number; bht: number | null };
 type Result = {
   date: string; bht: number;
   base: { price: number | null; today: string; todayPrice: number | null };
   years: Array<{ year: number; from: string; to: string; partial: boolean; peakDate: string | null; peakPrice: number | null; troughDate: string | null; troughPrice: number | null; ddPct: number | null; vsBasePct: number | null }>;
+  sinceBuy?: {
+    maxDd: { pct: number; nominal: number; vsBasePct: number; peak: PricePoint; trough: PricePoint } | null;
+    maxPeak: (PricePoint & { pct: number; nominal: number }) | null;
+  };
   trades: Array<{ type: 'sell' | 'buy'; level: number; date: string; price: number; bhtPrev: number | null; bhtHit: number; vsBasePct: number; invested: number }>;
   hold: { pct: number | null; maxDd: MaxDd | null };
   tranches: { pct: number | null; maxDd: MaxDd | null; invested: number; cashPct: number | null };
@@ -41,6 +46,7 @@ const pctCls = (v: number | null) => (v == null ? 'text-slate-500' : v >= 0 ? 't
 
 const T = {
   es: {
+    sinceTitle: 'Desde la compra hasta hoy', sinceDd: 'Caída máxima', sincePeak: 'Pico máximo', from: 'desde el pico del', noDd: 'Sin caídas: el precio no bajó de su máximo.', noPeak: 'Sin datos posteriores a la compra.',
     ddTitle: 'Caída máxima en cada año después de la fecha', ddNote: 'Desde el pico acumulado desde la compra hasta el valle de ese año.',
     year: 'Año', peak: 'Pico', trough: 'Valle', dd: 'Caída', vsBase: 'vs compra', partial: 'en curso', nodata: 'sin datos', base: 'Compra',
     trTitle: 'Tramos con el BHT (4 × 25%)', trRules: 'Parte 100% invertido. Vende un tramo en 72 → 77 → 82 → 87+ y recompra con ese efectivo en BHT < 60 → 55 → 50 → 45. Al menos 15 días entre ventas y entre compras; la escalera de venta vuelve a 72 si el BHT baja de 62 y la de compra vuelve a 60 si sube de 68. El efectivo no rinde.',
@@ -50,6 +56,7 @@ const T = {
     loading: 'Calculando…', error: 'No se pudo calcular.', note: 'Simulación histórica sin comisiones ni impuestos. No es una recomendación de inversión.',
   },
   en: {
+    sinceTitle: 'From the purchase until today', sinceDd: 'Maximum drawdown', sincePeak: 'Maximum peak', from: 'from the peak on', noDd: 'No drawdown: the price never fell below its high.', noPeak: 'No data after the purchase.',
     ddTitle: 'Maximum drawdown in each year after the date', ddNote: 'From the running peak since the purchase to the trough of that year.',
     year: 'Year', peak: 'Peak', trough: 'Trough', dd: 'Drawdown', vsBase: 'vs buy', partial: 'in progress', nodata: 'no data', base: 'Buy',
     trTitle: 'BHT tranches (4 × 25%)', trRules: 'Starts 100% invested. Sells one tranche at 72 → 77 → 82 → 87+ and buys back with that cash at BHT < 60 → 55 → 50 → 45. At least 15 days between sales and between buys; the sell ladder restarts at 72 if BHT drops below 62 and the buy ladder restarts at 60 if it rises above 68. Cash earns nothing.',
@@ -89,6 +96,34 @@ export default function BhtDrawdownsView({ date, locale }: { date: string; local
 
       {r === undefined ? <div className="font-mono text-slate-500">{t.loading}</div> : r === null ? <div className="font-mono text-risk-300">{t.error}</div> : (
         <div className={`space-y-2 transition-opacity ${fresh ? '' : 'opacity-50'}`}>
+          {r.sinceBuy && (
+            <div>
+              <div className="text-[11px] font-semibold text-slate-100 mb-1">{t.sinceTitle} · {INST[inst]}</div>
+              <div className="grid grid-cols-2 gap-2 font-mono text-[11px]">
+                <div className="rounded-lg border border-risk-500/30 bg-risk-500/5 p-2">
+                  <div className="text-[9px] uppercase tracking-wide text-slate-500">{t.sinceDd}</div>
+                  {r.sinceBuy.maxDd ? (
+                    <>
+                      <div className="mt-0.5"><span className="text-base font-bold text-risk-300">{pctTxt(r.sinceBuy.maxDd.pct)}</span> <span className="text-risk-300">({money(r.sinceBuy.maxDd.nominal)})</span></div>
+                      <div className="text-slate-300">{r.sinceBuy.maxDd.trough.date} · {money(r.sinceBuy.maxDd.trough.price)}{r.sinceBuy.maxDd.trough.bht != null && <> · BHT <span className="font-bold" style={{ color: capeScoreColor(r.sinceBuy.maxDd.trough.bht) }}>{r.sinceBuy.maxDd.trough.bht.toFixed(1)}</span></>}</div>
+                      <div className="text-slate-500">{t.from} {r.sinceBuy.maxDd.peak.date} ({money(r.sinceBuy.maxDd.peak.price)}{r.sinceBuy.maxDd.peak.bht != null ? `, BHT ${r.sinceBuy.maxDd.peak.bht.toFixed(1)}` : ''}) · {t.vsBase} <span className={pctCls(r.sinceBuy.maxDd.vsBasePct)}>{pctTxt(r.sinceBuy.maxDd.vsBasePct)}</span></div>
+                    </>
+                  ) : <div className="mt-0.5 text-slate-400">{t.noDd}</div>}
+                </div>
+                <div className="rounded-lg border border-favorable-500/30 bg-favorable-500/5 p-2">
+                  <div className="text-[9px] uppercase tracking-wide text-slate-500">{t.sincePeak}</div>
+                  {r.sinceBuy.maxPeak ? (
+                    <>
+                      <div className="mt-0.5"><span className={`text-base font-bold ${pctCls(r.sinceBuy.maxPeak.pct)}`}>{pctTxt(r.sinceBuy.maxPeak.pct)}</span> <span className={pctCls(r.sinceBuy.maxPeak.nominal)}>({r.sinceBuy.maxPeak.nominal > 0 ? '+' : ''}{money(r.sinceBuy.maxPeak.nominal)})</span></div>
+                      <div className="text-slate-300">{r.sinceBuy.maxPeak.date} · {money(r.sinceBuy.maxPeak.price)}{r.sinceBuy.maxPeak.bht != null && <> · BHT <span className="font-bold" style={{ color: capeScoreColor(r.sinceBuy.maxPeak.bht) }}>{r.sinceBuy.maxPeak.bht.toFixed(1)}</span></>}</div>
+                      <div className="text-slate-500">{t.base} {money(r.base.price)} ({r.date})</div>
+                    </>
+                  ) : <div className="mt-0.5 text-slate-400">{t.noPeak}</div>}
+                </div>
+              </div>
+            </div>
+          )}
+
           <div>
             <div className="text-[11px] font-semibold text-slate-100">{t.ddTitle} · {INST[inst]}</div>
             <div className="text-[10px] text-slate-500 mb-1">{t.ddNote}</div>
