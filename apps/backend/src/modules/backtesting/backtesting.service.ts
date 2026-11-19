@@ -7,6 +7,9 @@ import { monthlyPartsFromDaily } from './bht-forward';
 import { computeBhtStrategy, type Instrument as StrategyInstrument, type SampleWindow, type StrategySeries } from './bht-strategy';
 import { computeBhtDrawdowns } from './bht-drawdowns';
 import { liveTrend } from './trend-regime';
+
+/** Tickers cuyo precio en vivo se toma de otro símbolo de Yahoo (la serie histórica viene de otra fuente). */
+export const YAHOO_LIVE_ALIAS: Record<string, string> = { DCOILWTICO: 'CL=F' };
 import { spliceSeries } from '../market-data/valuation-daily';
 import { computeThermoLive, LivePoints, THERMO_LIVE_TICKERS, THERMO_TICKERS, getHyBonus, getHySigma24, getLiqBonus, getOilBonus, PriceMap } from './thermo-history';
 
@@ -381,8 +384,9 @@ export class BacktestingService {
           }
         }
       } else {
-        // Yahoo Finance chart API (no key)
-        const yTicker = encodeURIComponent(t);
+        // Yahoo Finance chart API (no key). WTI: FRED (DCOILWTICO, spot de la EIA) llega con días de retraso; en vivo se
+        // usa el futuro del mes cercano (CL=F), que cotiza a diario y sigue de cerca al spot.
+        const yTicker = encodeURIComponent(YAHOO_LIVE_ALIAS[t] ?? t);
         const url = `https://query1.finance.yahoo.com/v8/finance/chart/${yTicker}?interval=1d&range=5d`;
         const res: any = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' } as any, signal: AbortSignal.timeout(8000) } as any);
         if (res.ok) {
@@ -394,7 +398,7 @@ export class BacktestingService {
             const c = closes[i];
             if (c != null && !isNaN(c)) {
               const ts = timestamps[i] ? new Date(timestamps[i]*1000).toISOString().slice(0,10) : nowIso;
-              result = { ticker: t, close: Number(c), date: ts, source: 'yahoo' };
+              result = { ticker: t, close: Number(c), date: ts, source: YAHOO_LIVE_ALIAS[t] ? `yahoo ${YAHOO_LIVE_ALIAS[t]}` : 'yahoo' };
               break;
             }
           }
