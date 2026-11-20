@@ -761,6 +761,14 @@ export class BacktestingService {
   // Vista Estrategia del popover del BHT: se calcula solo cuando se pide. La serie (BHT + precios diarios) se arma
   // una vez y se guarda 1 hora en memoria; cada resultado (fecha, instrumento) también. 
   private readonly strategyCache = new NodeCache({ stdTTL: 3600, checkperiod: 600, useClones: false });
+  private strategyStamp: string | null = null;
+  /** Vacía el caché si bt_bht_forward cambió desde que se armó (refreshThermoTail recalcula los últimos días varias
+   *  veces al día: sin esto el popover mostraba el BHT de hoy de hasta 1 h antes, distinto al de la home). */
+  private async ensureStrategyFresh(): Promise<void> {
+    const [row] = await this.prisma.$queryRawUnsafe<Array<{ m: string | null }>>(`SELECT max(updated_at)::text AS m FROM bt_bht_forward`);
+    const stamp = row?.m ?? null;
+    if (stamp !== this.strategyStamp) { this.strategyCache.flushAll(); this.strategyStamp = stamp; }
+  }
   private async strategySeries(): Promise<StrategySeries> {
     const hit = this.strategyCache.get<StrategySeries>('series');
     if (hit) return hit;
@@ -789,6 +797,7 @@ export class BacktestingService {
     const inst = (['spx', 'qqq', 'tqqq'].includes(instrument) ? instrument : 'spx') as StrategyInstrument;
     const win: SampleWindow = window === '5y' ? '5y' : 'all'; // por defecto toda la historia
     const key = `r:${date}:${inst}:${win}`;
+    await this.ensureStrategyFresh();
     const hit = this.strategyCache.get(key);
     if (hit) return hit;
     const r = computeBhtStrategy(await this.strategySeries(), date, inst, win);
@@ -802,6 +811,7 @@ export class BacktestingService {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date ?? '')) return { error: 'date required (YYYY-MM-DD)' };
     const inst = (['spx', 'qqq', 'tqqq'].includes(instrument) ? instrument : 'spx') as StrategyInstrument;
     const key = `dd:${date}:${inst}`;
+    await this.ensureStrategyFresh();
     const hit = this.strategyCache.get(key);
     if (hit) return hit;
     const r = computeBhtDrawdowns(await this.strategySeries(), date, inst);
