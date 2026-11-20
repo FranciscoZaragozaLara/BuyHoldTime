@@ -7,7 +7,7 @@ import { BHT_BANDS, bhtBand } from '@/components/backtesting/bhtBands';
 import { RiskDisclaimer } from '@/components/RiskDisclaimer';
 import { indicatorsHref } from '@/lib/homeThermo';
 import { getBhtMatrices5y, type ThermoToday } from '@/services/api';
-import { HomeReturnsTable } from './HomeReturnsTable';
+import { BhtReturnsTable } from '@/components/BhtReturnsTable';
 
 // Tarjeta principal de la home: medidor BHT, banda actual con su sugerencia, escala de bandas y accesos
 // al detalle en Indicadores.
@@ -57,7 +57,7 @@ export async function HomeThermoCard({ locale, thermo }: { locale: string; therm
         <p className="text-sm text-slate-200 leading-relaxed mt-1">{ti(`bht.b${bi}.advice`)}</p>
       </div>
 
-      {matrices && <HomeReturnsTable locale={locale} date={thermo.date} score={score} regime={thermo.trend?.regime ?? null} initial={matrices} />}
+      {matrices && <BhtReturnsTable locale={locale} date={thermo.date} score={score} regime={thermo.trend?.regime ?? null} initial={matrices} />}
 
       <div className="mt-4 flex flex-wrap gap-2">
         <Link href={indicatorsHref(locale, 'bht-thermo')} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold text-slate-950 bg-accent-400 hover:bg-accent-300 transition">

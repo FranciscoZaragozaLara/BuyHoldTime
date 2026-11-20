@@ -1,8 +1,9 @@
 'use client';
-// Rendimientos históricos de la home (debajo del termómetro): para S&P 500, Nasdaq-100 y TQQQ, la celda de la
-// matriz BHT × tendencia de hoy (misma del popover "Estrategia"). Por defecto los últimos 5 años; "Toda la historia"
-// se pide al pulsar. La matriz completa se despliega aquí mismo, con la celda de hoy resaltada.
-import { useState } from 'react';
+// Rendimientos históricos debajo del termómetro (home e Indicadores): para S&P 500, Nasdaq-100 y TQQQ, la celda de la
+// matriz BHT × tendencia de hoy (misma del popover "Estrategia"). Por defecto los últimos 5 años (la home los trae del
+// servidor; sin `initial` se piden al montar); "Toda la historia" se pide al pulsar. La matriz completa se despliega
+// aquí mismo, con la celda de hoy resaltada.
+import { useEffect, useState } from 'react';
 import type React from 'react';
 import { getApiBase } from '@/lib/apiBase';
 import { TrendBadge } from '@/components/backtesting/TrendBadge';
@@ -35,28 +36,31 @@ const T = {
 const pctTxt = (v: number | null | undefined, d = 1) => (v == null ? '—' : `${v > 0 ? '+' : ''}${v.toFixed(d)}%`);
 const pctCls = (v: number | null | undefined) => (v == null ? 'text-slate-500' : v >= 0 ? 'text-favorable-300' : 'text-risk-300');
 
-export function HomeReturnsTable({ locale, date, score, regime: regimeRaw, initial }: { locale: string; date: string; score: number; regime: string | null; initial: Cells }) {
+export function BhtReturnsTable({ locale, date, score, regime: regimeRaw, initial, className = 'mt-4' }: { locale: string; date: string; score: number; regime: string | null; initial?: Cells; className?: string }) {
   const t = locale === 'es' ? T.es : T.en;
   const regime = toTrendRegime(regimeRaw);
   // Banda de la matriz (7: los cortes del semáforo más 56 y 75).
   const band = matrixBandOf(score);
   const [win, setWin] = useState<MatrixWindow>('5y');
-  const [byWin, setByWin] = useState<Partial<Record<MatrixWindow, Cells>>>({ '5y': initial });
+  const [byWin, setByWin] = useState<Partial<Record<MatrixWindow, Cells>>>(initial ? { '5y': initial } : {});
   const [showMx, setShowMx] = useState(false);
   const [mxInst, setMxInst] = useState<MatrixInstrument>('spx');
+  const load = (w: MatrixWindow) =>
+    Promise.all(MATRIX_INSTRUMENTS.map((i) => fetchMatrixCells(getApiBase(), date, i, w)))
+      .then((rs) => setByWin((prev) => ({ ...prev, [w]: Object.fromEntries(MATRIX_INSTRUMENTS.map((i, k) => [i, rs[k]])) as Cells })));
+  // Sin datos del servidor (Indicadores): pide los últimos 5 años al montar.
+  useEffect(() => { if (!initial) load('5y'); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   if (!regime) return null;
   const cells = byWin[win];
 
   const pickWin = (w: MatrixWindow) => {
     setWin(w);
-    if (byWin[w]) return;
-    Promise.all(MATRIX_INSTRUMENTS.map((i) => fetchMatrixCells(getApiBase(), date, i, w)))
-      .then((rs) => setByWin((prev) => ({ ...prev, [w]: Object.fromEntries(MATRIX_INSTRUMENTS.map((i, k) => [i, rs[k]])) as Cells })));
+    if (!byWin[w]) load(w);
   };
   const b = MATRIX_BANDS[band];
 
   return (
-    <div className="mt-4 rounded-xl border border-slate-800 bg-slate-950/40 p-3">
+    <div className={`${className} rounded-xl border border-slate-800 bg-slate-950/40 p-3`}>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <div className="text-[11px] font-bold uppercase tracking-wide text-slate-300">{t.title}</div>

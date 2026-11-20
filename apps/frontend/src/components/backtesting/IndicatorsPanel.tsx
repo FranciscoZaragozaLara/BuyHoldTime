@@ -1,4 +1,5 @@
 'use client';
+import { BhtReturnsTable } from '@/components/BhtReturnsTable';
 import { athDrawdown, athColor } from '@/lib/athDrawdown';
 import { getApiBase } from '@/lib/apiBase';
 import { useCallback, useEffect, useState, useRef, useMemo } from 'react';
@@ -277,13 +278,19 @@ export function IndicatorsPanel() {
           {thermoView === 'timeline' && <BhtTimeline />}
           {thermoView === 'stats' && <BhtStats />}
           {thermoView === 'overview' && (
-          <div className="flex flex-col lg:flex-row items-center gap-6">
+          <div className="flex flex-col lg:flex-row items-center lg:items-start gap-6">
+            <div className="flex-[2.6] w-full min-w-0">
+            <div className="flex flex-col sm:flex-row items-center gap-6">
             <BhtGauge score={riskScore} className="w-full max-w-[440px] flex-[1.2] shrink" ariaLabel={ti('riskAria', { score: riskScore, label: ti(`bht.b${BHT_BANDS.indexOf(band)}.label`) })} />
             <div className="flex-1 w-full text-center lg:text-left">
               <div className="font-mono text-5xl font-bold text-slate-100">{riskScore}<span className="text-lg text-slate-500">/100</span></div>
               <div className={`text-base font-semibold mt-1 ${riskColor}`}>{ti(`bht.b${BHT_BANDS.indexOf(band)}.label`)}</div>
               {/* Régimen tendencial del S&P 500 (cierre en vivo vs SMA 50/200), acompañando al BHT. */}
               {thermoLive?.trend && <div className="mt-2"><TrendBadge trend={thermoLive.trend} size="sm" showRule /></div>}
+            </div>
+            </div>
+            {/* Rendimientos históricos de la combinación de hoy (BHT × tendencia), igual que en la home. */}
+            {thermoLive?.trend?.regime && <BhtReturnsTable locale={loc} date={new Date().toISOString().slice(0, 10)} score={riskScore} regime={thermoLive.trend.regime} />}
             </div>
             <ul className="flex-[1.4] w-full space-y-1">
               {BHT_BANDS.map((b) => {
