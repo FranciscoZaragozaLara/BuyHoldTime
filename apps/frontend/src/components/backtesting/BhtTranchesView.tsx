@@ -297,13 +297,13 @@ function SellView({ sell, es, t, one, three, fresh }: { sell: Sell; es: boolean;
           {sell.tranches.map((x) => {
             const missing = x.checks.filter((c) => !c.ok);
             return (
-              <tr key={x.id} className={`border-b border-slate-800/60 align-top ${x.status === 'today' ? 'bg-rose-500/10' : ''}`}>
+              <tr key={x.id} className="border-b border-slate-800/60 align-top" style={x.status === 'today' ? { backgroundColor: `${MODE_META.sell.color}1a` } : undefined}>
                 <td className="py-0.5 whitespace-nowrap"><span className="font-bold text-slate-100">{x.id}</span> <span className="text-slate-400 font-sans">{names[x.id]?.[es ? 0 : 1]}</span></td>
                 <td className="text-right text-slate-300">{(x.weight * 100).toFixed(0)}%</td>
                 <td className="text-right text-slate-500 px-2">{three} → {one}</td>
                 <td className="text-slate-300">
                   {x.status !== 'pending' ? (
-                    <span className="text-rose-300 font-bold">{x.status === 'today' ? t.today : t.soldOn} {x.date} @ {money(x.price)}{x.pnl != null && <PnL v={-x.pnl} title={t.sinceSale} label={pct(x.pnl)} />}</span>
+                    <span className="font-bold" style={{ color: MODE_META.sell.color }}>{x.status === 'today' ? t.today : t.soldOn} {x.date} @ {money(x.price)}{x.pnl != null && <PnL v={-x.pnl} title={t.sinceSale} label={pct(x.pnl)} />}</span>
                   ) : !sell.cycle ? <span className="text-slate-600">—</span> : (
                     <span className="text-slate-400">{t.pending}: {missing.map((c) => trancheCheckText(c, es ? 'es' : 'en')).join(' · ') || '—'}</span>
                   )}
