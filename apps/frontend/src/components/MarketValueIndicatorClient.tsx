@@ -220,6 +220,8 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
         borderColor: 'rgba(30,41,59,0.3)',
         rightOffset: 5,
         barSpacing: 6,
+        // ~10 000 sesiones desde 1871: con el mínimo por defecto (0.5 px) "ALL" solo cabía desde ~2018.
+        minBarSpacing: 0.05,
       },
       crosshair: {
         mode: 1,
