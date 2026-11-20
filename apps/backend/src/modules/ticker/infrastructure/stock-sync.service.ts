@@ -3,7 +3,7 @@ import { spawn } from 'child_process';
 import * as path from 'path';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { logSourceRun } from '../../admin/data-source-runs';
-import { applyEdgarLine, applyGuruStatus, emptyPhase, type GuruStatus, type SyncPhase } from './stock-sync-progress';
+import { applyEdgarLine, applyGuruStatus, emptyPhase, NOTHING_PENDING, type GuruStatus, type SyncPhase } from './stock-sync-progress';
 
 /**
  * Sincronización de acciones bajo demanda (botón del panel admin), en segundo plano y en paralelo:
@@ -73,9 +73,28 @@ export class StockSyncService {
       const st = await this.guruStatus(base);
       if (!st) { if (++misses >= 6) return end('error', 'Se perdió la conexión con GuruFocus'); continue; }
       misses = 0;
-      if (applyGuruStatus(p, st, new Date().toISOString())) return;
+      if (applyGuruStatus(p, st, new Date().toISOString())) {
+        if (p.message === NOTHING_PENDING) p.message = await this.nothingPendingDetail();
+        return;
+      }
     }
     end('error', 'GuruFocus superó 6 h sin terminar');
+  }
+
+  /** "Nada pendiente" con cuántas acciones activas hay y a qué hora fue la extracción de hoy que las dejó completas. */
+  private async nothingPendingDetail(): Promise<string> {
+    try {
+      if (!this.prisma) return NOTHING_PENDING;
+      const dayStart = new Date(); dayStart.setHours(0, 0, 0, 0);
+      const [active, last] = await Promise.all([
+        this.prisma.stock.count({ where: { isActive: true } }),
+        this.prisma.dataSourceRun.findFirst({ where: { source: 'gurufocus', rows: { gt: 0 }, startedAt: { gte: dayStart } }, orderBy: { startedAt: 'desc' } }),
+      ]);
+      const at = last ? ` (extracción de las ${last.startedAt.toLocaleTimeString('es-MX', { hour: 'numeric', minute: '2-digit' })}, ${last.rows} acciones)` : '';
+      return `Nada pendiente: las ${active} acciones activas ya tienen datos completos de hoy${at}`;
+    } catch {
+      return NOTHING_PENDING;
+    }
   }
 
   private async guruStatus(base: string): Promise<GuruStatus | null> {

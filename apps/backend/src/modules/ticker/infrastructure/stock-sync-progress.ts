@@ -54,6 +54,8 @@ export type GuruStatus = {
 };
 
 /** Actualiza la fase con el estado de GuruFocus. Devuelve true cuando el job ya terminó. */
+export const NOTHING_PENDING = 'Nada pendiente: todas las acciones activas ya tienen datos completos de hoy';
+
 export function applyGuruStatus(p: SyncPhase, s: GuruStatus, now: string): boolean {
   if (s.running) {
     if (s.progress) {
@@ -71,6 +73,8 @@ export function applyGuruStatus(p: SyncPhase, s: GuruStatus, now: string): boole
     p.message = s.lastSummary ? null : 'El job de GuruFocus terminó sin resumen (abortado; ver su log)';
     p.finishedAt = now; p.current = null;
     if (s.lastSummary && typeof s.lastSummary.planned === 'number') { p.total = s.lastSummary.planned as number; p.done = p.total; }
+    // Sin nada que scrapear (todas con snapshot completo de hoy, p. ej. tras el cron de las 6 AM): decirlo, no parece un fallo.
+    if (s.lastSummary && s.lastSummary.planned === 0) p.message = NOTHING_PENDING;
     return true;
   }
   return false;

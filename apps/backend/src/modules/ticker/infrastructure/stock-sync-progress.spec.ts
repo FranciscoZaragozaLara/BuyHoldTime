@@ -1,4 +1,4 @@
-import { applyEdgarLine, applyGuruStatus, emptyPhase, LOG_LINES } from './stock-sync-progress';
+import { applyEdgarLine, applyGuruStatus, emptyPhase, LOG_LINES, NOTHING_PENDING } from './stock-sync-progress';
 
 describe('applyEdgarLine', () => {
   test('total, acción actual y fondos omitidos cuentan como avance', () => {
@@ -42,5 +42,10 @@ describe('applyGuruStatus', () => {
     const p = { ...emptyPhase(), state: 'running' as const, startedAt: started };
     applyGuruStatus(p, { running: false, lastStartedAt: started, lastFinishedAt: '2026-11-18T10:01:00.000Z', lastSummary: null }, 'now');
     expect(p.state).toBe('error');
+  });
+  test('sin nada planeado: done con mensaje de "nada pendiente" (no parece un fallo)', () => {
+    const p = { ...emptyPhase(), state: 'running' as const, startedAt: started };
+    applyGuruStatus(p, { running: false, lastStartedAt: started, lastFinishedAt: '2026-11-18T10:00:00.200Z', lastSummary: { planned: 0, ok: 0 } }, 'now');
+    expect([p.state, p.message]).toEqual(['done', NOTHING_PENDING]);
   });
 });
