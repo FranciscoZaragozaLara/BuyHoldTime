@@ -11,6 +11,7 @@ import { createPortal } from 'react-dom';
 import dynamic from 'next/dynamic';
 import { placePinned, placePopover } from '@/lib/popoverPlacement';
 import { TrendBadge } from './TrendBadge';
+import type { BhtPinNav } from './bhtChartPin';
 
 // Vista Estrategia: su código se descarga solo cuando se pulsa el botón (lazy) y calcula en el backend bajo demanda.
 const BhtStrategyView = dynamic(() => import('./BhtStrategyView'), { ssr: false, loading: () => <div className="mt-2 font-mono text-slate-500">…</div> });
@@ -130,7 +131,10 @@ export function BhtHoverTip({ point, bht, prices, trend }: { point: { d: string;
   );
 }
 
-export function BhtDetailPopover({ hover, detail, onLeave, onHold, liveValue, onClose }: { hover: { d: string; x: number; y: number }; detail: any; forward?: any; onLeave?: () => void; onHold?: () => void; liveValue?: number | null; onClose?: () => void }) {
+/** Fecha del encabezado del popover: día de la semana, día, mes y año (p. ej. «jue 21 abr 2022»). */
+const fmtDay = (d: string, loc: string) => new Date(`${d}T12:00:00Z`).toLocaleDateString(loc === 'es' ? 'es-MX' : 'en-US', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
+
+export function BhtDetailPopover({ hover, detail, onLeave, onHold, liveValue, onClose, nav }: { hover: { d: string; x: number; y: number }; detail: any; forward?: any; onLeave?: () => void; onHold?: () => void; liveValue?: number | null; onClose?: () => void; nav?: BhtPinNav | null }) {
   const ti = useTranslations('Backtesting.indicators');
   const loc = useLocale();
   const popRef = useRef<HTMLDivElement>(null);
@@ -170,13 +174,36 @@ export function BhtDetailPopover({ hover, detail, onLeave, onHold, liveValue, on
     // tapaba la última columna de las tablas. scrollbar-gutter reserva su espacio cuando la barra no es flotante.
     <div ref={popRef} data-bht-pop className="fixed z-[9999] w-[740px] max-w-[calc(100vw-16px)] max-h-[calc(100vh-16px)] overflow-y-auto overflow-x-hidden [scrollbar-gutter:stable] p-3 pr-6 rounded-xl bg-slate-900 border border-slate-700 shadow-2xl text-xs leading-snug text-slate-200  text-left" style={pos ? { left: pos.left, top: pos.top } : { left: -9999, top: 0 }} onMouseEnter={() => onHold?.()} onMouseLeave={onLeave}>
       <div className="flex items-start justify-between gap-2 mb-1.5">
-      <div className="font-bold"><span className="text-sky-300">{hover.d}</span> <span className="text-slate-100">· BHT</span> {headV != null && <span className="font-mono" style={{ color: capeScoreColor(headV) }}>{headV.toFixed(1)}/100</span>}{liveValue != null && <span className="ml-1.5 text-[10px] px-1.5 py-px rounded-full bg-accent-500/20 text-accent-300 font-bold" title={ti('liveTitle')}>{ti('live')}</span>}{detail?.trend && <TrendBadge trend={detail.trend} size="xs" className="ml-1.5" />}{detail?.prices && (
-        <span className="ml-2 font-mono font-normal text-[11px] text-slate-400 align-middle">
-          {([['S&P 500', detail.prices.spx], ['QQQ (Nasdaq-100)', detail.prices.qqq], ['TQQQ', detail.prices.tqqq]] as [string, number | null][])
-            .filter(([, v]) => v != null)
-            .map(([k, v], i) => <span key={k}>{i > 0 && <span className="text-slate-600"> · </span>}{k} <span className="text-slate-100">{Number(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></span>)}
-        </span>
-      )}</div>
+      <div className="min-w-0">
+        {/* Fecha destacada y, si la gráfica lo permite, navegación: ‹ calendario › (día a día o salto a una fecha). */}
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          <span className="text-[17px] leading-6 font-bold tracking-tight text-sky-300" title={hover.d}>{fmtDay(hover.d, loc)}</span>
+          {nav && (
+            <div className="inline-flex items-center rounded-lg border border-slate-700 bg-slate-950/60 text-slate-300" onClick={(e) => e.stopPropagation()}>
+              <button type="button" onClick={() => nav.step(-1)} aria-label={loc === 'es' ? 'Día anterior' : 'Previous day'} title={loc === 'es' ? 'Día anterior (←)' : 'Previous day (←)'}
+                className="px-1.5 leading-6 rounded-l-lg hover:bg-slate-700 hover:text-white">‹</button>
+              <input type="date" value={hover.d} min={nav.bounds()?.[0]} max={nav.bounds()?.[1]} aria-label={loc === 'es' ? 'Ir a una fecha' : 'Go to a date'}
+                onChange={(e) => { if (/^\d{4}-\d{2}-\d{2}$/.test(e.target.value)) nav.goTo(e.target.value); }}
+                className="bg-transparent font-mono text-[11px] text-slate-200 px-1 py-0.5 border-x border-slate-700 [color-scheme:dark] outline-none" />
+              <button type="button" onClick={() => nav.step(1)} aria-label={loc === 'es' ? 'Día siguiente' : 'Next day'} title={loc === 'es' ? 'Día siguiente (→)' : 'Next day (→)'}
+                className="px-1.5 leading-6 rounded-r-lg hover:bg-slate-700 hover:text-white">›</button>
+            </div>
+          )}
+          <span className="font-bold"><span className="text-slate-100">BHT</span> {headV != null && <span className="font-mono" style={{ color: capeScoreColor(headV) }}>{headV.toFixed(1)}/100</span>}</span>
+          {liveValue != null && <span className="text-[10px] px-1.5 py-px rounded-full bg-accent-500/20 text-accent-300 font-bold" title={ti('liveTitle')}>{ti('live')}</span>}
+          {detail?.trend && <TrendBadge trend={detail.trend} size="xs" />}
+        </div>
+        {/* Precios del día: nombre tenue y valor resaltado, cada uno en su bloque. */}
+        {detail?.prices && (
+          <div className="mt-1 flex flex-wrap gap-x-4 gap-y-0.5">
+            {([['S&P 500', detail.prices.spx], ['QQQ', detail.prices.qqq], ['TQQQ', detail.prices.tqqq]] as [string, number | null][])
+              .filter(([, v]) => v != null)
+              .map(([k, v]) => (
+                <span key={k} className="whitespace-nowrap"><span className="text-[10px] uppercase tracking-wide text-slate-500">{k}</span> <span className="font-mono text-[12px] font-semibold text-slate-100">{Number(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></span>
+              ))}
+          </div>
+        )}
+      </div>
       {/* Interruptor Historia / Estrategia en la esquina: siempre en el mismo lugar y fácil de alcanzar. */}
       <div className="shrink-0 inline-flex rounded-lg border border-slate-700 bg-slate-950/60 p-0.5 text-[11px] font-bold">
         <button type="button" onClick={(e) => { e.stopPropagation(); setView('strategy'); }}

@@ -6,6 +6,8 @@ import type { IChartApi, ISeriesApi, MouseEventParams, SeriesType, Time } from '
 import { stepIndex } from '@/lib/chartStep';
 
 export type BhtPoint = { d: string; x: number; y: number };
+/** Control de navegación del popover fijo (flechas y calendario del encabezado). */
+export type BhtPinNav = { step: (dir: 1 | -1) => void; goTo: (d: string) => void; bounds: () => [string, string] | null };
 
 export function timeKey(t: Time | undefined): string | null {
   if (t == null) return null;
@@ -25,6 +27,8 @@ export function attachBhtChartPin(chart: IChartApi, container: HTMLElement, o: {
   onTip: (p: BhtPoint | null) => void;
   onPin: (p: BhtPoint) => void;
   pinned: () => string | null;
+  /** Recibe el control de navegación (step/goTo) para el encabezado del popover. */
+  register?: (nav: BhtPinNav | null) => void;
 }): () => void {
   let over = false;
   let last: BhtPoint | null = null;
@@ -53,7 +57,8 @@ export function attachBhtChartPin(chart: IChartApi, container: HTMLElement, o: {
 
   const place = (d: string): BhtPoint | null => {
     const x = chart.timeScale().timeToCoordinate(d as Time);
-    if (x == null) return null;
+    // Fuera del área visible timeToCoordinate devuelve una coordenada fuera de rango (no null): se trata como no visible.
+    if (x == null || x < 0 || x > chart.timeScale().width()) return null;
     const a = o.anchor();
     const v = a?.value(d) ?? null;
     let y = last ? last.y - container.getBoundingClientRect().top : container.clientHeight / 2;
@@ -64,6 +69,34 @@ export function attachBhtChartPin(chart: IChartApi, container: HTMLElement, o: {
     }
     return { d, ...toScreen(x, y) };
   };
+  // Lleva el crosshair (y el popover fijo) a la fecha ds[i]; si está fuera de la vista desplaza la gráfica.
+  const goIndex = (ds: string[], i: number, dir: 1 | -1 | 0, forcePin: boolean) => {
+    const pin = o.pinned();
+    const d = ds[i];
+    const apply = (p: BhtPoint) => {
+      last = p;
+      if (over) o.onTip(p);
+      if (pin || forcePin) o.onPin(p);
+    };
+    const p = place(d);
+    if (p) { apply(p); return; }
+    const ts = chart.timeScale();
+    if (dir !== 0) {
+      // Un día fuera de la vista: desplaza la gráfica un día.
+      const lr = ts.getVisibleLogicalRange();
+      if (lr) ts.setVisibleLogicalRange({ from: lr.from + dir, to: lr.to + dir });
+    } else {
+      // Salto a una fecha lejana: centra la vista en ella conservando el ancho actual.
+      const vr = ts.getVisibleRange();
+      const f = timeKey(vr?.from), t = timeKey(vr?.to);
+      if (f && t) {
+        const half = (Date.parse(t) - Date.parse(f)) / 2, c = Date.parse(d);
+        const iso = (ms: number) => new Date(ms).toISOString().slice(0, 10);
+        try { ts.setVisibleRange({ from: iso(c - half) as Time, to: iso(c + half) as Time }); } catch { /* noop */ }
+      }
+    }
+    requestAnimationFrame(() => { const q = place(d); if (q) apply(q); });
+  };
   const onKey = (e: KeyboardEvent) => {
     if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
     const pin = o.pinned();
@@ -71,25 +104,18 @@ export function attachBhtChartPin(chart: IChartApi, container: HTMLElement, o: {
     const t = e.target as HTMLElement | null;
     if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
     const ds = o.dates();
-    const i = stepIndex(ds, pin ?? last?.d, e.key === 'ArrowRight' ? 1 : -1);
+    const dir = e.key === 'ArrowRight' ? 1 : -1;
+    const i = stepIndex(ds, pin ?? last?.d, dir);
     if (i < 0) return;
     e.preventDefault();
-    const d = ds[i];
-    const apply = (p: BhtPoint) => {
-      last = p;
-      if (over) o.onTip(p);
-      if (pin) o.onPin(p);
-    };
-    const p = place(d);
-    if (p) { apply(p); return; }
-    // Fuera de la vista: desplaza la gráfica un día y vuelve a medir.
-    const ts = chart.timeScale(), lr = ts.getVisibleLogicalRange();
-    if (lr) {
-      const dir = e.key === 'ArrowRight' ? 1 : -1;
-      ts.setVisibleLogicalRange({ from: lr.from + dir, to: lr.to + dir });
-    }
-    requestAnimationFrame(() => { const q = place(d); if (q) apply(q); });
+    goIndex(ds, i, dir, false);
   };
+  o.register?.({
+    step: (dir) => { const ds = o.dates(); const i = stepIndex(ds, o.pinned() ?? last?.d, dir); if (i >= 0) goIndex(ds, i, dir, true); },
+    // Fecha elegida en el calendario: el último día con dato ≤ esa fecha (o el primero si es anterior a todos).
+    goTo: (d) => { const ds = o.dates(); const i = stepIndex(ds, d, 0); if (i >= 0) goIndex(ds, i, 0, true); },
+    bounds: () => { const ds = o.dates(); return ds.length ? [ds[0], ds[ds.length - 1]] : null; },
+  });
 
   chart.subscribeCrosshairMove(onMove);
   chart.subscribeClick(onClick);
@@ -103,5 +129,6 @@ export function attachBhtChartPin(chart: IChartApi, container: HTMLElement, o: {
     container.removeEventListener('mousemove', enter);
     container.removeEventListener('mouseleave', leave);
     window.removeEventListener('keydown', onKey);
+    o.register?.(null);
   };
 }

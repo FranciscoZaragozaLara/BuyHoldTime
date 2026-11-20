@@ -3,7 +3,7 @@ import { getApiBase } from '@/lib/apiBase';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createChart, ColorType, IChartApi, LineSeries } from 'lightweight-charts';
 import { BhtDetailPopover, BhtHoverTip, useBhtDetail, useBhtPin } from './BhtDetail';
-import { attachBhtChartPin, timeKey, type BhtPoint } from './bhtChartPin';
+import { attachBhtChartPin, timeKey, type BhtPinNav, type BhtPoint } from './bhtChartPin';
 import { BHT_CUTS, bhtBandColor } from './bhtBands';
 import { useTranslations } from 'next-intl';
 import { TOKENS } from '@/lib/designTokens';
@@ -44,6 +44,8 @@ export function BhtTimeline() {
   // El cursor muestra un tooltip compacto; un clic fija el popover completo (ver bhtChartPin).
   const bhtDet = useBhtDetail();
   const bhtPin = useBhtPin();
+  // Navegación del encabezado del popover fijo (‹ calendario ›), la registra attachBhtChartPin.
+  const [pinNav, setPinNav] = useState<BhtPinNav | null>(null);
   const rowByDate = useMemo(() => new Map(rows.map((r) => [r.date, r])), [rows]);
   const [fwdCache, setFwdCache] = useState<Record<string, any>>({});
   const loadFwd = (d: string) => {
@@ -214,6 +216,7 @@ export function BhtTimeline() {
       onTip: (p) => pinCb.current.tip(p),
       onPin: (p) => pinCb.current.pin(p),
       pinned: () => pinCb.current.pinned(),
+      register: setPinNav,
     });
     const ro = new ResizeObserver(() => {
       if (containerRef.current && chartRef.current) {
@@ -308,6 +311,7 @@ export function BhtTimeline() {
           detail={bhtDet.cache[bhtPin.pin.d]}
           forward={fwdCache[bhtPin.pin.d]}
           onClose={bhtPin.close}
+          nav={pinNav}
         />
       )}
     </div>

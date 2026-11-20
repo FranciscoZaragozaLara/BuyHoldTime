@@ -11,7 +11,7 @@ import { getApiBase } from '@/lib/apiBase';
 import { athDrawdownLine, buildValuationChart, signalMarkers, thinMarkers, MARKER_MIN_PX, type DailyValuation, type Instrument } from '@/lib/valuationChart';
 import { BHT_BANDS, bhtBandColor } from '@/components/backtesting/bhtBands';
 import { BhtDetailPopover, BhtHoverTip, useBhtDetail, useBhtPin } from '@/components/backtesting/BhtDetail';
-import { attachBhtChartPin, type BhtPoint } from '@/components/backtesting/bhtChartPin';
+import { attachBhtChartPin, type BhtPinNav, type BhtPoint } from '@/components/backtesting/bhtChartPin';
 
 interface MarketValueIndicatorClientProps {
   shillerPeData: IndicatorDetails;
@@ -165,6 +165,8 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
   // El cursor muestra un tooltip compacto; un clic fija el popover completo (ver bhtChartPin).
   const bhtDet = useBhtDetail();
   const bhtPin = useBhtPin();
+  // Navegación del encabezado del popover fijo (‹ calendario ›), la registra attachBhtChartPin.
+  const [pinNav, setPinNav] = useState<BhtPinNav | null>(null);
   const dailyIdx = useMemo(() => new Map((daily?.dates ?? []).map((d, i) => [d, i])), [daily]);
   const [fwdCache, setFwdCache] = useState<Record<string, unknown>>({});
   const loadFwd = (d: string) => {
@@ -514,6 +516,7 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
       onTip: (p) => pinCb.current.tip(p),
       onPin: (p) => pinCb.current.pin(p),
       pinned: () => pinCb.current.pinned(),
+      register: setPinNav,
     });
 
     return () => {
@@ -815,6 +818,7 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
               detail={bhtDet.cache[bhtPin.pin.d]}
               forward={fwdCache[bhtPin.pin.d]}
               onClose={bhtPin.close}
+              nav={pinNav}
             />
           )}
         </div>
