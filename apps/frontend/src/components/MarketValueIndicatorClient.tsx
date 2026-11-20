@@ -189,6 +189,8 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
   const points = useMemo(() => buildValuationChart(mergedData, daily, instrument), [mergedData, daily, instrument]);
   // Señales BHT × tendencia ($$, $, ⚠) y cruces SMA 50/200 (Golden / Death Cross) sobre la línea del precio.
   const opportunityMarkers = useMemo(() => signalMarkers(points, locale), [points, locale]);
+  // Caída desde el máximo (ATH o máximo de 5 años) para la línea y la badge de la gráfica.
+  const athDl = useMemo(() => athDrawdownLine(points), [points]);
 
   // Lightweight charts initialization and synchronization
   useEffect(() => {
@@ -207,6 +209,8 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
       rightPriceScale: {
         borderColor: 'rgba(30,41,59,0.3)',
         visible: showSp500Price || showMa50 || showMa200,
+        // Aprovecha la altura: el pico de la vista queda cerca del borde (deja lugar a la badge y a las señales de arriba).
+        scaleMargins: { top: 0.12, bottom: 0.04 },
       },
       leftPriceScale: {
         borderColor: 'rgba(30,41,59,0.3)',
@@ -317,7 +321,7 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
     // así que si el pico queda fuera de la vista la línea entra por el borde (el "techo").
     let detachAth = () => {};
     if (showSp500Price) {
-      const dl = athDrawdownLine(chartPoints);
+      const dl = athDl;
       if (dl && dl.from.time < dl.to.time) {
         const c = athColor(dl.tone);
         const athSeries = chart.addSeries(LineSeries, {
@@ -476,7 +480,8 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
       const years: Record<string, number> = { '1Y': 1, '3Y': 3, '5Y': 5, '10Y': 10, '25Y': 25 };
       const fromDate = new Date(latest.time);
       if (years[timeframe]) fromDate.setFullYear(fromDate.getFullYear() - years[timeframe]);
-      setView(years[timeframe] ? fromDate.toISOString().slice(0, 10) : chartPoints[0].time, latest.time);
+      if (years[timeframe]) setView(fromDate.toISOString().slice(0, 10), latest.time);
+      else chart.timeScale().fitContent();
     }
 
     // Guarda cada cambio de zoom/desplazamiento (después de aplicar el rango inicial).
@@ -522,6 +527,7 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
   }, [
     points,
     opportunityMarkers,
+    athDl,
     showSp500Price,
     showPeRatio,
     showShillerPe,
@@ -766,6 +772,20 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
               <span className="text-accent-400 font-bold">{formatDateLabel(hoveredData.date)}</span>
             </div>
           )}
+          {showSp500Price && athDl && (() => {
+            const c = athColor(athDl.tone);
+            const es = locale === 'es';
+            const ath = athDl.window5y ? 'ATH 5Y' : 'ATH';
+            const at = athDl.pct > -0.05;
+            return (
+              <div className="absolute top-2 left-1/2 -translate-x-1/2 z-10 pointer-events-none flex items-center gap-2 px-3 py-1 rounded-full border text-xs font-semibold backdrop-blur-sm whitespace-nowrap"
+                style={{ color: c, borderColor: `${c}66`, background: `${c}1a` }}
+                title={`${ath} ${athDl.ath.toFixed(2)} · ${athDl.athDate}`}>
+                <span className="font-mono text-sm">{at ? '▲' : '▼'} {at ? (es ? `En ${ath}` : `At ${ath}`) : `${athDl.pct.toFixed(1)}%`}</span>
+                {!at && <span className="text-slate-400 font-normal">{es ? 'desde' : 'from'} {ath} {athDl.ath.toFixed(2)} · {formatDateLabel(athDl.athDate)}</span>}
+              </div>
+            );
+          })()}
           <div ref={chartContainerRef} data-bht-chart className="h-[400px] w-full" />
           {/* Leyenda de las señales sobre la línea del precio. */}
           <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-slate-400">
