@@ -1,4 +1,5 @@
 'use client';
+import { athDrawdown, athColor } from '@/lib/athDrawdown';
 import { getApiBase } from '@/lib/apiBase';
 import { useCallback, useEffect, useState, useRef, useMemo } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
@@ -25,6 +26,8 @@ import { BhtHistoryBlock, ScoreOrb } from './ThermoOrbs';
 import { TrendBadge } from './TrendBadge';
 import { CapeHistoryTable } from './CapeHistoryTable';
 import { BhtGauge } from '@/components/BhtGauge';
+// Caída desde ATH en las cards spot (si el ATH tiene más de 5 años, contra el máximo de 5 años: p. ej. SQQQ).
+const SPOT_TICKERS = ['^GSPC','^IXIC','TQQQ','QQQ','SPY','VOO','SCHD','JEPQ','SQQQ'];
 
 const NAME_KEYS = ["fed_rate", "DGS2", "DGS10", "DGS30", "BAMLH0A0HYM2", "BAMLH0A0HYM2EY", "DFEDTARU", "CPIAUCSL", "CPILFESL", "M2SL", "BOGMBASE", "DCOILWTICO", "GDP", "GDPC1", "FINRA_DEBIT", "MARGIN_GDP", "MSACSR", "VIXCLS", "FEAR_GREED", "^GSPC", "^IXIC", "TQQQ", "QQQ", "SPY", "VOO", "SCHD", "JEPQ", "SQQQ", "SPX_ADV_VOL", "SPX_DEC_VOL", "NYSE_ADV_VOL", "NYSE_DEC_VOL", "NSDQ_ADV_VOL", "NSDQ_DEC_VOL"];
 const TIP_KEYS = ["schiller_pe", "pe_ratio", "fwd_pe_ratio", "inflation", "core_inflation", "fed_rate", "treasury_30y", "vix", "fear_greed", "^GSPC", "^IXIC", "TQQQ", "QQQ", "SPY", "VOO", "SCHD", "JEPQ", "SQQQ", "DFEDTARU", "DGS2", "DGS10", "DGS30", "CPIAUCSL", "M2SL", "BOGMBASE", "DCOILWTICO", "CPILFESL", "BAMLH0A0HYM2", "BAMLH0A0HYM2EY", "GDP", "GDPC1", "FINRA_DEBIT", "MARGIN_GDP", "MSACSR", "VIXCLS", "FEAR_GREED", "NYSE_ADV_VOL", "NYSE_DEC_VOL", "NSDQ_ADV_VOL", "NSDQ_DEC_VOL", "SPX_ADV_VOL", "SPX_DEC_VOL"];
@@ -466,6 +469,7 @@ export function IndicatorsPanel() {
           const isM2 = t==='M2SL';
           const isM0 = t==='BOGMBASE';
           const isOil = t==='DCOILWTICO';
+          const athDd = SPOT_TICKERS.includes(t) ? athDrawdown(marketHistory[t], showLive ? Number(live) : (v!=null ? Number(v) : null), showLive ? String(q?.data?.date ?? '').slice(0,10) || undefined : undefined) : null;
           const isBreadth = t==='NYSE_ADV_VOL'||t==='NYSE_DEC_VOL'||t==='NSDQ_ADV_VOL'||t==='NSDQ_DEC_VOL'||t==='SPX_ADV_VOL'||t==='SPX_DEC_VOL';
           const fmt = (n:number) => isGDP ? `$${(n/1000).toFixed(1)}T` : (isM2||isM0) ? `$${(n/1000).toFixed(2)}T` : isFinra ? `$${(n/1000).toFixed(0)}B` : isMsacsr ? `${n.toFixed(1)} m` : isVix ? n.toFixed(2) : isFg ? n.toFixed(0) : isBreadth ? `${(n/1e9).toFixed(2)}B` : isYield ? `${n.toFixed(2)}%` : `$${n.toFixed(2)}`;
           // CPI cards: YoY mensual fijo (no diario) — live usa mes más reciente
@@ -519,6 +523,7 @@ export function IndicatorsPanel() {
               {isOil && oilCardB != null && oilCardB.ratio != null && <div className="text-[11px] font-mono font-semibold text-slate-400">×{oilCardB.ratio.toFixed(2)} SMA36M · <span className={oilCardB.bonus > 0 ? 'text-elevated-300' : oilCardB.bonus < 0 ? 'text-favorable-300' : 'text-slate-500'}>{oilCardB.bonus !== 0 ? `${oilCardB.label} (${oilCardB.bonus > 0 ? '+' : ''}${oilCardB.bonus})` : ti('neutral')}</span></div>}
               {t==='DGS30' && y30mForCard!=null && <div className="text-[11px] font-mono font-semibold text-slate-400">Δ {y30mForCard.d>=0?'+':''}{y30mForCard.d.toFixed(2)}pp vs MA6M {y30mForCard.ma.toFixed(2)}% · <span style={{color: capeScoreColor(y30mForCard.score)}}>{levelLabel(y30mBandLabel(y30mForCard.score), loc)}</span></div>}
               {isGDP && (gdpYoY!=null || gdpc1YoY!=null) && <div className="flex gap-2 text-[11px] font-mono font-semibold"><span className={gdpYoY!=null && gdpYoY>=0?'text-favorable-400':'text-risk-400'}>{gdpYoY!=null? `${gdpYoY>=0?'▲':'▼'} ${Math.abs(gdpYoY).toFixed(2)}% Nom`:'— Nom'}</span><span className="text-slate-600">·</span><span className={gdpc1YoY!=null && gdpc1YoY>=0?'text-sky-400':'text-elevated-400'}>{gdpc1YoY!=null? `${gdpc1YoY>=0?'▲':'▼'} ${Math.abs(gdpc1YoY).toFixed(2)}% Real`:'— Real'}</span></div>}
+              {athDd && <div className="text-[11px] font-mono font-semibold flex items-center gap-1.5 whitespace-nowrap min-w-0" title={`${athDd.window5y ? 'ATH 5Y' : 'ATH'} ${fmt(athDd.ath)} · ${athDd.athDate}`}><span className="inline-block w-1.5 h-1.5 rounded-full shrink-0" style={{ background: athColor(athDd.tone) }} /><span style={{ color: athColor(athDd.tone) }}>{athDd.pct > -0.05 ? (athDd.window5y ? (loc === 'es' ? 'En máximo de 5 años' : 'At 5-year high') : (loc === 'es' ? 'En máximo histórico' : 'At all-time high')) : `${athDd.pct.toFixed(1)}% ${loc === 'es' ? 'desde ATH' : 'from ATH'}${athDd.window5y ? ' 5Y' : ''}`}</span><span className="text-slate-500 font-normal truncate">· {athDd.athDate}</span></div>}
               {fresh && <div className="text-[11px] text-slate-500">{fresh} · {src}</div>}
               {tip && <div className="text-xs text-slate-500 mt-2 line-clamp-2">{tip}</div>}
             </div>
