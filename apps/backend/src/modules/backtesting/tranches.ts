@@ -25,6 +25,8 @@ export type TrancheSeries = {
   vix3m: (number | null)[];
   oas: (number | null)[];
   cape: (number | null)[];
+  /** BHT Index del día (desde 1993): blinda la señal por nivel del VIX del modo híbrido. */
+  bht?: (number | null)[];
   /** Mediana de 20 años del CAPE vigente cada día (null sin historia suficiente). */
   capeMedian20: (number | null)[];
 };
@@ -36,6 +38,10 @@ export const TRANCHE_CFG = {
   sp: { permit: -10, t0Depth: -15, t0Speed: -10, t2: -15, t4: -25 },
   ndx: { permit: -15, t0Depth: -20, t0Speed: -13, t2: -22, t4: -35 },
   t0Ratio: 1.2, t0Oas: 6, volArm: 1.05, volWindow: 20,
+  /** Voto de volatilidad híbrido blindado (por defecto): ratio VIX/VIX3M del doc, o VIX ≥25% bajo su máximo de 20 días
+   *  (≥25) solo con BHT < 50. Backtest 1990–2026: despliega 72% (VOO) y 47% (QQQ) vs 60% y 37% del doc, y captura 62% y
+   *  73% vs 56% y 61%, sin entrar temprano en 2000–03 ni 2008 (con BHT 55–60 sí; con 40–45 se pierde 2022). */
+  volMode: 'hybrid' as 'ratio' | 'hybrid', lvlMaxBht: 50 as number | undefined,
   decelSmin: -0.015, decelRecover: 0.5, minGapT2: 5, minGapT3: 10, t4OasOff: 0.15, t4BackupDays: 252,
 };
 
@@ -111,6 +117,8 @@ export type TranchesResult = {
   today: {
     price: number | null; spDd: number | null; ndxDd: number | null; veto: boolean; oas: number | null; oasMax63: number | null; oasSma20: number | null;
     ratio: number | null; volSource: 'ratio' | 'fallback'; volVote: boolean; volArmedAt: string | null;
+    /** Qué activó el voto: el ratio del doc o la caída del VIX desde su máximo de 20 días (modo híbrido). */
+    volSignal: 'ratio' | 'level' | null; vix: number | null; vixMax20: number | null; bht: number | null;
     decelVote: boolean; slope: number | null; curv: number | null; slopeMin: number | null; recover: number | null; boll: boolean;
     votes: number; cape: number | null; capeMedian20: number | null;
   };
@@ -140,7 +148,7 @@ export type PreparedTranches = ReturnType<typeof prepareTranches>;
 export type EpisodeSummary = { start: string; end: string | null; peak: number; min: number; ddMax: number; fired: TrancheId[]; deployed: number; leverage: number; avgPrice: number | null; captured: number | null };
 /** volMode 'hybrid': el voto de volatilidad también se activa si el VIX cae ≥25% desde su máximo de 20 días (≥25),
  *  para los mercados bajistas lentos donde la estructura VIX/VIX3M casi no se invierte (2022). */
-export type TrancheOpts = { volArm?: number; volMode?: 'ratio' | 'hybrid'; onEpisodeEnd?: (e: EpisodeSummary) => void };
+export type TrancheOpts = { volArm?: number; volMode?: 'ratio' | 'hybrid'; /** Blindaje: la señal por nivel solo cuenta con BHT < este valor. */ lvlMaxBht?: number; onEpisodeEnd?: (e: EpisodeSummary) => void };
 
 export function computeTranches(P: PreparedTranches, date: string, sectorRule: SectorRule = 'half', opts: TrancheOpts = {}): TranchesResult | null {
   const { s, route, px } = P;
@@ -150,6 +158,8 @@ export function computeTranches(P: PreparedTranches, date: string, sectorRule: S
   const C = TRANCHE_CFG;
   const dual = route === 'qqq';
   const volArm = opts.volArm ?? C.volArm;
+  const volMode = opts.volMode ?? C.volMode;
+  const lvlMaxBht = 'lvlMaxBht' in opts ? opts.lvlMaxBht : C.lvlMaxBht;
   const summarize = (end: string | null): EpisodeSummary => {
     let dep = 0, lev = 0, cost = 0;
     const ids = (Object.keys(fired) as TrancheId[]).sort();
@@ -162,6 +172,7 @@ export function computeTranches(P: PreparedTranches, date: string, sectorRule: S
   let open = false, start = -1, peak = 0, peakIdx = -1, minP = Infinity, minIdx = -1, ddMax = 0, spDdMax = 0, ndxDdMax = 0, sectorOnly = false;
   let lastEp: TranchesResult['lastEpisode'] = null;
   let armed = false, volOnAt = -1, armedAt = -1, lvlOnAt = -1;
+  let volSignal: 'ratio' | 'level' | null = null;
   let bollAt = -1, curvRun = 0, slopeMin = 0;
   const fired: Partial<Record<TrancheId, { k: number; size: number; backup?: boolean }>> = {};
 
@@ -220,14 +231,16 @@ export function computeTranches(P: PreparedTranches, date: string, sectorRule: S
       }
     }
     // Señal por nivel (modo híbrido): VIX ≥25% debajo de su máximo de 20 días, si ese máximo fue ≥25; se anula con un nuevo máximo.
-    if (opts.volMode === 'hybrid') {
+    if (volMode === 'hybrid') {
       const v = P.vix[k], m20 = P.vixMax20[k];
       if (v != null && m20 != null) {
         if (v >= m20) lvlOnAt = -1;
-        else if (m20 >= 25 && v <= 0.75 * m20 && lvlOnAt < 0) lvlOnAt = k;
+        else if (m20 >= 25 && v <= 0.75 * m20 && lvlOnAt < 0 && (lvlMaxBht == null || (s.bht?.[k] ?? 100) < lvlMaxBht)) lvlOnAt = k;
       }
     }
-    volVote = (volOnAt >= 0 && k - volOnAt < C.volWindow) || (lvlOnAt >= 0 && k - lvlOnAt < C.volWindow);
+    const ratioOn = volOnAt >= 0 && k - volOnAt < C.volWindow, lvlOn = lvlOnAt >= 0 && k - lvlOnAt < C.volWindow;
+    volVote = ratioOn || lvlOn;
+    if (k === D) volSignal = ratioOn ? 'ratio' : lvlOn ? 'level' : null;
 
     // Voto de desaceleración: curvatura de la EMA50 con filtro de magnitud, o reingreso a la banda de Bollinger −2σ.
     const S = P.slope[k], Cv = P.curv[k];
@@ -334,6 +347,7 @@ export function computeTranches(P: PreparedTranches, date: string, sectorRule: S
     today: {
       price: px[D], spDd: sn.spDd, ndxDd: sn.ndxDd, veto: sn.veto, oas: P.oas[D], oasMax63: P.oasMax63[D], oasSma20: P.oasSma20[D],
       ratio: sn.ratio, volSource: sn.ratio != null ? 'ratio' : 'fallback', volVote: sn.volVote, volArmedAt: open && armedAt >= start ? s.dates[armedAt] : null, // solo si se armó en este episodio
+      volSignal, vix: P.vix[D], vixMax20: P.vixMax20[D], bht: s.bht?.[D] ?? null,
       decelVote: sn.decelVote, slope: P.slope[D] != null ? (P.slope[D] as number) * 100 : null, curv: P.curv[D] != null ? (P.curv[D] as number) * 100 : null,
       slopeMin: open ? slopeMin * 100 : null, recover: sn.recover != null ? sn.recover * 100 : null, boll: sn.boll,
       votes: sn.votes, cape: s.cape[D], capeMedian20: s.capeMedian20[D],
@@ -372,12 +386,13 @@ type Rows = Array<{ d: string; v: unknown }>;
 export async function loadTrancheSeries(query: (sql: string) => Promise<Rows>): Promise<TrancheSeries> {
   const toMap = (r: Rows) => new Map(r.filter((x) => x.v != null).map((x) => [x.d, Number(x.v)] as [string, number]));
   const md = (t: string) => query(`SELECT date::text AS d, close AS v FROM bt_market_data WHERE ticker = '${t}' AND date >= '1989-01-01'`).then(toMap);
-  const [spx, vixF, vixY, vix3m, oas, tqqq, qOld, qNew, capeD, capeM] = await Promise.all([
+  const [spx, vixF, vixY, vix3m, oas, tqqq, qOld, qNew, capeD, capeM, bht] = await Promise.all([
     md('^GSPC'), md('VIXCLS'), md('^VIX'), md('^VIX3M'), md('BAMLH0A0HYM2'), md('TQQQ'),
     query(`SELECT h.date::text AS d, h.close AS v FROM historical_prices h JOIN tickers t ON t.id = h.ticker_id WHERE t.symbol = 'QQQ'`).then(toMap),
     md('QQQ'),
     query(`SELECT date::text AS d, cape AS v FROM bt_shiller_daily`).then(toMap),
     query(`SELECT h.date::text AS d, h.value AS v FROM indicator_histories h JOIN indicators i ON i.id = h.indicator_id WHERE i.key = 'schiller_pe'`).then(toMap),
+    query(`SELECT date::text AS d, value AS v FROM bt_thermo_history`).then(toMap),
   ]);
   const vix = withProvisional(vixF, vixY);
   const qqq = spliceSeries(qOld, qNew);
@@ -388,5 +403,5 @@ export async function loadTrancheSeries(query: (sql: string) => Promise<Rows>): 
   const lastM = [...monthly.keys()].sort().pop() ?? '';
   for (const [d, v] of [...capeD].sort((a, b) => a[0].localeCompare(b[0]))) if (d.slice(0, 7) > lastM) monthly.set(d.slice(0, 7), v);
   const at = (m: Map<string, number>) => dates.map((d) => m.get(d) ?? null);
-  return { dates, spx: at(spx), qqq: at(qqq), tqqq: at(tqqq), vix: at(vix), vix3m: at(vix3m), oas: at(oas), cape: at(capeD), capeMedian20: capeMedian20(dates, monthly) };
+  return { dates, spx: at(spx), qqq: at(qqq), tqqq: at(tqqq), bht: at(bht), vix: at(vix), vix3m: at(vix3m), oas: at(oas), cape: at(capeD), capeMedian20: capeMedian20(dates, monthly) };
 }

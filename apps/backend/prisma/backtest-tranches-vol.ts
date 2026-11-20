@@ -1,5 +1,5 @@
 // Backtest del umbral de armado del voto de volatilidad (VIX/VIX3M) del módulo de tranches:
-//   ARMS=1.00,1.05,h1.05 MINDD=-15 npx ts-node prisma/backtest-tranches-vol.ts   (prefijo h = modo híbrido)
+//   ARMS=1.00,1.05,h1.05 MINDD=-15 npx ts-node prisma/backtest-tranches-vol.ts   (prefijo h = modo híbrido; hb55 = híbrido con BHT < 55)
 // Por episodio (caída máxima ≤ MINDD): % desplegado y % de la caída capturada con cada umbral, en las rutas VOO y QQQ.
 import { Pool } from 'pg';
 import { databaseUrl } from './db-url';
@@ -10,12 +10,13 @@ async function main() {
   const series = await loadTrancheSeries((sql) => pool.query(sql).then((r) => r.rows));
   await pool.end();
   const specs = (process.env.ARMS ?? '1.00,1.02,1.05').split(',');
-  const arms = specs.map((x) => Number(x.replace('h', '')));
+  const arms = specs.map((x) => (x.startsWith('hb') ? 1.05 : Number(x.replace('h', ''))));
+  const maxBht = specs.map((x) => (x.startsWith('hb') ? Number(x.slice(2)) : undefined));
   const minDd = Number(process.env.MINDD ?? -15);
   const last = series.dates[series.dates.length - 1];
   for (const route of ['voo', 'qqq'] as TrancheRoute[]) {
     const P = prepareTranches(series, route);
-    const runs = arms.map((a, ai) => { const eps: EpisodeSummary[] = []; computeTranches(P, last, 'half', { volArm: a, volMode: specs[ai].startsWith('h') ? 'hybrid' : 'ratio', onEpisodeEnd: (e) => eps.push(e) }); return eps; });
+    const runs = arms.map((a, ai) => { const eps: EpisodeSummary[] = []; computeTranches(P, last, 'half', { volArm: a, volMode: specs[ai].startsWith('h') ? 'hybrid' : 'ratio', lvlMaxBht: maxBht[ai], onEpisodeEnd: (e) => eps.push(e) }); return eps; });
     const keys = [...new Set(runs.flatMap((r) => r.filter((e) => e.ddMax <= minDd).map((e) => e.start)))].sort();
     console.log(`\n=== Ruta ${route.toUpperCase()} · episodios con caída ≤ ${minDd}% ===`);
     console.log('inicio       fin          caída  | ' + specs.map((x) => `${x}: despl capt  tranches`.padEnd(36)).join('| '));
