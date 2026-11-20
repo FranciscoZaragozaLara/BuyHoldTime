@@ -125,12 +125,14 @@
       { "lo": 0.9, "hi": null, "scoreLo": 90, "scoreHi": 100 }
     ],
     "VIX": [
-      { "lo": null, "hi": 12, "scoreLo": 90, "scoreHi": 100 },
-      { "lo": 12, "hi": 15, "scoreLo": 78, "scoreHi": 90 },
-      { "lo": 15, "hi": 20, "scoreLo": 60, "scoreHi": 78 },
-      { "lo": 20, "hi": 25, "scoreLo": 35, "scoreHi": 60 },
-      { "lo": 25, "hi": 30, "scoreLo": 10, "scoreHi": 35 },
-      { "lo": 30, "hi": null, "scoreLo": 0, "scoreHi": 10 }
+      { "lo": null, "hi": 9, "scoreLo": 100, "scoreHi": 100 },
+      { "lo": 9, "hi": 12, "scoreLo": 100, "scoreHi": 90 },
+      { "lo": 12, "hi": 15, "scoreLo": 90, "scoreHi": 78 },
+      { "lo": 15, "hi": 20, "scoreLo": 78, "scoreHi": 60 },
+      { "lo": 20, "hi": 25, "scoreLo": 60, "scoreHi": 35 },
+      { "lo": 25, "hi": 30, "scoreLo": 35, "scoreHi": 10 },
+      { "lo": 30, "hi": 45, "scoreLo": 10, "scoreHi": 0 },
+      { "lo": 45, "hi": null, "scoreLo": 0, "scoreHi": 0 }
     ],
     "FG": [
       { "lo": null, "hi": 10, "scoreLo": 0, "scoreHi": 0 },

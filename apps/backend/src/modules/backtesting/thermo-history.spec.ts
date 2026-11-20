@@ -100,12 +100,15 @@ describe('thermo-history', () => {
     expect(fgScore(74.5)).toBeCloseTo(91.8, 1); // top nov-21
     expect(fgScore(82.97)).toBe(100); // máx histórico dic-23
   });
-  test('VIX sensible: complacencia <20 alta, pánico ≥30 en 0', () => {
-    expect(bandScore(VIX_SEGS, 14.38)).toBeCloseTo(87.5, 1); // pico COVID
-    expect(bandScore(VIX_SEGS, 16.6)).toBeCloseTo(65.8, 1); // pico 2022
-    expect(bandScore(VIX_SEGS, 24)).toBe(55); // corrección
-    expect(bandScore(VIX_SEGS, 33.57)).toBeCloseTo(0, 0); // suelo 2022
-    expect(bandScore(VIX_SEGS, 61.59)).toBeCloseTo(0, 0); // suelo COVID
+  test('VIX continuo: más miedo → menos riesgo (sin saltos en las fronteras)', () => {
+    expect(bandScore(VIX_SEGS, 14.38)).toBeCloseTo(80.5, 1); // pico COVID
+    expect(bandScore(VIX_SEGS, 16.6)).toBeCloseTo(72.2, 1); // pico 2022
+    expect(bandScore(VIX_SEGS, 24)).toBe(40); // corrección
+    expect(bandScore(VIX_SEGS, 24.56)).toBeCloseTo(37.2, 1); // antes 58: el diente de sierra subía el BHT
+    expect(bandScore(VIX_SEGS, 25.46)).toBeCloseTo(32.7, 1); // antes 12
+    expect(bandScore(VIX_SEGS, 33.57)).toBeCloseTo(7.6, 1); // suelo 2022
+    expect(bandScore(VIX_SEGS, 61.59)).toBe(0); // suelo COVID
+    expect(bandScore(VIX_SEGS, 8)).toBe(100);
   });
   test('MG momentum: nivel + desvío vs MA24M', () => {
     // Regla: ±0.15→50, ±0.5→70/30, ±0.9→90/10
@@ -303,8 +306,9 @@ describe('thermo-history', () => {
     expect(r!.coverage).toBe(9);
     expect(r!.denominator).toBe(95);
     // CAPE 20 en 1995 (corte 21, piso anual 7.8): 0 + (20−7.8)·25/(21−7.8) = 23.1 pts (antes 25 plano).
-    expect(r!.numerator).toBeCloseTo(4736.9, 0);
-    expect(r!.value).toBeCloseTo(49.9, 1);
+    // VIX 15 → 78 pts con las bandas continuas (antes 60 por el diente de sierra): +180 en el numerador.
+    expect(r!.numerator).toBeCloseTo(4916.9, 0);
+    expect(r!.value).toBeCloseTo(51.8, 1);
     expect(r!.bonus).toBe(0);
     expect(r!.parts.map((p) => p.key)).toEqual(['CAPE', 'RATIO', 'CPI', 'CORE', 'Y2M', '30Y', 'VIX', 'MS', 'PIB']);
     expect(r!.parts.find((p) => p.key === 'RATIO')!.weight).toBe(15);
@@ -315,8 +319,8 @@ describe('thermo-history', () => {
     expect(r!.parts.find((p) => p.key === 'PIB')!.weight).toBe(5);
     // GDPC1 100/97 => YoY +3.09% => procíclico ~71.9 (antes ~11.4 invertido).
     expect(r!.parts.find((p) => p.key === 'PIB')!.score).toBeCloseTo(71.9, 1);
-    // VIX 15 => 60 (curva sensible) con peso 10.
-    expect(r!.parts.find((p) => p.key === 'VIX')!.score).toBe(60);
+    // VIX 15 => 78 (bandas continuas) con peso 10.
+    expect(r!.parts.find((p) => p.key === 'VIX')!.score).toBe(78);
   });
 });
 

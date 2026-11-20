@@ -55,6 +55,20 @@ describe('thermoScoring', () => {
   });
 });
 
+describe('bandas continuas', () => {
+  it('ningún componente salta en las fronteras de sus tramos (el VIX tenía un diente de sierra)', () => {
+    const names = ['PE', 'FWD', 'RATIO', 'CPI', 'CPI_LVL', 'CPI_TRD', 'FED', 'Y2M_LVL', 'Y2M_TRD', 'Y30', 'Y30M_LVL', 'HY', 'MG', 'MG_TRD', 'VIX', 'FG', 'MS', 'GDP', 'OIL'];
+    for (const n of names) {
+      const segs = segsOf(n);
+      for (let i = 0; i + 1 < segs.length; i++) expect(segs[i][3], `${n} en ${segs[i][1]}`).toBe(segs[i + 1][2]);
+    }
+    // VIX: más miedo → menos riesgo, siempre
+    const xs = [8, 10, 12, 14, 17, 20, 23, 24.5, 25.5, 28, 30, 35, 45, 60];
+    const ys = xs.map(vixRiskScore);
+    for (let i = 1; i < ys.length; i++) expect(ys[i]).toBeLessThanOrEqual(ys[i - 1]);
+  });
+});
+
 describe('fuente única de bandas (packages/bht-bands)', () => {
   type Band = [number, number, string, string, string];
   const pts = (x: string) => x.split('–').map(Number);

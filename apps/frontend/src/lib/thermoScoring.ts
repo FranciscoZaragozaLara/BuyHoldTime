@@ -141,7 +141,9 @@ export const MS_BANDS: [number, number, string, string, string][] = [
   [-Infinity, 3.5, '≤ 3.5', '0–8', 'Escasez'], [3.5, 4.5, '3.5–4.5', '8–20', 'Ajustado'], [4.5, 5.5, '4.5–5.5', '20–35', 'Equilibrado'], [5.5, 6.5, '5.5–6.5', '35–50', 'Ampliándose'], [6.5, 7.5, '6.5–7.5', '50–62', 'Exceso'], [7.5, 9.0, '7.5–9.0', '62–74', 'Sobreoferta'], [9.0, 11.0, '9.0–11', '74–88', 'Muy frío'], [11.0, 13.0, '11–13', '88–100', 'Congelado'], [13.0, Infinity, '≥ 13', '100', 'Congelado'],
 ];
 export const VIX_BANDS: [number, number, string, string, string][] = [
-  [30, Infinity, '≥ 30', '0–10', 'Pánico'], [25, 30, '25–30', '10–35', 'Miedo'], [20, 25, '20–25', '35–60', 'Inquietud'], [15, 20, '15–20', '60–78', 'Tensión'], [12, 15, '12–15', '78–90', 'Complacencia'], [-Infinity, 12, '< 12', '90–100', 'Euforia'],
+  // Puntaje de riesgo al inicio–fin de cada tramo: baja de forma continua al subir el VIX (antes cada tramo iba al revés).
+  [45, Infinity, '≥ 45', '0–0', 'Pánico extremo'], [30, 45, '30–45', '10–0', 'Pánico'], [25, 30, '25–30', '35–10', 'Miedo'], [20, 25, '20–25', '60–35', 'Inquietud'],
+  [15, 20, '15–20', '78–60', 'Tensión'], [12, 15, '12–15', '90–78', 'Complacencia'], [9, 12, '9–12', '100–90', 'Euforia'], [-Infinity, 9, '< 9', '100–100', 'Euforia extrema'],
 ];
 // WTI ratio vs SMA36M (bandas validadas 2003-2026, espejo del bonus oil del semáforo)
 export const OIL_SEGS: Seg[] = segsOf('OIL');
