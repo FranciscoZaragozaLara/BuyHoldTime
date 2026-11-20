@@ -327,10 +327,12 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
       if (dl && dl.from.time < dl.to.time) {
         const c = athColor(dl.tone);
         const athSeries = chart.addSeries(LineSeries, {
-          color: c, lineWidth: 1, lineStyle: 2, priceScaleId: 'right', priceLineVisible: false, lastValueVisible: false,
+          color: c, lineWidth: 2, lineStyle: 3, priceScaleId: 'right', priceLineVisible: false, lastValueVisible: false,
           crosshairMarkerVisible: false, autoscaleInfoProvider: () => null,
         });
         athSeries.setData([dl.from, dl.to]);
+        // Techo: nivel del máximo en toda la gráfica, con su etiqueta en el eje (se ve aunque la recta sea corta).
+        athSeries.createPriceLine({ price: dl.ath, color: `${c}80`, lineWidth: 1, lineStyle: 1, axisLabelVisible: true, title: dl.window5y ? 'ATH 5Y' : 'ATH' });
         const es = locale === 'es';
         const ath = dl.window5y ? 'ATH 5Y' : 'ATH';
         const pctTxt = dl.pct > -0.05 ? null : `${dl.pct.toFixed(1)}%`;
