@@ -5,28 +5,27 @@
 import { useState } from 'react';
 import type React from 'react';
 import { getApiBase } from '@/lib/apiBase';
-import { BHT_BANDS } from '@/components/backtesting/bhtBands';
 import { TrendBadge } from '@/components/backtesting/TrendBadge';
 import { toTrendRegime, TREND_META, TREND_ORDER, trendText } from '@/lib/trendRegime';
-import { fetchMatrixCells, matrixCell, MATRIX_INSTRUMENTS, MATRIX_LABEL, type MatrixCell, type MatrixInstrument, type MatrixWindow } from '@/lib/bhtMatrix';
+import { bandPct, fetchMatrixCells, matrixBandOf, matrixCell, MATRIX_BANDS, MATRIX_INSTRUMENTS, MATRIX_LABEL, type MatrixCell, type MatrixInstrument, type MatrixWindow } from '@/lib/bhtMatrix';
 
 type Cells = Record<MatrixInstrument, MatrixCell[] | null>;
 
 const T = {
   es: {
     title: 'Rendimientos históricos', sub: 'Días con la misma banda del BHT y la misma tendencia que hoy', win5: '5 años', winAll: 'Toda la historia',
-    inst: 'Instrumento', ret: 'Rend. 12m', pos: '% positivos', mdd: 'Caída máx. prom.', p15: 'Prob. caer >15%', days: 'Días',
+    inst: 'Instrumento', freq: 'Frecuencia', freqTitle: '% de los días del periodo con esta banda y tendencia', ret: 'Rend. 12m', pos: '% positivos', mdd: 'Caída máx. prom.', p15: 'Prob. caer >15%', days: 'Días',
     show: 'Ver matriz completa', hide: 'Ocultar matriz', band: 'Banda BHT', here: 'Estás aquí', loading: 'Calculando…', none: 'Sin días con esta combinación',
-    note: 'Promedios de días históricos (se traslapan). Debajo de cada celda: caída máxima promedio · probabilidad de caer más de 15% en esos 12 meses. Celdas con pocos días se ven tenues. No es una recomendación.',
+    note: 'Promedios de días históricos (se traslapan). Debajo de cada celda: caída máxima promedio · probabilidad de caer más de 15% en esos 12 meses, y su frecuencia (% de los días del periodo); bajo cada banda, su frecuencia total. Celdas con pocos días se ven tenues. No es una recomendación.',
     tqqqTitle: '* TQQQ: apalancado 3× — operar con extremo cuidado',
     tqqqText: 'Sus rendimientos solo cuentan desde su lanzamiento (feb 2010), un periodo casi siempre alcista. En crisis financieras mayores, un 3× diario del Nasdaq habría perdido desde el máximo −99.8% en la burbuja puntocom (2000–02) y −95.5% en la crisis financiera de 2008 (2007–09), contra −78.5% y −56.2% del Nasdaq: prácticamente todo el capital.',
     tqqqSrc: 'Simulación: 3× del rendimiento diario del Nasdaq Composite con comisión de 0.95% anual, sin costo de financiamiento.',
   },
   en: {
     title: 'Historical returns', sub: 'Days with the same BHT band and the same trend as today', win5: '5 years', winAll: 'All history',
-    inst: 'Instrument', ret: '12m return', pos: '% positive', mdd: 'Avg max drawdown', p15: 'Prob. of falling >15%', days: 'Days',
+    inst: 'Instrument', freq: 'Frequency', freqTitle: '% of the period\'s days with this band and trend', ret: '12m return', pos: '% positive', mdd: 'Avg max drawdown', p15: 'Prob. of falling >15%', days: 'Days',
     show: 'See full matrix', hide: 'Hide matrix', band: 'BHT band', here: 'You are here', loading: 'Computing…', none: 'No days with this combination',
-    note: 'Averages of historical days (they overlap). Under each cell: average max drawdown · probability of falling more than 15% within those 12 months. Cells with few days are dimmed. Not a recommendation.',
+    note: 'Averages of historical days (they overlap). Under each cell: average max drawdown · probability of falling more than 15% within those 12 months, and its frequency (% of the period\'s days); under each band, its total frequency. Cells with few days are dimmed. Not a recommendation.',
     tqqqTitle: '* TQQQ: 3× leveraged — trade with extreme care',
     tqqqText: 'Its returns only count from its launch (Feb 2010), an almost always rising period. In major financial crises, a daily 3× Nasdaq would have lost −99.8% from its peak in the dot-com bubble (2000–02) and −95.5% in the 2008 financial crisis (2007–09), versus −78.5% and −56.2% for the Nasdaq: virtually all the capital.',
     tqqqSrc: 'Simulation: 3× the Nasdaq Composite daily return with a 0.95% annual fee, no financing cost.',
@@ -36,9 +35,11 @@ const T = {
 const pctTxt = (v: number | null | undefined, d = 1) => (v == null ? '—' : `${v > 0 ? '+' : ''}${v.toFixed(d)}%`);
 const pctCls = (v: number | null | undefined) => (v == null ? 'text-slate-500' : v >= 0 ? 'text-favorable-300' : 'text-risk-300');
 
-export function HomeReturnsTable({ locale, date, band, regime: regimeRaw, initial }: { locale: string; date: string; band: number; regime: string | null; initial: Cells }) {
+export function HomeReturnsTable({ locale, date, score, regime: regimeRaw, initial }: { locale: string; date: string; score: number; regime: string | null; initial: Cells }) {
   const t = locale === 'es' ? T.es : T.en;
   const regime = toTrendRegime(regimeRaw);
+  // Banda de la matriz (7: los cortes del semáforo más 56 y 75).
+  const band = matrixBandOf(score);
   const [win, setWin] = useState<MatrixWindow>('5y');
   const [byWin, setByWin] = useState<Partial<Record<MatrixWindow, Cells>>>({ '5y': initial });
   const [showMx, setShowMx] = useState(false);
@@ -52,7 +53,7 @@ export function HomeReturnsTable({ locale, date, band, regime: regimeRaw, initia
     Promise.all(MATRIX_INSTRUMENTS.map((i) => fetchMatrixCells(getApiBase(), date, i, w)))
       .then((rs) => setByWin((prev) => ({ ...prev, [w]: Object.fromEntries(MATRIX_INSTRUMENTS.map((i, k) => [i, rs[k]])) as Cells })));
   };
-  const b = BHT_BANDS[band];
+  const b = MATRIX_BANDS[band];
 
   return (
     <div className="mt-4 rounded-xl border border-slate-800 bg-slate-950/40 p-3">
@@ -87,6 +88,7 @@ export function HomeReturnsTable({ locale, date, band, regime: regimeRaw, initia
                 <th className="text-right font-normal">{t.mdd}</th>
                 <th className="text-right font-normal">{t.p15}</th>
                 <th className="text-right font-normal">{t.days}</th>
+                <th className="text-right font-normal" title={t.freqTitle}>{t.freq}</th>
               </tr>
             </thead>
             <tbody>
@@ -102,8 +104,9 @@ export function HomeReturnsTable({ locale, date, band, regime: regimeRaw, initia
                         <td className="text-right text-risk-300">{pctTxt(c.avgMdd)}</td>
                         <td className="text-right text-slate-300">{c.pDd15?.toFixed(0)}%</td>
                         <td className={`text-right ${c.n < 60 ? 'text-slate-600' : 'text-slate-500'}`}>{c.n}</td>
+                        <td className="text-right text-sky-300/80">{c.pct != null ? `${c.pct.toFixed(1)}%` : '—'}</td>
                       </>
-                    ) : <td colSpan={5} className="text-right text-slate-600">{t.none}</td>}
+                    ) : <td colSpan={6} className="text-right text-slate-600">{t.none}</td>}
                   </tr>
                 );
               })}
@@ -134,9 +137,10 @@ export function HomeReturnsTable({ locale, date, band, regime: regimeRaw, initia
                 </tr>
               </thead>
               <tbody>
-                {BHT_BANDS.map((bb, bi) => (
+                {MATRIX_BANDS.map((bb, bi) => (
                   <tr key={bb.range} className="border-b border-slate-800/60">
-                    <td className="py-0.5 whitespace-nowrap"><span className="inline-block w-2 h-2 rounded-full mr-1 align-middle" style={{ background: bb.color }} />{bb.range}</td>
+                    <td className="py-0.5 whitespace-nowrap"><span className="inline-block w-2 h-2 rounded-full mr-1 align-middle" style={{ background: bb.color }} />{bb.range}
+                      <div className="text-[9px] text-slate-500 pl-3">{bandPct(cells[mxInst], bi).toFixed(1)}%</div></td>
                     {TREND_ORDER.map((g) => {
                       const x = (cells[mxInst] ?? []).find((y) => y.band === bi && y.regime === g);
                       const cur = bi === band && g === regime;
@@ -147,6 +151,7 @@ export function HomeReturnsTable({ locale, date, band, regime: regimeRaw, initia
                           title={`${cur ? `${t.here} · ` : ''}${x.n} ${t.days.toLowerCase()} · ${x.pos12m?.toFixed(0)}% ${t.pos.replace('% ', '')}`}>
                           <div className={`font-bold ${pctCls(x.avg12m)}`}>{pctTxt(x.avg12m)}</div>
                           <div className="text-slate-500">{x.avgMdd?.toFixed(0)}% · {x.pDd15?.toFixed(0)}%</div>
+                          {x.pct != null && <div className="text-sky-300/80">{x.pct.toFixed(1)}% {t.days.toLowerCase()}</div>}
                         </td>
                       );
                     })}

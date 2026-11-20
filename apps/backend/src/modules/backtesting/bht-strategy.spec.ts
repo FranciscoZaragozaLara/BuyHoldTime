@@ -1,4 +1,4 @@
-import { cagr, computeBhtStrategy, type StrategySeries } from './bht-strategy';
+import { cagr, computeBhtStrategy, matrixBandOf, MATRIX_BAND_LO, type StrategySeries } from './bht-strategy';
 
 // Serie sintética: un día por mes desde 2000 (fechas reales para los cálculos por años).
 function series(bht: number[], spx: number[]): StrategySeries {
@@ -124,7 +124,7 @@ describe('matriz BHT × tendencia', () => {
     const spx = dates.map((_, k) => (k <= 12 ? 100 + (10 * k) / 12 : k <= 24 ? 110 - (33 * (k - 12)) / 12 : 77));
     const r = computeBhtStrategy({ dates, bht, px: { spx, qqq: dates.map(() => null), tqqq: dates.map(() => null) }, trend }, '2001-06-01', 'spx')!;
     expect(r.trend).toBe('DOWNTREND');
-    expect(r.matrix.current).toEqual({ band: 2, regime: 'DOWNTREND' });
+    expect(r.matrix.current).toEqual({ band: 2, parentBand: 2, regime: 'DOWNTREND' }); // 55 → 50–55 (matriz) y 50–61 (semáforo)
     const up = r.matrix.cells.find((c) => c.band === 2 && c.regime === 'UPTREND')!;
     const down = r.matrix.cells.find((c) => c.band === 2 && c.regime === 'DOWNTREND')!;
     expect(down.n).toBe(12);
@@ -132,7 +132,17 @@ describe('matriz BHT × tendencia', () => {
     expect(down.pos12m).toBe(0);
     expect(down.avgMdd!).toBeLessThan(up.avgMdd!);
     expect(down.pDd15!).toBeGreaterThan(0);
-    expect(r.matrix.cells).toHaveLength(20);
+    expect(r.matrix.cells).toHaveLength(28); // 7 bandas × 4 regímenes
+    // frecuencia: % de los días de la ventana en cada celda (todas suman 100)
+    expect(down.pct!).toBeCloseTo((12 / (up.n + down.n)) * 100, 9);
+    expect(r.matrix.cells.reduce((t, c) => t + (c.pct ?? 0), 0)).toBeCloseTo(100, 9);
     expect(r.matrix.cells.find((c) => c.band === 0 && c.regime === 'REBOUND')!.n).toBe(0);
+  });
+});
+
+describe('bandas de la matriz', () => {
+  test('7 bandas: cortes del semáforo más 56 y 75', () => {
+    expect([0, 39.9, 40, 49.9, 50, 55.9, 56, 61.9, 62, 69.9, 70, 74.9, 75, 100].map(matrixBandOf)).toEqual([0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6]);
+    expect(MATRIX_BAND_LO).toEqual([0, 40, 50, 56, 62, 70, 75]);
   });
 });

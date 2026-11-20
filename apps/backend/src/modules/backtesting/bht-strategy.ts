@@ -16,11 +16,16 @@ export type StrategySeries = {
   trend?: (string | null)[];
 };
 
-/** Bandas del BHT (mismos cortes que el semáforo) y regímenes, en orden de riesgo. */
+/** Bandas del semáforo (5) y regímenes, en orden de riesgo. */
 export const BAND_LO = [0, 40, 50, 62, 70] as const;
 export const REGIMES = ['UPTREND', 'PULLBACK', 'REBOUND', 'DOWNTREND'] as const;
 export const bandOf = (b: number) => (b < 40 ? 0 : b < 50 ? 1 : b < 62 ? 2 : b < 70 ? 3 : 4);
-export type MatrixCell = { band: number; regime: string; n: number; avg12m: number | null; pos12m: number | null; avgMdd: number | null; pDd15: number | null };
+/** Bandas de la matriz (7): los cortes del semáforo más 56 y 75, que parten las dos bandas con comportamientos
+ *  distintos (50–61: con tendencia bajista 50–55 ≈ 0% y 56–61 ≈ −9% a 12m; 70–100: 70–74 aún positivo, 75+ negativo). */
+export const MATRIX_BAND_LO = [0, 40, 50, 56, 62, 70, 75] as const;
+export const matrixBandOf = (b: number) => { let k = 0; while (k + 1 < MATRIX_BAND_LO.length && b >= MATRIX_BAND_LO[k + 1]) k++; return k; };
+/** pct = % de los días de la ventana que caen en la celda (frecuencia). */
+export type MatrixCell = { band: number; regime: string; n: number; pct: number | null; avg12m: number | null; pos12m: number | null; avgMdd: number | null; pDd15: number | null };
 
 export const HORIZONS = [1, 2, 3, 5] as const;
 const PEAK_YEARS = 5;
@@ -62,7 +67,7 @@ export type StrategyResult = {
   perf: Array<{ years: number; n: number; avgPct: number | null; medianPct: number | null; positivePct: number | null; nominal: number | null; targetDate: string; cagrPct: number | null }>;
   /** Régimen del día y celda de la matriz BHT × tendencia que le toca. */
   trend: string | null;
-  matrix: { cells: MatrixCell[]; current: { band: number; regime: string | null } };
+  matrix: { cells: MatrixCell[]; current: { band: number; parentBand: number; regime: string | null }; bandLo: readonly number[] };
   /** Comprar en la fecha y mantener hasta hoy (último cierre), por instrumento. CAGR solo con ≥ 1 año. */
   sinceDate: Record<Instrument, {
     buyPrice: number | null; lastPrice: number | null; lastDate: string | null; years: number | null; totalPct: number | null; cagrPct: number | null;
@@ -173,7 +178,7 @@ export function computeBhtStrategy(s: StrategySeries, date: string, instrument: 
       if (j === -1 || px[j] == null) continue;
       let lo = p0;
       for (let m = k + 1; m <= j; m++) { const v = px[m]; if (v != null && v < lo) lo = v; }
-      const key = `${bandOf(b)}|${r}`;
+      const key = `${matrixBandOf(b)}|${r}`;
       const a = acc.get(key) ?? { rets: [], mdds: [] };
       a.rets.push((px[j]! / p0 - 1) * 100);
       a.mdds.push((lo / p0 - 1) * 100);
@@ -181,12 +186,15 @@ export function computeBhtStrategy(s: StrategySeries, date: string, instrument: 
     }
   }
   const cells: MatrixCell[] = [];
-  for (let band = 0; band < BAND_LO.length; band++) {
+  let matrixDays = 0;
+  for (const a of acc.values()) matrixDays += a.rets.length;
+  for (let band = 0; band < MATRIX_BAND_LO.length; band++) {
     for (const regime of REGIMES) {
       const a = acc.get(`${band}|${regime}`);
       const n = a?.rets.length ?? 0;
       cells.push({
         band, regime, n,
+        pct: matrixDays ? (n / matrixDays) * 100 : null,
         avg12m: n ? avg(a!.rets) : null,
         pos12m: n ? (a!.rets.filter((x) => x > 0).length / n) * 100 : null,
         avgMdd: n ? avg(a!.mdds) : null,
@@ -199,7 +207,7 @@ export function computeBhtStrategy(s: StrategySeries, date: string, instrument: 
   return {
     date: s.dates[i], instrument, window, bht, range,
     trend: trendToday,
-    matrix: { cells, current: { band: bandOf(bht), regime: trendToday } },
+    matrix: { cells, current: { band: matrixBandOf(bht), parentBand: bandOf(bht), regime: trendToday }, bandLo: MATRIX_BAND_LO },
     frequency: { all: { count: allC, total: allN, pct: pct(allC, allN) }, last5y: { count: c5, total: n5, pct: pct(c5, n5) } },
     percentile: { all: pct(allLe, allN), last5y: pct(le5, n5) },
     base: { price: basePrice ?? null, today, todayPrice: todayPrice ?? null },
