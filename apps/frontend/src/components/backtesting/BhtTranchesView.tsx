@@ -7,7 +7,7 @@ import { useEffect, useState } from 'react';
 import { getApiBase } from '@/lib/apiBase';
 import { TOKENS } from '@/lib/designTokens';
 import { athColor, athTone } from '@/lib/athDrawdown';
-import { pnlColor, trancheCheckText, TRANCHE_LIGHT, type TrancheCheck, type TrancheLight } from '@/lib/tranches';
+import { MODE_META, pnlColor, SELL_LIGHT, trancheMode, trancheCheckText, TRANCHE_LIGHT, type TrancheCheck, type TrancheLight } from '@/lib/tranches';
 
 type Route = 'voo' | 'qqq';
 type Rule = 'half' | 'extraVote';
@@ -25,7 +25,15 @@ type Result = {
   ath?: { spx: Ath | null; qqq: Ath | null; tqqq?: Ath | null };
   tranches: Tranche[]; deployed: number; leverage: number; avgPrice: number | null; captured: number | null; pnl?: number | null; pnlMix?: number | null;
 };
-type Both = Partial<Record<Rule, Result | null>>;
+type Sell = {
+  date: string; active: boolean; light: 'gray' | 'amber' | 'orange' | 'red';
+  cycle: null | { start: string; days: number; peak: number; peakDate: string; fromPeak: number };
+  lastCycle: null | { start: string; end: string };
+  today: { price: number | null; bht: number | null; hi20: number | null; fromHi20: number | null; sma50: number | null; sma200: number | null; below200days: number; deathCross: boolean; weak: boolean };
+  tranches: Array<{ id: string; weight: number; from3x: number; status: 'fired' | 'today' | 'pending'; date: string | null; price: number | null; pnl: number | null; checks: TrancheCheck[] }>;
+  sold: number; leverage: number; avgPrice: number | null; pnl: number | null;
+};
+type Both = Partial<Record<Rule, Result | null>> & { sell?: Sell | null };
 type Ath = { pct: number; date: string; price: number; window5y: boolean };
 
 const cache = new Map<string, Promise<Both | null>>();
@@ -42,14 +50,16 @@ function fetchTranches(date: string, route: Route) {
 const money = (v: number | null | undefined) => (v == null ? '—' : v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
 const pct = (v: number | null | undefined, d = 1) => (v == null ? '—' : `${(Number(v.toFixed(d)) || 0) > 0 ? '+' : ''}${(Number(v.toFixed(d)) || 0).toFixed(d)}%`);
 /** P&L desde el precio de disparo, con el semáforo de ganancias/pérdidas. */
-const PnL = ({ v, title, bare }: { v: number; title: string; bare?: boolean }) => (
-  <span className={`font-bold ${bare ? '' : 'ml-1.5 px-1 rounded'}`} style={{ color: pnlColor(v), backgroundColor: bare ? undefined : `${pnlColor(v)}1a` }} title={title}>{pct(v)}</span>
+const PnL = ({ v, title, bare, label }: { v: number; title: string; bare?: boolean; label?: string }) => (
+  <span className={`font-bold ${bare ? '' : 'ml-1.5 px-1 rounded'}`} style={{ color: pnlColor(v), backgroundColor: bare ? undefined : `${pnlColor(v)}1a` }} title={title}>{label ?? pct(v)}</span>
 );
 const Mark = ({ ok }: { ok: boolean }) => <span className={`font-bold ${ok ? 'text-favorable-300' : 'text-slate-500'}`}>{ok ? '✓' : '✗'}</span>;
 
 const T = {
   es: {
-    title: 'Módulo de Reentrada por Tranches', route: 'Ruta', vooRoute: 'S&P 500', qqqRoute: 'Nasdaq-100 (QQQ como proxy)',
+    title: 'Módulo de Reentrada por Tranches', sellTitle: 'Módulo de Salida por Tranches', buySide: 'Compra', sellSide: 'Venta', modeTitle: 'Modo del día: compra si hay un episodio de caída abierto, venta si hay un ciclo de codicia (BHT ≥ 70), si no en espera',
+    cycle: 'Ciclo de codicia desde el', peakSince: 'máximo del ciclo', fromPeak: 'desde el máximo', noCycle: 'Sin ciclo abierto', lastCycle: 'Último ciclo', sold: 'Vendido', left: 'apalancamiento restante', avgSell: 'precio promedio de venta', sinceSale: 'desde la venta', soldOn: 'Vendido', from3x: 'Sale primero del', fromHi20: 'vs máx. 20 días', vs50: 'vs SMA50', below200: 'días bajo SMA200', dcross: 'Death Cross', yes: 'sí', no: 'no',
+    sellNote: 'Escalera de venta estudiada 1993–2026: V1–V3 por valuación (BHT 70/75/80) esperan la primera debilidad (≥3% bajo el máximo de 20 días, 15 sesiones entre ventas); V4 BHT ≥ 70 bajo la SMA50; V5 tendencia rota. Cada venta saca primero el 3×. El ciclo se reinicia tras 20 sesiones con BHT < 55; la recompra la gobierna el módulo de compra. «Desde la venta» negativo = caída evitada. No es asesoría financiera.', route: 'Ruta', vooRoute: 'S&P 500', qqqRoute: 'Nasdaq-100 (QQQ como proxy)',
     rule: 'Corrección sectorial', half: 'T1 a medio tamaño', extra: 'T1 con voto extra', ruleTitle: 'Si solo cae el Nasdaq-100 y el S&P 500 no confirma',
     episode: 'Episodio desde el pico del', days: 'días', ddNow: 'Caída hoy', ddMax: 'máxima del episodio', trough: 'mínimo', sector: 'corrección sectorial: el S&P 500 no confirma',
     noEpisode: 'Sin episodio abierto', fromAth: 'desde ATH', atAth: 'En máximo histórico', at5y: 'En máximo de 5 años', lastEp: 'Último episodio', ended: 'cerró el',
@@ -65,7 +75,9 @@ const T = {
     loading: 'Calculando…', error: 'No se pudo calcular.',
   },
   en: {
-    title: 'Tranche Re-entry Module', route: 'Route', vooRoute: 'S&P 500', qqqRoute: 'Nasdaq-100 (QQQ as proxy)',
+    title: 'Tranche Re-entry Module', sellTitle: 'Tranche Exit Module', buySide: 'Buy', sellSide: 'Sell', modeTitle: 'Mode of the day: buy if a drawdown episode is open, sell if a greed cycle is open (BHT ≥ 70), otherwise on hold',
+    cycle: 'Greed cycle since', peakSince: 'cycle high', fromPeak: 'from the high', noCycle: 'No open cycle', lastCycle: 'Last cycle', sold: 'Sold', left: 'remaining leverage', avgSell: 'average sale price', sinceSale: 'since the sale', soldOn: 'Sold', from3x: 'Sells first from', fromHi20: 'vs 20-day high', vs50: 'vs SMA50', below200: 'days below SMA200', dcross: 'Death Cross', yes: 'yes', no: 'no',
+    sellNote: 'Sell ladder studied 1993–2026: V1–V3 on valuation (BHT 70/75/80) wait for the first weakness (≥3% below the 20-day high, 15 sessions between sales); V4 BHT ≥ 70 below the SMA50; V5 broken trend. Each sale takes out the 3× first. The cycle resets after 20 sessions with BHT < 55; buying back is up to the buy module. Negative «since the sale» = drawdown avoided. Not financial advice.', route: 'Route', vooRoute: 'S&P 500', qqqRoute: 'Nasdaq-100 (QQQ as proxy)',
     rule: 'Sector correction', half: 'T1 at half size', extra: 'T1 with an extra vote', ruleTitle: 'When only the Nasdaq-100 falls and the S&P 500 does not confirm',
     episode: 'Episode since the peak of', days: 'days', ddNow: 'Drawdown today', ddMax: 'episode max', trough: 'low', sector: 'sector correction: the S&P 500 does not confirm',
     noEpisode: 'No open episode', fromAth: 'from ATH', atAth: 'At all-time high', at5y: 'At 5-year high', lastEp: 'Last episode', ended: 'closed on',
@@ -99,26 +111,47 @@ export default function BhtTranchesView({ date, locale }: { date: string; locale
   const r = both ? both[rule] ?? both.half ?? null : state ? null : undefined;
   const [one, three] = route === 'qqq' ? ['QQQ', 'TQQQ'] : ['VOO', 'UPRO'];
   const L = r ? TRANCHE_LIGHT[r.light] : null;
+  const sell = both?.sell ?? null;
+  // Modo automático (compra si hay episodio de caída, venta si hay ciclo de codicia, si no en espera); el selector
+  // permite ver el otro lado. La vista toma el color del lado que se está viendo.
+  const mode = trancheMode(!!r?.episode, !!sell?.active);
+  const [side, setSide] = useState<'buy' | 'sell' | null>(null);
+  const view = side ?? (mode === 'sell' ? 'sell' : 'buy');
+  const viewColor = view === 'sell' ? MODE_META.sell.color : MODE_META.buy.color;
+  const M = MODE_META[mode];
 
   const seg = (on: boolean) => `px-2 py-0.5 rounded-md transition ${on ? 'bg-slate-700 text-white' : 'text-slate-400 hover:text-slate-200'}`;
   return (
     <div className="mt-2 pt-1.5 border-t border-slate-800 space-y-2 text-[11px]">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-[10px] uppercase tracking-wide text-slate-500">{t.title}</span>
+        {/* Modo del día (automático) y selector Compra / Venta, cada uno con su color. */}
+        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full border text-[10px] font-bold uppercase tracking-wide" style={{ color: M.color, borderColor: `${M.color}66`, backgroundColor: `${M.color}14` }} title={t.modeTitle}>
+          <span className="w-1.5 h-1.5 rounded-full" style={{ background: M.color }} />{es ? M.es : M.en}
+        </span>
+        <div className="inline-flex rounded-lg border border-slate-700 bg-slate-950/60 p-0.5 font-bold">
+          {(['buy', 'sell'] as const).map((v) => (
+            <button key={v} type="button" onClick={(e) => { e.stopPropagation(); setSide(v); }}
+              className={`px-2 py-0.5 rounded-md transition ${view === v ? 'text-slate-950' : 'text-slate-400 hover:text-slate-200'}`}
+              style={view === v ? { backgroundColor: MODE_META[v].color } : undefined}>{v === 'buy' ? t.buySide : t.sellSide}</button>
+          ))}
+        </div>
         <div className="inline-flex rounded-lg border border-slate-700 bg-slate-950/60 p-0.5 font-bold" title={t.route}>
           <button type="button" className={seg(route === 'voo')} onClick={(e) => { e.stopPropagation(); setRoute('voo'); }}>VOO</button>
           <button type="button" className={seg(route === 'qqq')} onClick={(e) => { e.stopPropagation(); setRoute('qqq'); }}>QQQ / TQQQ</button>
         </div>
-        {route === 'qqq' && (
+        {route === 'qqq' && view === 'buy' && (
           <div className="inline-flex rounded-lg border border-slate-700 bg-slate-950/60 p-0.5" title={t.ruleTitle}>
             <button type="button" className={seg(rule === 'half')} onClick={(e) => { e.stopPropagation(); setRule('half'); }}>{t.half}</button>
             <button type="button" className={seg(rule === 'extraVote')} onClick={(e) => { e.stopPropagation(); setRule('extraVote'); }}>{t.extra}</button>
           </div>
         )}
       </div>
+      <div className="text-[10px] uppercase tracking-wide font-bold" style={{ color: viewColor }}>{view === 'sell' ? t.sellTitle : t.title}</div>
 
-      {r === undefined ? <div className="font-mono text-slate-500">{t.loading}</div> : r === null ? <div className="font-mono text-risk-300">{t.error}</div> : (
-        <div className={`space-y-2 transition-opacity ${fresh ? '' : 'opacity-50'}`}>
+      {r === undefined ? <div className="font-mono text-slate-500">{t.loading}</div> : r === null ? <div className="font-mono text-risk-300">{t.error}</div> : view === 'sell' ? (
+        sell ? <SellView sell={sell} es={es} t={t} one={one} three={three} fresh={fresh} /> : <div className="font-mono text-risk-300">{t.error}</div>
+      ) : (
+        <div className={`space-y-2 pl-2 border-l-2 transition-opacity ${fresh ? '' : 'opacity-50'}`} style={{ borderColor: `${MODE_META.buy.color}88` }}>
           {/* Semáforo y episodio */}
           <div className="p-2 rounded-lg border" style={{ borderColor: `${L!.color}66`, backgroundColor: `${L!.color}12` }}>
             <div className="flex items-center gap-2 font-bold" style={{ color: L!.color }}>
@@ -223,6 +256,68 @@ export default function BhtTranchesView({ date, locale }: { date: string; locale
           <div className="text-[10px] text-slate-500 leading-snug">{t.note}</div>
         </div>
       )}
+    </div>
+  );
+}
+
+type TT = typeof T.es;
+/** Vista de la escalera de venta: ciclo de codicia, condiciones del día y los 5 tranches de venta (color rosa). */
+function SellView({ sell, es, t, one, three, fresh }: { sell: Sell; es: boolean; t: TT; one: string; three: string; fresh: boolean }) {
+  const L = SELL_LIGHT[sell.light];
+  const names: Record<string, [string, string]> = { V1: ['Codicia', 'Greed'], V2: ['Codicia extrema', 'Extreme greed'], V3: ['Euforia', 'Euphoria'], V4: ['Primera grieta', 'First crack'], V5: ['Tendencia rota', 'Broken trend'] };
+  const td = sell.today;
+  return (
+    <div className={`space-y-2 pl-2 border-l-2 transition-opacity ${fresh ? '' : 'opacity-50'}`} style={{ borderColor: `${MODE_META.sell.color}88` }}>
+      <div className="p-2 rounded-lg border" style={{ borderColor: `${L.color}66`, backgroundColor: `${L.color}12` }}>
+        <div className="flex items-center gap-2 font-bold" style={{ color: L.color }}><span className="w-2.5 h-2.5 rounded-full" style={{ background: L.color }} />{es ? L.es : L.en}</div>
+        {sell.cycle ? (
+          <div className="mt-1 font-mono text-slate-300">{t.cycle} {sell.cycle.start} · {sell.cycle.days} {t.days} · {t.peakSince} {money(sell.cycle.peak)} ({sell.cycle.peakDate}) · <span className={sell.cycle.fromPeak < 0 ? 'text-risk-300' : 'text-favorable-300'}>{pct(sell.cycle.fromPeak)}</span> {t.fromPeak}</div>
+        ) : (
+          <div className="mt-1 font-mono text-slate-400">{t.noCycle}{sell.lastCycle && <> · {t.lastCycle} {sell.lastCycle.start} → {sell.lastCycle.end}</>}</div>
+        )}
+      </div>
+      <div>
+        <div className="text-[10px] uppercase tracking-wide text-slate-500 mb-0.5">{t.cond}</div>
+        <div className="font-mono text-slate-400 flex flex-wrap gap-x-4 gap-y-0.5">
+          <span>BHT <span className="font-bold text-slate-100">{td.bht?.toFixed(1) ?? '—'}</span></span>
+          <span>{t.fromHi20} <span className={td.weak ? 'text-caution-300 font-bold' : 'text-slate-200'}>{pct(td.fromHi20)}</span></span>
+          <span>{t.vs50} <span className="text-slate-200">{td.sma50 && td.price ? pct((td.price / td.sma50 - 1) * 100) : '—'}</span></span>
+          <span>{t.below200} <span className={td.below200days >= 3 ? 'text-risk-300 font-bold' : 'text-slate-200'}>{td.below200days}</span></span>
+          <span>{t.dcross} <span className={td.deathCross ? 'text-risk-300 font-bold' : 'text-slate-200'}>{td.deathCross ? t.yes : t.no}</span></span>
+        </div>
+      </div>
+      <table className="w-full font-mono">
+        <thead className="text-[9px] uppercase tracking-wide text-slate-500">
+          <tr className="border-b border-slate-700/70">
+            <th className="text-left font-normal py-0.5">{t.tranche}</th><th className="text-right font-normal">{t.weight}</th>
+            <th className="text-right font-normal px-2">{t.from3x} {three}</th><th className="text-left font-normal">{t.status}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {sell.tranches.map((x) => {
+            const missing = x.checks.filter((c) => !c.ok);
+            return (
+              <tr key={x.id} className={`border-b border-slate-800/60 align-top ${x.status === 'today' ? 'bg-rose-500/10' : ''}`}>
+                <td className="py-0.5 whitespace-nowrap"><span className="font-bold text-slate-100">{x.id}</span> <span className="text-slate-400 font-sans">{names[x.id]?.[es ? 0 : 1]}</span></td>
+                <td className="text-right text-slate-300">{(x.weight * 100).toFixed(0)}%</td>
+                <td className="text-right text-slate-500 px-2">{three} → {one}</td>
+                <td className="text-slate-300">
+                  {x.status !== 'pending' ? (
+                    <span className="text-rose-300 font-bold">{x.status === 'today' ? t.today : t.soldOn} {x.date} @ {money(x.price)}{x.pnl != null && <PnL v={-x.pnl} title={t.sinceSale} label={pct(x.pnl)} />}</span>
+                  ) : !sell.cycle ? <span className="text-slate-600">—</span> : (
+                    <span className="text-slate-400">{t.pending}: {missing.map((c) => trancheCheckText(c, es ? 'es' : 'en')).join(' · ') || '—'}</span>
+                  )}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+      <div className="font-mono text-slate-300">
+        {t.sold} <span className="font-bold text-slate-100">{(sell.sold * 100).toFixed(0)}%</span> · {t.left} <span className="font-bold">{sell.leverage.toFixed(2)}x</span>
+        {sell.avgPrice != null && <> · {t.avgSell} {money(sell.avgPrice)}</>}{sell.pnl != null && <> · {pct(sell.pnl)} {t.sinceSale}</>}
+      </div>
+      <div className="text-[10px] text-slate-500 leading-snug">{t.sellNote}</div>
     </div>
   );
 }

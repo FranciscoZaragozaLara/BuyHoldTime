@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { pnlColor, trancheCheckText, TRANCHE_LIGHT } from './tranches';
+import { pnlColor, trancheCheckText, trancheMode, TRANCHE_LIGHT } from './tranches';
 import { TOKENS } from './designTokens';
 
 describe('tranches', () => {
@@ -17,5 +17,10 @@ describe('tranches', () => {
   });
   it('P&L semaforizado: ganancia verde; pérdidas ámbar, naranja y rojo', () => {
     expect([12, 0, -3, -10, -20].map(pnlColor)).toEqual([TOKENS.favorable, TOKENS.favorable, TOKENS.caution, TOKENS.elevated, TOKENS.risk]);
+  });
+  it('modo: compra si hay episodio de caída, venta si hay ciclo de codicia, si no en espera', () => {
+    expect([trancheMode(true, true), trancheMode(false, true), trancheMode(false, false)]).toEqual(['buy', 'sell', 'wait']);
+    expect(trancheCheckText({ key: 'bht', ok: false, value: 68.2, need: 75 }, 'es')).toBe('BHT ≥ 75 (68.2)');
+    expect(trancheCheckText({ key: 'trendBroken', ok: false, value: 1, need: 3 }, 'en')).toContain('(1/3)');
   });
 });

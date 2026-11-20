@@ -1,4 +1,4 @@
-import { athAt, capeMedian20, computeTranches, prepareTranches, TRANCHE_CFG, type TrancheSeries } from './tranches';
+import { athAt, capeMedian20, computeSellTranches, computeTranches, prepareTranches, TRANCHE_CFG, type TrancheSeries } from './tranches';
 
 // Serie sintética: 300 sesiones subiendo despacio y luego un desplome de 10 sesiones (−20%).
 function series(opts: { oasRising?: boolean } = {}): TrancheSeries {
@@ -60,5 +60,23 @@ describe('módulo de reentrada por tranches', () => {
     expect(a.pct).toBeCloseTo(-20, 9);
     const b = athAt(dates, [50, 80, 90, 72], 3)!;
     expect([b.date, b.window5y]).toEqual(['2024-01-02', false]);
+  });
+  test('venta: BHT ≥ 70 abre el ciclo; V1 espera la primera debilidad (≥3% bajo el máximo de 20 días) y saca el 3×', () => {
+    const n = 300;
+    const dates = Array.from({ length: n }, (_, k) => new Date(Date.UTC(2021, 0, 1) + k * 86400000).toISOString().slice(0, 10));
+    // sube hasta k=260 y luego cae 5% en 5 sesiones; BHT 72 desde k=250
+    const spx = dates.map((_, k) => (k <= 260 ? 100 + k * 0.2 : 152 * (1 - 0.01 * Math.min(5, k - 260))));
+    const bht = dates.map((_, k) => (k >= 250 ? 72 : 50));
+    const base = { dates, spx, qqq: spx, bht, vix: dates.map(() => 15), vix3m: dates.map(() => 17), oas: dates.map(() => 4), cape: dates.map(() => 30), capeMedian20: dates.map(() => 25) };
+    const P = prepareTranches(base, 'voo');
+    const before = computeSellTranches(P, dates[258])!; // ciclo abierto, en máximos: V1 espera
+    expect(before.active).toBe(true);
+    expect(before.tranches[0].status).toBe('pending');
+    const after = computeSellTranches(P, dates[264])!; // −4% desde el máximo de 20 días
+    expect(after.tranches[0].status).not.toBe('pending');
+    expect(after.sold).toBeCloseTo(0.35, 9); // V1 (15%) y, al quedar bajo la SMA50, V4 (20%)
+    expect(after.tranches[3].status).not.toBe("pending");
+    expect(after.leverage).toBeLessThan(1.69); // salió del 3×
+    expect(computeSellTranches(P, dates[100])!.active).toBe(false);
   });
 });

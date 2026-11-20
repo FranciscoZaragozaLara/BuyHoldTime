@@ -6,7 +6,7 @@ import { toShillerApiRow } from './shiller-daily';
 import { monthlyPartsFromDaily } from './bht-forward';
 import { computeBhtStrategy, type Instrument as StrategyInstrument, type SampleWindow, type StrategySeries } from './bht-strategy';
 import { computeBhtDrawdowns } from './bht-drawdowns';
-import { computeTranches, loadTrancheSeries, prepareTranches, type PreparedTranches, type SectorRule, type TrancheRoute } from './tranches';
+import { computeSellTranches, computeTranches, loadTrancheSeries, prepareTranches, type PreparedTranches, type SectorRule, type TrancheRoute } from './tranches';
 import { liveTrend } from './trend-regime';
 import { PROVISIONAL_OF, rowsWithProvisional, withProvisional } from './provisional-series';
 
@@ -833,6 +833,11 @@ export class BacktestingService {
       if (!res) { res = computeTranches(P, date, r); if (res) this.strategyCache.set(key, res); }
       out[r] = res ?? null;
     }
+    // Escalera de venta (misma ruta y fecha).
+    const sk = `tr:sell:${route}:${date}`;
+    let sell = this.strategyCache.get(sk);
+    if (!sell) { sell = computeSellTranches(P, date); if (sell) this.strategyCache.set(sk, sell); }
+    out.sell = sell ?? null;
     return out.half === null && out.extraVote === null ? { error: 'not found' } : out;
   }
 

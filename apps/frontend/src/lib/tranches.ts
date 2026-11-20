@@ -5,6 +5,22 @@ import { TOKENS } from './designTokens';
 export type TrancheLight = 'gray' | 'purple' | 'red' | 'amber' | 'green';
 export type TrancheCheck = { key: string; ok: boolean; value?: number | string | null; need?: number | string | null };
 
+/** Semáforo de la escalera de venta. */
+export const SELL_LIGHT: Record<'gray' | 'amber' | 'orange' | 'red', { color: string; es: string; en: string }> = {
+  gray: { color: '#94a3b8', es: 'Sin ciclo de codicia (BHT no ha llegado a 70)', en: 'No greed cycle (BHT has not reached 70)' },
+  amber: { color: TOKENS.caution, es: 'Codicia: primeras ventas por valuación', en: 'Greed: first valuation sales' },
+  orange: { color: TOKENS.elevated, es: 'Varias ventas: el mercado caro empieza a fallar', en: 'Several sales: the expensive market starts to crack' },
+  red: { color: TOKENS.risk, es: 'Tendencia rota: salida confirmada', en: 'Broken trend: exit confirmed' },
+};
+/** Modo de la pestaña Tranches: compra (episodio de caída abierto), venta (ciclo de codicia abierto) o en espera. */
+export type TrancheMode = 'buy' | 'sell' | 'wait';
+export const MODE_META: Record<TrancheMode, { color: string; es: string; en: string }> = {
+  buy: { color: TOKENS.favorable, es: 'Modo compra', en: 'Buy mode' },
+  sell: { color: '#f43f5e', es: 'Modo venta', en: 'Sell mode' },
+  wait: { color: '#38bdf8', es: 'En espera', en: 'On hold' },
+};
+export const trancheMode = (buyEpisodeOpen: boolean, sellCycleOpen: boolean): TrancheMode => (buyEpisodeOpen ? 'buy' : sellCycleOpen ? 'sell' : 'wait');
+
 export const TRANCHE_LIGHT: Record<TrancheLight, { color: string; es: string; en: string }> = {
   gray: { color: '#94a3b8', es: 'Sin corrección relevante', en: 'No relevant correction' },
   purple: { color: '#a855f7', es: 'Capitulación: pánico extremo en un desplome rápido', en: 'Capitulation: extreme panic in a fast crash' },
@@ -22,6 +38,11 @@ const LABEL: Record<string, [string, string]> = {
   afterT2: ['≥ 10 días tras T2', '≥ 10 days after T2'], retestOrEma: ['retest del mínimo o 3 cierres sobre la EMA50', 'low retest or 3 closes above the EMA50'],
   capeBelowMedian: ['CAPE < mediana 20a', 'CAPE < 20y median'], oasOffHigh: ['HY OAS ≥ 15% bajo su máximo 12m', 'HY OAS ≥ 15% below its 12m high'],
   votes1: ['1 voto', '1 vote'],
+  // Venta
+  bht: ['BHT', 'BHT'], weak: ['primera debilidad (≥3% bajo el máx. de 20 días)', 'first weakness (≥3% below the 20-day high)'],
+  gap: ['15 sesiones desde la venta anterior', '15 sessions since the previous sale'], below50: ['cierre bajo la SMA50', 'close below the SMA50'],
+  trendBroken: ['3 cierres bajo la SMA200 (BHT ≥ 60) o Death Cross (BHT ≥ 55)', '3 closes below the SMA200 (BHT ≥ 60) or Death Cross (BHT ≥ 55)'],
+  afterSale: ['otra venta antes', 'a previous sale'],
 };
 
 /** Texto corto de una condición, con su valor contra lo exigido cuando aplica (p. ej. «caída alcanzada −16.0% / −22%»). */
@@ -36,6 +57,10 @@ export function trancheCheckText(c: TrancheCheck, locale: string): string {
   if (c.key === 'credit' && typeof c.value === 'number') return `${name} (${num(c.value, 2)}%)`;
   if ((c.key === 'afterT1' || c.key === 'afterT2') && c.value == null) return locale === 'es' ? (c.key === 'afterT1' ? 'T1 primero' : 'T2 primero') : (c.key === 'afterT1' ? 'T1 first' : 'T2 first');
   if ((c.key === 'votes2' || c.key === 'votes1') && typeof c.value === 'number') return `${name} (${c.value})`;
+  if (c.key === 'bht' && typeof c.value === 'number') return `BHT ≥ ${c.need} (${num(c.value)})`;
+  if (c.key === 'weak' && typeof c.value === 'number') return `${name} (${c.value > 0 ? '+' : ''}${num(c.value)}%)`;
+  if (c.key === 'below50' && typeof c.value === 'number') return `${name} (${c.value > 0 ? '+' : ''}${num(c.value)}%)`;
+  if (c.key === 'trendBroken' && typeof c.value === 'number') return `${name} (${c.value}/3)`;
   return name;
 }
 

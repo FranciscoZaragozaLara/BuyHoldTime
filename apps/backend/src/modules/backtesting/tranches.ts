@@ -422,3 +422,107 @@ export async function loadTrancheSeries(query: (sql: string) => Promise<Rows>): 
   const at = (m: Map<string, number>) => dates.map((d) => m.get(d) ?? null);
   return { dates, spx: at(spx), qqq: at(qqq), tqqq: at(tqqq), bht: at(bht), vix: at(vix), vix3m: at(vix3m), oas: at(oas), cape: at(capeD), capeMedian20: capeMedian20(dates, monthly) };
 }
+
+// ── Tranches de VENTA ─────────────────────────────────────────────────────────────────────────────────────────────
+// Escalera de 5 ventas (espejo de la compra), estudiada 1993–2026 sobre S&P 500 y QQQ:
+//  V1 Codicia BHT ≥ 70 (15%) · V2 Codicia extrema BHT ≥ 75 (20%) · V3 Euforia BHT ≥ 80 (20%): ventas por valuación que
+//  esperan la primera debilidad (precio ≥3% bajo su máximo de 20 días) y 15 sesiones entre ellas.
+//  V4 Primera grieta: BHT ≥ 70 y cierre bajo la SMA50 (20%). V5 Tendencia rota: 3 cierres bajo la SMA200 con BHT ≥ 60, o
+//  Death Cross con BHT ≥ 55 (25%; solo después de otra venta). Una venta por día. Cada venta saca primero el 3× que quede
+//  (así el apalancamiento de lo que queda siempre baja).
+//  Ciclo: abre la primera vez que el BHT llega a 70; se reinicia tras 20 sesiones con BHT < 55 (la recompra la gobierna
+//  el módulo de compra). Con el filtro de debilidad: S&P vendió a ~11% del techo posterior y evitó 24% de caída
+//  (vs 13% y 23% sin filtro); QQQ 15% y 40% (vs 18% y 38%).
+export type SellId = 'V1' | 'V2' | 'V3' | 'V4' | 'V5';
+export const SELL_CFG = {
+  weights: { V1: 0.15, V2: 0.2, V3: 0.2, V4: 0.2, V5: 0.25 } as Record<SellId, number>,
+  /** Parte que sale del 3× en cada venta (el resto del 1×); si ya no queda 3×, sale del 1×. */
+  from3x: { V1: 1, V2: 1, V3: 1, V4: 1, V5: 1 } as Record<SellId, number>,
+  bht: { V1: 70, V2: 75, V3: 80, V4: 70, V5: 60, V5dc: 55 }, pullback: 0.97, gap: 15, resetBht: 55, resetDays: 20,
+  /** Posición de partida: la escalera de compra completa (1× 65.5% · 3× 34.5% del capital). */
+  start1x: 0.655, start3x: 0.345,
+};
+export type SellState = {
+  id: SellId; weight: number; from3x: number; status: 'fired' | 'today' | 'pending'; date: string | null; price: number | null;
+  /** % de cambio del precio desde la venta (negativo = la venta evitó esa caída). */
+  pnl: number | null; checks: Check[];
+};
+export type SellResult = {
+  date: string; route: TrancheRoute; active: boolean; light: 'gray' | 'amber' | 'orange' | 'red';
+  cycle: null | { start: string; days: number; peak: number; peakDate: string; fromPeak: number };
+  lastCycle: null | { start: string; end: string };
+  today: { price: number | null; bht: number | null; hi20: number | null; fromHi20: number | null; sma50: number | null; sma200: number | null; below200days: number; deathCross: boolean; weak: boolean };
+  tranches: SellState[]; sold: number; leverage: number; avgPrice: number | null; pnl: number | null;
+};
+
+export function computeSellTranches(P: PreparedTranches, date: string): SellResult | null {
+  const { s, route, px } = P;
+  let D = -1;
+  for (let k = s.dates.length - 1; k >= 0; k--) if (s.dates[k] <= date) { D = k; break; }
+  if (D < 0 || px[D] == null) return null;
+  const C = SELL_CFG;
+  const bht = ffill(s.bht ?? s.dates.map(() => null));
+  const s50 = sma(px, 50), s200 = sma(px, 200), hi20 = rollingMax(px, 20);
+  let open = false, start = -1, low = 0, lastVal = -999, peak = 0, peakIdx = -1, below = 0;
+  let lastCycle: SellResult['lastCycle'] = null;
+  const fired: Partial<Record<SellId, number>> = {};
+  let checksAt: Partial<Record<SellId, Check[]>> = {};
+  let snap: SellResult['today'] | null = null;
+  for (let k = 0; k <= D; k++) {
+    const p = px[k], b = bht[k];
+    if (p == null) continue;
+    below = s200[k] != null && p < (s200[k] as number) ? below + 1 : 0;
+    low = b != null && b < C.resetBht ? low + 1 : 0;
+    if (open && low >= C.resetDays) { lastCycle = { start: s.dates[start], end: s.dates[k] }; open = false; for (const id of Object.keys(fired)) delete fired[id as SellId]; }
+    if (!open && b != null && b >= C.bht.V1) { open = true; start = k; peak = 0; lastVal = -999; }
+    if (open && p > peak) { peak = p; peakIdx = k; }
+    const weak = hi20[k] != null && p <= C.pullback * (hi20[k] as number);
+    const dc = s50[k] != null && s200[k] != null && k > 0 && s50[k - 1] != null && s200[k - 1] != null && (s50[k] as number) < (s200[k] as number) && (s50[k - 1] as number) >= (s200[k - 1] as number);
+    const spaced = k - lastVal >= C.gap;
+    const bv = b ?? 0;
+    if (open) {
+      const anyFired = Object.keys(fired).length > 0;
+      const cs: Record<SellId, Check[]> = {
+        V1: [{ key: 'bht', ok: bv >= C.bht.V1, value: b, need: C.bht.V1 }, { key: 'weak', ok: weak, value: hi20[k] ? (p / (hi20[k] as number) - 1) * 100 : null, need: -3 }, { key: 'gap', ok: spaced }],
+        V2: [{ key: 'bht', ok: bv >= C.bht.V2, value: b, need: C.bht.V2 }, { key: 'weak', ok: weak, value: hi20[k] ? (p / (hi20[k] as number) - 1) * 100 : null, need: -3 }, { key: 'gap', ok: spaced }],
+        V3: [{ key: 'bht', ok: bv >= C.bht.V3, value: b, need: C.bht.V3 }, { key: 'weak', ok: weak, value: hi20[k] ? (p / (hi20[k] as number) - 1) * 100 : null, need: -3 }, { key: 'gap', ok: spaced }],
+        V4: [{ key: 'bht', ok: bv >= C.bht.V4, value: b, need: C.bht.V4 }, { key: 'below50', ok: s50[k] != null && p < (s50[k] as number), value: s50[k] ? (p / (s50[k] as number) - 1) * 100 : null }],
+        V5: [{ key: 'trendBroken', ok: (below >= 3 && bv >= C.bht.V5) || (dc && bv >= C.bht.V5dc), value: below, need: 3 }, { key: 'afterSale', ok: anyFired }],
+      };
+      for (const id of ['V1', 'V2', 'V3', 'V4', 'V5'] as SellId[]) {
+        if (fired[id] == null && cs[id].every((c) => c.ok)) { fired[id] = k; if (id === 'V1' || id === 'V2' || id === 'V3') lastVal = k; break; }
+      }
+      if (k === D) checksAt = cs;
+    }
+    if (k === D) snap = {
+      price: p, bht: b, hi20: hi20[k], fromHi20: hi20[k] ? (p / (hi20[k] as number) - 1) * 100 : null, sma50: s50[k], sma200: s200[k],
+      below200days: below, deathCross: s50[k] != null && s200[k] != null && (s50[k] as number) < (s200[k] as number), weak,
+    };
+  }
+  const ids: SellId[] = ['V1', 'V2', 'V3', 'V4', 'V5'];
+  const tranches: SellState[] = ids.map((id) => {
+    const k = fired[id];
+    return {
+      id, weight: C.weights[id], from3x: C.from3x[id], status: k == null ? 'pending' : k === D ? 'today' : 'fired',
+      date: k != null ? s.dates[k] : null, price: k != null ? px[k] : null,
+      pnl: k != null && px[k] ? ((px[D] as number) / (px[k] as number) - 1) * 100 : null, checks: checksAt[id] ?? [],
+    };
+  });
+  // Lo que queda: se vende primero el 3× (V1–V3) y, si ya no queda, del 1×.
+  let one = C.start1x, three = C.start3x, sold = 0, cost = 0;
+  for (const t of tranches) if (t.status !== 'pending') {
+    const w = t.weight; let from3 = Math.min(three, w * t.from3x); let from1 = Math.min(one, w - from3); from3 += Math.min(three - from3, w - from3 - from1);
+    three -= from3; one -= from1; sold += w; cost += w * (t.price as number);
+  }
+  const left = one + three;
+  const avgPrice = sold > 0 ? cost / sold : null;
+  const firedN = tranches.filter((t) => t.status !== 'pending').length;
+  const light: SellResult['light'] = !open ? 'gray' : tranches[4].status !== 'pending' ? 'red' : firedN >= 2 ? 'orange' : 'amber';
+  return {
+    date: s.dates[D], route, active: open, light,
+    cycle: open ? { start: s.dates[start], days: D - start, peak, peakDate: s.dates[peakIdx], fromPeak: ((px[D] as number) / peak - 1) * 100 } : null,
+    lastCycle: open ? null : lastCycle,
+    today: snap!, tranches, sold, leverage: left > 0 ? (one + 3 * three) / left : 0, avgPrice,
+    pnl: avgPrice != null ? ((px[D] as number) / avgPrice - 1) * 100 : null,
+  };
+}
