@@ -1,4 +1,4 @@
-import { capeMedian20, computeTranches, prepareTranches, TRANCHE_CFG, type TrancheSeries } from './tranches';
+import { athAt, capeMedian20, computeTranches, prepareTranches, TRANCHE_CFG, type TrancheSeries } from './tranches';
 
 // Serie sintética: 300 sesiones subiendo despacio y luego un desplome de 10 sesiones (−20%).
 function series(opts: { oasRising?: boolean } = {}): TrancheSeries {
@@ -52,5 +52,13 @@ describe('módulo de reentrada por tranches', () => {
     const P = prepareTranches(base, 'voo');
     expect(computeTranches(P, dates[101])!.today.boll).toBe(true); // reingresó
     expect(computeTranches(P, dates[102])!.today.boll).toBe(false); // volvió a cerrar bajo la banda
+  });
+  test('caída desde ATH: histórico, o máximo de 5 años si el ATH es más viejo', () => {
+    const dates = ['2010-01-04', '2020-06-01', '2024-01-02', '2026-11-20'];
+    const a = athAt(dates, [100, 80, 90, 72], 3)!; // ATH de 2010 (> 5 años): contra el máximo de 5 años
+    expect([a.date, a.price, a.window5y]).toEqual(['2024-01-02', 90, true]);
+    expect(a.pct).toBeCloseTo(-20, 9);
+    const b = athAt(dates, [50, 80, 90, 72], 3)!;
+    expect([b.date, b.window5y]).toEqual(['2024-01-02', false]);
   });
 });

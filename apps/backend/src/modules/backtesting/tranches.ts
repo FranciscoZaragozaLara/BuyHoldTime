@@ -76,6 +76,23 @@ function stdev(a: Num[], w: number, m: Num[]): Num[] {
 }
 const pctDd = (p: Num, m: Num) => (p != null && m != null && m > 0 ? (p / m - 1) * 100 : null);
 
+export type AthAt = { pct: number; date: string; price: number; window5y: boolean };
+/** Caída desde el ATH en el índice D; si el ATH ocurrió hace más de 5 años, contra el máximo de los últimos 5 años. */
+export function athAt(dates: string[], px: Num[], D: number): AthAt | null {
+  const cur = px[D];
+  if (cur == null) return null;
+  const y5 = `${Number(dates[D].slice(0, 4)) - 5}${dates[D].slice(4)}`;
+  let ath = -Infinity, ai = -1, ath5 = -Infinity, ai5 = -1;
+  for (let k = 0; k <= D; k++) {
+    const v = px[k]; if (v == null) continue;
+    if (v > ath) { ath = v; ai = k; }
+    if (dates[k] >= y5 && v > ath5) { ath5 = v; ai5 = k; }
+  }
+  const w5 = ai >= 0 && dates[ai] < y5 && ai5 >= 0;
+  const [m, i] = w5 ? [ath5, ai5] : [ath, ai];
+  return { pct: (cur / m - 1) * 100, date: dates[i], price: m, window5y: w5 };
+}
+
 export type Check = { key: string; ok: boolean; value?: number | string | null; need?: number | string | null };
 export type TrancheState = {
   id: TrancheId; weight: number; size: number; lev3x: number;
@@ -95,6 +112,8 @@ export type TranchesResult = {
     decelVote: boolean; slope: number | null; curv: number | null; slopeMin: number | null; recover: number | null; boll: boolean;
     votes: number; cape: number | null; capeMedian20: number | null;
   };
+  /** Caída desde el máximo histórico a esa fecha (máximo de 5 años si el ATH tiene más de 5 años), como las cards. */
+  ath: { spx: AthAt | null; qqq: AthAt | null };
   tranches: TrancheState[];
   deployed: number; leverage: number; avgPrice: number | null; captured: number | null;
 };
@@ -293,6 +312,7 @@ export function computeTranches(P: PreparedTranches, date: string, sectorRule: S
       slopeMin: open ? slopeMin * 100 : null, recover: sn.recover != null ? sn.recover * 100 : null, boll: sn.boll,
       votes: sn.votes, cape: s.cape[D], capeMedian20: s.capeMedian20[D],
     },
+    ath: { spx: athAt(s.dates, P.spx, D), qqq: dual ? athAt(s.dates, P.qqq, D) : null },
     tranches, deployed, leverage, avgPrice, captured,
   };
 }

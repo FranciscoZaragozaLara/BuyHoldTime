@@ -6,6 +6,7 @@
 import { useEffect, useState } from 'react';
 import { getApiBase } from '@/lib/apiBase';
 import { TOKENS } from '@/lib/designTokens';
+import { athColor, athTone } from '@/lib/athDrawdown';
 import { trancheCheckText, TRANCHE_LIGHT, type TrancheCheck, type TrancheLight } from '@/lib/tranches';
 
 type Route = 'voo' | 'qqq';
@@ -20,9 +21,11 @@ type Result = {
     ratio: number | null; volSource: 'ratio' | 'fallback'; volVote: boolean; volArmedAt: string | null;
     decelVote: boolean; slope: number | null; curv: number | null; slopeMin: number | null; recover: number | null; boll: boolean; votes: number; cape: number | null; capeMedian20: number | null;
   };
+  ath?: { spx: Ath | null; qqq: Ath | null };
   tranches: Tranche[]; deployed: number; leverage: number; avgPrice: number | null; captured: number | null;
 };
 type Both = Partial<Record<Rule, Result | null>>;
+type Ath = { pct: number; date: string; price: number; window5y: boolean };
 
 const cache = new Map<string, Promise<Both | null>>();
 function fetchTranches(date: string, route: Route) {
@@ -44,7 +47,7 @@ const T = {
     title: 'Módulo de Reentrada por Tranches', route: 'Ruta', vooRoute: 'S&P 500', qqqRoute: 'Nasdaq-100 (QQQ como proxy)',
     rule: 'Corrección sectorial', half: 'T1 a medio tamaño', extra: 'T1 con voto extra', ruleTitle: 'Si solo cae el Nasdaq-100 y el S&P 500 no confirma',
     episode: 'Episodio desde el pico del', days: 'días', ddNow: 'Caída hoy', ddMax: 'máxima del episodio', trough: 'mínimo', sector: 'corrección sectorial: el S&P 500 no confirma',
-    noEpisode: 'Sin episodio abierto', lastEp: 'Último episodio', ended: 'cerró el',
+    noEpisode: 'Sin episodio abierto', fromAth: 'desde ATH', atAth: 'En máximo histórico', at5y: 'En máximo de 5 años', lastEp: 'Último episodio', ended: 'cerró el',
     cond: 'Condiciones del día', permit: 'Permiso', veto: 'Veto de crédito', vol: 'Voto de volatilidad', decel: 'Voto de desaceleración', val: 'Valuación (T4)',
     vetoOn: 'activo: HY OAS en su máximo de 63 días y sobre su SMA20', vetoOff: 'sin veto',
     volFallback: 'respaldo con niveles de VIX (sin VIX3M antes de 2007)', armed: 'armado el', ratio: 'VIX/VIX3M',
@@ -59,7 +62,7 @@ const T = {
     title: 'Tranche Re-entry Module', route: 'Route', vooRoute: 'S&P 500', qqqRoute: 'Nasdaq-100 (QQQ as proxy)',
     rule: 'Sector correction', half: 'T1 at half size', extra: 'T1 with an extra vote', ruleTitle: 'When only the Nasdaq-100 falls and the S&P 500 does not confirm',
     episode: 'Episode since the peak of', days: 'days', ddNow: 'Drawdown today', ddMax: 'episode max', trough: 'low', sector: 'sector correction: the S&P 500 does not confirm',
-    noEpisode: 'No open episode', lastEp: 'Last episode', ended: 'closed on',
+    noEpisode: 'No open episode', fromAth: 'from ATH', atAth: 'At all-time high', at5y: 'At 5-year high', lastEp: 'Last episode', ended: 'closed on',
     cond: 'Conditions of the day', permit: 'Permission', veto: 'Credit veto', vol: 'Volatility vote', decel: 'Deceleration vote', val: 'Valuation (T4)',
     vetoOn: 'active: HY OAS at its 63-day high and above its SMA20', vetoOff: 'no veto',
     volFallback: 'VIX-level fallback (no VIX3M before 2007)', armed: 'armed on', ratio: 'VIX/VIX3M',
@@ -122,7 +125,26 @@ export default function BhtTranchesView({ date, locale }: { date: string; locale
                 {r.episode.sectorOnly && <div className="text-caution-300">{t.sector}</div>}
               </div>
             ) : (
-              <div className="mt-1 font-mono text-slate-400">{t.noEpisode}{r.lastEpisode && <> · {t.lastEp} {r.lastEpisode.start} → {t.ended} {r.lastEpisode.end} ({pct(r.lastEpisode.ddMax)})</>}</div>
+              <>
+                <div className="mt-1 font-mono text-slate-400">{t.noEpisode}{r.lastEpisode && <> · {t.lastEp} {r.lastEpisode.start} → {t.ended} {r.lastEpisode.end} ({pct(r.lastEpisode.ddMax)})</>}</div>
+                {/* Sin episodio: caída desde el ATH de cada instrumento analizado, con el semáforo de las cards. */}
+                {r.ath && (
+                  <div className="mt-1 flex flex-wrap gap-x-4 gap-y-0.5 font-mono">
+                    {([['S&P 500', r.ath.spx], ['QQQ', r.ath.qqq]] as [string, Ath | null][]).filter(([, a]) => a).map(([k, a]) => {
+                      const c = athColor(athTone(a!.pct));
+                      const ath = a!.window5y ? 'ATH 5Y' : 'ATH';
+                      return (
+                        <span key={k} className="inline-flex items-center gap-1.5 whitespace-nowrap" title={`${ath} ${money(a!.price)} · ${a!.date}`}>
+                          <span className="w-1.5 h-1.5 rounded-full" style={{ background: c }} />
+                          <span className="text-slate-400">{k}</span>
+                          <span className="font-bold" style={{ color: c }}>{a!.pct > -0.05 ? (a!.window5y ? t.at5y : t.atAth) : `${pct(a!.pct)} ${t.fromAth}${a!.window5y ? ' 5Y' : ''}`}</span>
+                          <span className="text-slate-500">· {a!.date}</span>
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
+              </>
             )}
           </div>
 
