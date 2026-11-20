@@ -19,6 +19,8 @@ export type TrancheSeries = {
   dates: string[];
   spx: (number | null)[];
   qqq: (number | null)[];
+  /** TQQQ real (desde 2010): solo para su caída desde ATH; las señales usan QQQ. */
+  tqqq?: (number | null)[];
   vix: (number | null)[];
   vix3m: (number | null)[];
   oas: (number | null)[];
@@ -113,7 +115,7 @@ export type TranchesResult = {
     votes: number; cape: number | null; capeMedian20: number | null;
   };
   /** Caída desde el máximo histórico a esa fecha (máximo de 5 años si el ATH tiene más de 5 años), como las cards. */
-  ath: { spx: AthAt | null; qqq: AthAt | null };
+  ath: { spx: AthAt | null; qqq: AthAt | null; tqqq: AthAt | null };
   tranches: TrancheState[];
   deployed: number; leverage: number; avgPrice: number | null; captured: number | null;
 };
@@ -312,7 +314,7 @@ export function computeTranches(P: PreparedTranches, date: string, sectorRule: S
       slopeMin: open ? slopeMin * 100 : null, recover: sn.recover != null ? sn.recover * 100 : null, boll: sn.boll,
       votes: sn.votes, cape: s.cape[D], capeMedian20: s.capeMedian20[D],
     },
-    ath: { spx: athAt(s.dates, P.spx, D), qqq: dual ? athAt(s.dates, P.qqq, D) : null },
+    ath: { spx: athAt(s.dates, P.spx, D), qqq: dual ? athAt(s.dates, P.qqq, D) : null, tqqq: dual && s.tqqq ? athAt(s.dates, s.tqqq, D) : null },
     tranches, deployed, leverage, avgPrice, captured,
   };
 }
@@ -346,8 +348,8 @@ type Rows = Array<{ d: string; v: unknown }>;
 export async function loadTrancheSeries(query: (sql: string) => Promise<Rows>): Promise<TrancheSeries> {
   const toMap = (r: Rows) => new Map(r.filter((x) => x.v != null).map((x) => [x.d, Number(x.v)] as [string, number]));
   const md = (t: string) => query(`SELECT date::text AS d, close AS v FROM bt_market_data WHERE ticker = '${t}' AND date >= '1989-01-01'`).then(toMap);
-  const [spx, vixF, vixY, vix3m, oas, qOld, qNew, capeD, capeM] = await Promise.all([
-    md('^GSPC'), md('VIXCLS'), md('^VIX'), md('^VIX3M'), md('BAMLH0A0HYM2'),
+  const [spx, vixF, vixY, vix3m, oas, tqqq, qOld, qNew, capeD, capeM] = await Promise.all([
+    md('^GSPC'), md('VIXCLS'), md('^VIX'), md('^VIX3M'), md('BAMLH0A0HYM2'), md('TQQQ'),
     query(`SELECT h.date::text AS d, h.close AS v FROM historical_prices h JOIN tickers t ON t.id = h.ticker_id WHERE t.symbol = 'QQQ'`).then(toMap),
     md('QQQ'),
     query(`SELECT date::text AS d, cape AS v FROM bt_shiller_daily`).then(toMap),
@@ -362,5 +364,5 @@ export async function loadTrancheSeries(query: (sql: string) => Promise<Rows>): 
   const lastM = [...monthly.keys()].sort().pop() ?? '';
   for (const [d, v] of [...capeD].sort((a, b) => a[0].localeCompare(b[0]))) if (d.slice(0, 7) > lastM) monthly.set(d.slice(0, 7), v);
   const at = (m: Map<string, number>) => dates.map((d) => m.get(d) ?? null);
-  return { dates, spx: at(spx), qqq: at(qqq), vix: at(vix), vix3m: at(vix3m), oas: at(oas), cape: at(capeD), capeMedian20: capeMedian20(dates, monthly) };
+  return { dates, spx: at(spx), qqq: at(qqq), tqqq: at(tqqq), vix: at(vix), vix3m: at(vix3m), oas: at(oas), cape: at(capeD), capeMedian20: capeMedian20(dates, monthly) };
 }

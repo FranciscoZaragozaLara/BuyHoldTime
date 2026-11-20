@@ -21,7 +21,7 @@ type Result = {
     ratio: number | null; volSource: 'ratio' | 'fallback'; volVote: boolean; volArmedAt: string | null;
     decelVote: boolean; slope: number | null; curv: number | null; slopeMin: number | null; recover: number | null; boll: boolean; votes: number; cape: number | null; capeMedian20: number | null;
   };
-  ath?: { spx: Ath | null; qqq: Ath | null };
+  ath?: { spx: Ath | null; qqq: Ath | null; tqqq?: Ath | null };
   tranches: Tranche[]; deployed: number; leverage: number; avgPrice: number | null; captured: number | null;
 };
 type Both = Partial<Record<Rule, Result | null>>;
@@ -130,7 +130,7 @@ export default function BhtTranchesView({ date, locale }: { date: string; locale
                 {/* Sin episodio: caída desde el ATH de cada instrumento analizado, con el semáforo de las cards. */}
                 {r.ath && (
                   <div className="mt-1 flex flex-wrap gap-x-4 gap-y-0.5 font-mono">
-                    {([['S&P 500', r.ath.spx], ['QQQ', r.ath.qqq]] as [string, Ath | null][]).filter(([, a]) => a).map(([k, a]) => {
+                    {([['S&P 500', r.ath.spx], ['QQQ', r.ath.qqq], ['TQQQ', r.ath.tqqq ?? null]] as [string, Ath | null][]).filter(([, a]) => a).map(([k, a]) => {
                       const c = athColor(athTone(a!.pct));
                       const ath = a!.window5y ? 'ATH 5Y' : 'ATH';
                       return (
