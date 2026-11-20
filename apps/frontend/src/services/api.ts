@@ -1,5 +1,6 @@
 import { getApiBase } from '@/lib/apiBase';
 import { MARKET_DATA_TAG } from '@/lib/revalidation';
+import { fetchMatrixCells, MATRIX_INSTRUMENTS, type MatrixCell, type MatrixInstrument } from '@/lib/bhtMatrix';
 export interface Ticker {
   id: string;
   symbol: string;
@@ -236,4 +237,11 @@ export async function getThermoLive(): Promise<ThermoToday | null> {
   } catch {
     return null;
   }
+}
+
+/** Matriz BHT × tendencia (últimos 5 años) de S&P 500, Nasdaq-100 y TQQQ para la tabla de rendimientos de la home. */
+export async function getBhtMatrices5y(date: string): Promise<Record<MatrixInstrument, MatrixCell[] | null>> {
+  const init = { next: { revalidate: 3600, tags: [MARKET_DATA_TAG] } } as RequestInit;
+  const rs = await Promise.all(MATRIX_INSTRUMENTS.map((i) => fetchMatrixCells(getApiBaseUrl(), date, i, '5y', init)));
+  return Object.fromEntries(MATRIX_INSTRUMENTS.map((i, k) => [i, rs[k]])) as Record<MatrixInstrument, MatrixCell[] | null>;
 }

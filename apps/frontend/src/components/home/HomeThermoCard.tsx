@@ -6,7 +6,8 @@ import { TrendBadge } from '@/components/backtesting/TrendBadge';
 import { BHT_BANDS, bhtBand } from '@/components/backtesting/bhtBands';
 import { RiskDisclaimer } from '@/components/RiskDisclaimer';
 import { indicatorsHref } from '@/lib/homeThermo';
-import type { ThermoToday } from '@/services/api';
+import { getBhtMatrices5y, type ThermoToday } from '@/services/api';
+import { HomeReturnsTable } from './HomeReturnsTable';
 
 // Tarjeta principal de la home: medidor BHT, banda actual con su sugerencia, escala de bandas y accesos
 // al detalle en Indicadores.
@@ -16,6 +17,8 @@ export async function HomeThermoCard({ locale, thermo }: { locale: string; therm
   const score = Math.round(thermo.value * 10) / 10;
   const band = bhtBand(score);
   const bi = BHT_BANDS.indexOf(band);
+  // Rendimientos históricos de la combinación de hoy (BHT × tendencia), últimos 5 años.
+  const matrices = thermo.trend?.regime ? await getBhtMatrices5y(thermo.date) : null;
   const date = new Date(`${thermo.date}T12:00:00Z`).toLocaleDateString(locale === 'es' ? 'es-MX' : 'en-US', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
   return (
     <div className="relative rounded-3xl border border-slate-800 bg-slate-900/60 backdrop-blur p-6 sm:p-7 shadow-2xl overflow-hidden">
@@ -53,6 +56,8 @@ export async function HomeThermoCard({ locale, thermo }: { locale: string; therm
         <div className="text-[11px] font-bold uppercase tracking-wide" style={{ color: band.color }}>{t('thermoAdviceTitle')}</div>
         <p className="text-sm text-slate-200 leading-relaxed mt-1">{ti(`bht.b${bi}.advice`)}</p>
       </div>
+
+      {matrices && <HomeReturnsTable locale={locale} date={thermo.date} band={bi} regime={thermo.trend?.regime ?? null} initial={matrices} />}
 
       <div className="mt-4 flex flex-wrap gap-2">
         <Link href={indicatorsHref(locale, 'bht-thermo')} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold text-slate-950 bg-accent-400 hover:bg-accent-300 transition">
