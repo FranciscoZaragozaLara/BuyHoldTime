@@ -131,14 +131,16 @@ export function prepareTranches(s: TrancheSeries, route: TrancheRoute) {
   const bMid = sma(px, 20), bSd = stdev(px, 20, bMid);
   const lower = bMid.map((m, k) => (m != null && bSd[k] != null ? m - 2 * (bSd[k] as number) : null));
   const oasMax63 = rollingMax(oas, 63), oasSma20 = sma(oas, 20), oasMax252 = rollingMax(oas, W12);
-  const vixMax10 = rollingMax(vix, 10), vixSma20 = sma(vix, 20);
-  return { s, route, spx, qqq, vix, vix3m, oas, px, spMax, qMax, e50, e200, slope, curv, lower, oasMax63, oasSma20, oasMax252, vixMax10, vixSma20 };
+  const vixMax10 = rollingMax(vix, 10), vixMax20 = rollingMax(vix, 20), vixSma20 = sma(vix, 20);
+  return { s, route, spx, qqq, vix, vix3m, oas, px, spMax, qMax, e50, e200, slope, curv, lower, oasMax63, oasSma20, oasMax252, vixMax10, vixMax20, vixSma20 };
 }
 export type PreparedTranches = ReturnType<typeof prepareTranches>;
 
 /** Resumen de un episodio cerrado (backtest de umbrales): lo desplegado y a qué precio promedio. */
 export type EpisodeSummary = { start: string; end: string | null; peak: number; min: number; ddMax: number; fired: TrancheId[]; deployed: number; leverage: number; avgPrice: number | null; captured: number | null };
-export type TrancheOpts = { volArm?: number; onEpisodeEnd?: (e: EpisodeSummary) => void };
+/** volMode 'hybrid': el voto de volatilidad también se activa si el VIX cae ≥25% desde su máximo de 20 días (≥25),
+ *  para los mercados bajistas lentos donde la estructura VIX/VIX3M casi no se invierte (2022). */
+export type TrancheOpts = { volArm?: number; volMode?: 'ratio' | 'hybrid'; onEpisodeEnd?: (e: EpisodeSummary) => void };
 
 export function computeTranches(P: PreparedTranches, date: string, sectorRule: SectorRule = 'half', opts: TrancheOpts = {}): TranchesResult | null {
   const { s, route, px } = P;
@@ -159,7 +161,7 @@ export function computeTranches(P: PreparedTranches, date: string, sectorRule: S
   // Estado
   let open = false, start = -1, peak = 0, peakIdx = -1, minP = Infinity, minIdx = -1, ddMax = 0, spDdMax = 0, ndxDdMax = 0, sectorOnly = false;
   let lastEp: TranchesResult['lastEpisode'] = null;
-  let armed = false, volOnAt = -1, armedAt = -1;
+  let armed = false, volOnAt = -1, armedAt = -1, lvlOnAt = -1;
   let bollAt = -1, curvRun = 0, slopeMin = 0;
   const fired: Partial<Record<TrancheId, { k: number; size: number; backup?: boolean }>> = {};
 
@@ -217,7 +219,15 @@ export function computeTranches(P: PreparedTranches, date: string, sectorRule: S
         else if (armed && v <= 0.75 * m10) { volOnAt = k; armed = false; }
       }
     }
-    volVote = volOnAt >= 0 && k - volOnAt < C.volWindow;
+    // Señal por nivel (modo híbrido): VIX ≥25% debajo de su máximo de 20 días, si ese máximo fue ≥25; se anula con un nuevo máximo.
+    if (opts.volMode === 'hybrid') {
+      const v = P.vix[k], m20 = P.vixMax20[k];
+      if (v != null && m20 != null) {
+        if (v >= m20) lvlOnAt = -1;
+        else if (m20 >= 25 && v <= 0.75 * m20 && lvlOnAt < 0) lvlOnAt = k;
+      }
+    }
+    volVote = (volOnAt >= 0 && k - volOnAt < C.volWindow) || (lvlOnAt >= 0 && k - lvlOnAt < C.volWindow);
 
     // Voto de desaceleración: curvatura de la EMA50 con filtro de magnitud, o reingreso a la banda de Bollinger −2σ.
     const S = P.slope[k], Cv = P.curv[k];
