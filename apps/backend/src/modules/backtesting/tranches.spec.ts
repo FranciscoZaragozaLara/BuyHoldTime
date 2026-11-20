@@ -1,0 +1,46 @@
+import { capeMedian20, computeTranches, prepareTranches, TRANCHE_CFG, type TrancheSeries } from './tranches';
+
+// Serie sintética: 300 sesiones subiendo despacio y luego un desplome de 10 sesiones (−20%).
+function series(opts: { oasRising?: boolean } = {}): TrancheSeries {
+  const n = 320;
+  const dates = Array.from({ length: n }, (_, k) => new Date(Date.UTC(2020, 0, 1) + k * 86400000).toISOString().slice(0, 10));
+  const spx = dates.map((_, k) => (k < 300 ? 100 + k * 0.05 : 115 * (1 - 0.022 * Math.min(10, k - 299))));
+  const vix = dates.map((_, k) => (k < 300 ? 15 : 50));
+  const vix3m = dates.map((_, k) => (k < 300 ? 17 : 38)); // ratio 1.32 en el desplome
+  const oas = dates.map((_, k) => (k < 300 ? 4 : opts.oasRising ? 4 + (k - 299) * 0.5 : 4));
+  return { dates, spx, qqq: spx, vix, vix3m, oas, cape: dates.map(() => 30), capeMedian20: dates.map(() => 25) };
+}
+
+describe('módulo de reentrada por tranches', () => {
+  test('desplome rápido con pánico y crédito sano: T0 (morado), 25% en 1×', () => {
+    const P = prepareTranches(series(), 'voo');
+    const r = computeTranches(P, '2020-11-05')!; // k = 309: −20% desde el máximo, −20% en 10 días
+    expect(r.episode).not.toBeNull();
+    expect(r.light).toBe('purple');
+    const t0 = r.tranches.find((t) => t.id === 'T0')!;
+    expect(t0.status).not.toBe('pending');
+    expect(r.deployed).toBeCloseTo(TRANCHE_CFG.weights.T0, 9);
+    expect(r.leverage).toBeCloseTo(0.25, 9);
+  });
+  test('crédito en zona sistémica: no hay T0 y el veto pinta rojo', () => {
+    const P = prepareTranches(series({ oasRising: true }), 'voo');
+    const r = computeTranches(P, '2020-11-05')!;
+    expect(r.tranches.find((t) => t.id === 'T0')!.status).toBe('pending');
+    expect(r.today.veto).toBe(true);
+    expect(r.light).toBe('red');
+  });
+  test('sin caída relevante: gris y sin episodio', () => {
+    const r = computeTranches(prepareTranches(series(), 'voo'), '2020-06-01')!;
+    expect(r.light).toBe('gray');
+    expect(r.episode).toBeNull();
+    expect(r.deployed).toBe(0);
+  });
+  test('mediana de 20 años del CAPE: 240 meses previos, desde el mes siguiente', () => {
+    const monthly = new Map<string, number>();
+    for (let i = 0; i < 241; i++) monthly.set(`${2000 + Math.floor(i / 12)}-${String((i % 12) + 1).padStart(2, '0')}`, i < 120 ? 10 : 30);
+    const med = capeMedian20(['2019-12-15', '2020-01-15', '2020-02-15'], monthly);
+    expect(med[0]).toBeNull(); // aún no hay 240 meses cerrados
+    expect(med[1]).toBe(20); // 120 meses en 10 y 120 en 30
+    expect(med[2]).toBe(30); // la ventana avanza un mes
+  });
+});

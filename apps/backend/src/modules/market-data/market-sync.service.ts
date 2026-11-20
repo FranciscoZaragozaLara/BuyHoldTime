@@ -12,6 +12,9 @@ import { syncIndicatorsTable } from './indicator-sync';
 import { notifyFrontendRevalidate } from './frontend-revalidate';
 import { PROVISIONAL_OF } from '../backtesting/provisional-series';
 
+/** Series de Yahoo sin equivalente en FRED que se bajan a diario con las provisionales. */
+export const YAHOO_EXTRA = ['^VIX3M'];
+
 /**
  * Construye la línea planchada del día `date` para shiller_daily.csv SIN asumir
  * posición de columnas. El CSV ganó la columna `pe` en 2ª posición (oct-2026);
@@ -145,7 +148,8 @@ export class MarketSyncService {
 
   // Series provisionales (p. ej. WTI CL=F mientras FRED publica DCOILWTICO): el cron usa daily_update.py, que no las baja.
   private async syncProvisional(): Promise<void> {
-    for (const t of Object.values(PROVISIONAL_OF)) {
+    // + series diarias de Yahoo que FRED no tiene (^VIX3M: estructura de plazos para el módulo de tranches).
+    for (const t of [...Object.values(PROVISIONAL_OF), ...YAHOO_EXTRA]) {
       try {
         const y = await this.upsertYahoo(t, '1mo');
         this.logger.log(`Provisional ${t}: ${y.upserts} filas (último ${y.afterDate} ${y.after})`);
@@ -523,6 +527,7 @@ export class MarketSyncService {
       { ticker: 'MSACSR', name: 'MSACSR', purpose: 'Meses inventario casas nuevas — mercado vivienda', source: 'FRED', api: 'https://fred.stlouisfed.org/graph/fredgraph.csv?id=MSACSR', kind: 'fred' },
       { ticker: 'VIXCLS', name: 'VIX', purpose: 'VIX volatilidad implícita S&P 500 — sentimiento', source: 'FRED', api: 'https://fred.stlouisfed.org/graph/fredgraph.csv?id=VIXCLS', kind: 'fred' },
       { ticker: '^VIX', name: 'VIX (Yahoo)', purpose: 'VIX provisional: cubre el día que FRED aún no publica (VIXCLS llega al día siguiente)', source: 'yfinance', api: 'https://query1.finance.yahoo.com/v8/finance/chart/%5EVIX', kind: 'yahoo' },
+      { ticker: '^VIX3M', name: 'VIX 3 meses (Yahoo)', purpose: 'Estructura de plazos VIX/VIX3M: pánico agudo (>1) y su fin, para el módulo de tranches', source: 'yfinance', api: 'https://query1.finance.yahoo.com/v8/finance/chart/%5EVIX3M', kind: 'yahoo' },
       { ticker: 'FEAR_GREED', name: 'FEAR_GREED', purpose: 'CNN Fear & Greed — sentimiento mercado', source: 'CNN', api: 'https://production.dataviz.cnn.io/index/fearandgreed/graphdata', kind: 'cnn' },
       { ticker: 'NYSE_ADV_VOL', name: 'NYSE_ADV_VOL', purpose: 'Volumen avance NYSE — amplitud', source: 'WSJ', api: 'https://www.wsj.com/market-data/stocks/marketsdiary?id=%7B%22application%22%3A%22WSJ%22%2C%22marketsDiaryType%22%3A%22diaries%22%7D&type=mdc_marketsdiary', kind: 'wsj' },
       { ticker: 'NYSE_DEC_VOL', name: 'NYSE_DEC_VOL', purpose: 'Volumen retroceso NYSE — amplitud', source: 'WSJ', api: 'https://www.wsj.com/market-data/stocks/marketsdiary?id=%7B%22application%22%3A%22WSJ%22%2C%22marketsDiaryType%22%3A%22diaries%22%7D&type=mdc_marketsdiary', kind: 'wsj' },

@@ -16,7 +16,9 @@ import { TrendBadge } from './TrendBadge';
 const BhtStrategyView = dynamic(() => import('./BhtStrategyView'), { ssr: false, loading: () => <div className="mt-2 font-mono text-slate-500">…</div> });
 // Vista Drawdowns (caídas por año y tramos de compra/venta): igual, lazy y bajo demanda.
 const BhtDrawdownsView = dynamic(() => import('./BhtDrawdownsView'), { ssr: false, loading: () => <div className="mt-2 font-mono text-slate-500">…</div> });
-type PopView = 'history' | 'strategy' | 'drawdowns';
+// Vista Tranches (Módulo de Reentrada por Tranches): lazy y bajo demanda.
+const BhtTranchesView = dynamic(() => import('./BhtTranchesView'), { ssr: false, loading: () => <div className="mt-2 font-mono text-slate-500">…</div> });
+type PopView = 'history' | 'strategy' | 'drawdowns' | 'tranches';
 
 // Hover compartido del BHT Index: detalle por indicador igual al termómetro.
 // El cierre es diferido (gracia de 350ms) para poder mover el mouse al popup
@@ -184,6 +186,8 @@ export function BhtDetailPopover({ hover, detail, onLeave, onHold, liveValue, on
           className={`px-2 py-0.5 rounded-md transition ${view === 'history' ? 'bg-slate-700 text-white' : 'text-slate-400 hover:text-slate-200'}`}>{loc === 'es' ? 'Historia' : 'History'}</button>
         <button type="button" onClick={(e) => { e.stopPropagation(); setView('drawdowns'); }}
           className={`px-2 py-0.5 rounded-md transition ${view === 'drawdowns' ? 'bg-risk-500/80 text-white' : 'text-slate-400 hover:text-slate-200'}`}>Drawdowns</button>
+        <button type="button" onClick={(e) => { e.stopPropagation(); setView('tranches'); }}
+          className={`px-2 py-0.5 rounded-md transition ${view === 'tranches' ? 'bg-purple-500/80 text-white' : 'text-slate-400 hover:text-slate-200'}`}>Tranches</button>
       </div>
       {onClose && (
         <button type="button" onClick={(e) => { e.stopPropagation(); onClose(); }} aria-label={loc === 'es' ? 'Cerrar' : 'Close'} title={loc === 'es' ? 'Cerrar (Esc)' : 'Close (Esc)'}
@@ -223,7 +227,9 @@ export function BhtDetailPopover({ hover, detail, onLeave, onHold, liveValue, on
           </div>
         </>
       )}
-      {view === 'drawdowns' ? (
+      {view === 'tranches' ? (
+        <BhtTranchesView date={hover.d} locale={loc} />
+      ) : view === 'drawdowns' ? (
         <BhtDrawdownsView date={hover.d} locale={loc} />
       ) : view === 'strategy' ? (
         <BhtStrategyView date={hover.d} locale={loc}

@@ -6,6 +6,7 @@ import { toShillerApiRow } from './shiller-daily';
 import { monthlyPartsFromDaily } from './bht-forward';
 import { computeBhtStrategy, type Instrument as StrategyInstrument, type SampleWindow, type StrategySeries } from './bht-strategy';
 import { computeBhtDrawdowns } from './bht-drawdowns';
+import { computeTranches, loadTrancheSeries, prepareTranches, type PreparedTranches, type SectorRule, type TrancheRoute } from './tranches';
 import { liveTrend } from './trend-regime';
 import { PROVISIONAL_OF, rowsWithProvisional, withProvisional } from './provisional-series';
 
@@ -804,6 +805,35 @@ export class BacktestingService {
     if (!r) return { error: 'not found' };
     this.strategyCache.set(key, r);
     return r;
+  }
+
+  // Vista Tranches (Módulo de Reentrada por Tranches v1.3): serie diaria desde 1990 con S&P 500, QQQ (proxy del
+  // Nasdaq-100, también para TQQQ), VIX (+ provisional de Yahoo), VIX3M, HY OAS y CAPE con su mediana de 20 años.
+  private async trancheSeries(route: TrancheRoute): Promise<PreparedTranches> {
+    const ck = `tr:prep:${route}`;
+    const hit = this.strategyCache.get<PreparedTranches>(ck);
+    if (hit) return hit;
+    const series = await loadTrancheSeries((sql) => this.prisma.$queryRawUnsafe<Array<{ d: string; v: unknown }>>(sql));
+    const prepared = prepareTranches(series, route);
+    this.strategyCache.set(ck, prepared);
+    return prepared;
+  }
+
+  async getBhtTranches(date: string, instrument: string, sector?: string) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date ?? '')) return { error: 'date required (YYYY-MM-DD)' };
+    const route: TrancheRoute = instrument === 'voo' || instrument === 'spx' ? 'voo' : 'qqq'; // TQQQ usa QQQ como proxy
+    await this.ensureStrategyFresh();
+    const P = await this.trancheSeries(route);
+    // Las dos variantes de la corrección sectorial (T1 a medio tamaño o con un voto extra).
+    const rules: SectorRule[] = sector === 'half' || sector === 'extraVote' ? [sector] : ['half', 'extraVote'];
+    const out: Record<string, unknown> = {};
+    for (const r of rules) {
+      const key = `tr:${route}:${date}:${r}`;
+      let res = this.strategyCache.get(key);
+      if (!res) { res = computeTranches(P, date, r); if (res) this.strategyCache.set(key, res); }
+      out[r] = res ?? null;
+    }
+    return out.half === null && out.extraVote === null ? { error: 'not found' } : out;
   }
 
   // Vista Drawdowns: caída máxima por año y tramos de compra/venta con el BHT vs Hold completo.

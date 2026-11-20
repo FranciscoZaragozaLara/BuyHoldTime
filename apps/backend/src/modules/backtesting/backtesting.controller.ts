@@ -88,6 +88,10 @@ export class BacktestingController {
   @Get('bht-drawdowns')
   getBhtDrawdowns(@Query('date') date: string, @Query('instrument') instrument: string) { return this.svc.getBhtDrawdowns(date, instrument); }
 
+  // Módulo de Reentrada por Tranches: estado de los 5 tranches en esa fecha (instrument = voo | qqq | tqqq; TQQQ → QQQ).
+  @Get('bht-tranches')
+  getBhtTranches(@Query('date') date: string, @Query('instrument') instrument: string, @Query('sector') sector?: string) { return this.svc.getBhtTranches(date, instrument, sector); }
+
   @Get('bht-forward/detail')
   getBhtForwardDetail(@Query('date') date: string) { return this.svc.getBhtForwardDetail(date); }
 
