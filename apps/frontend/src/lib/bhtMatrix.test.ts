@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { bandPct, matrixBandOf, matrixCell, MATRIX_BANDS, type MatrixCell } from './bhtMatrix';
+import { bandPct, isCurrentMatrix, matrixBandOf, matrixCell, MATRIX_BANDS, type MatrixCell } from './bhtMatrix';
 
 const cells: MatrixCell[] = [
   { band: 2, regime: 'DOWNTREND', n: 464, avg12m: -4.2, pos12m: 53, avgMdd: -22, pDd15: 49 },
@@ -29,5 +29,14 @@ describe('bandas de la matriz', () => {
     ];
     expect(bandPct(cs, 3)).toBeCloseTo(17.5, 9);
     expect(bandPct(null, 3)).toBe(0);
+  });
+});
+
+describe('isCurrentMatrix', () => {
+  it('acepta solo matrices con los cortes actuales (descarta respuestas viejas de 5 bandas)', () => {
+    expect(isCurrentMatrix({ cells: [], bandLo: [0, 40, 50, 56, 62, 70, 75] })).toBe(true);
+    expect(isCurrentMatrix({ cells: [] })).toBe(false);
+    expect(isCurrentMatrix({ cells: [], bandLo: [0, 40, 50, 62, 70] })).toBe(false);
+    expect(isCurrentMatrix(null)).toBe(false);
   });
 });

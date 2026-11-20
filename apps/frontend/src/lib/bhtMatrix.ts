@@ -35,13 +35,21 @@ export function matrixCell(cells: MatrixCell[] | null | undefined, band: number,
   return c && c.n > 0 ? c : null;
 }
 
+/** La matriz recibida tiene los mismos cortes que MATRIX_BANDS (una respuesta vieja de 5 bandas se descarta). */
+export function isCurrentMatrix(m: { cells?: unknown; bandLo?: unknown } | null | undefined): boolean {
+  if (!m || !Array.isArray(m.cells) || !Array.isArray(m.bandLo)) return false;
+  return m.bandLo.length === MATRIX_BANDS.length && MATRIX_BANDS.every((b, k) => (m.bandLo as number[])[k] === b.lo);
+}
+
 /** Celdas de la matriz de un instrumento desde /api/backtesting/bht-strategy (la matriz no depende de la fecha). */
 export async function fetchMatrixCells(base: string, date: string, inst: MatrixInstrument, win: MatrixWindow, init?: RequestInit): Promise<MatrixCell[] | null> {
   try {
-    const r = await fetch(`${base}/api/backtesting/bht-strategy?date=${date}&instrument=${inst}&window=${win}`, init);
+    // `bands` versiona la URL: el caché de Next (revalidate) guarda la respuesta por URL y no debe servir una matriz
+    // con otro número de bandas tras un cambio de cortes.
+    const r = await fetch(`${base}/api/backtesting/bht-strategy?date=${date}&instrument=${inst}&window=${win}&bands=${MATRIX_BANDS.length}`, init);
     if (!r.ok) return null;
     const j = await r.json();
-    return Array.isArray(j?.matrix?.cells) ? (j.matrix.cells as MatrixCell[]) : null;
+    return isCurrentMatrix(j?.matrix) ? (j.matrix.cells as MatrixCell[]) : null;
   } catch {
     return null;
   }
