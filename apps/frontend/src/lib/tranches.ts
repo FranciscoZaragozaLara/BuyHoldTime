@@ -28,7 +28,8 @@ const LABEL: Record<string, [string, string]> = {
 export function trancheCheckText(c: TrancheCheck, locale: string): string {
   const [es, en] = LABEL[c.key] ?? [c.key, c.key];
   const name = locale === 'es' ? es : en;
-  if (['depth', 'speed', 'permit', 'ddReached'].includes(c.key) && typeof c.value === 'number') return `${name} ${num(c.value)}% / ${num(c.need, 0)}%`;
+  // Con signo: una subida (p. ej. +14.8% en 10 días) no debe leerse como caída.
+  if (['depth', 'speed', 'permit', 'ddReached'].includes(c.key) && typeof c.value === 'number') return `${name} ${c.value > 0 ? '+' : ''}${num(c.value)}% / ${num(c.need, 0)}%`;
   if (c.key === 'capeBelowMedian' && typeof c.value === 'number') return `${name} (${num(c.value)} vs ${num(c.need)})`;
   if (c.key === 'oasOffHigh' && typeof c.value === 'number') return `${name} (${num(c.value)}%)`;
   if (c.key === 'panic' && typeof c.value === 'number') return `${name} (${num(c.value, 2)})`;

@@ -8,6 +8,7 @@ describe('tranches', () => {
     expect(trancheCheckText({ key: 'afterT1', ok: false, value: null, need: 5 }, 'es')).toBe('T1 primero');
     expect(trancheCheckText({ key: 'votes2', ok: false, value: 1, need: 2 }, 'es')).toBe('2 votos (1)');
     expect(trancheCheckText({ key: 'noVeto', ok: false }, 'en')).toBe('no credit veto');
+    expect(trancheCheckText({ key: 'speed', ok: false, value: 14.8, need: -13 }, 'es')).toBe('caída en 10 días +14.8% / -13%');
   });
   it('semáforo de 5 colores con mensaje en los dos idiomas', () => {
     expect(Object.keys(TRANCHE_LIGHT)).toEqual(['gray', 'purple', 'red', 'amber', 'green']);

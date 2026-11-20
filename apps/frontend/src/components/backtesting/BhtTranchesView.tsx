@@ -50,7 +50,7 @@ const T = {
     noEpisode: 'Sin episodio abierto', fromAth: 'desde ATH', atAth: 'En máximo histórico', at5y: 'En máximo de 5 años', lastEp: 'Último episodio', ended: 'cerró el',
     cond: 'Condiciones del día', permit: 'Permiso', veto: 'Veto de crédito', vol: 'Voto de volatilidad', decel: 'Voto de desaceleración', val: 'Valuación (T4)',
     vetoOn: 'activo: HY OAS en su máximo de 63 días y sobre su SMA20', vetoOff: 'sin veto',
-    volFallback: 'respaldo con niveles de VIX (sin VIX3M antes de 2007)', armed: 'armado el', ratio: 'VIX/VIX3M',
+    volFallback: 'respaldo con niveles de VIX (sin VIX3M antes de 2007)', armed: 'armado el', notArmed: 'no se armó en este episodio', ratio: 'VIX/VIX3M',
     slope: 'pendiente EMA50', recover: 'recuperó', boll: 'reingreso a la banda de Bollinger −2σ', capeVs: 'CAPE vs mediana 20 años',
     tranche: 'Tranche', weight: 'Peso', mix: 'Mezcla', status: 'Estado', fired: 'Disparado', today: 'Hoy', pending: 'Falta', backup: 'respaldo (12 meses sobre la EMA200)', halfSize: 'medio tamaño',
     names: { T0: 'Capitulación', T1: 'Pánico terminando', T2: 'Desaceleración', T3: 'Validación', T4: 'Valuación profunda' } as Record<string, string>,
@@ -65,7 +65,7 @@ const T = {
     noEpisode: 'No open episode', fromAth: 'from ATH', atAth: 'At all-time high', at5y: 'At 5-year high', lastEp: 'Last episode', ended: 'closed on',
     cond: 'Conditions of the day', permit: 'Permission', veto: 'Credit veto', vol: 'Volatility vote', decel: 'Deceleration vote', val: 'Valuation (T4)',
     vetoOn: 'active: HY OAS at its 63-day high and above its SMA20', vetoOff: 'no veto',
-    volFallback: 'VIX-level fallback (no VIX3M before 2007)', armed: 'armed on', ratio: 'VIX/VIX3M',
+    volFallback: 'VIX-level fallback (no VIX3M before 2007)', armed: 'armed on', notArmed: 'not armed in this episode', ratio: 'VIX/VIX3M',
     slope: 'EMA50 slope', recover: 'recovered', boll: 'back inside the −2σ Bollinger band', capeVs: 'CAPE vs 20-year median',
     tranche: 'Tranche', weight: 'Weight', mix: 'Mix', status: 'Status', fired: 'Fired', today: 'Today', pending: 'Missing', backup: 'backup (12 months above the EMA200)', halfSize: 'half size',
     names: { T0: 'Capitulation', T1: 'Panic ending', T2: 'Deceleration', T3: 'Validation', T4: 'Deep value' } as Record<string, string>,
@@ -163,7 +163,7 @@ export default function BhtTranchesView({ date, locale }: { date: string; locale
                 </tr>
                 <tr className="border-b border-slate-800/60">
                   <td><Mark ok={r.today.volVote} /></td><td className="text-slate-300 pr-2 whitespace-nowrap">{t.vol}</td>
-                  <td className="text-slate-400">{r.today.volSource === 'ratio' ? <>{t.ratio} {r.today.ratio?.toFixed(2)} (&gt; 1.05 → &lt; 1)</> : t.volFallback}{r.today.volArmedAt && <> · {t.armed} {r.today.volArmedAt}</>}</td>
+                  <td className="text-slate-400">{r.today.volSource === 'ratio' ? <>{t.ratio} {r.today.ratio?.toFixed(2)} (&gt; 1.05 → &lt; 1)</> : t.volFallback}{r.episode && (r.today.volArmedAt ? <> · {t.armed} {r.today.volArmedAt}</> : <> · {t.notArmed}</>)}</td>
                 </tr>
                 <tr className="border-b border-slate-800/60">
                   <td><Mark ok={r.today.decelVote} /></td><td className="text-slate-300 pr-2 whitespace-nowrap">{t.decel}</td>

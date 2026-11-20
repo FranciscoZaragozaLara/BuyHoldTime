@@ -136,13 +136,25 @@ export function prepareTranches(s: TrancheSeries, route: TrancheRoute) {
 }
 export type PreparedTranches = ReturnType<typeof prepareTranches>;
 
-export function computeTranches(P: PreparedTranches, date: string, sectorRule: SectorRule = 'half'): TranchesResult | null {
+/** Resumen de un episodio cerrado (backtest de umbrales): lo desplegado y a qué precio promedio. */
+export type EpisodeSummary = { start: string; end: string | null; peak: number; min: number; ddMax: number; fired: TrancheId[]; deployed: number; leverage: number; avgPrice: number | null; captured: number | null };
+export type TrancheOpts = { volArm?: number; onEpisodeEnd?: (e: EpisodeSummary) => void };
+
+export function computeTranches(P: PreparedTranches, date: string, sectorRule: SectorRule = 'half', opts: TrancheOpts = {}): TranchesResult | null {
   const { s, route, px } = P;
   let D = -1;
   for (let k = s.dates.length - 1; k >= 0; k--) if (s.dates[k] <= date) { D = k; break; }
   if (D < 0 || px[D] == null) return null;
   const C = TRANCHE_CFG;
   const dual = route === 'qqq';
+  const volArm = opts.volArm ?? C.volArm;
+  const summarize = (end: string | null): EpisodeSummary => {
+    let dep = 0, lev = 0, cost = 0;
+    const ids = (Object.keys(fired) as TrancheId[]).sort();
+    for (const id of ids) { const f = fired[id]!; const w = C.weights[id] * f.size; const l3 = f.backup ? 0 : C.lev3x[id]; dep += w; lev += w * (1 + 2 * l3); cost += w * (px[f.k] as number); }
+    const avg = dep > 0 ? cost / dep : null;
+    return { start: s.dates[start], end, peak, min: minP, ddMax, fired: ids, deployed: dep, leverage: lev, avgPrice: avg, captured: avg != null && peak > minP ? ((peak - avg) / (peak - minP)) * 100 : null };
+  };
 
   // Estado
   let open = false, start = -1, peak = 0, peakIdx = -1, minP = Infinity, minIdx = -1, ddMax = 0, spDdMax = 0, ndxDdMax = 0, sectorOnly = false;
@@ -169,6 +181,7 @@ export function computeTranches(P: PreparedTranches, date: string, sectorRule: S
       const atHighs = (spDd ?? -1) >= 0 && (!dual || (ndxDd ?? -1) >= 0);
       if (p >= peak || atHighs) {
         lastEp = { start: s.dates[start], end: s.dates[k], ddMax };
+        opts.onEpisodeEnd?.(summarize(s.dates[k]));
         open = false; slopeMin = 0; for (const id of Object.keys(fired)) delete fired[id as TrancheId];
       }
     }
@@ -194,7 +207,7 @@ export function computeTranches(P: PreparedTranches, date: string, sectorRule: S
     const ratio = ratioAt(k);
     let volVote = false;
     if (ratio != null) {
-      if (ratio > C.volArm) { armed = true; armedAt = k; volOnAt = -1; }
+      if (ratio > volArm) { armed = true; armedAt = k; volOnAt = -1; }
       else if (armed && ratio < 1) { volOnAt = k; armed = false; }
       if (ratio > 1) volOnAt = -1;
     } else {
@@ -279,6 +292,7 @@ export function computeTranches(P: PreparedTranches, date: string, sectorRule: S
     if (k === D) snap = { veto, volVote, decelVote, votes, spDd, ndxDd, ratio, boll, recover };
   }
 
+  if (open) opts.onEpisodeEnd?.(summarize(null));
   const ids: TrancheId[] = ['T0', 'T1', 'T2', 'T3', 'T4'];
   const tranches: TrancheState[] = ids.map((id) => {
     const f = fired[id];
@@ -309,7 +323,7 @@ export function computeTranches(P: PreparedTranches, date: string, sectorRule: S
     lastEpisode: open ? null : lastEp,
     today: {
       price: px[D], spDd: sn.spDd, ndxDd: sn.ndxDd, veto: sn.veto, oas: P.oas[D], oasMax63: P.oasMax63[D], oasSma20: P.oasSma20[D],
-      ratio: sn.ratio, volSource: sn.ratio != null ? 'ratio' : 'fallback', volVote: sn.volVote, volArmedAt: armedAt >= 0 ? s.dates[armedAt] : null,
+      ratio: sn.ratio, volSource: sn.ratio != null ? 'ratio' : 'fallback', volVote: sn.volVote, volArmedAt: open && armedAt >= start ? s.dates[armedAt] : null, // solo si se armó en este episodio
       decelVote: sn.decelVote, slope: P.slope[D] != null ? (P.slope[D] as number) * 100 : null, curv: P.curv[D] != null ? (P.curv[D] as number) * 100 : null,
       slopeMin: open ? slopeMin * 100 : null, recover: sn.recover != null ? sn.recover * 100 : null, boll: sn.boll,
       votes: sn.votes, cape: s.cape[D], capeMedian20: s.capeMedian20[D],
