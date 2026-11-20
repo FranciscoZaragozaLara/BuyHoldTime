@@ -2,12 +2,13 @@
 
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useLocale } from 'next-intl';
-import { createChart, ColorType, LineSeries, IChartApi, createSeriesMarkers } from 'lightweight-charts';
+import { athColor } from '@/lib/athDrawdown';
+import { createChart, ColorType, LineSeries, IChartApi, createSeriesMarkers, type Time } from 'lightweight-charts';
 import { Eye, EyeOff, Calendar, Table, LineChart as ChartIcon, Sparkles } from 'lucide-react';
 import { IndicatorDetails } from '@/services/api';
 import { TOKENS } from '@/lib/designTokens';
 import { getApiBase } from '@/lib/apiBase';
-import { buildValuationChart, signalMarkers, thinMarkers, MARKER_MIN_PX, type DailyValuation, type Instrument } from '@/lib/valuationChart';
+import { athDrawdownLine, buildValuationChart, signalMarkers, thinMarkers, MARKER_MIN_PX, type DailyValuation, type Instrument } from '@/lib/valuationChart';
 import { BHT_BANDS, bhtBandColor } from '@/components/backtesting/bhtBands';
 import { BhtDetailPopover, BhtHoverTip, useBhtDetail, useBhtPin } from '@/components/backtesting/BhtDetail';
 import { attachBhtChartPin, type BhtPoint } from '@/components/backtesting/bhtChartPin';
@@ -312,6 +313,41 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
       detachMarkers = () => { cancelAnimationFrame(raf); try { chart.timeScale().unsubscribeVisibleLogicalRangeChange(onRange); } catch { /* noop */ } };
     }
     
+    // Caída desde el máximo (ATH, o máximo de 5 años): recta del pico al precio actual. No entra en el autoescalado,
+    // así que si el pico queda fuera de la vista la línea entra por el borde (el "techo").
+    let detachAth = () => {};
+    if (showSp500Price) {
+      const dl = athDrawdownLine(chartPoints);
+      if (dl && dl.from.time < dl.to.time) {
+        const c = athColor(dl.tone);
+        const athSeries = chart.addSeries(LineSeries, {
+          color: c, lineWidth: 1, lineStyle: 2, priceScaleId: 'right', priceLineVisible: false, lastValueVisible: false,
+          crosshairMarkerVisible: false, autoscaleInfoProvider: () => null,
+        });
+        athSeries.setData([dl.from, dl.to]);
+        const es = locale === 'es';
+        const ath = dl.window5y ? 'ATH 5Y' : 'ATH';
+        const pctTxt = dl.pct > -0.05 ? null : `${dl.pct.toFixed(1)}%`;
+        // El texto del pico se oculta si la recta mide pocos píxeles (vista lejana): se encimaría con el del punto actual.
+        const athMarkers = createSeriesMarkers(athSeries, []);
+        const peakText = `${ath} ${dl.ath.toFixed(2)}${pctTxt ? ` (${pctTxt})` : ''}`;
+        const applyAth = () => {
+          const ts = chart.timeScale();
+          const x0 = ts.timeToCoordinate(dl.from.time as Time), x1 = ts.timeToCoordinate(dl.to.time as Time);
+          const far = x0 == null || x1 == null || Math.abs(x1 - x0) >= 100;
+          athMarkers.setMarkers([
+            { time: dl.from.time, position: 'aboveBar', color: c, shape: 'circle', size: 0.5, text: far ? peakText : '' },
+            { time: dl.to.time, position: 'belowBar', color: c, shape: 'circle', size: 0.5, text: pctTxt ?? (es ? `En ${ath}` : `At ${ath}`) },
+          ]);
+        };
+        let rafAth = 0;
+        const onAthRange = () => { cancelAnimationFrame(rafAth); rafAth = requestAnimationFrame(applyAth); };
+        chart.timeScale().subscribeVisibleLogicalRangeChange(onAthRange);
+        onAthRange();
+        detachAth = () => { cancelAnimationFrame(rafAth); try { chart.timeScale().unsubscribeVisibleLogicalRangeChange(onAthRange); } catch { /* noop */ } };
+      }
+    }
+
     if (showMa50) ema50Series.setData(line('sp500PriceMa50'));
     if (showMa200) ema200Series.setData(line('sp500PriceMa200'));
     if (showPeRatio) peSeries.setData(line('peRatio'));
@@ -417,38 +453,30 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
     const timeframeChanged = lastTimeframeRef.current !== timeframe;
     lastTimeframeRef.current = timeframe;
     const latest = chartPoints[chartPoints.length - 1];
+    // Se fija con índices (setVisibleLogicalRange) para poder dejar ~40 px libres a la derecha cuando la vista llega
+    // al final, a cualquier zoom: ahí se lee la etiqueta de la caída desde ATH. setVisibleRange pega la última sesión al eje.
+    const isoOf = (t: Time): string => typeof t === 'string' ? t : typeof t === 'number' ? new Date(t * 1000).toISOString().slice(0, 10)
+      : `${t.year}-${String(t.month).padStart(2, '0')}-${String(t.day).padStart(2, '0')}`;
+    const setView = (fromIso: string, toIso: string) => {
+      const last = chartPoints.length - 1;
+      let fromIdx = chartPoints.findIndex((p) => p.time >= fromIso);
+      if (fromIdx < 0) fromIdx = 0;
+      let toIdx = last;
+      while (toIdx > fromIdx && chartPoints[toIdx].time > toIso) toIdx--;
+      const ts = chart.timeScale();
+      const w = ts.width() || (chartContainerRef.current?.clientWidth ?? 0) - 60;
+      const pad = toIdx === last && w > 80 ? (40 * (toIdx - fromIdx)) / (w - 40) : 0;
+      ts.setVisibleLogicalRange({ from: fromIdx, to: toIdx + pad });
+    };
     let restored = false;
     if (!timeframeChanged && viewRef.current) {
-      try { chart.timeScale().setVisibleRange(viewRef.current); restored = true; } catch { /* rango inválido: se aplica el del botón */ }
+      try { setView(isoOf(viewRef.current.from), isoOf(viewRef.current.to)); restored = true; } catch { /* rango inválido: se aplica el del botón */ }
     }
     if (latest && !restored) {
-      const latestDate = new Date(latest.time);
-      let fromDate: Date | null = null;
-      if (timeframe === '1Y') {
-        fromDate = new Date(latestDate);
-        fromDate.setFullYear(fromDate.getFullYear() - 1);
-      } else if (timeframe === '3Y') {
-        fromDate = new Date(latestDate);
-        fromDate.setFullYear(fromDate.getFullYear() - 3);
-      } else if (timeframe === '5Y') {
-        fromDate = new Date(latestDate);
-        fromDate.setFullYear(fromDate.getFullYear() - 5);
-      } else if (timeframe === '10Y') {
-        fromDate = new Date(latestDate);
-        fromDate.setFullYear(fromDate.getFullYear() - 10);
-      } else if (timeframe === '25Y') {
-        fromDate = new Date(latestDate);
-        fromDate.setFullYear(fromDate.getFullYear() - 25);
-      }
-
-      if (fromDate) {
-        chart.timeScale().setVisibleRange({
-          from: fromDate.toISOString().split('T')[0] as any,
-          to: latest.time as any,
-        });
-      } else {
-        chart.timeScale().fitContent();
-      }
+      const years: Record<string, number> = { '1Y': 1, '3Y': 3, '5Y': 5, '10Y': 10, '25Y': 25 };
+      const fromDate = new Date(latest.time);
+      if (years[timeframe]) fromDate.setFullYear(fromDate.getFullYear() - years[timeframe]);
+      setView(years[timeframe] ? fromDate.toISOString().slice(0, 10) : chartPoints[0].time, latest.time);
     }
 
     // Guarda cada cambio de zoom/desplazamiento (después de aplicar el rango inicial).
@@ -487,6 +515,7 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
       chart.timeScale().unsubscribeVisibleTimeRangeChange(updateMaxLine);
       chart.timeScale().unsubscribeVisibleTimeRangeChange(rememberView);
       detachMarkers();
+      detachAth();
       chart.remove();
       chartRef.current = null;
     };

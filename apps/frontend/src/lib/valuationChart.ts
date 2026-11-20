@@ -5,6 +5,7 @@
 // SMA 50/200 del instrumento (Golden / Death Cross).
 import { TOKENS } from './designTokens';
 import { toTrendRegime } from './trendRegime';
+import { athDrawdown, type AthDrawdown } from './athDrawdown';
 
 export type MonthlyRow = { date: string; sp500Price?: number; peRatio?: number; shillerPe?: number };
 export type DailyValuation = {
@@ -254,4 +255,14 @@ export function thinMarkers<T extends Pick<SignalMarker, 'time' | 'kind' | 'prio
     keep.add(x.k);
   }
   return markers.filter((_, k) => keep.has(k));
+}
+
+/** Línea de caída desde el máximo: del pico (ATH, o máximo de 5 años si el ATH tiene más de 5 años) al último precio. */
+export function athDrawdownLine(points: ChartPoint[]): (AthDrawdown & { from: { time: string; value: number }; to: { time: string; value: number } }) | null {
+  const hist = new Map<string, number>();
+  for (const p of points) if (p.sp500Price != null) hist.set(p.time, p.sp500Price);
+  const dd = athDrawdown(hist, null);
+  if (!dd) return null;
+  const lastTime = [...hist.keys()].reduce((a, b) => (b > a ? b : a));
+  return { ...dd, from: { time: dd.athDate, value: dd.ath }, to: { time: lastTime, value: hist.get(lastTime)! } };
 }

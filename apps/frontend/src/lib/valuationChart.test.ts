@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildValuationChart, signalMarkers, signalState, thinMarkers, DEATH_CROSS_MIN_BHT, SELL_RESET_BELOW, CROSS_MIN_SESSIONS, SIGNAL_REPEAT, type ChartPoint, type DailyValuation, type MonthlyRow } from './valuationChart';
+import { athDrawdownLine, buildValuationChart, signalMarkers, signalState, thinMarkers, DEATH_CROSS_MIN_BHT, SELL_RESET_BELOW, CROSS_MIN_SESSIONS, SIGNAL_REPEAT, type ChartPoint, type DailyValuation, type MonthlyRow } from './valuationChart';
 
 const monthly: MonthlyRow[] = [
   { date: '1989-11', sp500Price: 340, peRatio: 14, shillerPe: 17 },
@@ -147,5 +147,22 @@ describe('raleo de señales por zoom', () => {
   it('a igual prioridad, $$ antes que ¼$', () => {
     const list = [m('0', 'starter', 2), m('3', 'strong', 2)];
     expect(thinMarkers(list, idx, 10).map((x) => x.kind)).toEqual(['strong']);
+  });
+});
+
+describe('athDrawdownLine', () => {
+  it('va del pico al último precio con la caída y su semáforo', () => {
+    const pts = [
+      { time: '2026-01-02', daily: true, sp500Price: 100 },
+      { time: '2026-03-02', daily: true, sp500Price: 120 },
+      { time: '2026-06-01', daily: true },
+      { time: '2026-11-19', daily: true, sp500Price: 102 },
+    ];
+    const l = athDrawdownLine(pts)!;
+    expect(l.from).toEqual({ time: '2026-03-02', value: 120 });
+    expect(l.to).toEqual({ time: '2026-11-19', value: 102 });
+    expect(l.pct).toBeCloseTo(-15, 9);
+    expect(l.tone).toBe('elevated');
+    expect(athDrawdownLine([])).toBeNull();
   });
 });
