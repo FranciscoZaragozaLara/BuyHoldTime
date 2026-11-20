@@ -10,7 +10,7 @@ import { liveTrend } from './trend-regime';
 import { PROVISIONAL_OF, rowsWithProvisional, withProvisional } from './provisional-series';
 
 /** Tickers cuyo precio en vivo se toma de otro símbolo de Yahoo (la serie histórica viene de otra fuente). */
-export const YAHOO_LIVE_ALIAS: Record<string, string> = { DCOILWTICO: 'CL=F' };
+export const YAHOO_LIVE_ALIAS: Record<string, string> = { DCOILWTICO: 'CL=F', VIXCLS: '^VIX' };
 import { spliceSeries } from '../market-data/valuation-daily';
 import { computeThermoLive, LivePoints, THERMO_LIVE_TICKERS, THERMO_TICKERS, getHyBonus, getHySigma24, getLiqBonus, getOilBonus, PriceMap } from './thermo-history';
 
@@ -342,7 +342,8 @@ export class BacktestingService {
 
   async getLivePrice(ticker: string) {
     const t = ticker.trim();
-    const isFred = ['DFEDTARU','DGS2','DGS10','DGS30','BAMLH0A0HYM2','BAMLH0A0HYM2EY','CPIAUCSL','CPILFESL','GDP','GDPC1','MSACSR','VIXCLS'].includes(t);
+    // VIX: FRED (VIXCLS) publica al día siguiente; en vivo se toma ^VIX de Yahoo (valor parcial del día).
+    const isFred = ['DFEDTARU','DGS2','DGS10','DGS30','BAMLH0A0HYM2','BAMLH0A0HYM2EY','CPIAUCSL','CPILFESL','GDP','GDPC1','MSACSR'].includes(t);
     const isCnn = t === 'FEAR_GREED';
     const cacheKey = `live:${t}`;
     const cached = this.liveCache.get(cacheKey) as any;

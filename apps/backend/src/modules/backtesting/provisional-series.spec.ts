@@ -8,6 +8,7 @@ describe('provisional-series', () => {
     expect([...m.entries()].sort()).toEqual([['2026-11-13', 91.96], ['2026-11-16', 89.24], ['2026-11-17', 89.53], ['2026-11-18', 84.1], ['2026-11-19', 83.43]]);
     expect(withProvisional(fred, undefined)).toBe(fred);
     expect(PROVISIONAL_OF.DCOILWTICO).toBe('CL=F');
+    expect(PROVISIONAL_OF.VIXCLS).toBe('^VIX');
   });
   test('filas: agrega las provisionales posteriores marcadas', () => {
     const d = (s: string) => new Date(`${s}T00:00:00Z`);

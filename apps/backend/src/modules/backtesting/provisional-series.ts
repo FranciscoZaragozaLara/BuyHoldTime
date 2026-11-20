@@ -1,9 +1,10 @@
 // Series oficiales con retraso (FRED) completadas con un proxy diario provisional hasta que se publique el dato:
 // WTI spot (DCOILWTICO, EIA vía FRED, días de retraso) ← futuro del mes cercano en Yahoo (CL=F).
+// VIX (VIXCLS de FRED, al día siguiente) ← ^VIX de Yahoo (mismo índice, al cierre del día).
 import type { PriceMap } from './thermo-history';
 
 /** Ticker oficial → ticker provisional (se guarda aparte en bt_market_data). */
-export const PROVISIONAL_OF: Record<string, string> = { DCOILWTICO: 'CL=F' };
+export const PROVISIONAL_OF: Record<string, string> = { DCOILWTICO: 'CL=F', VIXCLS: '^VIX' };
 
 /** Oficial + provisional solo para fechas posteriores al último dato oficial (el oficial siempre manda). */
 export function withProvisional(official: PriceMap, provisional: PriceMap | undefined): PriceMap {

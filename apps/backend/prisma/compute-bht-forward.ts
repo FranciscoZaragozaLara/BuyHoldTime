@@ -2,6 +2,7 @@ import 'dotenv/config';
 import { Pool } from 'pg';
 import { computeFwdDay } from '../src/modules/backtesting/bht-forward';
 import { computeThermoDay, PriceMap } from '../src/modules/backtesting/thermo-history';
+import { PROVISIONAL_OF, withProvisional } from '../src/modules/backtesting/provisional-series';
 
 // Guarda BHT Index + precios y forwards maduros en bt_bht_forward.
 // Idempotente (upsert): reejecutable a diario; los horizontes maduran solos.
@@ -25,12 +26,16 @@ async function main() {
   const maps: Record<string, PriceMap> = { '^GSPC': new Map(), '^IXIC': new Map(), 'TQQQ': new Map() };
   const full: Record<string, PriceMap> = {};
   for (const t of ALL_TICKERS) full[t] = new Map();
-  const { rows } = await pool.query('SELECT ticker, date::text AS d, close FROM "bt_market_data" WHERE ticker = ANY($1)', [[...new Set([...TICKERS, ...ALL_TICKERS])]]);
+  const provTickers = ALL_TICKERS.map((t) => PROVISIONAL_OF[t]).filter(Boolean);
+  for (const t of provTickers) full[t] = new Map();
+  const { rows } = await pool.query('SELECT ticker, date::text AS d, close FROM "bt_market_data" WHERE ticker = ANY($1)', [[...new Set([...TICKERS, ...ALL_TICKERS, ...provTickers])]]);
   for (const r of rows) {
     const k = r.d.slice(0, 10);
     if (maps[r.ticker]) maps[r.ticker].set(k, Number(r.close));
     full[r.ticker]?.set(k, Number(r.close));
   }
+  // Series oficiales con retraso (WTI, VIX de FRED): los días aún no publicados toman el proxy provisional.
+  for (const t of ALL_TICKERS) if (PROVISIONAL_OF[t]) full[t] = withProvisional(full[t], full[PROVISIONAL_OF[t]]);
   // CAPE registrado diario (bt_shiller_daily) para el detalle por indicador
   const capeQ = await pool.query(`SELECT to_char(date, 'YYYY-MM-DD') AS d, cape, mean3y FROM "bt_shiller_daily"`);
   const capeMap = new Map<string, { cape: number | null; ratio: number | null }>();
