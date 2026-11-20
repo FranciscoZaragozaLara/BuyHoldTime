@@ -177,8 +177,12 @@ export default function BhtStrategyView({ date, locale, adviceLabel, adviceText 
                   <tbody>
                     {MATRIX_BANDS.map((b, bi) => (
                       <tr key={b.range} className="border-b border-slate-800/60">
-                        <td className="py-0.5 whitespace-nowrap"><span className="inline-block w-2 h-2 rounded-full mr-1 align-middle" style={{ background: b.color }} />{b.range}
-                          <div className="text-[9px] text-slate-500 pl-3" title={t.mxFreqTitle}>{bandPct(r.matrix!.cells, bi).toFixed(1)}%</div></td>
+                        <td className="py-0.5 whitespace-nowrap align-top">
+                          <div className="flex items-start gap-1.5">
+                            <span className="w-2 h-2 rounded-full mt-[3px] shrink-0" style={{ background: b.color }} />
+                            <div><div className="text-slate-200">{b.range}</div><div className="text-[9px] text-slate-500" title={t.mxFreqTitle}>{bandPct(r.matrix!.cells, bi).toFixed(1)}%</div></div>
+                          </div>
+                        </td>
                         {TREND_ORDER.map((g) => {
                           const x = r.matrix!.cells.find((y) => y.band === bi && y.regime === g);
                           const cur = bi === r.matrix!.current.band && g === regime;

@@ -143,8 +143,13 @@ export function BhtReturnsTable({ locale, date, score, regime: regimeRaw, initia
               <tbody>
                 {MATRIX_BANDS.map((bb, bi) => (
                   <tr key={bb.range} className="border-b border-slate-800/60">
-                    <td className="py-0.5 whitespace-nowrap"><span className="inline-block w-2 h-2 rounded-full mr-1 align-middle" style={{ background: bb.color }} />{bb.range}
-                      <div className="text-[9px] text-slate-500 pl-3">{bandPct(cells[mxInst], bi).toFixed(1)}%</div></td>
+                    <td className="py-0.5 whitespace-nowrap align-top">
+                      {/* Color explícito: en Indicadores la celda heredaba un texto oscuro y el rango no se leía. */}
+                      <div className="flex items-start gap-1.5">
+                        <span className="w-2 h-2 rounded-full mt-[3px] shrink-0" style={{ background: bb.color }} />
+                        <div><div className="text-slate-200">{bb.range}</div><div className="text-[9px] text-slate-500">{bandPct(cells[mxInst], bi).toFixed(1)}%</div></div>
+                      </div>
+                    </td>
                     {TREND_ORDER.map((g) => {
                       const x = (cells[mxInst] ?? []).find((y) => y.band === bi && y.regime === g);
                       const cur = bi === band && g === regime;
