@@ -148,7 +148,7 @@ export function computeTranches(P: PreparedTranches, date: string, sectorRule: S
       const atHighs = (spDd ?? -1) >= 0 && (!dual || (ndxDd ?? -1) >= 0);
       if (p >= peak || atHighs) {
         lastEp = { start: s.dates[start], end: s.dates[k], ddMax };
-        open = false; for (const id of Object.keys(fired)) delete fired[id as TrancheId];
+        open = false; slopeMin = 0; for (const id of Object.keys(fired)) delete fired[id as TrancheId];
       }
     }
     if (!open && permit) {
@@ -189,7 +189,8 @@ export function computeTranches(P: PreparedTranches, date: string, sectorRule: S
     const S = P.slope[k], Cv = P.curv[k];
     curvRun = Cv != null && Cv > 0 ? curvRun + 1 : 0;
     if (S != null && open) slopeMin = Math.min(slopeMin, S);
-    const recover = S != null && slopeMin < 0 ? (S - slopeMin) / -slopeMin : null;
+    // Recuperación de la pendiente solo dentro de un episodio (su mínimo se reinicia al abrir y al cerrar).
+    const recover = open && S != null && slopeMin < 0 ? (S - slopeMin) / -slopeMin : null;
     const curvVote = S != null && curvRun >= 3 && slopeMin <= C.decelSmin && (recover ?? 0) >= C.decelRecover && S < 0;
     const lo = P.lower[k], loPrev = k > 0 ? P.lower[k - 1] : null, pPrev = k > 0 ? px[k - 1] : null;
     if (lo != null && loPrev != null && pPrev != null && pPrev < loPrev && p > lo) bollAt = k;
