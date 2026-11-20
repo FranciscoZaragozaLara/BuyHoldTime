@@ -194,6 +194,8 @@ export function computeTranches(P: PreparedTranches, date: string, sectorRule: S
     const curvVote = S != null && curvRun >= 3 && slopeMin <= C.decelSmin && (recover ?? 0) >= C.decelRecover && S < 0;
     const lo = P.lower[k], loPrev = k > 0 ? P.lower[k - 1] : null, pPrev = k > 0 ? px[k - 1] : null;
     if (lo != null && loPrev != null && pPrev != null && pPrev < loPrev && p > lo) bollAt = k;
+    // Se anula si el precio vuelve a cerrar debajo de la banda (como la corrección 1 con el ratio de volatilidad).
+    else if (lo != null && p < lo) bollAt = -1;
     const boll = bollAt >= 0 && k - bollAt < 10;
     const decelVote = curvVote || boll;
     const votes = (volVote ? 1 : 0) + (decelVote ? 1 : 0);

@@ -43,4 +43,14 @@ describe('módulo de reentrada por tranches', () => {
     expect(med[1]).toBe(20); // 120 meses en 10 y 120 en 30
     expect(med[2]).toBe(30); // la ventana avanza un mes
   });
+  test('el reingreso a la banda de Bollinger se anula si el precio vuelve a cerrar debajo', () => {
+    // Caída fuerte (cierra bajo la banda), rebote que reingresa y nueva caída bajo la banda.
+    const n = 120;
+    const dates = Array.from({ length: n }, (_, k) => new Date(Date.UTC(2021, 0, 1) + k * 86400000).toISOString().slice(0, 10));
+    const spx = dates.map((_, k) => (k < 100 ? 100 : k === 100 ? 85 : k === 101 ? 99 : k === 102 ? 80 : 80));
+    const base = { dates, spx, qqq: spx, vix: dates.map(() => 15), vix3m: dates.map(() => 17), oas: dates.map(() => 4), cape: dates.map(() => 30), capeMedian20: dates.map(() => 25) };
+    const P = prepareTranches(base, 'voo');
+    expect(computeTranches(P, dates[101])!.today.boll).toBe(true); // reingresó
+    expect(computeTranches(P, dates[102])!.today.boll).toBe(false); // volvió a cerrar bajo la banda
+  });
 });
