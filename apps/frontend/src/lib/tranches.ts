@@ -38,3 +38,11 @@ export function trancheCheckText(c: TrancheCheck, locale: string): string {
   if ((c.key === 'votes2' || c.key === 'votes1') && typeof c.value === 'number') return `${name} (${c.value})`;
   return name;
 }
+
+/** Color del P&L de un tranche: verde en ganancia; ámbar, naranja y rojo según la pérdida (0 a −5, −5 a −15, < −15). */
+export function pnlColor(v: number): string {
+  if (v >= 0) return TOKENS.favorable;
+  if (v > -5) return TOKENS.caution;
+  if (v > -15) return TOKENS.elevated;
+  return TOKENS.risk;
+}

@@ -7,11 +7,11 @@ import { useEffect, useState } from 'react';
 import { getApiBase } from '@/lib/apiBase';
 import { TOKENS } from '@/lib/designTokens';
 import { athColor, athTone } from '@/lib/athDrawdown';
-import { trancheCheckText, TRANCHE_LIGHT, type TrancheCheck, type TrancheLight } from '@/lib/tranches';
+import { pnlColor, trancheCheckText, TRANCHE_LIGHT, type TrancheCheck, type TrancheLight } from '@/lib/tranches';
 
 type Route = 'voo' | 'qqq';
 type Rule = 'half' | 'extraVote';
-type Tranche = { id: string; weight: number; size: number; lev3x: number; status: 'fired' | 'today' | 'pending'; date: string | null; price: number | null; backup?: boolean; checks: TrancheCheck[] };
+type Tranche = { id: string; weight: number; size: number; lev3x: number; status: 'fired' | 'today' | 'pending'; date: string | null; price: number | null; backup?: boolean; checks: TrancheCheck[]; pnl?: number | null; pnlMix?: number | null };
 type Result = {
   date: string; route: Route; light: TrancheLight;
   episode: null | { start: string; peakDate: string; peak: number; price: number; dd: number; ddMax: number; minDate: string; min: number; days: number; sectorOnly: boolean; spDd: number | null; ndxDd: number | null };
@@ -23,7 +23,7 @@ type Result = {
     decelVote: boolean; slope: number | null; curv: number | null; slopeMin: number | null; recover: number | null; boll: boolean; votes: number; cape: number | null; capeMedian20: number | null;
   };
   ath?: { spx: Ath | null; qqq: Ath | null; tqqq?: Ath | null };
-  tranches: Tranche[]; deployed: number; leverage: number; avgPrice: number | null; captured: number | null;
+  tranches: Tranche[]; deployed: number; leverage: number; avgPrice: number | null; captured: number | null; pnl?: number | null; pnlMix?: number | null;
 };
 type Both = Partial<Record<Rule, Result | null>>;
 type Ath = { pct: number; date: string; price: number; window5y: boolean };
@@ -41,6 +41,10 @@ function fetchTranches(date: string, route: Route) {
 
 const money = (v: number | null | undefined) => (v == null ? '—' : v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
 const pct = (v: number | null | undefined, d = 1) => (v == null ? '—' : `${(Number(v.toFixed(d)) || 0) > 0 ? '+' : ''}${(Number(v.toFixed(d)) || 0).toFixed(d)}%`);
+/** P&L desde el precio de disparo, con el semáforo de ganancias/pérdidas. */
+const PnL = ({ v, title, bare }: { v: number; title: string; bare?: boolean }) => (
+  <span className={`font-bold ${bare ? '' : 'ml-1.5 px-1 rounded'}`} style={{ color: pnlColor(v), backgroundColor: bare ? undefined : `${pnlColor(v)}1a` }} title={title}>{pct(v)}</span>
+);
 const Mark = ({ ok }: { ok: boolean }) => <span className={`font-bold ${ok ? 'text-favorable-300' : 'text-slate-500'}`}>{ok ? '✓' : '✗'}</span>;
 
 const T = {
@@ -55,6 +59,7 @@ const T = {
     slope: 'pendiente EMA50', recover: 'recuperó', boll: 'reingreso a la banda de Bollinger −2σ', capeVs: 'CAPE vs mediana 20 años',
     tranche: 'Tranche', weight: 'Peso', mix: 'Mezcla', status: 'Estado', fired: 'Disparado', today: 'Hoy', pending: 'Falta', backup: 'respaldo (12 meses sobre la EMA200)', halfSize: 'medio tamaño',
     names: { T0: 'Capitulación', T1: 'Pánico terminando', T2: 'Desaceleración', T3: 'Validación', T4: 'Valuación profunda' } as Record<string, string>,
+    pnlTitle: 'Cambio del precio de referencia desde el disparo hasta esta fecha', pnlMixTitle: 'P&L de la mezcla 1×/3× (el 3× con su propio precio)', pnlTotal: 'P&L',
     deployed: 'Desplegado', lev: 'apalancamiento', avg: 'precio promedio', captured: 'de la caída capturada',
     note: 'Metodología de investigación cuantitativa (MRT v1.3, adaptado): permiso por caída del precio vs su máximo de 12 meses; voto de volatilidad híbrido blindado (VIX/VIX3M, o VIX ≥25% bajo su máximo de 20 días con BHT < 50); T4 con CAPE debajo de su mediana de 20 años; sin voto de amplitud. No es asesoría financiera.',
     loading: 'Calculando…', error: 'No se pudo calcular.',
@@ -70,6 +75,7 @@ const T = {
     slope: 'EMA50 slope', recover: 'recovered', boll: 'back inside the −2σ Bollinger band', capeVs: 'CAPE vs 20-year median',
     tranche: 'Tranche', weight: 'Weight', mix: 'Mix', status: 'Status', fired: 'Fired', today: 'Today', pending: 'Missing', backup: 'backup (12 months above the EMA200)', halfSize: 'half size',
     names: { T0: 'Capitulation', T1: 'Panic ending', T2: 'Deceleration', T3: 'Validation', T4: 'Deep value' } as Record<string, string>,
+    pnlTitle: 'Reference price change from the trigger to this date', pnlMixTitle: 'P&L of the 1×/3× mix (the 3× at its own price)', pnlTotal: 'P&L',
     deployed: 'Deployed', lev: 'leverage', avg: 'average price', captured: 'of the drawdown captured',
     note: 'Quantitative research methodology (MRT v1.3, adapted): permission by price drawdown vs its 12-month high; hardened hybrid volatility vote (VIX/VIX3M, or VIX ≥25% below its 20-day high with BHT < 50); T4 with CAPE below its 20-year median; no breadth vote. Not financial advice.',
     loading: 'Computing…', error: 'Could not compute.',
@@ -200,7 +206,7 @@ export default function BhtTranchesView({ date, locale }: { date: string; locale
                     <td className="text-right text-slate-400 px-2 whitespace-nowrap">{Math.round((1 - x.lev3x) * 100)}/{Math.round(x.lev3x * 100)}</td>
                     <td className="text-slate-300">
                       {x.status !== 'pending' ? (
-                        <span className="text-favorable-300 font-bold">{x.status === 'today' ? t.today : t.fired} {x.date} @ {money(x.price)}{x.size < 1 && <span className="font-normal text-caution-300"> · {t.halfSize}</span>}{x.backup && <span className="font-normal text-slate-400"> · {t.backup}</span>}</span>
+                        <span className="text-favorable-300 font-bold">{x.status === 'today' ? t.today : t.fired} {x.date} @ {money(x.price)}{x.pnl != null && <PnL v={x.pnl} title={t.pnlTitle} />}{x.pnlMix != null && x.lev3x > 0 && <span className="font-normal text-slate-400"> · {t.mix.toLowerCase()} <PnL v={x.pnlMix} title={t.pnlMixTitle} bare /></span>}{x.size < 1 && <span className="font-normal text-caution-300"> · {t.halfSize}</span>}{x.backup && <span className="font-normal text-slate-400"> · {t.backup}</span>}</span>
                       ) : !r.episode ? <span className="text-slate-600">—</span> : (
                         <span className="text-slate-400">{t.pending}: {missing.map((c) => trancheCheckText(c, locale)).join(' · ') || '—'}</span>
                       )}
@@ -212,7 +218,7 @@ export default function BhtTranchesView({ date, locale }: { date: string; locale
           </table>
           <div className="font-mono text-slate-300">
             {t.deployed} <span className="font-bold text-slate-100">{(r.deployed * 100).toFixed(1)}%</span> · {t.lev} <span className="font-bold" style={{ color: r.leverage > 1 ? TOKENS.elevated : undefined }}>{r.leverage.toFixed(2)}x</span>
-            {r.avgPrice != null && <> · {t.avg} {money(r.avgPrice)}</>}{r.captured != null && <> · <span className="text-favorable-300">{r.captured.toFixed(0)}%</span> {t.captured}</>}
+            {r.avgPrice != null && <> · {t.avg} {money(r.avgPrice)}</>}{r.pnl != null && <> · {t.pnlTotal} <PnL v={r.pnl} title={t.pnlTitle} bare />{r.pnlMix != null && r.leverage !== r.deployed && <> ({t.mix.toLowerCase()} <PnL v={r.pnlMix} title={t.pnlMixTitle} bare />)</>}</>}{r.captured != null && <> · <span className="text-favorable-300">{r.captured.toFixed(0)}%</span> {t.captured}</>}
           </div>
           <div className="text-[10px] text-slate-500 leading-snug">{t.note}</div>
         </div>

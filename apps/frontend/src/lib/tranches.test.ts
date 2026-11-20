@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { trancheCheckText, TRANCHE_LIGHT } from './tranches';
+import { pnlColor, trancheCheckText, TRANCHE_LIGHT } from './tranches';
+import { TOKENS } from './designTokens';
 
 describe('tranches', () => {
   it('textos de condiciones con valor contra lo exigido', () => {
@@ -13,5 +14,8 @@ describe('tranches', () => {
   it('semáforo de 5 colores con mensaje en los dos idiomas', () => {
     expect(Object.keys(TRANCHE_LIGHT)).toEqual(['gray', 'purple', 'red', 'amber', 'green']);
     expect(TRANCHE_LIGHT.red.es).toContain('cuchillo');
+  });
+  it('P&L semaforizado: ganancia verde; pérdidas ámbar, naranja y rojo', () => {
+    expect([12, 0, -3, -10, -20].map(pnlColor)).toEqual([TOKENS.favorable, TOKENS.favorable, TOKENS.caution, TOKENS.elevated, TOKENS.risk]);
   });
 });

@@ -105,6 +105,10 @@ export type Check = { key: string; ok: boolean; value?: number | string | null; 
 export type TrancheState = {
   id: TrancheId; weight: number; size: number; lev3x: number;
   status: 'fired' | 'today' | 'pending'; date: string | null; price: number | null; backup?: boolean; checks: Check[];
+  /** % de cambio del precio de referencia (S&P 500 o QQQ) desde el disparo hasta la fecha. */
+  pnl: number | null;
+  /** % de la mezcla real (1× + 3×; TQQQ con su propio precio). Solo ruta QQQ con dato de TQQQ. */
+  pnlMix: number | null;
 };
 export type TranchesResult = {
   date: string; route: TrancheRoute; sectorRule: SectorRule;
@@ -126,6 +130,8 @@ export type TranchesResult = {
   ath: { spx: AthAt | null; qqq: AthAt | null; tqqq: AthAt | null };
   tranches: TrancheState[];
   deployed: number; leverage: number; avgPrice: number | null; captured: number | null;
+  /** P&L ponderado de lo desplegado (precio de referencia y mezcla real). */
+  pnl: number | null; pnlMix: number | null;
 };
 
 /** Precálculo por ruta (independiente de la fecha): se reutiliza entre peticiones. */
@@ -320,10 +326,15 @@ export function computeTranches(P: PreparedTranches, date: string, sectorRule: S
   const tranches: TrancheState[] = ids.map((id) => {
     const f = fired[id];
     const lev3x = f?.backup ? 0 : C.lev3x[id];
+    const ret = (a: Num, b: Num) => (a != null && b != null && a > 0 ? (b / a - 1) * 100 : null);
+    const pnl = f ? ret(px[f.k], px[D]) : null;
+    const r3 = f && dual && s.tqqq ? ret(s.tqqq[f.k], s.tqqq[D]) : null;
+    const pnlMix = pnl == null ? null : lev3x === 0 ? pnl : r3 != null ? (1 - lev3x) * pnl + lev3x * r3 : null;
     return {
       id, weight: C.weights[id], size: f?.size ?? 0, lev3x,
       status: f ? (f.k === D ? 'today' : 'fired') : 'pending',
       date: f ? s.dates[f.k] : null, price: f ? px[f.k] : null, backup: f?.backup, checks: checksAt[id] ?? [],
+      pnl, pnlMix,
     };
   });
   let deployed = 0, leverage = 0, cost = 0;
@@ -331,6 +342,12 @@ export function computeTranches(P: PreparedTranches, date: string, sectorRule: S
     const w = t.weight * t.size; deployed += w; leverage += w * (1 - t.lev3x + 3 * t.lev3x); cost += w * (t.price as number);
   }
   const avgPrice = deployed > 0 ? cost / deployed : null;
+  const wavg = (key: 'pnl' | 'pnlMix') => {
+    const xs = tranches.filter((t) => t.status !== 'pending');
+    if (!xs.length || xs.some((t) => t[key] == null)) return null;
+    const w = xs.reduce((a, t) => a + t.weight * t.size, 0);
+    return xs.reduce((a, t) => a + t.weight * t.size * (t[key] as number), 0) / w;
+  };
   const captured = open && avgPrice != null && peak > minP ? ((peak - avgPrice) / (peak - minP)) * 100 : null;
   const sn = snap!;
   const t0Now = checksAt.T0?.every((c) => c.ok) ?? false;
@@ -353,7 +370,7 @@ export function computeTranches(P: PreparedTranches, date: string, sectorRule: S
       votes: sn.votes, cape: s.cape[D], capeMedian20: s.capeMedian20[D],
     },
     ath: { spx: athAt(s.dates, P.spx, D), qqq: dual ? athAt(s.dates, P.qqq, D) : null, tqqq: dual && s.tqqq ? athAt(s.dates, s.tqqq, D) : null },
-    tranches, deployed, leverage, avgPrice, captured,
+    tranches, deployed, leverage, avgPrice, captured, pnl: wavg('pnl'), pnlMix: wavg('pnlMix'),
   };
 }
 
