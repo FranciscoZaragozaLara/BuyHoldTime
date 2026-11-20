@@ -18,12 +18,18 @@ const T = {
     inst: 'Instrumento', ret: 'Rend. 12m', pos: '% positivos', mdd: 'Caída máx. prom.', p15: 'Prob. caer >15%', days: 'Días',
     show: 'Ver matriz completa', hide: 'Ocultar matriz', band: 'Banda BHT', here: 'Estás aquí', loading: 'Calculando…', none: 'Sin días con esta combinación',
     note: 'Promedios de días históricos (se traslapan). Debajo de cada celda: caída máxima promedio · probabilidad de caer más de 15% en esos 12 meses. Celdas con pocos días se ven tenues. No es una recomendación.',
+    tqqqTitle: '* TQQQ: apalancado 3× — operar con extremo cuidado',
+    tqqqText: 'Sus rendimientos solo cuentan desde su lanzamiento (feb 2010), un periodo casi siempre alcista. En crisis financieras mayores, un 3× diario del Nasdaq habría perdido desde el máximo −99.8% en la burbuja puntocom (2000–02) y −95.5% en la crisis financiera de 2008 (2007–09), contra −78.5% y −56.2% del Nasdaq: prácticamente todo el capital.',
+    tqqqSrc: 'Simulación: 3× del rendimiento diario del Nasdaq Composite con comisión de 0.95% anual, sin costo de financiamiento.',
   },
   en: {
     title: 'Historical returns', sub: 'Days with the same BHT band and the same trend as today', win5: '5 years', winAll: 'All history',
     inst: 'Instrument', ret: '12m return', pos: '% positive', mdd: 'Avg max drawdown', p15: 'Prob. of falling >15%', days: 'Days',
     show: 'See full matrix', hide: 'Hide matrix', band: 'BHT band', here: 'You are here', loading: 'Computing…', none: 'No days with this combination',
     note: 'Averages of historical days (they overlap). Under each cell: average max drawdown · probability of falling more than 15% within those 12 months. Cells with few days are dimmed. Not a recommendation.',
+    tqqqTitle: '* TQQQ: 3× leveraged — trade with extreme care',
+    tqqqText: 'Its returns only count from its launch (Feb 2010), an almost always rising period. In major financial crises, a daily 3× Nasdaq would have lost −99.8% from its peak in the dot-com bubble (2000–02) and −95.5% in the 2008 financial crisis (2007–09), versus −78.5% and −56.2% for the Nasdaq: virtually all the capital.',
+    tqqqSrc: 'Simulation: 3× the Nasdaq Composite daily return with a 0.95% annual fee, no financing cost.',
   },
 };
 
@@ -88,7 +94,7 @@ export function HomeReturnsTable({ locale, date, band, regime: regimeRaw, initia
                 const c = matrixCell(cells[i], band, regime);
                 return (
                   <tr key={i} className="border-b border-slate-800/60">
-                    <td className="py-1 text-slate-200 font-sans font-semibold whitespace-nowrap">{MATRIX_LABEL[i]}</td>
+                    <td className="py-1 text-slate-200 font-sans font-semibold whitespace-nowrap">{MATRIX_LABEL[i]}{i === 'tqqq' && <span className="text-elevated-400">*</span>}</td>
                     {c ? (
                       <>
                         <td className={`text-right font-bold ${pctCls(c.avg12m)}`}>{pctTxt(c.avg12m)}</td>
@@ -152,6 +158,11 @@ export function HomeReturnsTable({ locale, date, band, regime: regimeRaw, initia
         </div>
       )}
       <p className="text-[10px] text-slate-500 mt-1.5 leading-snug">{t.note}</p>
+      <div className="mt-2 rounded-lg border border-elevated-500/30 bg-elevated-500/10 p-2">
+        <div className="text-[11px] font-bold text-elevated-300">⚠ {t.tqqqTitle}</div>
+        <p className="text-[11px] text-slate-300 leading-snug mt-0.5">{t.tqqqText}</p>
+        <p className="text-[10px] text-slate-500 mt-0.5">{t.tqqqSrc}</p>
+      </div>
     </div>
   );
 }
