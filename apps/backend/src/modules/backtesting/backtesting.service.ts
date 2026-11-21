@@ -6,6 +6,7 @@ import { toShillerApiRow } from './shiller-daily';
 import { monthlyPartsFromDaily } from './bht-forward';
 import { computeBhtStrategy, type Instrument as StrategyInstrument, type SampleWindow, type StrategySeries } from './bht-strategy';
 import { computeBhtDrawdowns } from './bht-drawdowns';
+import { dayQuote } from './day-quotes';
 import { computeSellTranches, computeTranches, loadTrancheSeries, prepareTranches, type PreparedTranches, type SectorRule, type TrancheRoute } from './tranches';
 import { liveTrend } from './trend-regime';
 import { PROVISIONAL_OF, rowsWithProvisional, withProvisional } from './provisional-series';
@@ -897,10 +898,19 @@ export class BacktestingService {
     } catch {}
     const qqqRow = await this.prisma.btMarketData.findFirst({ where: { ticker: 'QQQ', date: { lte: r.date } }, orderBy: { date: 'desc' }, select: { close: true } }).catch(() => null);
     const qqqClose = qqqRow ? Number(qqqRow.close) : null;
+    // Tabla de cotizaciones del encabezado: precio, cambio diario y % desde el máximo (regla 5 años) por instrumento.
+    let quotes: Record<'spx' | 'qqq' | 'tqqq', ReturnType<typeof dayQuote>> | null = null;
+    try {
+      await this.ensureStrategyFresh();
+      const S = await this.strategySeries();
+      const D = S.dates.indexOf(r.date.toISOString().slice(0, 10));
+      if (D >= 0) quotes = { spx: dayQuote(S.dates, S.px.spx, D), qqq: dayQuote(S.dates, S.px.qqq, D), tqqq: dayQuote(S.dates, S.px.tqqq, D) };
+    } catch {}
     return {
       date: r.date.toISOString().slice(0, 10), value: r.bhtValue, numerator, denominator, coverage: parts.length,
       // Cierres del día para el encabezado del hover: S&P 500, QQQ (Nasdaq-100, misma serie que la gráfica de /indicators) y TQQQ.
       prices: { spx: r.spx ?? null, qqq: qqqClose, tqqq: r.tqqq ?? null },
+      quotes,
       // Régimen tendencial del S&P 500 ese día (cierre vs SMA 50/200).
       trend: th?.trendRegime ? { regime: th.trendRegime, sma50: th.spxSma50, sma200: th.spxSma200, close: r.spx ?? null } : null,
       bonus: th?.bonus ?? 0, bonusLabel: th?.bonusLabel ?? null, bonusHy, bonusD1, bonusZ, bonusSigma, bonusFed,

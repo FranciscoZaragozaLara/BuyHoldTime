@@ -12,6 +12,8 @@ import dynamic from 'next/dynamic';
 import { placePinned, placePopover } from '@/lib/popoverPlacement';
 import { TrendBadge } from './TrendBadge';
 import type { BhtPinNav } from './bhtChartPin';
+import { TOKENS } from '@/lib/designTokens';
+import { athColor, athTone } from '@/lib/athDrawdown';
 
 // Vista Estrategia: su código se descarga solo cuando se pulsa el botón (lazy) y calcula en el backend bajo demanda.
 const BhtStrategyView = dynamic(() => import('./BhtStrategyView'), { ssr: false, loading: () => <div className="mt-2 font-mono text-slate-500">…</div> });
@@ -193,16 +195,42 @@ export function BhtDetailPopover({ hover, detail, onLeave, onHold, liveValue, on
           {liveValue != null && <span className="text-[10px] px-1.5 py-px rounded-full bg-accent-500/20 text-accent-300 font-bold" title={ti('liveTitle')}>{ti('live')}</span>}
           {detail?.trend && <TrendBadge trend={detail.trend} size="xs" />}
         </div>
-        {/* Precios del día: nombre tenue y valor resaltado, cada uno en su bloque. */}
-        {detail?.prices && (
-          <div className="mt-1 flex flex-wrap gap-x-4 gap-y-0.5">
-            {([['S&P 500', detail.prices.spx], ['QQQ', detail.prices.qqq], ['TQQQ', detail.prices.tqqq]] as [string, number | null][])
-              .filter(([, v]) => v != null)
-              .map(([k, v]) => (
-                <span key={k} className="whitespace-nowrap"><span className="text-[10px] uppercase tracking-wide text-slate-500">{k}</span> <span className="font-mono text-[12px] font-semibold text-slate-100">{Number(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></span>
-              ))}
-          </div>
-        )}
+        {/* Cotizaciones del día: precio, cambio diario (verde/rojo) y % desde el máximo (semáforo; máximo de 5 años si el ATH es más viejo). */}
+        {detail?.prices && (() => {
+          const q = detail.quotes as Record<string, null | { price: number; change: number | null; fromHigh: number | null; high: number | null; highDate: string | null; window5y: boolean }> | null | undefined;
+          const fmtP = (v: number) => v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+          const pct = (v: number) => `${v > 0 ? '+' : ''}${v.toFixed(2)}%`;
+          const rows = ([['S&P 500', 'spx'], ['QQQ', 'qqq'], ['TQQQ', 'tqqq']] as const)
+            .map(([k, id]) => ({ k, price: q?.[id]?.price ?? (detail.prices[id] != null ? Number(detail.prices[id]) : null), qt: q?.[id] ?? null }))
+            .filter((r) => r.price != null);
+          const anyHigh5y = rows.some((r) => r.qt?.window5y);
+          return (
+            <table className="mt-1.5 font-mono text-[11px] leading-5 border-collapse">
+              <thead>
+                <tr className="text-[9px] uppercase tracking-wide text-slate-500">
+                  <th className="text-left font-normal pr-4"></th>
+                  <th className="text-right font-normal pr-4">{loc === 'es' ? 'Precio' : 'Price'}</th>
+                  <th className="text-right font-normal pr-4">{loc === 'es' ? 'Día' : 'Day'}</th>
+                  <th className="text-right font-normal" title={loc === 'es' ? 'Caída desde el máximo histórico; si ocurrió hace más de 5 años, desde el máximo de 5 años' : 'Drop from the all-time high; if older than 5 years, from the 5-year high'}>
+                    {loc === 'es' ? 'Desde máx.' : 'From high'}{anyHigh5y ? '*' : ''}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map(({ k, price, qt }) => (
+                  <tr key={k}>
+                    <td className="pr-4 text-[10px] uppercase tracking-wide text-slate-400 whitespace-nowrap">{k}</td>
+                    <td className="pr-4 text-right text-[12px] font-semibold text-slate-100">{fmtP(price!)}</td>
+                    <td className="pr-4 text-right font-semibold" style={{ color: qt?.change == null ? undefined : qt.change > 0 ? TOKENS.favorable : qt.change < 0 ? TOKENS.risk : undefined }}>
+                      {qt?.change == null ? '—' : pct(qt.change)}</td>
+                    <td className="text-right font-semibold" style={qt?.fromHigh != null ? { color: athColor(athTone(qt.fromHigh)) } : undefined}
+                      title={qt?.high != null ? `${loc === 'es' ? 'Máximo' : 'High'}${qt.window5y ? ' 5Y' : ''}: ${fmtP(qt.high)} (${qt.highDate})` : undefined}>
+                      {qt?.fromHigh == null ? '—' : `${pct(qt.fromHigh)}${qt.window5y ? '*' : ''}`}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          );
+        })()}
       </div>
       {/* Interruptor Historia / Estrategia en la esquina: siempre en el mismo lugar y fácil de alcanzar. */}
       <div className="shrink-0 inline-flex rounded-lg border border-slate-700 bg-slate-950/60 p-0.5 text-[11px] font-bold">
