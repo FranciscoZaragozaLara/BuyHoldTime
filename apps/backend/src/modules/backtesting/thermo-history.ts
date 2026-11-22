@@ -278,6 +278,23 @@ export function getMonthlyPct(map: PriceMap | undefined, isoDate: string, months
 
 export interface LiqBonus { bonus: number; yoy: number | null; m0d3: number | null; drop: number | null; label: string }
 
+const sortedKeysCache = new WeakMap<PriceMap, string[]>();
+/**
+ * Publicaciones de una serie mensual con rezago (sus claves = fecha en que se conoce cada dato) hasta isoDate, de la
+ * más reciente hacia atrás (máx. n). Las comparaciones «N meses antes» van por publicaciones y no por calendario: con
+ * 57 días de rezago, «2 meses antes» por calendario a veces cae antes de una publicación y se salta o repite un mes.
+ */
+export function releasesUpTo(map: PriceMap | undefined, isoDate: string, n: number): string[] {
+  if (!map || map.size === 0) return [];
+  let keys = sortedKeysCache.get(map);
+  if (!keys || keys.length !== map.size) { keys = [...map.keys()].sort(); sortedKeysCache.set(map, keys); }
+  let lo = 0, hi = keys.length - 1, j = -1;
+  while (lo <= hi) { const mid = (lo + hi) >> 1; if (keys[mid] <= isoDate) { j = mid; lo = mid + 1; } else hi = mid - 1; }
+  const out: string[] = [];
+  for (let k = j; k >= 0 && out.length < n; k--) out.push(keys[k]);
+  return out;
+}
+
 export function getLiqBonus(m2map: PriceMap | undefined, m0map: PriceMap | undefined, isoDate: string, cpiMap?: PriceMap): LiqBonus {
   // Bonus simétrico de liquidez M2/M0: el viento a favor resta (oportunidad),
   // el viento en contra suma (riesgo). Prioridad: bazuca > headwind > tailwind.
@@ -288,16 +305,12 @@ export function getLiqBonus(m2map: PriceMap | undefined, m0map: PriceMap | undef
   const yoy = getMonthlyPct(m2map, isoDate, 12);
   if (yoy == null) return none('sin dato');
   const m0d3 = getMonthlyPct(m0map, isoDate, 3);
-  const d3 = new Date(isoDate + 'T12:00:00Z');
-  const tMonth = (((d3.getMonth() - 3) % 12) + 12) % 12;
-  d3.setMonth(d3.getMonth() - 3);
-  // Clamp anti-overflow: 31 jul −3M daría "31 abr"→1 may y corrompería yoy3.
-  if (d3.getMonth() !== tMonth) d3.setDate(0); // último día del mes objetivo
-  const yoy3 = getMonthlyPct(m2map, d3.toISOString().slice(0, 10), 12);
+  // Por publicaciones de M2: la de hace 3 meses (yoy3) y el pico del YoY en las últimas 12.
+  const rel = releasesUpTo(m2map, isoDate, 12);
+  const yoy3 = rel.length > 3 ? getMonthlyPct(m2map, rel[3], 12) : null;
   let peak = -Infinity;
-  for (let m = 0; m < 12; m++) {
-    const q = new Date(isoDate + 'T12:00:00Z'); q.setDate(1); q.setMonth(q.getMonth() - m);
-    const v = getMonthlyPct(m2map, q.toISOString().slice(0, 10), 12);
+  for (const r of rel) {
+    const v = getMonthlyPct(m2map, r, 12);
     if (v != null && v > peak) peak = v;
   }
   const drop = peak > 0 ? Math.max(0, (peak - yoy) / peak * 100) : 0;
@@ -307,9 +320,9 @@ export function getLiqBonus(m2map: PriceMap | undefined, m0map: PriceMap | undef
     const cpi = getCpiYoY(cpiMap, isoDate);
     let cpiMax: number | null = null;
     if (cpi != null) {
-      for (let m = 1; m <= 6; m++) {
-        const q = new Date(isoDate + 'T12:00:00Z'); q.setDate(1); q.setMonth(q.getMonth() - m);
-        const v = getCpiYoY(cpiMap, q.toISOString().slice(0, 10));
+      // Máximo del CPI YoY en las 6 publicaciones anteriores.
+      for (const r of releasesUpTo(cpiMap, isoDate, 7).slice(1)) {
+        const v = getCpiYoY(cpiMap, r);
         if (v != null && (cpiMax == null || v > cpiMax)) cpiMax = v;
       }
     }
@@ -342,8 +355,10 @@ function liqMonthsBack(isoDate: string, n: number): string {
 export function getLiqBonusSmoothed(m2map: PriceMap | undefined, m0map: PriceMap | undefined, isoDate: string, cpiMap?: PriceMap): LiqBonus {
   const cur = getLiqBonus(m2map, m0map, isoDate, cpiMap);
   if (cur.label === 'sin dato' || cur.bonus <= -20 || cur.bonus === 10) return cur;
-  const b1 = getLiqBonus(m2map, m0map, liqMonthsBack(isoDate, 1), cpiMap).bonus;
-  const b2 = getLiqBonus(m2map, m0map, liqMonthsBack(isoDate, 2), cpiMap).bonus;
+  // Las 2 publicaciones de M2 anteriores (no «1 y 2 meses antes» por calendario, que a veces se salta un mes).
+  const rel = releasesUpTo(m2map, isoDate, 3);
+  const b1 = getLiqBonus(m2map, m0map, rel[1] ?? liqMonthsBack(isoDate, 1), cpiMap).bonus;
+  const b2 = getLiqBonus(m2map, m0map, rel[2] ?? liqMonthsBack(isoDate, 2), cpiMap).bonus;
   const bonus = Math.round((cur.bonus + b1 + b2) / 3) || 0;
   if (bonus === cur.bonus) return cur;
   const label = bonus === 0 ? '—' : `${bonus < 0 ? 'viento a favor' : 'viento en contra'} prom. 3M (${[cur.bonus, b1, b2].map((x) => (x > 0 ? `+${x}` : `${x}`)).join('/')})`;
