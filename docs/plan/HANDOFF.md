@@ -195,6 +195,15 @@ Marcar `[x]` con rama y commit al terminar.
 - [ ] Cuentas compartidas entre dominios para pasar de Pug a BuyHoldTime Pro sin crear otra cuenta.
 - [ ] Validar primero con una landing y lista de espera; abrirlo solo si trae registros a menor costo que BuyHoldTime.
 
+### P7 — Laboratorio Canary/Phoenix (experimental, solo informativo)
+Plan: `docs/plan/PlanExperimental_Canary_Phoenix.md` (copia en BackTesting/docs). Nada de esto cambia el semáforo BHT, el termómetro ni los tranches.
+- [x] EXP-03 tablas `exp_*` (migración `20261122000000_add_experimental_canary_phoenix`, `migrate deploy` en local) + modelos Prisma — rama `feat/exp-tables` (`b6d59d8`). `exp_option_quotes` agrega `source` (yahoo/ibkr) y `contract_symbol`.
+- [x] EXP-17 módulo NestJS `experimental`: `GET /api/experimental/summary`, `GET /api/experimental/scores?key=`, `POST /api/experimental/run` (admin/API key); crons L–V 15:50 ET (`snapshot,scores,paper`) y 22:50 ET (`prices,monthly,scores`); `EXP_CRON=off` los apaga — rama `feat/exp-api` (`d671f2c`).
+- [x] EXP-18 página `/[locale]/lab` (noindex, sin enlace en el menú): scores con gráfica pequeña, P&L del paper trading, canasta Canary, cohorte Fénix y tabla del backtest H1 — rama `feat/exp-lab-page` (`e5c1100`).
+- [x] BackTesting `experimental/` (ramas encadenadas, repo sin remoto): EXP-01 config v0 congelada (JSON) · EXP-04 precios ETFs frágiles, SPLV, ^VXN, DGS3MO · EXP-05 fórmulas puras con pruebas · EXP-08 backtest H1/H4 (18 episodios desde 2011; ninguna señal pasa el criterio v0) · EXP-10 informe parcial `docs/Informe_Canary_Phoenix_v0.md` · EXP-02/13/14/15/16 universo, canasta, cohorte, snapshots de opciones (Yahoo), paper trading y scores diarios (`experimental/daily.py`).
+- [ ] **Decisiones pendientes:** (1) IBKR: IB Gateway paper con tu cuenta/2FA (EXP-11, EXP-19); mientras, opciones retrasadas de Yahoo. (2) Régimen «Bosque Seco» del Motor A para activar los puts de cobertura (§6.3): sin definir, la estrategia no opera. (3) Universo: ampliar con el screener de FMP (acciones especulativas fuera de índices) y la lista del Nasdaq-100 (Wikipedia ya no trae tickers). (4) Phoenix: confirmar exclusión de Financial Services y Real Estate (deuda/EBITDA no aplica). (5) ROIC = ROA de Yahoo como proxy hasta EDGAR punto en el tiempo (EXP-06). (6) H2/H3 históricos: componentes del Nasdaq-100 desde 2011 (EXP-07) y EDGAR (EXP-06). (7) Página Laboratorio: ¿menú público, solo admin o solo por URL? (8) GuruFocus EXP-12 (leer tickers de `exp_universe_monthly`). (9) Integrar ramas a main y remoto de BackTesting.
+- [ ] **VPS:** `prisma migrate deploy`; desplegar BackTesting con `experimental/`; `EXP_CRON` activo solo en un backend.
+
 ## 3. Decisiones abiertas
 - Arquitectura GuruFocus (A/B).
 - Precio de Pro: probar 39 vs 69 USD/año en beta.
