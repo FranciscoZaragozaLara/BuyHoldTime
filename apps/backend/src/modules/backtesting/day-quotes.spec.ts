@@ -40,4 +40,17 @@ describe('dayQuote', () => {
     // piso 80, rebote a 120 (nuevo máximo), cae 10% a 108 → nuevo piso 105, luego 115
     expect(lastBottom(d, [100, 80, 120, 108, 105, 115, 116], 6, 0.1)).toEqual({ price: 105, date: '2021-02-05' });
   });
+  it('umbral por defecto 15%: una caída de 11% no reemplaza al piso de la corrección fuerte', () => {
+    const d = Array.from({ length: 6 }, (_, i) => `2021-03-0${i + 1}`);
+    // 100 → 80 (−20%, piso) → 110 → 98 (−11%) → 105
+    const q = dayQuote(d, [100, 80, 110, 98, 105, 106], 5)!;
+    expect(q.bottomDate).toBe('2021-03-02');
+    expect(q.fromBottom).toBeCloseTo(32.5);
+  });
+  it('mínimo impuesto (TQQQ con la fecha de QQQ): cierre de ese día o el previo', () => {
+    const d = ['2021-01-04', '2021-01-05', '2021-01-06', '2021-01-07'];
+    expect(dayQuote(d, [30, null, 20, 25], 3, undefined, '2021-01-05')!.bottom).toBe(30);
+    expect(dayQuote(d, [30, 22, 20, 25], 3, undefined, '2021-01-06')!.fromBottom).toBeCloseTo(25);
+    expect(dayQuote(d, [30, 22, 20, 25], 3, undefined, null)!.fromBottom).toBeNull();
+  });
 });

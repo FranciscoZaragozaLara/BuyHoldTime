@@ -1,6 +1,6 @@
 // Cotización del día para el encabezado del hover del BHT: precio, cambio diario, % desde el máximo
 // (ATH; si ocurrió hace más de 5 años, el máximo de los últimos 5 años: misma regla que la caída desde ATH) y
-// % desde el último mínimo (piso de la última corrección).
+// % desde el último mínimo (piso de la última corrección fuerte, ≥ 15%).
 import { athAt } from './tranches';
 
 export type DayQuote = {
@@ -8,8 +8,9 @@ export type DayQuote = {
   fromBottom: number | null; bottom: number | null; bottomDate: string | null;
 };
 
-/** Umbral de corrección para el último mínimo: 10% en el S&P 500 y QQQ; 30% en TQQQ (3×). */
-export const BOTTOM_DROP = { spx: 0.1, qqq: 0.1, tqqq: 0.3 } as const;
+/** Corrección fuerte para el último mínimo: caída ≥ 15% (atrapa 2018, 2020, 2022 y abril de 2025 en el S&P 500, que
+ *  con 20% se perderían; con 10% contaban sacudidas como la de marzo de 2021). TQQQ usa la fecha del mínimo de QQQ. */
+export const BOTTOM_DROP = 0.15;
 
 /**
  * Último mínimo hasta el día D (zigzag): una corrección empieza cuando el precio cae `drop` desde su máximo y su piso
@@ -34,13 +35,18 @@ export function lastBottom(dates: string[], px: Array<number | null>, D: number,
   return last;
 }
 
-export function dayQuote(dates: string[], px: Array<number | null>, D: number, drop = 0.1): DayQuote | null {
+/** bottomDate: fecha del mínimo impuesta (TQQQ usa la de QQQ); el precio es el cierre de ese día o el previo disponible. */
+export function dayQuote(dates: string[], px: Array<number | null>, D: number, drop = BOTTOM_DROP, bottomDate?: string | null): DayQuote | null {
   const price = px[D];
   if (D < 0 || price == null) return null;
   let prev: number | null = null;
   for (let k = D - 1; k >= 0; k--) if (px[k] != null) { prev = px[k]; break; }
   const a = athAt(dates, px, D);
-  const b = lastBottom(dates, px, D, drop);
+  let b: { price: number; date: string } | null;
+  if (bottomDate !== undefined) {
+    b = null;
+    if (bottomDate) for (let k = Math.min(D, dates.length - 1); k >= 0; k--) if (dates[k] <= bottomDate && px[k] != null) { b = { price: px[k] as number, date: dates[k] }; break; }
+  } else b = lastBottom(dates, px, D, drop);
   return {
     price,
     change: prev ? (price / prev - 1) * 100 : null,

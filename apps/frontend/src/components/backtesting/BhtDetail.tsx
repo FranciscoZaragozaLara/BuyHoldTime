@@ -219,7 +219,7 @@ export function BhtDetailPopover({ hover, detail: detailIn, onLeave, onHold, liv
                   <th className="text-right font-normal" title={loc === 'es' ? 'Caída desde el máximo histórico; si ocurrió hace más de 5 años, desde el máximo de 5 años' : 'Drop from the all-time high; if older than 5 years, from the 5-year high'}>
                     {loc === 'es' ? 'Desde máx.' : 'From high'}{anyHigh5y ? '*' : ''}</th>
                   <th className="text-right font-normal pl-3 pr-4">{loc === 'es' ? 'Fecha máx.' : 'High date'}</th>
-                  <th className="text-right font-normal pr-4" title={loc === 'es' ? 'Ganancia desde el piso de la última corrección (caída ≥ 10% en S&P 500 y QQQ; ≥ 30% en TQQQ)' : 'Gain from the bottom of the last correction (drop ≥ 10% for S&P 500 and QQQ; ≥ 30% for TQQQ)'}>
+                  <th className="text-right font-normal pr-4" title={loc === 'es' ? 'Ganancia desde el piso de la última corrección fuerte (caída ≥ 15%); TQQQ usa la fecha del mínimo de QQQ' : 'Gain from the bottom of the last strong correction (drop ≥ 15%); TQQQ uses the QQQ bottom date'}>
                     {loc === 'es' ? 'Desde mín.' : 'From bottom'}</th>
                   <th className="text-right font-normal pr-4">{loc === 'es' ? 'Mínimo' : 'Bottom'}</th>
                   <th className="text-right font-normal">{loc === 'es' ? 'Fecha mín.' : 'Bottom date'}</th>
