@@ -8,7 +8,7 @@ import { Eye, EyeOff, Calendar, Table, LineChart as ChartIcon, Sparkles } from '
 import { IndicatorDetails } from '@/services/api';
 import { TOKENS } from '@/lib/designTokens';
 import { getApiBase } from '@/lib/apiBase';
-import { athDrawdownLine, buildValuationChart, signalMarkers, thinMarkers, MARKER_MIN_PX, type DailyValuation, type Instrument } from '@/lib/valuationChart';
+import { athDrawdownLine, buildValuationChart, sellLadderMarkers, signalMarkers, thinMarkers, MARKER_MIN_PX, type DailyValuation, type Instrument, type SellLadderEvent } from '@/lib/valuationChart';
 import { BHT_BANDS, bhtBandColor } from '@/components/backtesting/bhtBands';
 import { BhtDetailPopover, BhtHoverTip, useBhtDetail, useBhtPin } from '@/components/backtesting/BhtDetail';
 import { attachBhtChartPin, type BhtPinNav, type BhtPoint } from '@/components/backtesting/bhtChartPin';
@@ -190,7 +190,20 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
   // Puntos de la gráfica (mensual antes de 1990, diaria después) con SMA 50/200 y señales BHT × tendencia.
   const points = useMemo(() => buildValuationChart(mergedData, daily, instrument), [mergedData, daily, instrument]);
   // Señales BHT × tendencia ($$, $, ⚠) y cruces SMA 50/200 (Golden / Death Cross) sobre la línea del precio.
-  const opportunityMarkers = useMemo(() => signalMarkers(points, locale), [points, locale]);
+  // Escalera de venta V1–V5: el mismo motor de la pestaña Tranches (S&P 500 → ruta VOO; QQQ y TQQQ → ruta QQQ).
+  const [sellEvents, setSellEvents] = useState<Record<string, SellLadderEvent[]>>({});
+  const sellRoute = instrument === 'spx' ? 'spx' : 'qqq';
+  useEffect(() => {
+    if (sellEvents[sellRoute]) return;
+    fetch(`${getApiBase()}/api/backtesting/sell-ladder?instrument=${sellRoute}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j: { events?: SellLadderEvent[] } | null) => { if (j?.events) setSellEvents((m) => ({ ...m, [sellRoute]: j.events! })); })
+      .catch(() => {});
+  }, [sellRoute, sellEvents]);
+  const opportunityMarkers = useMemo(() => {
+    const times = new Set(points.filter((p) => p.daily).map((p) => p.time));
+    return [...signalMarkers(points, locale), ...sellLadderMarkers(sellEvents[sellRoute], times)].sort((a, b) => a.time.localeCompare(b.time));
+  }, [points, locale, sellEvents, sellRoute]);
   // Caída desde el máximo (ATH o máximo de 5 años) para la línea y la badge de la gráfica.
   const athDl = useMemo(() => athDrawdownLine(points), [points]);
 
@@ -801,7 +814,7 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
               <b style={{ color: TOKENS.caution }}>¼$</b> BHT 50–60 · <b style={{ color: TOKENS.accent }}>$</b> 40–49 · <b style={{ color: TOKENS.favorable }}>$$</b> 30–39 · <b style={{ color: TOKENS.favorable }}>$$$</b> &lt; 30
               {locale === 'es' ? ' con tendencia alcista; abajo de la SMA 200 baja un nivel (40–49 → ¼$). Se repiten cada ~mes mientras siga barato.' : ' in an uptrend; below the 200-day SMA one level lower (40–49 → ¼$). Repeated about monthly while it stays cheap.'}
             </span>
-            <span><b style={{ color: TOKENS.elevated }}>▼ {locale === 'es' ? 'Vende 75 / 80 / 85…' : 'Sell 75 / 80 / 85…'}</b> {locale === 'es' ? 'salidas escalonadas: BHT cruza 75 y cada +5 (se reinicia al bajar de 70)' : 'staggered exits: BHT crosses 75 and every +5 (resets below 70)'}</span>
+            <span><b style={{ color: TOKENS.elevated }}>▼ V1–V5</b> {locale === 'es' ? 'escalera de venta (la misma de la pestaña Tranches): V1–V3 BHT 70/75/80 en la primera debilidad · V4 bajo la SMA 50 · V5 tendencia rota' : 'sell ladder (same as the Tranches tab): V1–V3 BHT 70/75/80 on the first weakness · V4 below the 50-day SMA · V5 broken trend'} · <b style={{ color: TOKENS.risk }}>·C</b> {locale === 'es' ? 'ciclo por crisis de crédito' : 'credit-crisis cycle'}</span>
             <span><b style={{ color: TOKENS.risk }}>⚠</b> {locale === 'es' ? 'Riesgo: BHT ≥ 50 con el S&P 500 en tendencia bajista (abajo de su SMA 50 y 200); una por caída, salvo que el precio suba' : 'Risk: BHT ≥ 50 with the S&P 500 in a downtrend (below its 50- and 200-day SMA); once per decline unless price rises'}</span>
             <span><b style={{ color: TOKENS.caution }}>▲ Golden Cross</b> / <b className="text-slate-400">▼ Death Cross</b> {locale === 'es' ? 'SMA 50 cruza la SMA 200 del instrumento (el Death Cross solo con BHT ≥ 50: con BHT bajo llega tarde, cerca de los pisos)' : 'instrument 50-day SMA crosses its 200-day SMA (Death Cross only with BHT ≥ 50: with a low BHT it comes late, near bottoms)'}</span>
             <span className="text-slate-500">{locale === 'es' ? 'Lectura del modelo, no recomendación.' : 'Model reading, not advice.'}</span>

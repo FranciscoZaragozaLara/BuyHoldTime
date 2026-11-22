@@ -89,6 +89,10 @@ export class BacktestingController {
   getBhtDrawdowns(@Query('date') date: string, @Query('instrument') instrument: string) { return this.svc.getBhtDrawdowns(date, instrument); }
 
   // Módulo de Reentrada por Tranches: estado de los 5 tranches en esa fecha (instrument = voo | qqq | tqqq; TQQQ → QQQ).
+  // Ventas históricas de la escalera (V1–V5) para la gráfica de /indicators.
+  @Get('sell-ladder')
+  getSellLadder(@Query('instrument') instrument: string) { return this.svc.getSellLadderEvents(instrument); }
+
   @Get('bht-tranches')
   getBhtTranches(@Query('date') date: string, @Query('instrument') instrument: string, @Query('sector') sector?: string) { return this.svc.getBhtTranches(date, instrument, sector); }
 

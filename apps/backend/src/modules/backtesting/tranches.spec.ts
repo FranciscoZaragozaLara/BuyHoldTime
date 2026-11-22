@@ -104,6 +104,15 @@ describe('módulo de reentrada por tranches', () => {
     expect(r.tranches.find((t) => t.id === 'V1')!.status).toBe('pending');
   });
 
+  test('venta: onSale reporta cada venta histórica (misma fecha y precio que el resultado) y si fue por crédito', () => {
+    const s = creditSeries();
+    const P = prepareTranches(s, 'voo');
+    const ev: Array<{ date: string; id: string; price: number; credit: boolean }> = [];
+    const r = computeSellTranches(P, s.dates[360], (e) => ev.push(e))!;
+    const v4 = r.tranches.find((t) => t.id === 'V4')!;
+    expect(ev.find((e) => e.id === 'V4')).toEqual({ date: v4.date, id: 'V4', price: v4.price, credit: true });
+  });
+
   test('crédito: sin divergencia (la bolsa ya cayó) no hay señal de crédito', () => {
     const s = creditSeries();
     s.spx = s.spx.map((v, k) => (k < 250 ? v : (v as number) * 0.85)); // cae 15% antes de que el crédito se rompa

@@ -1,5 +1,6 @@
+import { TOKENS } from './designTokens';
 import { describe, expect, it } from 'vitest';
-import { athDrawdownLine, buildValuationChart, signalMarkers, signalState, thinMarkers, DEATH_CROSS_MIN_BHT, SELL_RESET_BELOW, CROSS_MIN_SESSIONS, SIGNAL_REPEAT, type ChartPoint, type DailyValuation, type MonthlyRow } from './valuationChart';
+import { athDrawdownLine, buildValuationChart, sellLadderMarkers, signalMarkers, signalState, thinMarkers, DEATH_CROSS_MIN_BHT, CROSS_MIN_SESSIONS, SIGNAL_REPEAT, type ChartPoint, type DailyValuation, type MonthlyRow } from './valuationChart';
 
 const monthly: MonthlyRow[] = [
   { date: '1989-11', sp500Price: 340, peRatio: 14, shillerPe: 17 },
@@ -104,20 +105,22 @@ describe('señales BHT × tendencia y cruces', () => {
     expect(signalMarkers(p).filter((x) => x.kind === 'danger').map((x) => x.time)).toEqual([day(0), day(41)]);
   });
 
-  it('salidas escalonadas: cruzar 75 y cada +5; se reinicia al bajar de 70', () => {
-    const bht = [60, 76, 79, 81, 86, 72, 76, 65, 77, 92];
-    const m = signalMarkers(pts(bht.length, (k) => ({ bht: bht[k], trend: 'U' })), 'es').filter((x) => x.kind === 'sell');
-    // 76 → 75, 81 → 80, 86 → 85; 72 no reinicia (≥ 70) y 76 no repite; 65 reinicia; 77 → 75; 92 salta a 90
-    expect(m.map((x) => [x.time, x.text])).toEqual([
-      [day(1), 'Vende 75'], [day(3), 'Vende 80'], [day(4), 'Vende 85'], [day(8), 'Vende 75'], [day(9), 'Vende 90'],
-    ]);
-    expect(m[0]).toMatchObject({ shape: 'arrowDown', position: 'aboveBar', size: 1 });
-    expect(m[4].size).toBeGreaterThan(m[0].size);
-    expect(signalMarkers(pts(2, (k) => ({ bht: [60, 80][k], trend: 'U' })), 'en').find((x) => x.kind === 'sell')!.text).toBe('Sell 80');
-    expect(SELL_RESET_BELOW).toBe(70);
-    // al ralear, la salida más alta gana aunque sea posterior
-    const thin = thinMarkers(m, (t) => m.findIndex((x) => x.time === t), 10);
-    expect(thin.map((x) => x.text)).toEqual(['Vende 90']);
+  it('ventas V1–V5 del backend: más grave = más grande; crédito en rojo con «·C»; solo fechas de la gráfica', () => {
+    const ev = [
+      { date: day(1), id: 'V1' as const, price: 100, credit: false },
+      { date: day(3), id: 'V5' as const, price: 90, credit: false },
+      { date: day(5), id: 'V4' as const, price: 95, credit: true },
+      { date: '1900-01-01', id: 'V2' as const, price: 1, credit: false },
+    ];
+    const m = sellLadderMarkers(ev, new Set([day(1), day(3), day(5)]));
+    expect(m.map((x) => [x.time, x.text])).toEqual([[day(1), 'V1'], [day(3), 'V5'], [day(5), 'V4·C']]);
+    expect(m[0]).toMatchObject({ kind: 'sell', shape: 'arrowDown', position: 'aboveBar' });
+    expect(m[1].size).toBeGreaterThan(m[0].size);
+    expect(m[2].color).toBe(TOKENS.risk);
+    // el raleo por zoom conserva la venta más grave
+    expect(thinMarkers(m, (t) => m.findIndex((x) => x.time === t), 10).map((x) => x.text)).toEqual(['V5']);
+    // signalMarkers ya no genera ventas
+    expect(signalMarkers(pts(3, (k) => ({ bht: [60, 80, 90][k], trend: 'U' }))).some((x) => x.kind === 'sell')).toBe(false);
   });
 
   it('Golden Cross y Death Cross del precio (SMA 50 cruzando la SMA 200)', () => {

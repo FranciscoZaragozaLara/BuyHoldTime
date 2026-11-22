@@ -509,7 +509,9 @@ export type SellResult = {
   tranches: SellState[]; sold: number; leverage: number; avgPrice: number | null; pnl: number | null;
 };
 
-export function computeSellTranches(P: PreparedTranches, date: string): SellResult | null {
+/** Venta histórica de la escalera (para marcarla en la gráfica). credit: el ciclo lo abrió la crisis de crédito. */
+export type SellEvent = { date: string; id: SellId; price: number; credit: boolean };
+export function computeSellTranches(P: PreparedTranches, date: string, onSale?: (e: SellEvent) => void): SellResult | null {
   const { s, route, px } = P;
   let D = -1;
   for (let k = s.dates.length - 1; k >= 0; k--) if (s.dates[k] <= date) { D = k; break; }
@@ -548,7 +550,7 @@ export function computeSellTranches(P: PreparedTranches, date: string): SellResu
         V5: [{ key: 'trendBroken', ok: (below >= 3 && (bv >= C.bht.V5 || st)) || (dc && (bv >= C.bht.V5dc || st)), value: below, need: 3 }, { key: st ? 'creditStress' : 'afterSale', ok: anyFired || st }],
       };
       for (const id of ['V1', 'V2', 'V3', 'V4', 'V5'] as SellId[]) {
-        if (fired[id] == null && cs[id].every((c) => c.ok)) { fired[id] = k; if (id === 'V1' || id === 'V2' || id === 'V3') lastVal = k; break; }
+        if (fired[id] == null && cs[id].every((c) => c.ok)) { fired[id] = k; if (id === 'V1' || id === 'V2' || id === 'V3') lastVal = k; onSale?.({ date: s.dates[k], id, price: p, credit: creditCycle }); break; }
       }
       if (k === D) checksAt = cs;
     }

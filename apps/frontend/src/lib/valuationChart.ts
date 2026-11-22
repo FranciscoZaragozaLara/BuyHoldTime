@@ -100,10 +100,21 @@ export const SIGNAL_REPEAT = 21;
  */
 export const DEATH_CROSS_MIN_BHT = 50;
 export const CROSS_MIN_SESSIONS = 10;
-/** Salidas escalonadas: primera al cruzar 75 y otra cada +5 (80, 85, 90…); la escalera se reinicia al bajar de 70. */
-export const SELL_START = 75;
-export const SELL_STEP = 5;
-export const SELL_RESET_BELOW = 70;
+/** Venta de la escalera V1–V5 que calcula el backend (/api/backtesting/sell-ladder, el mismo motor de la pestaña
+ *  Tranches). credit: ciclo abierto por crisis de crédito. */
+export type SellLadderEvent = { date: string; id: 'V1' | 'V2' | 'V3' | 'V4' | 'V5'; price: number; credit: boolean };
+const SELL_COLOR: Record<SellLadderEvent['id'], string> = { V1: TOKENS.caution, V2: TOKENS.elevated, V3: TOKENS.elevated, V4: TOKENS.elevated, V5: TOKENS.risk };
+const SELL_RANK: Record<SellLadderEvent['id'], number> = { V1: 1, V2: 2, V3: 3, V4: 2, V5: 4 };
+/** Marcas de la escalera de venta: V1 Codicia · V2 Codicia extrema · V3 Euforia · V4 Primera grieta · V5 Tendencia rota
+ *  (más grave = flecha más grande y más roja; «·C» si el ciclo lo abrió la crisis de crédito). Solo fechas de la gráfica. */
+export function sellLadderMarkers(events: SellLadderEvent[] | null | undefined, times?: Set<string>): SignalMarker[] {
+  return (events ?? [])
+    .filter((e) => !times || times.has(e.date))
+    .map((e) => ({
+      ...STYLE.sell, time: e.date, kind: 'sell' as const, priority: 2.5 + SELL_RANK[e.id] / 1000,
+      text: e.credit ? `${e.id}·C` : e.id, size: 0.9 + 0.15 * SELL_RANK[e.id], color: e.credit ? TOKENS.risk : SELL_COLOR[e.id],
+    }));
+}
 
 // Compras: más barato = señal (y tramo) más grande.
 const STYLE: Record<SignalKind, Omit<SignalMarker, 'time' | 'kind' | 'priority'>> = {
@@ -149,19 +160,8 @@ export function signalState(bht: number | undefined, trend: string | undefined):
  */
 export function signalMarkers(points: ChartPoint[], locale = 'es'): SignalMarker[] {
   const daily = points.filter((p) => p.daily && p.sp500Price != null);
-  const out: Array<{ time: string; kind: SignalKind; priority: number; level?: number }> = [];
-  // 0) Salidas con BHT muy alto: al cruzar 75 y cada +5; se reinicia al bajar de 70 (si salta varios niveles, el más alto).
-  let nextSell = SELL_START;
-  for (const p of daily) {
-    if (p.bht == null) continue;
-    if (p.bht < SELL_RESET_BELOW) nextSell = SELL_START;
-    if (p.bht >= nextSell) {
-      const level = SELL_START + SELL_STEP * Math.floor((p.bht - SELL_START) / SELL_STEP);
-      // Prioridad creciente con el nivel: al ralear por zoom gana la salida más alta (la de mayor riesgo).
-      out.push({ time: p.time, kind: 'sell', priority: 2.5 + (level - SELL_START) / 1000, level });
-      nextSell = level + SELL_STEP;
-    }
-  }
+  const out: Array<{ time: string; kind: SignalKind; priority: number }> = [];
+  // Las ventas (V1–V5) ya no se calculan aquí: vienen del backend (sellLadderMarkers).
   // 1) BHT × tendencia
   let prev: string | null = null;
   let lastBuy: { i: number; kind: string } | null = null;
@@ -219,16 +219,10 @@ export function signalMarkers(points: ChartPoint[], locale = 'es'): SignalMarker
     if (!f.up && b != null && b < DEATH_CROSS_MIN_BHT) continue; // Death Cross con BHT barato: rezagado, se omite
     out.push({ time: daily[f.i].time, kind: f.up ? 'golden' : 'death', priority: 3 });
   }
-  const sellWord = locale === 'es' ? 'Vende' : 'Sell';
+  void locale;
   return out
     .sort((a, b) => a.time.localeCompare(b.time))
-    .map(({ level, ...m }) => {
-      const st = { ...m, ...STYLE[m.kind] };
-      if (m.kind !== 'sell' || level == null) return st;
-      // Más alto = flecha más grande y más roja.
-      const step = (level - SELL_START) / SELL_STEP;
-      return { ...st, text: `${sellWord} ${level}`, size: 1 + 0.2 * Math.min(step, 4), color: step >= 2 ? TOKENS.risk : TOKENS.elevated };
-    });
+    .map((m) => ({ ...m, ...STYLE[m.kind] }));
 }
 
 /** Distancia mínima en píxeles entre dos señales del mismo carril (arriba / abajo de la línea). */
