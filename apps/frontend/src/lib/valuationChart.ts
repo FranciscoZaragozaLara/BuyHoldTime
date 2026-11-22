@@ -111,7 +111,7 @@ export function sellLadderMarkers(events: SellLadderEvent[] | null | undefined, 
   return (events ?? [])
     .filter((e) => !times || times.has(e.date))
     .map((e) => ({
-      ...STYLE.sell, time: e.date, kind: 'sell' as const, priority: 2.5 + SELL_RANK[e.id] / 1000,
+      ...STYLE.sell, time: e.date, kind: 'sell' as const, priority: 3.1 + SELL_RANK[e.id] / 1000, // por encima de los cruces (3): al ralear gana la venta
       text: e.credit ? `${e.id}·C` : e.id, size: 0.9 + 0.15 * SELL_RANK[e.id], color: e.credit ? TOKENS.risk : SELL_COLOR[e.id],
     }));
 }
