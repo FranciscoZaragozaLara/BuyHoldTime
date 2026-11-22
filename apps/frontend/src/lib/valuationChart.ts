@@ -124,6 +124,19 @@ export function buyLadderMarkers(events: BuyLadderEvent[] | null | undefined, ti
     }));
 }
 
+/** Compras de la red de seguridad de reentrada (efectivo de la venta que T0–T4 no recompraron). */
+export type NetLadderEvent = { date: string; rule: string; pct: number; price: number };
+export const NET_COLOR: Record<string, string> = { Bv: '#38bdf8', Ds: '#818cf8', R1e: TOKENS.favorable };
+/** «R50» = la red recompró 50% del efectivo de la venta (Bv barato con rebote · Ds valuación en mínimos · R1e regreso a máximos). */
+export function netLadderMarkers(events: NetLadderEvent[] | null | undefined, times?: Set<string>): SignalMarker[] {
+  return (events ?? [])
+    .filter((e) => !times || times.has(e.date))
+    .map((e) => ({
+      position: 'belowBar' as const, shape: 'circle' as const, time: e.date, kind: 'buy' as const, priority: 3.04,
+      text: `R${e.pct}`, color: NET_COLOR[e.rule] ?? TOKENS.favorable, size: 0.6 + Math.min(1, e.pct / 100) * 0.7,
+    }));
+}
+
 export function sellLadderMarkers(events: SellLadderEvent[] | null | undefined, times?: Set<string>): SignalMarker[] {
   return (events ?? [])
     .filter((e) => !times || times.has(e.date))

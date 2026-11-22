@@ -1,119 +1,36 @@
 // Estudio de reentrada: simula la posición combinando la escalera de VENTA (V1–V5) y la de COMPRA (T0–T4) por ruta,
 // y mide por ciclo cuánto se vendió (y a qué distancia del pico), cuánto se recompró (y a qué distancia del piso) y
-// cuánto quedó en efectivo. Compara variantes de red de seguridad para no quedarse fuera con el mercado barato.
-//   npx ts-node prisma/reentry-study.ts            (tabla por ciclo y resumen de todas las variantes)
+// cuánto quedó en efectivo. Compara variantes de la red de seguridad (src/modules/backtesting/reentry.ts).
+//   npx ts-node prisma/reentry-study.ts  [VARIANT=net]
 // Supuestos: 1× (sin apalancamiento), efectivo sin intereses, sin comisiones. Las compras T0–T4 usan su peso sobre el
-// efectivo disponible en el episodio (efectivo al abrir + ventas durante el episodio). Informativo: no cambia las escaleras.
+// efectivo disponible en el episodio (efectivo al abrir + ventas durante el episodio).
 import { Pool } from 'pg';
 import { databaseUrl } from './db-url';
-import { computeSellTranches, computeTranches, loadTrancheSeries, prepareTranches, CREDIT_CFG, TRANCHE_CFG, SELL_CFG, type BuyEvent, type EpisodeSummary, type SellEvent, type TrancheRoute } from '../src/modules/backtesting/tranches';
+import { loadTrancheSeries, prepareTranches, type TrancheRoute } from '../src/modules/backtesting/tranches';
+import { NET_RULE, REENTRY_CFG, bvTarget, dsTarget, r1eTarget, simulateReentry, type ReentryCtx, type ReentryRule } from '../src/modules/backtesting/reentry';
 
-type Num = number | null;
-const ffill = (a: Num[]) => { let l: Num = null; return a.map((v) => (v != null && Number.isFinite(v) ? (l = v) : l)); };
-const sma = (a: Num[], w: number) => { const o: Num[] = []; let s = 0, n = 0; for (let k = 0; k < a.length; k++) { const v = a[k]; if (v != null) { s += v; n++; } const old = k - w >= 0 ? a[k - w] : null; if (k - w >= 0 && old != null) { s -= old; n--; } o.push(n >= w * 0.8 ? s / n : null); } return o; };
-
-/** Regla extra: fracción del efectivo pendiente a comprar hoy (0 = nada). */
-type Ctx = { k: number; px: number; bht: number | null; hi252: number | null; s50: Num; s50prev: Num; s200: Num; cash: number; pool: number; boughtExtra: number; sinceSale: number; corrected: boolean; credit: boolean; oasOff: number | null; capeRel: number | null };
-type Variant = { key: string; name: string; rule?: (c: Ctx) => number };
-
-const VARIANTS: Variant[] = [
+const d45 = (c: ReentryCtx) => (!c.credit && c.bht != null && c.bht < 45 && c.oasFrom63 != null && c.oasFrom63 <= -REENTRY_CFG.ds.ease && c.capeRel != null && c.capeRel <= REENTRY_CFG.capeMax ? 1 : 0);
+const VARIANTS: Array<{ key: string; name: string; rule?: ReentryRule }> = [
   { key: 'base', name: 'Escaleras actuales' },
-  // R1: el mercado recuperó su máximo de 12 meses con tendencia alcista y el BHT no está caro → recompra lo pendiente.
-  { key: 'R1', name: 'R1 · máximo de 12 meses + SMA50>SMA200 + BHT<70', rule: (c) => (c.hi252 != null && c.px >= c.hi252 && c.s50 != null && c.s200 != null && c.s50 > c.s200 && (c.bht ?? 100) < 70 ? 1 : 0) },
-  // B: escalera por BHT barato sobre el efectivo de la venta: <55 → 25%, <45 → 50%, <35 → 75%, <25 → 100% (acumulado).
-  { key: 'B', name: 'B · BHT barato (<55 25%, <45 50%, <35 75%, <25 100%)', rule: (c) => bandTarget(c.bht) },
-  // B con guarda de tendencia: las bandas 55/45 solo con el precio sobre su SMA200; ≤35 entra aunque siga bajando.
-  { key: 'Bt', name: 'Bt · BHT barato con tendencia (55/45 sobre SMA200; <35 siempre)', rule: (c) => { const b = c.bht ?? 100; if (b < 35) return bandTarget(b); return c.s200 != null && c.px > c.s200 ? bandTarget(b) : 0; } },
-  { key: 'B+R1', name: 'B + R1', rule: (c) => Math.max(bandTarget(c.bht), VARIANTS[1].rule!(c)) },
-  { key: 'Bt+R1', name: 'Bt + R1', rule: (c) => Math.max(VARIANTS[3].rule!(c), VARIANTS[1].rule!(c)) },
-  // R1e: como R1, pero solo si después de la venta el mercado sí corrigió (se abrió un episodio de compra): no deshace
-  // ventas a mitad del ciclo cuando el precio sigue haciendo máximos.
-  { key: 'R1e', name: 'R1e · R1 solo tras una corrección posterior a la venta', rule: (c) => (c.corrected ? r1(c) : 0) },
-  // Bc: BHT barato con rebote confirmado (precio sobre SMA50 ascendente) y sin crisis de crédito: <50 → 50%, <40 → 100%.
-  { key: 'Bc', name: 'Bc · BHT<50 (50%) / <40 (100%) con precio sobre SMA50 ascendente, sin crisis de crédito', rule: (c) => bc(c) },
-  { key: 'Bc+R1e', name: 'Bc + R1e', rule: (c) => Math.max(bc(c), c.corrected ? r1(c) : 0) },
-  // Bcc: Bc + alivio del crédito (HY ≥ 10% debajo de su máximo de 12 meses): separa 2001 (crédito empeorando) de 2009 y 2022.
-  { key: 'Bcc', name: 'Bcc · Bc + crédito ≥10% bajo su máximo de 12 meses', rule: (c) => (c.oasOff != null && c.oasOff <= -10 ? bc(c) : 0) },
-  { key: 'Bcc+R1e', name: 'Bcc + R1e', rule: (c) => Math.max(c.oasOff != null && c.oasOff <= -10 ? bc(c) : 0, c.corrected ? r1(c) : 0) },
-  // Bv: Bc solo con el CAPE cerca o debajo de su mediana de 20 años (≤ 1.25×): mayo-2001 estaba en 1.9×; 2009 0.6×,
-  // 2018-19 1.0–1.16×, dic-2022 1.14×, abr-2025 1.15×.
-  { key: 'Bv', name: 'Bv · Bc + CAPE ≤ 1.25× su mediana de 20 años', rule: (c) => (c.capeRel != null && c.capeRel <= CAPE_MAX ? bc(c) : 0) },
-  { key: 'Bv+R1e', name: 'Bv + R1e', rule: (c) => Math.max(c.capeRel != null && c.capeRel <= CAPE_MAX ? bc(c) : 0, c.corrected ? r1(c) : 0) },
+  { key: 'R1e', name: 'R1e · regreso a máximos tras una corrección', rule: (c) => ({ target: r1eTarget(c), rule: 'R1e' }) },
+  { key: 'Bv', name: 'Bv · BHT barato con rebote y CAPE ≤ 1.25× mediana', rule: (c) => ({ target: bvTarget(c), rule: 'Bv' }) },
+  { key: 'Bv+R1e', name: 'Bv + R1e', rule: (c) => ({ target: Math.max(bvTarget(c), r1eTarget(c)), rule: 'Bv+R1e' }) },
+  { key: 'net', name: 'Red vigente: Bv + Ds + R1e', rule: NET_RULE },
+  { key: 'D45', name: 'Bv + R1e + D45 (BHT<45 y crédito aliviándose → 100%)', rule: (c) => ({ target: Math.max(bvTarget(c), r1eTarget(c), d45(c)), rule: 'D45' }) },
+  { key: 'Ds-only', name: 'Solo Ds', rule: (c) => ({ target: dsTarget(c), rule: 'Ds' }) },
 ];
-function r1(c: Ctx) { return c.hi252 != null && c.px >= c.hi252 && c.s50 != null && c.s200 != null && c.s50 > c.s200 && (c.bht ?? 100) < 70 ? 1 : 0; }
-// Umbrales de Bc (sensibilidad: BC_HI, BC_LO, CAPE_MAX por variables de entorno).
-const BC_HI = Number(process.env.BC_HI ?? 50), BC_LO = Number(process.env.BC_LO ?? 40), CAPE_MAX = Number(process.env.CAPE_MAX ?? 1.25);
-function bc(c: Ctx) {
-  if (c.credit || c.bht == null || c.s50 == null || c.s50prev == null || c.px <= c.s50 || c.s50 <= c.s50prev) return 0;
-  return c.bht < BC_LO ? 1 : c.bht < BC_HI ? 0.5 : 0;
-}
-function bandTarget(bht: number | null): number {
-  if (bht == null) return 0;
-  return bht < 25 ? 1 : bht < 35 ? 0.75 : bht < 45 ? 0.5 : bht < 55 ? 0.25 : 0;
-}
 
-type Cur = { k: number; kLast: number; base: number; sold: number; soldUnits: number; sellCost: number; buyCost: number; buyUnits: number; lastBuy: string | null; buys: string[] };
-
-function simulate(route: TrancheRoute, s: Awaited<ReturnType<typeof loadTrancheSeries>>, v: Variant) {
+function simulate(route: TrancheRoute, s: Awaited<ReturnType<typeof loadTrancheSeries>>, rule?: ReentryRule) {
   const P = prepareTranches(s, route);
-  const last = s.dates[s.dates.length - 1];
-  const sells: SellEvent[] = [], buys: BuyEvent[] = [], eps: EpisodeSummary[] = [];
-  computeSellTranches(P, last, (e) => sells.push(e));
-  computeTranches(P, last, 'half', { onFire: (e) => buys.push(e), onEpisodeEnd: (e) => eps.push(e) });
-  const px = P.px, bht = ffill(s.bht ?? []), s50 = sma(px, 50), s200 = sma(px, 200);
-  const hi = route === 'voo' ? P.spMax : P.qMax;
-  const sellAt = new Map<string, SellEvent[]>(); for (const e of sells) sellAt.set(e.date, [...(sellAt.get(e.date) ?? []), e]);
-  const buyAt = new Map<string, BuyEvent[]>(); for (const e of buys) buyAt.set(e.date, [...(buyAt.get(e.date) ?? []), e]);
-  const epStart = new Set(eps.map((e) => e.start));
-  const k0 = s.dates.findIndex((d, k) => d >= (route === 'voo' ? '1993-06-01' : '1999-03-10') && px[k] != null);
-  let units = 1 / (px[k0] as number), cash = 0;
-  let groupIds = new Set<string>(), lastSaleK = -1e9;
-  let pool = 0, boughtExtra = 0, extraPool = 0, corrected = false;
-  const raw: Array<Cur & { end: number; cashLeft: number }> = [];
-  let cur: Cur | null = null;
-  let peakV = 0, maxDd = 0, daysHalfCash = 0, days = 0;
-  const cashFrac: number[] = new Array(s.dates.length).fill(0);
-  const buyLog: Array<{ k: number; amt: number; units: number; label: string }> = [];
-  const closeCur = (k: number, p: number) => { if (cur) raw.push({ ...cur, end: k, cashLeft: cash / (units * p + cash) }); };
-  for (let k = k0; k < s.dates.length; k++) {
-    const d = s.dates[k], p = px[k] as number;
-    if (p == null) continue;
-    for (const e of sellAt.get(d) ?? []) {
-      if (groupIds.has(e.id) || k - lastSaleK > 300) {
-        closeCur(k, p);
-        groupIds = new Set();
-        cur = { k, kLast: k, base: units, sold: 0, soldUnits: 0, sellCost: 0, buyCost: 0, buyUnits: 0, lastBuy: null, buys: [] };
-      }
-      groupIds.add(e.id); lastSaleK = k; cur!.kLast = k;
-      const u = Math.min(units, SELL_CFG.weights[e.id] * cur!.base);
-      units -= u; cash += u * p;
-      cur!.sold += u / cur!.base; cur!.soldUnits += u; cur!.sellCost += u * p;
-      extraPool = cash; boughtExtra = 0; corrected = false;
-    }
-    if (epStart.has(d)) { pool = cash; if (k > lastSaleK) corrected = true; }
-    for (const e of buyAt.get(d) ?? []) {
-      pool = Math.max(pool, cash);
-      const amt = Math.min(cash, TRANCHE_CFG.weights[e.id] * e.size * pool);
-      if (amt <= 1e-12) continue;
-      cash -= amt; units += amt / p;
-      buyLog.push({ k, amt, units: amt / p, label: `${e.id}${e.backup ? 'r' : ''}@${d}` });
-    }
-    if (v.rule && cash > 1e-9 && cur && k > lastSaleK) {
-      const credit = P.lastDiv[k] >= 0 && k - P.lastDiv[k] <= CREDIT_CFG.prior && P.oas[k] != null && P.oasMin252[k] != null && (P.oas[k] as number) >= CREDIT_CFG.ratio * (P.oasMin252[k] as number);
-      const target = v.rule({ k, px: p, bht: bht[k], hi252: hi[k], s50: s50[k], s50prev: k >= 5 ? s50[k - 5] : null, s200: s200[k], cash, pool: extraPool, boughtExtra, sinceSale: k - lastSaleK, corrected, credit, oasOff: P.oas[k] != null && P.oasMax252[k] ? ((P.oas[k] as number) / (P.oasMax252[k] as number) - 1) * 100 : null, capeRel: s.cape[k] != null && s.capeMedian20[k] ? (s.cape[k] as number) / (s.capeMedian20[k] as number) : null });
-      const want = Math.min(cash, Math.max(0, target * extraPool - boughtExtra));
-      if (want > 1e-9) {
-        cash -= want; units += want / p; boughtExtra += want;
-        buyLog.push({ k, amt: want, units: want / p, label: `+${Math.round((want / extraPool) * 100)}%@${d}` });
-      }
-    }
-    const V = units * p + cash;
-    peakV = Math.max(peakV, V); maxDd = Math.min(maxDd, V / peakV - 1);
-    days++; if (cash / V >= 0.5) daysHalfCash++;
-    cashFrac[k] = cash / V;
-  }
+  const px = P.px;
+  const sim = simulateReentry(P, rule);
+  const { k0, cashFrac, buyLog } = sim;
   const kl = s.dates.length - 1, pl = px[kl] as number;
-  closeCur(kl, pl);
+  const raw = sim.cycles;
+  let peakV = 0, maxDd = 0, half = 0, days = 0, units = 1 / (px[k0] as number), cash = 0;
+  // Valor del portafolio día a día (reconstruido de la fracción en efectivo no hace falta: se usa el resultado final).
+  for (let k = k0; k <= kl; k++) { days++; if (cashFrac[k] >= 0.5) half++; }
+  void units; void cash;
   // Escenario por ciclo de venta: termina cuando ya se reinvirtió (efectivo < 10%) y el precio recuperó el pico, o al
   // empezar el siguiente ciclo de venta. Piso = mínimo del escenario; pico = máximo del año previo a la venta hasta el piso.
   const cycles = raw.map((c, i) => {
@@ -138,9 +55,23 @@ function simulate(route: TrancheRoute, s: Awaited<ReturnType<typeof loadTrancheS
       cashAtRecovery: ri >= 0 && ri <= lastK ? cashFrac[ri] : cashFrac[endK], fullReentry: full >= 0 ? s.dates[full] : null, buys: bl.map((b) => b.label),
     };
   });
-  const V = units * pl + cash;
+  // Valor y caída máxima: se reconstruyen con las compras/ventas implícitas en la fracción en efectivo.
+  const V = sim.units * pl + sim.cash;
+  const vals = valueSeries(P, sim);
+  for (const v of vals) { peakV = Math.max(peakV, v); maxDd = Math.min(maxDd, v / peakV - 1); }
   const years = (kl - k0) / 252;
-  return { cycles, final: V, hold: pl / (px[k0] as number), cagr: (Math.pow(V, 1 / years) - 1) * 100, holdCagr: (Math.pow(pl / (px[k0] as number), 1 / years) - 1) * 100, maxDd: maxDd * 100, halfCashPct: (daysHalfCash / days) * 100, from: s.dates[k0] };
+  return { cycles, final: V, hold: pl / (px[k0] as number), cagr: (Math.pow(V, 1 / years) - 1) * 100, holdCagr: (Math.pow(pl / (px[k0] as number), 1 / years) - 1) * 100, maxDd: maxDd * 100, halfCashPct: (half / days) * 100, from: s.dates[k0] };
+}
+
+/** Valor diario del portafolio: unidades y efectivo se reconstruyen repitiendo la simulación con su registro. */
+function valueSeries(P: ReturnType<typeof prepareTranches>, sim: ReturnType<typeof simulateReentry>): number[] {
+  // Con la fracción en efectivo f y el precio p: V_k = V_{k-1} × ((1 − f_{k-1}) × p_k / p_{k-1} + f_{k-1}).
+  const out: number[] = []; let V = 1;
+  for (let k = sim.k0; k <= sim.kEnd; k++) {
+    if (k > sim.k0) { const p0 = P.px[k - 1] as number, p1 = P.px[k] as number; V *= (1 - sim.cashFrac[k - 1]) * (p1 / p0) + sim.cashFrac[k - 1]; }
+    out.push(V);
+  }
+  return out;
 }
 
 async function main() {
@@ -151,7 +82,7 @@ async function main() {
   const out: Record<string, unknown> = {};
   for (const route of ['voo', 'qqq'] as TrancheRoute[]) {
     for (const v of VARIANTS.filter((x) => !only || x.key === only)) {
-      const r = simulate(route, s, v);
+      const r = simulate(route, s, v.rule);
       out[`${route}:${v.key}`] = r;
     }
   }

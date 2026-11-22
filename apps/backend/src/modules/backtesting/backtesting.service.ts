@@ -7,6 +7,7 @@ import { toShillerApiRow } from './shiller-daily';
 import { monthlyPartsFromDaily } from './bht-forward';
 import { computeBhtStrategy, type Instrument as StrategyInstrument, type SampleWindow, type StrategySeries } from './bht-strategy';
 import { computeBhtDrawdowns } from './bht-drawdowns';
+import { NET_RULE, computeReentry, simulateReentry } from './reentry';
 import { dayQuote } from './day-quotes';
 import { computeSellTranches, computeTranches, loadTrancheSeries, prepareTranches, type PreparedTranches, type SectorRule, type SellEvent, type BuyEvent, type TrancheRoute } from './tranches';
 import { liveTrend } from './trend-regime';
@@ -840,6 +841,11 @@ export class BacktestingService {
     let sell = this.strategyCache.get(sk);
     if (!sell) { sell = computeSellTranches(P, date); if (sell) this.strategyCache.set(sk, sell); }
     out.sell = sell ?? null;
+    // Red de seguridad de reentrada (efectivo de la venta que T0–T4 no recompraron).
+    const nk = `tr:net:${route}:${date}`;
+    let net = this.strategyCache.get(nk);
+    if (!net) { net = computeReentry(P, date); if (net) this.strategyCache.set(nk, net); }
+    out.net = net ?? null;
     return out.half === null && out.extraVote === null ? { error: 'not found' } : out;
   }
 
@@ -855,7 +861,7 @@ export class BacktestingService {
     const buys: BuyEvent[] = [], sells: SellEvent[] = [];
     computeTranches(P, last, 'half', { onFire: (e) => buys.push(e) });
     computeSellTranches(P, last, (e) => sells.push(e));
-    const out = { route, buys, sells };
+    const out = { route, buys, sells, net: simulateReentry(P, NET_RULE).netEvents };
     this.strategyCache.set(key, out);
     return out;
   }

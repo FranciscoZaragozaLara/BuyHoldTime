@@ -35,7 +35,13 @@ type Sell = {
   tranches: Array<{ id: string; weight: number; from3x: number; status: 'fired' | 'today' | 'pending'; date: string | null; price: number | null; pnl: number | null; checks: TrancheCheck[] }>;
   sold: number; leverage: number; avgPrice: number | null; pnl: number | null;
 };
-type Both = Partial<Record<Rule, Result | null>> & { sell?: Sell | null };
+type NetCheck = { key: string; ok: boolean; value?: number | string | null; need?: number | string | null };
+type Net = {
+  date: string; cashPct: number; netBoughtPct: number; lastSale: string | null; corrected: boolean; active: boolean;
+  rules: Record<'Bv' | 'Ds' | 'R1e', { target: number; checks: NetCheck[] }>;
+  events: Array<{ date: string; rule: string; pct: number; price: number }>;
+};
+type Both = Partial<Record<Rule, Result | null>> & { sell?: Sell | null; net?: Net | null };
 type Ath = { pct: number; date: string; price: number; window5y: boolean };
 
 const cache = new Map<string, Promise<Both | null>>();
@@ -289,6 +295,7 @@ export default function BhtTranchesView({ date, locale, initialRoute = 'qqq', ch
             {t.deployed} <span className="font-bold text-slate-100">{(r.deployed * 100).toFixed(1)}%</span> · {t.lev} <span className="font-bold" style={{ color: r.leverage > 1 ? TOKENS.elevated : undefined }}>{r.leverage.toFixed(2)}x</span>
             {r.avgPrice != null && <> · {t.avg} {money(r.avgPrice)}</>}{r.pnl != null && <> · {t.pnlTotal} <PnL v={r.pnl} title={t.pnlTitle} bare />{r.pnlMix != null && r.leverage !== r.deployed && <> ({t.mix.toLowerCase()} <PnL v={r.pnlMix} title={t.pnlMixTitle} bare />)</>}</>}{r.captured != null && <> · <span className="text-favorable-300">{r.captured.toFixed(0)}%</span> {t.captured}</>}
           </div>
+          <NetSection net={both?.net} es={es} money={money} />
           <div className="text-[10px] text-slate-500 leading-snug">{t.note}</div>
         </div>
       )}
@@ -378,6 +385,65 @@ function SellView({ sell, es, t, one, three, fresh }: { sell: Sell; es: boolean;
         {sell.avgPrice != null && <> · {t.avgSell} {money(sell.avgPrice)}</>}{sell.pnl != null && <> · {pct(sell.pnl)} {t.sinceSale}</>}
       </div>
       <div className="text-[10px] text-slate-500 leading-snug">{t.sellNote}</div>
+    </div>
+  );
+}
+
+const NET_NAMES: Record<'Bv' | 'Ds' | 'R1e', [string, string, string]> = {
+  Bv: ['Barato con rebote', 'Cheap with rebound', 'BHT < 50 → 50% · < 40 → 100%'],
+  Ds: ['Valuación en mínimos', 'Valuation lows', 'BHT < 45 → 50% · < 40 → 75% · < 35 → 100%'],
+  R1e: ['Regreso a máximos', 'Back at highs', '100%'],
+};
+const NET_RULE_COLOR: Record<string, string> = { Bv: '#38bdf8', Ds: '#818cf8', R1e: TOKENS.favorable };
+function netCheckText(c: NetCheck, es: boolean): string {
+  const n = (v: unknown, d = 1) => (typeof v === 'number' ? v.toFixed(d) : '—');
+  const sg = (v: unknown) => (typeof v === 'number' ? `${v > 0 ? '+' : ''}${v.toFixed(1)}%` : '—');
+  switch (c.key) {
+    case 'bht': return `BHT ${n(c.value)} (< ${c.need})`;
+    case 'rebound': return es ? `precio sobre su SMA50 ascendente (${sg(c.value)})` : `price above its rising SMA50 (${sg(c.value)})`;
+    case 'noCreditCrisis': return es ? 'sin crisis de crédito' : 'no credit crisis';
+    case 'capeRel': return es ? `CAPE ${n(c.value, 2)}× su mediana de 20 años (≤ ${c.need}×)` : `CAPE ${n(c.value, 2)}× its 20-year median (≤ ${c.need}×)`;
+    case 'creditEasing': return es ? `HY ${sg(c.value)} vs su máx. de 63 días (≤ ${c.need}%)` : `HY ${sg(c.value)} vs its 63-day high (≤ ${c.need}%)`;
+    case 'corrected': return es ? 'hubo corrección después de la venta' : 'a correction followed the sale';
+    case 'atHigh': return es ? `precio en su máximo de 12 meses (${sg(c.value)})` : `price at its 12-month high (${sg(c.value)})`;
+    case 'trendUp': return 'SMA50 > SMA200';
+    default: return c.key;
+  }
+}
+/** Red de seguridad de reentrada: efectivo que dejó la venta y que T0–T4 no recompraron, y sus tres reglas. */
+function NetSection({ net, es, money }: { net: Net | null | undefined; es: boolean; money: (v: number | null) => string }) {
+  if (!net) return null;
+  const recent = net.lastSale ? net.events.filter((e) => e.date > net.lastSale!) : [];
+  return (
+    <div className="mt-1 rounded-lg border border-slate-700/70 p-2 space-y-1">
+      <div className="text-[10px] uppercase tracking-wide font-bold text-sky-300">{es ? 'Red de seguridad · reingreso del efectivo de la venta' : 'Safety net · re-entry of the sale cash'}</div>
+      <div className="font-mono text-slate-300">
+        {net.active
+          ? <>{es ? 'Efectivo pendiente' : 'Pending cash'} <b className="text-slate-100">{(net.cashPct * 100).toFixed(0)}%</b> {es ? 'del portafolio' : 'of the portfolio'} · {es ? 'última venta' : 'last sale'} {net.lastSale}{net.netBoughtPct > 0 && <> · {es ? 'la red ya recompró' : 'the net already bought'} <b className="text-favorable-300">{(net.netBoughtPct * 100).toFixed(0)}%</b></>}</>
+          : <span className="text-slate-500">{es ? 'Sin efectivo pendiente de una venta: la red no aplica.' : 'No pending cash from a sale: the net does not apply.'}</span>}
+      </div>
+      <table className="w-full font-mono">
+        <tbody>
+          {(['Bv', 'Ds', 'R1e'] as const).map((id) => {
+            const r = net.rules[id];
+            return (
+              <tr key={id} className="border-b border-slate-800/60 align-top">
+                <td className="py-0.5 pr-2 whitespace-nowrap"><b style={{ color: NET_RULE_COLOR[id] }}>{es ? NET_NAMES[id][0] : NET_NAMES[id][1]}</b><div className="text-[10px] text-slate-500">{NET_NAMES[id][2]}</div></td>
+                <td className="py-0.5">
+                  {r.target > 0 && <span className="font-bold text-favorable-300">{es ? 'Cumple' : 'Met'}: {es ? 'objetivo' : 'target'} {(r.target * 100).toFixed(0)}% · </span>}
+                  {r.checks.map((c, i) => <span key={c.key}>{i > 0 && ' · '}<span className={c.ok ? 'text-favorable-300' : 'text-slate-400'}>{c.ok ? '✓' : '✗'} {netCheckText(c, es)}</span></span>)}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+      {recent.length > 0 && (
+        <div className="font-mono text-slate-300">{es ? 'Compras de la red en este ciclo' : 'Net buys this cycle'}: {recent.map((e) => <span key={e.date} className="mr-2"><b style={{ color: NET_RULE_COLOR[e.rule] }}>R{e.pct}</b> {e.date} @ {money(e.price)}</span>)}</div>
+      )}
+      <div className="text-[10px] text-slate-500 leading-snug">{es
+        ? 'Solo actúa sobre el efectivo de la venta que T0–T4 no recompraron. Barato y mínimos exigen el CAPE ≤ 1.25× su mediana de 20 años (en 2001 estaba en 1.9×) y sin crisis de crédito. Backtest 1993–2026 (1×): S&P 8.9% → 9.9% anual, QQQ 12.9% → 15.4%; días con ≥ 50% en efectivo 14% → 10% y 24% → 11%. Costo: caída máx. del S&P −33% → −44% (compra de ene-2009). No es asesoría financiera.'
+        : 'Only acts on the sale cash T0–T4 left. Cheap and lows require CAPE ≤ 1.25× its 20-year median (1.9× in 2001) and no credit crisis. Backtest 1993–2026 (1×): S&P 8.9% → 9.9% a year, QQQ 12.9% → 15.4%; days with ≥ 50% cash 14% → 10% and 24% → 11%. Cost: S&P max drawdown −33% → −44% (Jan-2009 buy). Not financial advice.'}</div>
     </div>
   );
 }
