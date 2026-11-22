@@ -402,6 +402,7 @@ function netCheckText(c: NetCheck, es: boolean): string {
     case 'bht': return `BHT ${n(c.value)} (< ${c.need})`;
     case 'rebound': return es ? `precio sobre su SMA50 ascendente (${sg(c.value)})` : `price above its rising SMA50 (${sg(c.value)})`;
     case 'noCreditCrisis': return es ? 'sin crisis de crédito' : 'no credit crisis';
+    case 'creditCalm': return es ? `crédito no estresado o ya aliviándose (HY ${n(c.value, 2)}× su mín. de 12 meses; estrés ≥ ${c.need}×)` : `credit not stressed or already easing (HY ${n(c.value, 2)}× its 12-month low; stress ≥ ${c.need}×)`;
     case 'capeRel': return es ? `CAPE ${n(c.value, 2)}× su mediana de 20 años (≤ ${c.need}×)` : `CAPE ${n(c.value, 2)}× its 20-year median (≤ ${c.need}×)`;
     case 'creditEasing': return es ? `HY ${sg(c.value)} vs su máx. de 63 días (≤ ${c.need}%)` : `HY ${sg(c.value)} vs its 63-day high (≤ ${c.need}%)`;
     case 'corrected': return es ? 'hubo corrección después de la venta' : 'a correction followed the sale';
@@ -442,8 +443,8 @@ function NetSection({ net, es, money }: { net: Net | null | undefined; es: boole
         <div className="font-mono text-slate-300">{es ? 'Compras de la red en este ciclo' : 'Net buys this cycle'}: {recent.map((e) => <span key={e.date} className="mr-2"><b style={{ color: NET_RULE_COLOR[e.rule] }}>R{e.pct}</b> {e.date} @ {money(e.price)}</span>)}</div>
       )}
       <div className="text-[10px] text-slate-500 leading-snug">{es
-        ? 'Solo actúa sobre el efectivo de la venta que T0–T4 no recompraron. Barato y mínimos exigen el CAPE ≤ 1.25× su mediana de 20 años (en 2001 estaba en 1.9×) y sin crisis de crédito. Backtest 1993–2026 (1×): S&P 8.9% → 9.9% anual, QQQ 12.9% → 15.4%; días con ≥ 50% en efectivo 14% → 10% y 24% → 11%. Costo: caída máx. del S&P −33% → −44% (compra de ene-2009). No es asesoría financiera.'
-        : 'Only acts on the sale cash T0–T4 left. Cheap and lows require CAPE ≤ 1.25× its 20-year median (1.9× in 2001) and no credit crisis. Backtest 1993–2026 (1×): S&P 8.9% → 9.9% a year, QQQ 12.9% → 15.4%; days with ≥ 50% cash 14% → 10% and 24% → 11%. Cost: S&P max drawdown −33% → −44% (Jan-2009 buy). Not financial advice.'}</div>
+        ? 'Solo actúa sobre el efectivo de la venta que T0–T4 no recompraron. Barato y mínimos exigen el CAPE ≤ 1.25× su mediana de 20 años (en 2001 estaba en 1.9×) y sin crisis de crédito; con el crédito estresado, barato espera a que se alivie. Backtest 1993–2026 (1×): S&P 8.9% → 10.0% anual, QQQ 12.9% → 15.5%; días con ≥ 50% en efectivo 14% → 10% y 24% → 11%. Costo: caída máx. del S&P −33% → −43% (compra de ene-2009). No es asesoría financiera.'
+        : 'Only acts on the sale cash T0–T4 left. Cheap and lows require CAPE ≤ 1.25× its 20-year median (1.9× in 2001) and no credit crisis; with stressed credit, cheap waits for it to ease. Backtest 1993–2026 (1×): S&P 8.9% → 10.0% a year, QQQ 12.9% → 15.5%; days with ≥ 50% cash 14% → 10% and 24% → 11%. Cost: S&P max drawdown −33% → −43% (Jan-2009 buy). Not financial advice.'}</div>
     </div>
   );
 }

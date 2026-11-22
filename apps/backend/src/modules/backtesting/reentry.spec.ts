@@ -1,4 +1,4 @@
-import { NET_RULE, REENTRY_CFG, bvTarget, dsTarget, r1eTarget, type ReentryCtx } from './reentry';
+import { NET_RULE, REENTRY_CFG, bvTarget, creditStressed, dsTarget, r1eTarget, type ReentryCtx } from './reentry';
 
 const base: ReentryCtx = { k: 0, px: 105, bht: 60, hi252: 120, s50: 100, s50prev: 99, s200: 110, corrected: false, credit: false, oasOff: -20, capeRel: 1.1, oasFrom63: -5 };
 const c = (o: Partial<ReentryCtx>) => ({ ...base, ...o });
@@ -34,5 +34,11 @@ describe('red de seguridad de reentrada', () => {
     expect(NET_RULE(c({ bht: 48 }))).toEqual({ target: 0.5, rule: 'Bv' });
     expect(NET_RULE(c({ bht: 34, px: 90, oasFrom63: -12 }))).toEqual({ target: 1, rule: 'Ds' });
     expect(NET_RULE(c({}))).toEqual({ target: 0, rule: 'Bv' });
+  });
+  test('Bv espera el alivio si el crédito sigue estresado (HY ≥ 1.5× su mínimo de 12 meses), como en 2008-09', () => {
+    expect(creditStressed(c({ oasRel: 1.8, oasFrom63: -3 }))).toBe(true);
+    expect(bvTarget(c({ bht: 38, oasRel: 1.8, oasFrom63: -3 }))).toBe(0);
+    expect(bvTarget(c({ bht: 38, oasRel: 1.8, oasFrom63: -12 }))).toBe(1); // ya se alivia
+    expect(bvTarget(c({ bht: 38, oasRel: 1.2, oasFrom63: -3 }))).toBe(1); // crédito normal
   });
 });

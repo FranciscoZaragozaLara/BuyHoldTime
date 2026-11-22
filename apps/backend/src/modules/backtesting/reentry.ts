@@ -1,15 +1,17 @@
 // Red de seguridad de reentrada (estudio nov-2026, prisma/reentry-study.ts). Simula la posición con la escalera de
 // VENTA (V1–V5) y la de COMPRA (T0–T4) y, sobre el efectivo que dejó la venta y que T0–T4 no recompraron, agrega tres
 // reglas para no quedarse fuera del mercado cuando ya está barato:
-//  · Bv · barato con rebote: BHT < 50 (50%) o < 40 (100%) con el precio sobre su SMA50 ascendente.
+//  · Bv · barato con rebote: BHT < 50 (50%) o < 40 (100%) con el precio sobre su SMA50 ascendente; con el crédito
+//         estresado (HY ≥ 1.5× su mínimo de 12 meses) espera a que se alivie (2008-09 fue una crisis de crédito).
 //  · Ds · valuación en mínimos con el crédito aliviándose (HY ≥ 10% debajo de su máximo de 63 días), sin esperar el
 //         rebote: BHT < 45 → 50%, < 40 → 75%, < 35 → 100%.
 //  · R1e · regreso a máximos: tras una corrección posterior a la venta, precio en su máximo de 12 meses con SMA50 >
 //         SMA200 y BHT < 70 → recompra todo lo pendiente.
 // Bv y Ds exigen además el CAPE ≤ 1.25× su mediana de 20 años (separa los rebotes de 2001, con el CAPE en 1.9×, de los
 // pisos de 2002, 2009, 2018 y 2022) y que no haya crisis de crédito. Porcentajes sobre el efectivo de la última venta.
-// Backtest 1993–2026 (1×): VOO 8.9% → 9.9% anual, QQQ 12.9% → 15.4%; caída máx. QQQ igual (−42%), VOO −33% → −44%
+// Backtest 1993–2026 (1×): VOO 8.9% → 10.0% anual, QQQ 12.9% → 15.5%; caída máx. QQQ igual (−42%), VOO −33% → −43%
 // (compra de ene-2009, antes del piso de marzo). Días con ≥ 50% en efectivo: VOO 13.7% → 9.8%, QQQ 23.9% → 10.7%.
+// Sensibilidad: inicio de Ds en 48–55 en vez de 45 solo adelanta la compra de 2022 (más cara); CAPE 1.15–1.4 estable.
 import { CREDIT_CFG, SELL_CFG, TRANCHE_CFG, computeSellTranches, computeTranches, type BuyEvent, type EpisodeSummary, type PreparedTranches, type SellEvent } from './tranches';
 
 export const REENTRY_CFG = {
@@ -22,6 +24,8 @@ export type ReentryCtx = {
   k: number; px: number; bht: number | null; hi252: number | null; s50: number | null; s50prev: number | null; s200: number | null;
   /** Hubo corrección (se abrió un episodio de compra) después de la última venta. */
   corrected: boolean; credit: boolean; oasOff: number | null; capeRel: number | null; oasFrom63: number | null;
+  /** HY ÷ su mínimo de 12 meses (≥ 1.5 = crédito estresado). */
+  oasRel?: number | null;
 };
 /** Una regla devuelve la fracción objetivo (acumulada) del efectivo de la venta. */
 export type ReentryRule = (c: ReentryCtx) => { target: number; rule: ReentryRuleId | string };
@@ -30,8 +34,12 @@ type Num = number | null;
 const ffill = (a: Num[]) => { let l: Num = null; return a.map((v) => (v != null && Number.isFinite(v) ? (l = v) : l)); };
 const sma = (a: Num[], w: number) => { const o: Num[] = []; let s = 0, n = 0; for (let k = 0; k < a.length; k++) { const v = a[k]; if (v != null) { s += v; n++; } const old = k - w >= 0 ? a[k - w] : null; if (k - w >= 0 && old != null) { s -= old; n--; } o.push(n >= w * 0.8 ? s / n : null); } return o; };
 
+/** Crédito estresado (HY ≥ 1.5× su mínimo de 12 meses) que todavía no se alivia (≥ 10% bajo su máximo de 63 días). */
+export function creditStressed(c: ReentryCtx): boolean {
+  return c.oasRel != null && c.oasRel >= CREDIT_CFG.ratio && !(c.oasFrom63 != null && c.oasFrom63 <= -REENTRY_CFG.ds.ease);
+}
 export function bvTarget(c: ReentryCtx): number {
-  if (c.credit || c.bht == null || c.s50 == null || c.s50prev == null || c.px <= c.s50 || c.s50 <= c.s50prev) return 0;
+  if (c.credit || creditStressed(c) || c.bht == null || c.s50 == null || c.s50prev == null || c.px <= c.s50 || c.s50 <= c.s50prev) return 0;
   if (c.capeRel == null || c.capeRel > REENTRY_CFG.capeMax) return 0;
   return c.bht < REENTRY_CFG.bv.full ? 1 : c.bht < REENTRY_CFG.bv.half ? 0.5 : 0;
 }
@@ -97,6 +105,7 @@ export function simulateReentry(P: PreparedTranches, rule?: ReentryRule, until?:
     oasOff: P.oas[k] != null && P.oasMax252[k] ? ((P.oas[k] as number) / (P.oasMax252[k] as number) - 1) * 100 : null,
     capeRel: s.cape[k] != null && s.capeMedian20[k] ? (s.cape[k] as number) / (s.capeMedian20[k] as number) : null,
     oasFrom63: P.oas[k] != null && P.oasMax63[k] ? ((P.oas[k] as number) / (P.oasMax63[k] as number) - 1) * 100 : null,
+    oasRel: P.oas[k] != null && P.oasMin252[k] ? (P.oas[k] as number) / (P.oasMin252[k] as number) : null,
   });
   const stateAt = (k: number) => ({
     ctx: ctxAt(k), cash, units, cashFrac: cash / (units * (px[k] as number) + cash), extraPool, boughtExtra, corrected,
@@ -170,7 +179,7 @@ export function computeReentry(P: PreparedTranches, date: string): ReentryResult
       Bv: { target: bvTarget(c), checks: [
         { key: 'bht', ok: c.bht != null && c.bht < REENTRY_CFG.bv.half, value: c.bht, need: REENTRY_CFG.bv.half },
         { key: 'rebound', ok: rebound, value: c.s50 ? (c.px / c.s50 - 1) * 100 : null },
-        creditCheck, capeCheck,
+        creditCheck, { key: 'creditCalm', ok: !creditStressed(c), value: c.oasRel ?? null, need: CREDIT_CFG.ratio }, capeCheck,
       ] },
       Ds: { target: dsTarget(c), checks: [
         { key: 'bht', ok: c.bht != null && c.bht < REENTRY_CFG.ds.bands[REENTRY_CFG.ds.bands.length - 1][0], value: c.bht, need: REENTRY_CFG.ds.bands[REENTRY_CFG.ds.bands.length - 1][0] },

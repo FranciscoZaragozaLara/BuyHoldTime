@@ -9,6 +9,7 @@ import { databaseUrl } from './db-url';
 import { loadTrancheSeries, prepareTranches, type TrancheRoute } from '../src/modules/backtesting/tranches';
 import { NET_RULE, REENTRY_CFG, bvTarget, dsTarget, r1eTarget, simulateReentry, type ReentryCtx, type ReentryRule } from '../src/modules/backtesting/reentry';
 
+const CREDIT_RATIO = Number(process.env.CREDIT_RATIO ?? 1.5);
 const d45 = (c: ReentryCtx) => (!c.credit && c.bht != null && c.bht < 45 && c.oasFrom63 != null && c.oasFrom63 <= -REENTRY_CFG.ds.ease && c.capeRel != null && c.capeRel <= REENTRY_CFG.capeMax ? 1 : 0);
 const VARIANTS: Array<{ key: string; name: string; rule?: ReentryRule }> = [
   { key: 'base', name: 'Escaleras actuales' },
@@ -18,6 +19,22 @@ const VARIANTS: Array<{ key: string; name: string; rule?: ReentryRule }> = [
   { key: 'net', name: 'Red vigente: Bv + Ds + R1e', rule: NET_RULE },
   { key: 'D45', name: 'Bv + R1e + D45 (BHT<45 y crédito aliviándose → 100%)', rule: (c) => ({ target: Math.max(bvTarget(c), r1eTarget(c), d45(c)), rule: 'D45' }) },
   { key: 'Ds-only', name: 'Solo Ds', rule: (c) => ({ target: dsTarget(c), rule: 'Ds' }) },
+  // Candado de crédito estresado: con HY ≥ 1.5× su mínimo de 12 meses, Bv también espera el alivio (≥10% bajo su máx. de 63 días).
+  { key: 'netCr', name: 'Red + Bv espera alivio con crédito estresado', rule: (c) => {
+    const stressed = c.oasRel != null && c.oasRel >= CREDIT_RATIO && !(c.oasFrom63 != null && c.oasFrom63 <= -REENTRY_CFG.ds.ease);
+    const t: Array<[string, number]> = [['Bv', stressed ? 0 : bvTarget(c)], ['Ds', dsTarget(c)], ['R1e', r1eTarget(c)]];
+    const best = t.reduce((a, b) => (b[1] > a[1] ? b : a));
+    return { target: best[1], rule: best[0] };
+  } },
+  // Sensibilidad del inicio de la escalera Ds (DS_START, por defecto 45): <inicio → 50%, <40 → 75%, <35 → 100%.
+  { key: 'netDs', name: 'Red con inicio de Ds = DS_START', rule: (c) => {
+    const start = Number(process.env.DS_START ?? 45);
+    const ds = c.credit || c.bht == null || c.oasFrom63 == null || c.oasFrom63 > -REENTRY_CFG.ds.ease || c.capeRel == null || c.capeRel > REENTRY_CFG.capeMax ? 0
+      : c.bht < 35 ? 1 : c.bht < 40 ? 0.75 : c.bht < start ? 0.5 : 0;
+    const t: Array<[string, number]> = [['Bv', bvTarget(c)], ['Ds', ds], ['R1e', r1eTarget(c)]];
+    const best = t.reduce((a, b) => (b[1] > a[1] ? b : a));
+    return { target: best[1], rule: best[0] };
+  } },
 ];
 
 function simulate(route: TrancheRoute, s: Awaited<ReturnType<typeof loadTrancheSeries>>, rule?: ReentryRule) {
