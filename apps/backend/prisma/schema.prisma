@@ -164,7 +164,7 @@ model MarginDebt {
   netCreditBalance      Float    @map("net_credit_balance")
   sp500Price            Float?   @map("sp500_price")
   currencyInCirculation Float?   @map("currency_in_circulation") // En millones USD (FRED MBCURRCIR)
-  marginCurrencyRatio   Float?   @map("margin_currency_ratio")    // Margin Debt / Currency (%)
+  marginCurrencyRatio   Float?   @map("margin_currency_ratio") // Margin Debt / Currency (%)
   marginDebtRatio       Float?   @map("margin_debt_ratio")
   marginDebtYoY         Float?   @map("margin_debt_yoy")
   sp500YoY              Float?   @map("sp500_yoy")
@@ -177,8 +177,6 @@ model MarginDebt {
 
   @@map("margin_debt")
 }
-
-
 
 // === Fase 6 Backtesting — TQQQ/QQQ ===
 model BtMarketData {
@@ -215,7 +213,7 @@ model BtStrategy {
 
 model BtStartDate {
   id           String   @id @default(uuid())
-  startDate    DateTime @unique @db.Date @map("start_date")
+  startDate    DateTime @unique @map("start_date") @db.Date
   label        String
   descriptor   String?
   category     String?  @map("category")
@@ -317,22 +315,22 @@ model BtAllocation {
 // Termómetro BuyHoldTime al cierre: subconjunto disponible por fecha.
 // value = numerator/denominator (base 100); coverage = nº indicadores incluidos.
 model BtThermoHistory {
-  date        DateTime @db.Date @id
-  value       Float
-  numerator   Float
-  denominator Float
-  coverage    Int
-  bonus       Float    @default(0)
-  bonusLabel  String?  @map("bonus_label")
-  liqBonus    Float    @default(0) @map("liq_bonus")
-  liqBonusLabel String? @map("liq_bonus_label")
-  oilBonus    Float    @default(0) @map("oil_bonus")
-  oilBonusLabel String? @map("oil_bonus_label")
+  date          DateTime @id @db.Date
+  value         Float
+  numerator     Float
+  denominator   Float
+  coverage      Int
+  bonus         Float    @default(0)
+  bonusLabel    String?  @map("bonus_label")
+  liqBonus      Float    @default(0) @map("liq_bonus")
+  liqBonusLabel String?  @map("liq_bonus_label")
+  oilBonus      Float    @default(0) @map("oil_bonus")
+  oilBonusLabel String?  @map("oil_bonus_label")
   // Régimen tendencial del S&P 500 (cierre vs SMA 50/200): UPTREND · PULLBACK · REBOUND · DOWNTREND.
-  trendRegime String?  @map("trend_regime")
-  spxSma50    Float?   @map("spx_sma50")
-  spxSma200   Float?   @map("spx_sma200")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  trendRegime   String?  @map("trend_regime")
+  spxSma50      Float?   @map("spx_sma50")
+  spxSma200     Float?   @map("spx_sma200")
+  updatedAt     DateTime @updatedAt @map("updated_at")
 
   @@map("bt_thermo_history")
 }
@@ -341,28 +339,28 @@ model BtThermoHistory {
 // Lo llena prisma/sync-shiller-daily.ts desde el CSV de BackTesting y el
 // market-sync diario agrega/reescribe las filas recientes.
 model BtShillerDaily {
-  date       DateTime @db.Date @id
-  pe         Float?
-  cape       Float?   // CAPE registrado: SPX / E10 del último mes publicado ese día
-  capeAdjusted Float? @map("cape_adjusted") // informativo: SPX / E10 del propio mes (revisable)
-  e10        Float?   // denominador usado por el registrado (P/CAPE del mes e10Month)
-  e10Month   DateTime? @db.Date @map("e10_month")
-  capeSma3   Float?   @map("cape_sma3")
-  capeSma5   Float?   @map("cape_sma5")
-  capeSma10  Float?   @map("cape_sma10")
-  capeEma3   Float?   @map("cape_ema3")
-  capeEma5   Float?   @map("cape_ema5")
-  capeEma10  Float?   @map("cape_ema10")
-  mean3y     Float?
-  mean5y     Float?
-  mean10y    Float?
-  mean3yEma  Float?   @map("mean3y_ema")
-  mean5yEma  Float?   @map("mean5y_ema")
-  mean10yEma Float?   @map("mean10y_ema")
-  std3y      Float?
-  std5y      Float?
-  std10y     Float?
-  updatedAt  DateTime @updatedAt @map("updated_at")
+  date         DateTime  @id @db.Date
+  pe           Float?
+  cape         Float? // CAPE registrado: SPX / E10 del último mes publicado ese día
+  capeAdjusted Float?    @map("cape_adjusted") // informativo: SPX / E10 del propio mes (revisable)
+  e10          Float? // denominador usado por el registrado (P/CAPE del mes e10Month)
+  e10Month     DateTime? @map("e10_month") @db.Date
+  capeSma3     Float?    @map("cape_sma3")
+  capeSma5     Float?    @map("cape_sma5")
+  capeSma10    Float?    @map("cape_sma10")
+  capeEma3     Float?    @map("cape_ema3")
+  capeEma5     Float?    @map("cape_ema5")
+  capeEma10    Float?    @map("cape_ema10")
+  mean3y       Float?
+  mean5y       Float?
+  mean10y      Float?
+  mean3yEma    Float?    @map("mean3y_ema")
+  mean5yEma    Float?    @map("mean5y_ema")
+  mean10yEma   Float?    @map("mean10y_ema")
+  std3y        Float?
+  std5y        Float?
+  std10y       Float?
+  updatedAt    DateTime  @updatedAt @map("updated_at")
 
   @@map("bt_shiller_daily")
 }
@@ -370,7 +368,7 @@ model BtShillerDaily {
 // BHT Index + precios y retornos forward maduros (1/2/3/5Y) por índice.
 // Solo se guardan horizontes con fecha objetivo <= último dato disponible.
 model BtBhtForward {
-  date      DateTime @db.Date @id
+  date      DateTime @id @db.Date
   bhtValue  Float?   @map("bht_value")
   spx       Float?
   ndx       Float?
@@ -409,3 +407,176 @@ model DataSourceRun {
   @@map("data_source_runs")
 }
 
+// ── Laboratorio Canary & Phoenix (experimental, solo informativo; migración 20261122000000) ──────────────────────
+
+model ExpScoreConfig {
+  version  String   @id
+  params   Json
+  frozenAt DateTime @default(now()) @map("frozen_at") @db.Timestamptz(6)
+  notes    String?
+
+  canaryBaskets  ExpCanaryBasket[]
+  phoenixCohorts ExpPhoenixCohort[]
+  paperPositions ExpPaperPosition[]
+  scores         ExpScoreDaily[]
+
+  @@map("exp_score_config")
+}
+
+model ExpUniverseMonthly {
+  asOf            DateTime @map("as_of") @db.Date
+  symbol          String
+  marketCap       Float?   @map("market_cap")
+  avgVolume       Float?   @map("avg_volume")
+  sector          String?
+  industry        String?
+  optionSpreadPct Float?   @map("option_spread_pct")
+  source          String
+
+  @@id([asOf, symbol])
+  @@map("exp_universe_monthly")
+}
+
+model ExpFundamentalsPit {
+  symbol     String
+  asOf       DateTime  @map("as_of") @db.Date
+  source     String
+  filedDate  DateTime? @map("filed_date") @db.Date
+  fcfTtm     Float?    @map("fcf_ttm")
+  fcfMargin  Float?    @map("fcf_margin")
+  psRatio    Float?    @map("ps_ratio")
+  forwardPe  Float?    @map("forward_pe")
+  roe        Float?
+  roic       Float?
+  debtEbitda Float?    @map("debt_ebitda")
+
+  @@id([symbol, asOf, source])
+  @@map("exp_fundamentals_pit")
+}
+
+model ExpCanaryBasket {
+  month         DateTime       @db.Date
+  symbol        String
+  rank          Int
+  sector        String?
+  extSma50      Float?         @map("ext_sma50")
+  fragility     Json?
+  isAnchor      Boolean        @default(false) @map("is_anchor")
+  configVersion String         @map("config_version")
+  config        ExpScoreConfig @relation(fields: [configVersion], references: [version], onDelete: NoAction, onUpdate: NoAction)
+
+  @@id([month, symbol, configVersion])
+  @@map("exp_canary_basket")
+}
+
+model ExpPhoenixCohort {
+  cohortId      String         @map("cohort_id")
+  symbol        String
+  frozenAt      DateTime       @map("frozen_at") @db.Date
+  cohortSize    Int            @map("cohort_size")
+  sector        String?
+  industry      String?
+  phoenixRank   Float?         @map("phoenix_rank")
+  components    Json?
+  status        String         @default("active")
+  purgedAt      DateTime?      @map("purged_at") @db.Date
+  purgeReason   String?        @map("purge_reason")
+  configVersion String         @map("config_version")
+  config        ExpScoreConfig @relation(fields: [configVersion], references: [version], onDelete: NoAction, onUpdate: NoAction)
+
+  @@id([cohortId, symbol, cohortSize])
+  @@map("exp_phoenix_cohort")
+}
+
+model ExpOptionQuote {
+  id             BigInt    @id @default(autoincrement())
+  snapshotTs     DateTime  @map("snapshot_ts") @db.Timestamptz(6)
+  quoteTime      DateTime? @map("quote_time") @db.Timestamptz(6)
+  dataType       String    @map("data_type")
+  source         String    @default("yahoo")
+  contractSymbol String?   @map("contract_symbol")
+  underlying     String
+  conId          BigInt?   @map("con_id")
+  expiry         DateTime  @db.Date
+  strike         Float
+  optRight       String    @map("opt_right") @db.Char(1)
+  bid            Float?
+  ask            Float?
+  last           Float?
+  volume         BigInt?
+  openInterest   BigInt?   @map("open_interest")
+  ivIbkr         Float?    @map("iv_ibkr")
+  ivCalc         Float?    @map("iv_calc")
+  delta          Float?
+  gamma          Float?
+  vega           Float?
+  theta          Float?
+  undPrice       Float?    @map("und_price")
+
+  @@index([underlying, snapshotTs(sort: Desc)], map: "exp_option_quotes_und_ts")
+  @@index([underlying, expiry, strike, optRight, snapshotTs], map: "exp_option_quotes_contract")
+  @@map("exp_option_quotes")
+}
+
+model ExpPaperPosition {
+  id            String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  strategy      String
+  tranche       String?
+  episodeId     String?        @map("episode_id")
+  underlying    String
+  legs          Json
+  openedAt      DateTime       @map("opened_at") @db.Date
+  entryPrice    Float          @map("entry_price")
+  entryPriceMid Float?         @map("entry_price_mid")
+  status        String         @default("open")
+  closedAt      DateTime?      @map("closed_at") @db.Date
+  exitPrice     Float?         @map("exit_price")
+  exitPriceMid  Float?         @map("exit_price_mid")
+  exitReason    String?        @map("exit_reason")
+  configVersion String         @map("config_version")
+  config        ExpScoreConfig @relation(fields: [configVersion], references: [version], onDelete: NoAction, onUpdate: NoAction)
+  marks         ExpPaperMark[]
+
+  @@map("exp_paper_positions")
+}
+
+model ExpPaperMark {
+  positionId       String           @map("position_id") @db.Uuid
+  date             DateTime         @db.Date
+  markMid          Float?           @map("mark_mid")
+  markConservative Float?           @map("mark_conservative")
+  undPrice         Float?           @map("und_price")
+  iv               Float?
+  delta            Float?
+  roiPct           Float?           @map("roi_pct")
+  position         ExpPaperPosition @relation(fields: [positionId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([positionId, date])
+  @@map("exp_paper_marks")
+}
+
+model ExpScoreDaily {
+  date          DateTime       @db.Date
+  scoreKey      String         @map("score_key")
+  configVersion String         @map("config_version")
+  value         Float
+  state         String?
+  components    Json?
+  computedAt    DateTime       @default(now()) @map("computed_at") @db.Timestamptz(6)
+  isBackfill    Boolean        @default(false) @map("is_backfill")
+  config        ExpScoreConfig @relation(fields: [configVersion], references: [version], onDelete: NoAction, onUpdate: NoAction)
+
+  @@id([date, scoreKey, configVersion])
+  @@map("exp_scores_daily")
+}
+
+model ExpBtEvent {
+  episodeId    String    @id @map("episode_id")
+  peakDate     DateTime  @map("peak_date") @db.Date
+  troughDate   DateTime? @map("trough_date") @db.Date
+  recoveryDate DateTime? @map("recovery_date") @db.Date
+  depth        Float?
+  metrics      Json?
+
+  @@map("exp_bt_events")
+}
