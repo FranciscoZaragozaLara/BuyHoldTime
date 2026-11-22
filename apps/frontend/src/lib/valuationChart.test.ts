@@ -1,6 +1,6 @@
 import { TOKENS } from './designTokens';
 import { describe, expect, it } from 'vitest';
-import { athDrawdownLine, buildValuationChart, buyLadderMarkers, mergeSellLabels, netLadderMarkers, NET_COLOR, sellLadderMarkers, signalMarkers, signalState, thinMarkers, DEATH_CROSS_MIN_BHT, CROSS_MIN_SESSIONS, SIGNAL_REPEAT, type ChartPoint, type DailyValuation, type MonthlyRow } from './valuationChart';
+import { athDrawdownLine, buildValuationChart, buyLadderMarkers, mergeBuyLabels, mergeSellLabels, netLadderMarkers, NET_COLOR, sellLadderMarkers, signalMarkers, signalState, thinMarkers, DEATH_CROSS_MIN_BHT, CROSS_MIN_SESSIONS, SIGNAL_REPEAT, type ChartPoint, type DailyValuation, type MonthlyRow } from './valuationChart';
 
 const monthly: MonthlyRow[] = [
   { date: '1989-11', sp500Price: 340, peRatio: 14, shillerPe: 17 },
@@ -197,5 +197,14 @@ describe('athDrawdownLine', () => {
     expect(m.map((x) => [x.text, x.color])).toEqual([['R50', NET_COLOR.Bv], ['R100', NET_COLOR.Ds]]);
     expect(m[1].size).toBeGreaterThan(m[0].size);
     expect(m[0]).toMatchObject({ kind: 'buy', position: 'belowBar' });
+  });
+  it('compras de la escalera y de la red que chocan se juntan en una etiqueta compacta', () => {
+    expect(mergeBuyLabels(['R50', 'T1', 'T2'])).toBe('T1/2·R50');
+    expect(mergeBuyLabels(['T4·r', 'T1½'])).toBe('T1½/4r');
+    expect(mergeBuyLabels(['R50', 'R20'])).toBe('R50·R20');
+    const day = (k: number) => new Date(Date.UTC(2020, 0, 1) + k * 86400000).toISOString().slice(0, 10);
+    const m = [...buyLadderMarkers([{ date: day(5), id: 'T1', price: 1, size: 1, backup: false }]), ...netLadderMarkers([{ date: day(2), rule: 'Ds', pct: 50, price: 1 }])];
+    const thin = thinMarkers(m, (t) => Number(t.slice(8, 10)), 10);
+    expect(thin.map((x) => x.text)).toEqual(['T1·R50']);
   });
 });

@@ -265,14 +265,21 @@ export const MARKER_MIN_PX = 30;
  * Raleo según el zoom: en cada carril (position) se acepta una señal solo si no hay otra aceptada a menos de
  * `minGapBars` sesiones. Se decide por prioridad (cruces, luego entradas, luego recordatorios; a igual prioridad,
  * $$ sobre $ y ¼$) y luego por fecha, así lo importante nunca se pierde. `indexOf` da la posición de cada fecha.
- * Ventas que chocan con otra venta no se pierden: su etiqueta se suma a la que queda en forma compacta (p. ej.
- * «V1/4»), para que la gráfica no contradiga al detalle del día.
+ * Ventas o compras que chocan con otra del mismo tipo no se pierden: su etiqueta se suma a la que queda en forma
+ * compacta (p. ej. «V1/4», «T1/2·R50»), para que la gráfica no contradiga al detalle del día.
  */
 /** Etiqueta compacta de ventas agrupadas: «V4», «V1» → «V1/4»; con crisis de crédito («V4·C») → «V1/4·C». */
 export function mergeSellLabels(texts: string[]): string {
   const credit = texts.some((t) => t.endsWith('·C'));
   const nums = [...new Set(texts.map((t) => t.replace(/^V/, '').replace(/·C$/, '')))].sort();
   return `V${nums.join('/')}${credit ? '·C' : ''}`;
+}
+
+/** Etiqueta compacta de compras agrupadas (escalera y red): «T1», «T2», «R50» → «T1/2·R50»; conserva «½» y «r» (respaldo). */
+export function mergeBuyLabels(texts: string[]): string {
+  const ts = [...new Set(texts.filter((t) => t.startsWith('T')).map((t) => t.slice(1).replace('·r', 'r')))].sort();
+  const rs = texts.filter((t) => t.startsWith('R'));
+  return [ts.length ? `T${ts.join('/')}` : '', rs.join('·')].filter(Boolean).join('·');
 }
 
 export function thinMarkers<T extends Pick<SignalMarker, 'time' | 'kind' | 'priority' | 'position'> & { text?: string }>(markers: T[], indexOf: (time: string) => number | undefined, minGapBars: number): T[] {
@@ -290,7 +297,7 @@ export function thinMarkers<T extends Pick<SignalMarker, 'time' | 'kind' | 'prio
     const hit = lane.find((j) => Math.abs(j.idx - x.idx!) < minGapBars);
     if (hit) {
       const host = markers[hit.k];
-      if (x.m.kind === 'sell' && host.kind === 'sell' && x.m.text) {
+      if ((x.m.kind === 'sell' || x.m.kind === 'buy') && host.kind === x.m.kind && x.m.text) {
         const list = merged.get(hit.k) ?? [{ idx: hit.idx, text: host.text ?? '' }];
         list.push({ idx: x.idx!, text: x.m.text });
         merged.set(hit.k, list);
@@ -303,7 +310,7 @@ export function thinMarkers<T extends Pick<SignalMarker, 'time' | 'kind' | 'prio
   return markers.flatMap((m, k) => {
     if (!keep.has(k)) return [];
     const list = merged.get(k);
-    return [list ? { ...m, text: mergeSellLabels(list.map((t) => t.text)) } : m];
+    return [list ? { ...m, text: m.kind === 'buy' ? mergeBuyLabels(list.sort((a, b) => a.idx - b.idx).map((t) => t.text)) : mergeSellLabels(list.map((t) => t.text)) } : m];
   });
 }
 

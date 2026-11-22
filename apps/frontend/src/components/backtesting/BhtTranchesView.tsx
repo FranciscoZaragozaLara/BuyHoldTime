@@ -289,13 +289,14 @@ export default function BhtTranchesView({ date, locale, initialRoute = 'qqq', ch
                   </tr>
                 );
               })}
+              {both?.net && <NetRows net={both.net} es={es} money={money} />}
             </tbody>
           </table>
           <div className="font-mono text-slate-300">
             {t.deployed} <span className="font-bold text-slate-100">{(r.deployed * 100).toFixed(1)}%</span> · {t.lev} <span className="font-bold" style={{ color: r.leverage > 1 ? TOKENS.elevated : undefined }}>{r.leverage.toFixed(2)}x</span>
             {r.avgPrice != null && <> · {t.avg} {money(r.avgPrice)}</>}{r.pnl != null && <> · {t.pnlTotal} <PnL v={r.pnl} title={t.pnlTitle} bare />{r.pnlMix != null && r.leverage !== r.deployed && <> ({t.mix.toLowerCase()} <PnL v={r.pnlMix} title={t.pnlMixTitle} bare />)</>}</>}{r.captured != null && <> · <span className="text-favorable-300">{r.captured.toFixed(0)}%</span> {t.captured}</>}
           </div>
-          <NetSection net={both?.net} es={es} money={money} />
+          <NetFooter net={both?.net} es={es} />
           <div className="text-[10px] text-slate-500 leading-snug">{t.note}</div>
         </div>
       )}
@@ -411,40 +412,58 @@ function netCheckText(c: NetCheck, es: boolean): string {
     default: return c.key;
   }
 }
-/** Red de seguridad de reentrada: efectivo que dejó la venta y que T0–T4 no recompraron, y sus tres reglas. */
-function NetSection({ net, es, money }: { net: Net | null | undefined; es: boolean; money: (v: number | null) => string }) {
-  if (!net) return null;
+/** Filas de la red de seguridad dentro de la tabla de tranches: mismas columnas (peso sobre el efectivo de la venta,
+ *  mezcla 1×/3× y estado: disparos del ciclo, «cumple hoy» o lo que falta). */
+function NetRows({ net, es, money }: { net: Net; es: boolean; money: (v: number | null) => string }) {
   const recent = net.lastSale ? net.events.filter((e) => e.date > net.lastSale!) : [];
+  const weights: Record<'Bv' | 'Ds' | 'R1e', string> = { Bv: '50–100%', Ds: '50–100%', R1e: '100%' };
   return (
-    <div className="mt-1 rounded-lg border border-slate-700/70 p-2 space-y-1">
-      <div className="text-[10px] uppercase tracking-wide font-bold text-sky-300">{es ? 'Red de seguridad · reingreso del efectivo de la venta' : 'Safety net · re-entry of the sale cash'}</div>
-      <div className="font-mono text-slate-300">
-        {net.active
-          ? <>{es ? 'Efectivo pendiente' : 'Pending cash'} <b className="text-slate-100">{(net.cashPct * 100).toFixed(0)}%</b> {es ? 'del portafolio' : 'of the portfolio'} · {es ? 'última venta' : 'last sale'} {net.lastSale}{net.netBoughtPct > 0 && <> · {es ? 'la red ya recompró' : 'the net already bought'} <b className="text-favorable-300">{(net.netBoughtPct * 100).toFixed(0)}%</b></>}</>
-          : <span className="text-slate-500">{es ? 'Sin efectivo pendiente de una venta: la red no aplica.' : 'No pending cash from a sale: the net does not apply.'}</span>}
-      </div>
-      <table className="w-full font-mono">
-        <tbody>
-          {(['Bv', 'Ds', 'R1e'] as const).map((id) => {
-            const r = net.rules[id];
-            return (
-              <tr key={id} className="border-b border-slate-800/60 align-top">
-                <td className="py-0.5 pr-2 whitespace-nowrap"><b style={{ color: NET_RULE_COLOR[id] }}>{es ? NET_NAMES[id][0] : NET_NAMES[id][1]}</b><div className="text-[10px] text-slate-500">{NET_NAMES[id][2]}</div></td>
-                <td className="py-0.5">
-                  {r.target > 0 && <span className="font-bold text-favorable-300">{es ? 'Cumple' : 'Met'}: {es ? 'objetivo' : 'target'} {(r.target * 100).toFixed(0)}% · </span>}
-                  {r.checks.map((c, i) => <span key={c.key}>{i > 0 && ' · '}<span className={c.ok ? 'text-favorable-300' : 'text-slate-400'}>{c.ok ? '✓' : '✗'} {netCheckText(c, es)}</span></span>)}
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-      {recent.length > 0 && (
-        <div className="font-mono text-slate-300">{es ? 'Compras de la red en este ciclo' : 'Net buys this cycle'}: {recent.map((e) => <span key={e.date} className="mr-2"><b style={{ color: NET_RULE_COLOR[e.rule] }}>R{e.pct}</b> {e.date} @ {money(e.price)}</span>)}</div>
+    <>
+      <tr>
+        <td colSpan={4} className="pt-1.5 pb-0.5 text-[9px] uppercase tracking-wide font-bold text-sky-300">
+          {es ? 'Red de seguridad · efectivo de la venta que T0–T4 no recompraron' : 'Safety net · sale cash T0–T4 left'}
+          <span className="normal-case tracking-normal font-normal text-slate-400"> · {net.active
+            ? <>{es ? 'pendiente' : 'pending'} <b className="text-slate-100">{(net.cashPct * 100).toFixed(0)}%</b> {es ? 'del portafolio · venta' : 'of the portfolio · sale'} {net.lastSale}</>
+            : (es ? 'sin efectivo pendiente' : 'no pending cash')}</span>
+        </td>
+      </tr>
+      {(['Bv', 'Ds', 'R1e'] as const).map((id) => {
+        const r = net.rules[id];
+        const fired = recent.filter((e) => e.rule === id);
+        const missing = r.checks.filter((c) => !c.ok);
+        const today = fired.some((e) => e.date === net.date);
+        return (
+          <tr key={id} className={`border-b border-slate-800/60 align-top ${today ? 'bg-favorable-500/10' : ''}`}>
+            <td className="py-0.5 whitespace-nowrap"><span className="font-bold" style={{ color: NET_RULE_COLOR[id] }}>R</span> <span className="text-slate-400 font-sans">{es ? NET_NAMES[id][0] : NET_NAMES[id][1]}</span></td>
+            <td className="text-right text-slate-300 whitespace-nowrap" title={NET_NAMES[id][2]}>{weights[id]}</td>
+            <td className="text-right text-slate-400 px-2 whitespace-nowrap">100/0</td>
+            <td className="text-slate-300">
+              {fired.length > 0 && (
+                <span className="text-favorable-300 font-bold">{fired.map((e) => `${e.date === net.date ? (es ? 'Hoy' : 'Today') : (es ? 'Disparado' : 'Fired')} ${e.date} @ ${money(e.price)} (R${e.pct})`).join(' · ')}</span>
+              )}
+              {fired.length === 0 && r.target > 0 && net.active && <span className="text-favorable-300 font-bold">{es ? 'Cumple hoy' : 'Met today'}: {es ? 'objetivo' : 'target'} {(r.target * 100).toFixed(0)}%</span>}
+              {fired.length === 0 && !(r.target > 0 && net.active) && (!net.active
+                ? <span className="text-slate-600">—</span>
+                : <span className="text-slate-400">{es ? 'Falta' : 'Missing'}: {missing.map((c) => netCheckText(c, es)).join(' · ') || '—'}</span>)}
+              <div className="text-[10px] text-slate-500">{NET_NAMES[id][2]}</div>
+            </td>
+          </tr>
+        );
+      })}
+    </>
+  );
+}
+/** Resumen y nota de la red bajo la tabla. */
+function NetFooter({ net, es }: { net: Net | null | undefined; es: boolean }) {
+  if (!net) return null;
+  return (
+    <>
+      {net.active && net.netBoughtPct > 0 && (
+        <div className="font-mono text-slate-300">{es ? 'Red de seguridad: ya recompró' : 'Safety net: already bought back'} <b className="text-favorable-300">{(net.netBoughtPct * 100).toFixed(0)}%</b> {es ? 'del efectivo de la venta' : 'of the sale cash'}</div>
       )}
       <div className="text-[10px] text-slate-500 leading-snug">{es
-        ? 'Solo actúa sobre el efectivo de la venta que T0–T4 no recompraron. Barato y mínimos exigen el CAPE ≤ 1.25× su mediana de 20 años (en 2001 estaba en 1.9×) y sin crisis de crédito; con el crédito estresado, barato espera a que se alivie. Backtest 1993–2026 (1×): S&P 8.9% → 10.0% anual, QQQ 12.9% → 15.5%; días con ≥ 50% en efectivo 14% → 10% y 24% → 11%. Costo: caída máx. del S&P −33% → −43% (compra de ene-2009). No es asesoría financiera.'
-        : 'Only acts on the sale cash T0–T4 left. Cheap and lows require CAPE ≤ 1.25× its 20-year median (1.9× in 2001) and no credit crisis; with stressed credit, cheap waits for it to ease. Backtest 1993–2026 (1×): S&P 8.9% → 10.0% a year, QQQ 12.9% → 15.5%; days with ≥ 50% cash 14% → 10% and 24% → 11%. Cost: S&P max drawdown −33% → −43% (Jan-2009 buy). Not financial advice.'}</div>
-    </div>
+        ? 'Red de seguridad (R): solo actúa sobre el efectivo de la venta que T0–T4 no recompraron (% de ese efectivo, en 1×). Barato y mínimos exigen el CAPE ≤ 1.25× su mediana de 20 años (en 2001 estaba en 1.9×) y sin crisis de crédito; con el crédito estresado, barato espera a que se alivie. Backtest 1993–2026 (1×): S&P 8.9% → 10.0% anual, QQQ 12.9% → 15.5%; días con ≥ 50% en efectivo 14% → 10% y 24% → 11%. Costo: caída máx. del S&P −33% → −43% (compra de ene-2009).'
+        : 'Safety net (R): only acts on the sale cash T0–T4 left (% of that cash, at 1×). Cheap and lows require CAPE ≤ 1.25× its 20-year median (1.9× in 2001) and no credit crisis; with stressed credit, cheap waits for it to ease. Backtest 1993–2026 (1×): S&P 8.9% → 10.0% a year, QQQ 12.9% → 15.5%; days with ≥ 50% cash 14% → 10% and 24% → 11%. Cost: S&P max drawdown −33% → −43% (Jan-2009 buy).'}</div>
+    </>
   );
 }
