@@ -238,3 +238,33 @@ export function perf1Y(map: Series, isoDate: string, todayPrice: number | null, 
   if (todayPrice == null || todayPrice <= 0 || price <= 0) return null;
   return cagr(map, isoDate, todayPrice, now);
 }
+
+/**
+ * Rezago de publicación (días desde la fecha del periodo hasta que el dato se conoce): mismo valor que PUB_LAG_DAYS
+ * del backend (thermo-history.ts), con el que se calcula el BHT. Sin esto la tabla mostraba, p. ej., el FINRA de
+ * octubre desde el 1-oct aunque se publicó el ~20-nov.
+ */
+export const PUB_LAG_DAYS: Readonly<Record<string, number>> = {
+  FINRA_DEBIT: 50, CPIAUCSL: 43, CPILFESL: 43, M2SL: 57, BOGMBASE: 57, MSACSR: 55, GDP: 120, GDPC1: 120,
+};
+const lagMemo = new WeakMap<Map<string, number>, Map<string, number>>();
+/** La serie con cada fecha corrida a su fecha de publicación (memorizada por mapa). */
+export function lagSeries(map: Series, days: number): Series {
+  if (!map || !days) return map;
+  const hit = lagMemo.get(map);
+  if (hit) return hit;
+  const out = new Map<string, number>();
+  for (const [d, v] of map) {
+    const x = new Date(`${d.slice(0, 10)}T00:00:00Z`);
+    x.setUTCDate(x.getUTCDate() + days);
+    out.set(x.toISOString().slice(0, 10), v);
+  }
+  lagMemo.set(map, out);
+  return out;
+}
+/** Historia con el rezago aplicado a las series mensuales/trimestrales (las diarias no cambian). */
+export function withPubLag(h: Record<string, Series>): Record<string, Series> {
+  const out = { ...h };
+  for (const [t, days] of Object.entries(PUB_LAG_DAYS)) if (h[t]) out[t] = lagSeries(h[t], days);
+  return out;
+}

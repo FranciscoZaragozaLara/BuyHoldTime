@@ -3,7 +3,7 @@ import type React from 'react';
 import { useEffect, useState, useRef, useMemo } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useTranslations } from 'next-intl';
-import { getClosestPrice, getCpiYoY, getRecentPrice, marginGdpRatio } from '@/lib/seriesLookup';
+import { getClosestPrice, getCpiYoY, getRecentPrice, marginGdpRatio, withPubLag } from '@/lib/seriesLookup';
 import type { useRegimeEngine } from './useRegimeEngine';
 
 type View = 'daily' | 'monthly' | 'yearly';
@@ -12,7 +12,7 @@ type RegimeEngine = ReturnType<typeof useRegimeEngine>;
 // Tabla de evolución de regímenes (Daily / Monthly / Yearly) con los mismos indicadores que Backtesting:
 // filtro por año, virtualización, scroll infinito y tooltips por celda. La vista la comparte con el
 // panel porque también define la ventana de R3 del motor de regímenes.
-export function RegimesEvolutionTable({ cape, capeView, setCapeView, equity, marketHistory, getRegimeDetails, getEquityForDate, getBhEquityForDate, getDrawdownForDate, initialEquity }: {
+export function RegimesEvolutionTable({ cape, capeView, setCapeView, equity, marketHistory: marketHistoryRaw, getRegimeDetails, getEquityForDate, getBhEquityForDate, getDrawdownForDate, initialEquity }: {
   cape: any[]; capeView: View; setCapeView: (v: View) => void; equity: any[];
   marketHistory: Record<string, Map<string, number>>;
   getRegimeDetails: RegimeEngine['getRegimeDetails'];
@@ -20,6 +20,8 @@ export function RegimesEvolutionTable({ cape, capeView, setCapeView, equity, mar
   initialEquity: number;
 }) {
   const tr = useTranslations('Backtesting.regimesPanel');
+  // Columnas macro a la fecha: cada dato mensual/trimestral desde su publicación (PUB_LAG_DAYS, igual que el BHT).
+  const marketHistory = useMemo(() => withPubLag(marketHistoryRaw) as Record<string, Map<string, number>>, [marketHistoryRaw]);
   const getMarginGdpRatio = (d: string) => marginGdpRatio(marketHistory['FINRA_DEBIT'], marketHistory['GDP'], d);
   const [visibleCount, setVisibleCount] = useState(15);
   const [filterYear, setFilterYear] = useState<string>('');

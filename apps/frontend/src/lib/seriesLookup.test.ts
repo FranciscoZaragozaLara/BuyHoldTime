@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  breadthValues, buildObvForce, buildObvMap, cagr, getClosestPrice, getCpiYoY, getRecentPrice, isValidIsoDate,
+  lagSeries, PUB_LAG_DAYS, withPubLag, breadthValues, buildObvForce, buildObvMap, cagr, getClosestPrice, getCpiYoY, getRecentPrice, isValidIsoDate,
   marginGdpRatio, monthlyPctLive, perf1Y, perfTotal, periodChange, price1YLater,
 } from './seriesLookup';
 
@@ -54,5 +54,17 @@ describe('seriesLookup', () => {
     expect(perfTotal(spx, '2024-11-13', 130, NOW)).toBeCloseTo(30);
     expect(perfTotal(spx, '2026-11-13', 130, NOW)).toBeNull(); // sin precio en la fecha
     expect(cagr(spx, '2024-11-13', 121, NOW)).toBeCloseTo(10, 0);
+  });
+});
+
+describe('rezago de publicación', () => {
+  it('el FINRA de octubre no aparece antes del ~20-nov; las series diarias no cambian', () => {
+    const finra = new Map([['2026-09-01', 1480054], ['2026-10-01', 1448360]]);
+    const vix = new Map([['2026-10-30', 19.4]]);
+    const h = withPubLag({ FINRA_DEBIT: finra, VIXCLS: vix });
+    expect(getRecentPrice(h.FINRA_DEBIT, '2026-10-30', 45)).toBe(1480054);
+    expect(getRecentPrice(h.FINRA_DEBIT, '2026-11-20', 45)).toBe(1448360);
+    expect(h.VIXCLS).toBe(vix);
+    expect(lagSeries(finra, PUB_LAG_DAYS.FINRA_DEBIT)).toBe(h.FINRA_DEBIT);
   });
 });

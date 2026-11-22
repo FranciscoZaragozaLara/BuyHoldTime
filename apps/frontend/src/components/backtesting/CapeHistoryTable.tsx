@@ -7,7 +7,7 @@ import { useEffect, useState, useRef, useMemo } from 'react';
 import { useTranslations } from 'next-intl';
 import { capeScoreColor } from './bhtBands';
 import { Download } from 'lucide-react';
-import { breadthValues, buildObvForce, buildObvMap, cagr, getClosestPrice, getCpiYoY, getRecentPrice, isPerf1YMature, marginGdpRatio, monthlyPctLive, oilRatioLive, perf1Y, perf1YElapsedMonths, perfTotal, periodChange, price1YLater } from '@/lib/seriesLookup';
+import { lagSeries, PUB_LAG_DAYS, withPubLag, breadthValues, buildObvForce, buildObvMap, cagr, getClosestPrice, getCpiYoY, getRecentPrice, isPerf1YMature, marginGdpRatio, monthlyPctLive, oilRatioLive, perf1Y, perf1YElapsedMonths, perfTotal, periodChange, price1YLater } from '@/lib/seriesLookup';
 import { exportToExcel } from '@/lib/exportExcel';
 import { type ThermoLive, useLiveTicker } from './useThermoLive';
 import { useBhtDetail, bhtLeaveGuard, BhtDetailPopover } from './BhtDetail';
@@ -21,7 +21,7 @@ const trendRank = (r?: string | null) => { const i = TREND_ORDER.indexOf((r ?? '
 // Tabla "CAPE de Shiller — S&P 500 / Nasdaq / TQQQ": vistas diaria/mensual/anual, orden, scroll infinito,
 // export a Excel y popovers (BHT por fecha y rendimiento de SP500/Nasdaq/TQQQ). Estado propio; los datos
 // los carga IndicatorsPanel. Las consultas en vivo se repiten aquí (react-query las comparte por clave).
-export function CapeHistoryTable({ cape, capeRows, marketHistory, volHistory, thermoHist, regEps, hyBonusNow, liqBonusNow, oilBonusNow, liqM2Map, liqM0Map, liveBhtRef }: {
+export function CapeHistoryTable({ cape, capeRows, marketHistory: marketHistoryRaw, volHistory, thermoHist, regEps, hyBonusNow, liqBonusNow, oilBonusNow, liqM2Map: liqM2Raw, liqM0Map: liqM0Raw, liveBhtRef }: {
   cape: any[]; capeRows: any[];
   marketHistory: Record<string, Series>; volHistory: Record<string, Series>;
   thermoHist: Record<string, ThermoHistRow>; regEps: (d: string) => number | null;
@@ -30,6 +30,11 @@ export function CapeHistoryTable({ cape, capeRows, marketHistory, volHistory, th
   liveBhtRef: React.MutableRefObject<{ v: number | null; d: string | null; trend?: { regime: string; close: number | null; sma50: number | null; sma200: number | null } | null }>;
 }) {
   const ti = useTranslations('Backtesting.indicators');
+  // Punto en el tiempo: las series mensuales/trimestrales (FINRA, CPI, M2, M0, PIB, MSACSR) cuentan desde que se
+  // publican, igual que en el BHT (PUB_LAG_DAYS); sin esto la fila del 30-oct mostraba el FINRA publicado el 20-nov.
+  const marketHistory = useMemo(() => withPubLag(marketHistoryRaw), [marketHistoryRaw]);
+  const liqM2Map = useMemo(() => lagSeries(liqM2Raw, PUB_LAG_DAYS.M2SL), [liqM2Raw]);
+  const liqM0Map = useMemo(() => lagSeries(liqM0Raw, PUB_LAG_DAYS.BOGMBASE), [liqM0Raw]);
   const liveGspc = useLiveTicker('^GSPC');
   const liveIxic = useLiveTicker('^IXIC');
   const liveTqqq = useLiveTicker('TQQQ');
