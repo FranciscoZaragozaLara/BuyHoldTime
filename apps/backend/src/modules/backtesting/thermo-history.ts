@@ -50,6 +50,40 @@ export function bandScore(segs: Seg[], v: number): number {
 export type PriceMap = Map<string, number>;
 export type Series = Record<string, PriceMap>;
 
+/**
+ * Rezago de publicación (días desde la fecha guardada hasta que el dato se conoce). Las series mensuales y
+ * trimestrales se guardan con la fecha de su periodo (día 1), no con la de publicación: sin esto la historia
+ * usaba cada dato ~6–17 semanas antes de existir (estudio nov-2026: M2/M0 movía el BHT hasta 30 pts).
+ * Aproximaciones: FINRA ~día 20 de M+1; CPI ~día 13 de M+1; M2/M0 ~4.ª semana de M+1; ventas de casas ~día 25
+ * de M+1; PIB avance ~1 mes tras el cierre del trimestre.
+ */
+export const PUB_LAG_DAYS: Readonly<Record<string, number>> = {
+  FINRA_DEBIT: 50, CPIAUCSL: 43, CPILFESL: 43, M2SL: 57, BOGMBASE: 57, MSACSR: 55, GDP: 120, GDPC1: 120,
+};
+const lagCache = new WeakMap<PriceMap, PriceMap>();
+const lagged = new WeakSet<PriceMap>();
+/** La serie con cada fecha corrida a su fecha de publicación (memorizada por mapa; nunca corre dos veces). */
+export function lagSeries(map: PriceMap, days: number): PriceMap {
+  if (lagged.has(map) || !days) return map;
+  const hit = lagCache.get(map);
+  if (hit) return hit;
+  const out: PriceMap = new Map();
+  for (const [d, v] of map) {
+    const x = new Date(`${d.slice(0, 10)}T00:00:00Z`);
+    x.setUTCDate(x.getUTCDate() + days);
+    out.set(x.toISOString().slice(0, 10), v);
+  }
+  lagged.add(out);
+  lagCache.set(map, out);
+  return out;
+}
+/** Series con el rezago de publicación aplicado a las que lo tienen (las diarias no cambian). */
+export function withPubLag(s: Series): Series {
+  const out: Series = { ...s };
+  for (const [t, days] of Object.entries(PUB_LAG_DAYS)) if (s[t]) out[t] = lagSeries(s[t], days);
+  return out;
+}
+
 export function isValidIsoDate(s: any): s is string {
   return typeof s === 'string' && /^\d{4}-\d{2}-\d{2}/.test(s) && !isNaN(new Date(s.slice(0, 10)).getTime());
 }
@@ -427,6 +461,7 @@ export function computeThermoDay(
   s: Series,
   cape: { cape: number | null; ratio: number | null },
 ): ThermoDay | null {
+  s = withPubLag(s); // punto en el tiempo: cada dato mensual/trimestral cuenta desde que se publicó
   const parts: ThermoPart[] = [];
   const push = (key: string, score: number | null, weight: number, value: number | null) => {
     if (score != null && value != null) parts.push({ key, score, weight, value });
@@ -492,7 +527,8 @@ export function computeThermoLive(
   }
   const day = computeThermoDay(isoDate, series, cape);
   const hy = getHyBonus(series['BAMLH0A0HYM2'], isoDate, series['DFEDTARU']);
-  const liq = getLiqBonusSmoothed(series['M2SL'], series['BOGMBASE'], isoDate, series['CPIAUCSL']);
+  const L = withPubLag(series);
+  const liq = getLiqBonusSmoothed(L['M2SL'], L['BOGMBASE'], isoDate, L['CPIAUCSL']);
   const oil = getOilBonus(series['DCOILWTICO'], isoDate);
   return { day, hy, liq, oil };
 }

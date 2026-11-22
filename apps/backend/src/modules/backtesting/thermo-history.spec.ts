@@ -296,8 +296,9 @@ describe('thermo-history', () => {
       'CPILFESL': map(cpiFlat3),
       'DGS30': map(dgs30rows),
       'VIXCLS': map([['1995-06-15', 15]]),
-      'MSACSR': map([['1995-05-01', 5.0]]),
-      'GDPC1': map([['1995-04-01', 100], ['1994-04-01', 97]]),
+      // Periodos ya publicados el 15-jun-1995 con el rezago de publicación (MSACSR +55 d, PIB +120 d).
+      'MSACSR': map([['1995-04-01', 5.0]]),
+      'GDPC1': map([['1995-01-01', 100], ['1994-01-01', 97]]),
     };
     const r = computeThermoDay('1995-06-15', s, { cape: 20, ratio: 1.0 });
     expect(r).not.toBeNull();

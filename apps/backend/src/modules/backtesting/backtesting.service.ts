@@ -15,7 +15,7 @@ import { PROVISIONAL_OF, rowsWithProvisional, withProvisional } from './provisio
 /** Tickers cuyo precio en vivo se toma de otro símbolo de Yahoo (la serie histórica viene de otra fuente). */
 export const YAHOO_LIVE_ALIAS: Record<string, string> = { DCOILWTICO: 'CL=F', VIXCLS: '^VIX' };
 import { spliceSeries } from '../market-data/valuation-daily';
-import { computeThermoLive, LivePoints, THERMO_LIVE_TICKERS, THERMO_TICKERS, getHyBonus, getHySigma24, getLiqBonus, getOilBonus, PriceMap } from './thermo-history';
+import { computeThermoLive, LivePoints, THERMO_LIVE_TICKERS, THERMO_TICKERS, getHyBonus, getHySigma24, getLiqBonus, getOilBonus, lagSeries, PUB_LAG_DAYS, PriceMap } from './thermo-history';
 
 // Día con mercado (lun–vie). Sáb/dom no operan y el BHT no se calcula.
 export function isTradingDayIso(isoDate: string): boolean {
@@ -884,7 +884,7 @@ export class BacktestingService {
       const m2Map: PriceMap = new Map(liqRows.filter((x: any) => x.ticker === 'M2SL').map((x: any) => [x.date.toISOString().slice(0, 10), Number(x.close)]));
       const m0Map: PriceMap = new Map(liqRows.filter((x: any) => x.ticker === 'BOGMBASE').map((x: any) => [x.date.toISOString().slice(0, 10), Number(x.close)]));
       const cpiMap: PriceMap = new Map(liqRows.filter((x: any) => x.ticker === 'CPIAUCSL').map((x: any) => [x.date.toISOString().slice(0, 10), Number(x.close)]));
-      const lb = getLiqBonus(m2Map, m0Map, iso, cpiMap);
+      const lb = getLiqBonus(lagSeries(m2Map, PUB_LAG_DAYS.M2SL), lagSeries(m0Map, PUB_LAG_DAYS.BOGMBASE), iso, lagSeries(cpiMap, PUB_LAG_DAYS.CPIAUCSL));
       liqYoy = lb.yoy; liqM0d3 = lb.m0d3; liqDrop = lb.drop;
     } catch {}
     // Insumos del bonus de petróleo WTI (precio y ratio vs SMA36M) para el hover.
