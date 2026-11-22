@@ -487,6 +487,8 @@
       "bhtHistoryNote": "BHT at the close of the last trading day of each month (today's value above is live and may differ) · performance from that close to the latest available · peak = highest later close and its date. Historical results; they do not guarantee future returns.",
       "detailComputing": "Detail being computed (saved at close)…",
       "detailLoading": "Loading detail…",
+      "detailMissing": "No detail for this day.",
+      "detailMarketClosed": "Market closed (holiday): detail from the {day} close",
       "strategyButton": "Strategy",
       "colContributionShort": "Contrib.",
       "triggerShort": "trigger",

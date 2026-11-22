@@ -487,6 +487,8 @@
       "bhtHistoryNote": "BHT al cierre del último día hábil de cada mes (el valor de hoy arriba es en vivo y puede diferir) · rendimiento desde ese cierre hasta el último disponible · pico = máximo cierre posterior y su fecha. Resultados históricos; no garantizan rendimientos futuros.",
       "detailComputing": "Detalle en cálculo (se guarda al cierre)…",
       "detailLoading": "Cargando detalle…",
+      "detailMissing": "Sin detalle para este día.",
+      "detailMarketClosed": "Mercado cerrado (feriado): detalle del cierre del {day}",
       "strategyButton": "Estrategia",
       "colContributionShort": "Aporte",
       "triggerShort": "gatillo",

@@ -65,7 +65,8 @@ export function useBhtDetail() {
     if (cache[d]) return;
     fetch(`${getApiBase()}/api/backtesting/bht-forward/detail?date=${d}`, { cache: 'no-store' })
       .then((r) => (r.ok ? r.json() : null))
-      .then((j) => { if (j && !j.error) setCache((m) => ({ ...m, [d]: j })); })
+      // Sin detalle (fuera de la historia): se marca para no quedarse en «Cargando…».
+      .then((j) => { if (j) setCache((m) => ({ ...m, [d]: j.error ? { missing: true } : j })); })
       .catch(() => {});
   };
   return { hover, setHover: setHoverLive, cache, load, scheduleClear, cancelClear: cancelClearAll };
@@ -136,9 +137,11 @@ export function BhtHoverTip({ point, bht, prices, trend }: { point: { d: string;
 /** Fecha del encabezado del popover: día de la semana, día, mes y año (p. ej. «jue 21 abr 2022»). */
 const fmtDay = (d: string, loc: string) => new Date(`${d}T12:00:00Z`).toLocaleDateString(loc === 'es' ? 'es-MX' : 'en-US', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
 
-export function BhtDetailPopover({ hover, detail, onLeave, onHold, liveValue, onClose, nav }: { hover: { d: string; x: number; y: number }; detail: any; forward?: any; onLeave?: () => void; onHold?: () => void; liveValue?: number | null; onClose?: () => void; nav?: BhtPinNav | null }) {
+export function BhtDetailPopover({ hover, detail: detailIn, onLeave, onHold, liveValue, onClose, nav }: { hover: { d: string; x: number; y: number }; detail: any; forward?: any; onLeave?: () => void; onHold?: () => void; liveValue?: number | null; onClose?: () => void; nav?: BhtPinNav | null }) {
   const ti = useTranslations('Backtesting.indicators');
   const loc = useLocale();
+  const missing = !!detailIn?.missing;
+  const detail = missing ? null : detailIn;
   const popRef = useRef<HTMLDivElement>(null);
   // La vista va atada a la fecha: cada fecha nueva abre en Estrategia (vista por defecto); Historia y Drawdowns se
   // calculan solo si se piden.
@@ -167,7 +170,7 @@ export function BhtDetailPopover({ hover, detail, onLeave, onHold, liveValue, on
   }, []);
   const bd = detail != null ? bhtBand(Number(detail.value)) : null;
   const headV = liveValue ?? (detail != null ? Number(detail.value) : null);
-  const loadMsg = liveValue != null ? ti('detailComputing') : ti('detailLoading');
+  const loadMsg = missing ? ti('detailMissing') : liveValue != null ? ti('detailComputing') : ti('detailLoading');
   const sign = (v: number) => `${v > 0 ? '+' : ''}${v.toFixed(0)}`;
   // Portal al body: un ancestro con transform/backdrop-filter haría que `fixed` se midiera desde él y no desde la pantalla.
   if (typeof document === 'undefined') return null;
@@ -195,6 +198,8 @@ export function BhtDetailPopover({ hover, detail, onLeave, onHold, liveValue, on
           {liveValue != null && <span className="text-[10px] px-1.5 py-px rounded-full bg-accent-500/20 text-accent-300 font-bold" title={ti('liveTitle')}>{ti('live')}</span>}
           {detail?.trend && <TrendBadge trend={detail.trend} size="xs" />}
         </div>
+        {/* Feriado: el mercado no abrió; el detalle es el del último cierre. */}
+        {detail?.asOf && <div className="text-[11px] text-caution-300 mt-0.5">{ti('detailMarketClosed', { day: fmtDay(detail.asOf, loc) })}</div>}
         {/* Cotizaciones del día: precio, cambio diario (verde/rojo) y % desde el máximo (semáforo; máximo de 5 años si el ATH es más viejo). */}
         {detail?.prices && (() => {
           const q = detail.quotes as Record<string, null | { price: number; change: number | null; fromHigh: number | null; high: number | null; highDate: string | null; window5y: boolean }> | null | undefined;

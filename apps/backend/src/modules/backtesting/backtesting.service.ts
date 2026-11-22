@@ -891,8 +891,13 @@ export class BacktestingService {
 
   async getBhtForwardDetail(date: string) {
     if (!date) return { error: 'date required' };
-    const r = await this.prisma.btBhtForward.findUnique({ where: { date: new Date(date) } });
+    // Feriados: el BHT diario tiene el día (la gráfica lo dibuja) pero el mercado no abrió y no hay fila de detalle;
+    // se muestra el detalle del último cierre (hasta 7 días antes), marcado con asOf.
+    const req = new Date(date);
+    const r = (await this.prisma.btBhtForward.findUnique({ where: { date: req } }))
+      ?? (await this.prisma.btBhtForward.findFirst({ where: { date: { lt: req, gte: new Date(req.getTime() - 7 * 86400000) } }, orderBy: { date: 'desc' } }));
     if (!r) return { error: 'not found' };
+    const asOf = r.date.toISOString().slice(0, 10) !== date ? r.date.toISOString().slice(0, 10) : null;
     const parts = (r.parts as any[]) ?? [];
     const numerator = parts.reduce((m, p) => m + Number(p.score) * Number(p.weight), 0);
     const denominator = parts.reduce((m, p) => m + Number(p.weight), 0);
@@ -943,7 +948,7 @@ export class BacktestingService {
       if (D >= 0) quotes = { spx: dayQuote(S.dates, S.px.spx, D), qqq: dayQuote(S.dates, S.px.qqq, D), tqqq: dayQuote(S.dates, S.px.tqqq, D) };
     } catch {}
     return {
-      date: r.date.toISOString().slice(0, 10), value: r.bhtValue, numerator, denominator, coverage: parts.length,
+      date: r.date.toISOString().slice(0, 10), asOf, value: r.bhtValue, numerator, denominator, coverage: parts.length,
       // Cierres del día para el encabezado del hover: S&P 500, QQQ (Nasdaq-100, misma serie que la gráfica de /indicators) y TQQQ.
       prices: { spx: r.spx ?? null, qqq: qqqClose, tqqq: r.tqqq ?? null },
       quotes,
