@@ -1,4 +1,4 @@
-import { athAt, capeMedian20, computeSellTranches, computeTranches, prepareTranches, TRANCHE_CFG, type TrancheSeries } from './tranches';
+import { athAt, capeMedian20, computeSellTranches, computeTranches, creditAt, prepareTranches, TRANCHE_CFG, type TrancheSeries } from './tranches';
 
 // Serie sintética: 300 sesiones subiendo despacio y luego un desplome de 10 sesiones (−20%).
 function series(opts: { oasRising?: boolean } = {}): TrancheSeries {
@@ -79,4 +79,38 @@ describe('módulo de reentrada por tranches', () => {
     expect(after.leverage).toBeLessThan(1.69); // salió del 3×
     expect(computeSellTranches(P, dates[100])!.active).toBe(false);
   });
+
+  // Crédito que se rompe con la bolsa en máximos (2007): OAS de 3 a 5 en 60 sesiones, precio aún cerca del máximo.
+  function creditSeries(): TrancheSeries {
+    const n = 420;
+    const dates = Array.from({ length: n }, (_, k) => new Date(Date.UTC(2006, 0, 1) + k * 86400000).toISOString().slice(0, 10));
+    const spx = dates.map((_, k) => (k < 330 ? 100 + k * 0.05 : k < 345 ? 116.5 - (k - 330) * 0.25 : 112.75 - (k - 345) * 0.4));
+    const oas = dates.map((_, k) => (k < 280 ? 3 : Math.min(5, 3 + (k - 280) * (2 / 60))));
+    return { dates, spx, qqq: spx, vix: dates.map(() => 18), vix3m: dates.map(() => 20), oas, cape: dates.map(() => 30), capeMedian20: dates.map(() => 25), bht: dates.map(() => 50) };
+  }
+
+  test('crédito: divergencia crédito-bolsa abre un ciclo de venta sin BHT alto y V4 vende bajo la SMA50', () => {
+    const s = creditSeries();
+    const P = prepareTranches(s, 'voo');
+    const k = s.dates.findIndex((_, i) => P.credDiv[i]);
+    expect(k).toBeGreaterThan(280);
+    const c = creditAt(P, k);
+    expect(c.div).toBe(true);
+    expect(c.ratio!).toBeGreaterThanOrEqual(1.5);
+    const r = computeSellTranches(P, s.dates[360])!;
+    expect(r.active).toBe(true);
+    expect(r.creditCycle).toBe(true);
+    expect(r.tranches.find((t) => t.id === 'V4')!.status).not.toBe('pending'); // BHT 50: sin crédito no vendería
+    expect(r.tranches.find((t) => t.id === 'V1')!.status).toBe('pending');
+  });
+
+  test('crédito: sin divergencia (la bolsa ya cayó) no hay señal de crédito', () => {
+    const s = creditSeries();
+    s.spx = s.spx.map((v, k) => (k < 250 ? v : (v as number) * 0.85)); // cae 15% antes de que el crédito se rompa
+    s.qqq = s.spx;
+    const P = prepareTranches(s, 'voo');
+    expect(P.credDiv.some(Boolean)).toBe(false);
+    expect(computeSellTranches(P, s.dates[360])!.creditCycle).toBe(false);
+  });
 });
+

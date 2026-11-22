@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { pnlColor, trancheCheckText, trancheMode, TRANCHE_LIGHT } from './tranches';
+import { creditStatus, pnlColor, trancheCheckText, trancheMode, TRANCHE_LIGHT } from './tranches';
 import { TOKENS } from './designTokens';
 
 describe('tranches', () => {
@@ -24,3 +24,18 @@ describe('tranches', () => {
     expect(trancheCheckText({ key: 'trendBroken', ok: false, value: 1, need: 3 }, 'en')).toContain('(1/3)');
   });
 });
+
+describe('creditStatus', () => {
+  const base = { div: false, crisis: false, easing: false, lastDiv: null, oas: 3, oasMin252: 2.6, ratio: 1.2, d3: 0.1, fromHi252: -2, fromMax63: 0 };
+  it('divergencia, crisis, alivio y calma', () => {
+    expect(creditStatus({ ...base, div: true, crisis: true })).toBe('div');
+    expect(creditStatus({ ...base, crisis: true })).toBe('crisis');
+    expect(creditStatus({ ...base, crisis: true, easing: true })).toBe('easing');
+    expect(creditStatus(base)).toBe('calm');
+    expect(creditStatus(undefined)).toBe('calm');
+  });
+  it('texto del requisito de alivio con su valor', () => {
+    expect(trancheCheckText({ key: 'creditEase', ok: false, value: -4.2, need: -10 }, 'es')).toContain('(-4.2%)');
+  });
+});
+

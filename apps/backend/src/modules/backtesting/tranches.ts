@@ -45,6 +45,17 @@ export const TRANCHE_CFG = {
   decelSmin: -0.015, decelRecover: 0.5, minGapT2: 5, minGapT3: 10, t4OasOff: 0.15, t4BackupDays: 252,
 };
 
+/** Señal de crisis de crédito (estudio nov-2026, BHT sin look-ahead). Relativa al propio HY OAS porque la historia
+ *  previa a ago-2023 es un proxy con niveles comprimidos (dic-2008 ≈ 11.8 vs ~22 real).
+ *  Divergencia crédito-bolsa: OAS ≥ 1.5× su mínimo de 12 meses, subiendo ≥ +0.5 en 3 meses, con el precio a menos de
+ *  7% de su máximo de 12 meses (el crédito se rompe antes que la bolsa, como en 2007).
+ *  · Venta: habilita V4 y V5 sin filtro de BHT (y V5 sin venta previa). 1997–2025: única venta nueva nov-2007
+ *    (S&P evitó ~54%); S&P subió/evitó 9.7/21.9 → 8.1/30.0, QQQ 17.5/28.6 → 15.8/32.2, sin ventas falsas nuevas.
+ *  · Compra: con divergencia en las últimas 252 sesiones y OAS aún ≥ 1.5× su mínimo, T1–T3 esperan alivio del
+ *    crédito (OAS ≥ 10% bajo su máximo de 63 días) o BHT ≤ 40. 2007-09: VOO capturado 67% → 80%, QQQ 43% → 85%;
+ *    los demás episodios sin cambio. Validado con un solo evento (2007-08). */
+export const CREDIT_CFG = { ratio: 1.5, d3: 0.5, dd: -7, ease: 0.10, bhtMax: 40, prior: 252 };
+
 const W12 = 252;
 
 type Num = number | null;
@@ -125,6 +136,7 @@ export type TranchesResult = {
     volSignal: 'ratio' | 'level' | null; vix: number | null; vixMax20: number | null; bht: number | null;
     decelVote: boolean; slope: number | null; curv: number | null; slopeMin: number | null; recover: number | null; boll: boolean;
     votes: number; cape: number | null; capeMedian20: number | null;
+    credit: CreditState;
   };
   /** Caída desde el máximo histórico a esa fecha (máximo de 5 años si el ATH tiene más de 5 años), como las cards. */
   ath: { spx: AthAt | null; qqq: AthAt | null; tqqq: AthAt | null };
@@ -146,15 +158,45 @@ export function prepareTranches(s: TrancheSeries, route: TrancheRoute) {
   const lower = bMid.map((m, k) => (m != null && bSd[k] != null ? m - 2 * (bSd[k] as number) : null));
   const oasMax63 = rollingMax(oas, 63), oasSma20 = sma(oas, 20), oasMax252 = rollingMax(oas, W12);
   const vixMax10 = rollingMax(vix, 10), vixMax20 = rollingMax(vix, 20), vixSma20 = sma(vix, 20);
-  return { s, route, spx, qqq, vix, vix3m, oas, px, spMax, qMax, e50, e200, slope, curv, lower, oasMax63, oasSma20, oasMax252, vixMax10, vixMax20, vixSma20 };
+  // Crisis de crédito (CREDIT_CFG): divergencia crédito-bolsa del día y última vez que ocurrió.
+  const oasMin252 = rollingMax(oas.map((v) => (v == null ? null : -v)), W12).map((v) => (v == null ? null : -v));
+  const pxMax = route === 'voo' ? spMax : qMax;
+  const credDiv: boolean[] = [], lastDiv: number[] = [];
+  let ld = -1;
+  for (let k = 0; k < px.length; k++) {
+    const o = oas[k], o63 = k >= 63 ? oas[k - 63] : null, m = oasMin252[k], p = px[k], hi = pxMax[k];
+    const div = o != null && o63 != null && m != null && p != null && hi != null && o >= CREDIT_CFG.ratio * m && o - o63 >= CREDIT_CFG.d3 && (p / hi - 1) * 100 >= CREDIT_CFG.dd;
+    if (div) ld = k;
+    credDiv.push(div); lastDiv.push(ld);
+  }
+  return { s, route, spx, qqq, vix, vix3m, oas, px, spMax, qMax, e50, e200, slope, curv, lower, oasMax63, oasSma20, oasMax252, vixMax10, vixMax20, vixSma20, oasMin252, credDiv, lastDiv };
 }
 export type PreparedTranches = ReturnType<typeof prepareTranches>;
+
+/** Estado del crédito un día: divergencia (señal de venta), crisis vigente (filtro de compra) y alivio. */
+export type CreditState = {
+  div: boolean; crisis: boolean; easing: boolean; lastDiv: string | null;
+  oas: number | null; oasMin252: number | null; ratio: number | null; d3: number | null; fromHi252: number | null; fromMax63: number | null;
+};
+export function creditAt(P: PreparedTranches, k: number): CreditState {
+  const C = CREDIT_CFG, o = P.oas[k], m = P.oasMin252[k], o63 = k >= 63 ? P.oas[k - 63] : null, mx = P.oasMax63[k];
+  const hi = (P.route === 'voo' ? P.spMax : P.qMax)[k], p = P.px[k];
+  const ratio = o != null && m ? o / m : null;
+  const lastDiv = P.lastDiv[k] >= 0 ? P.lastDiv[k] : -1;
+  const crisis = lastDiv >= 0 && k - lastDiv <= C.prior && ratio != null && ratio >= C.ratio;
+  const fromMax63 = o != null && mx ? (o / mx - 1) * 100 : null;
+  return {
+    div: P.credDiv[k], crisis, easing: fromMax63 != null && fromMax63 <= -C.ease * 100, lastDiv: lastDiv >= 0 ? P.s.dates[lastDiv] : null,
+    oas: o, oasMin252: m, ratio, d3: o != null && o63 != null ? o - o63 : null, fromHi252: p != null && hi ? (p / hi - 1) * 100 : null, fromMax63,
+  };
+}
 
 /** Resumen de un episodio cerrado (backtest de umbrales): lo desplegado y a qué precio promedio. */
 export type EpisodeSummary = { start: string; end: string | null; peak: number; min: number; ddMax: number; fired: TrancheId[]; deployed: number; leverage: number; avgPrice: number | null; captured: number | null };
 /** volMode 'hybrid': el voto de volatilidad también se activa si el VIX cae ≥25% desde su máximo de 20 días (≥25),
  *  para los mercados bajistas lentos donde la estructura VIX/VIX3M casi no se invierte (2022). */
-export type TrancheOpts = { volArm?: number; volMode?: 'ratio' | 'hybrid'; /** Blindaje: la señal por nivel solo cuenta con BHT < este valor. */ lvlMaxBht?: number; onEpisodeEnd?: (e: EpisodeSummary) => void };
+export type TrancheOpts = { volArm?: number; volMode?: 'ratio' | 'hybrid'; /** Blindaje: la señal por nivel solo cuenta con BHT < este valor. */ lvlMaxBht?: number; onEpisodeEnd?: (e: EpisodeSummary) => void;
+  /** false: sin el filtro de crisis de crédito en T1–T3 (backtests). */ creditGate?: boolean };
 
 export function computeTranches(P: PreparedTranches, date: string, sectorRule: SectorRule = 'half', opts: TrancheOpts = {}): TranchesResult | null {
   const { s, route, px } = P;
@@ -166,6 +208,7 @@ export function computeTranches(P: PreparedTranches, date: string, sectorRule: S
   const volArm = opts.volArm ?? C.volArm;
   const volMode = opts.volMode ?? C.volMode;
   const lvlMaxBht = 'lvlMaxBht' in opts ? opts.lvlMaxBht : C.lvlMaxBht;
+  const useCredit = opts.creditGate !== false;
   const summarize = (end: string | null): EpisodeSummary => {
     let dep = 0, lev = 0, cost = 0;
     const ids = (Object.keys(fired) as TrancheId[]).sort();
@@ -221,6 +264,10 @@ export function computeTranches(P: PreparedTranches, date: string, sectorRule: S
     // Veto de crédito: HY OAS en su máximo de 63 días y sobre su SMA20.
     const oas = P.oas[k];
     const veto = oas != null && P.oasMax63[k] != null && P.oasSma20[k] != null && oas >= (P.oasMax63[k] as number) && oas > (P.oasSma20[k] as number);
+    // Crisis de crédito: T1–T3 esperan alivio del crédito o un BHT bajo (CREDIT_CFG).
+    const cr = useCredit ? creditAt(P, k) : null;
+    const bk = s.bht?.[k] ?? null;
+    const creditChecks: Check[] = cr?.crisis ? [{ key: 'creditEase', ok: cr.easing || (bk != null && bk <= CREDIT_CFG.bhtMax), value: cr.fromMax63, need: -CREDIT_CFG.ease * 100 }] : [];
 
     // Voto de volatilidad (corrección 1: se anula si el ratio vuelve a pasar de 1). Sin VIX3M: respaldo con niveles de VIX.
     const ratio = ratioAt(k);
@@ -280,6 +327,7 @@ export function computeTranches(P: PreparedTranches, date: string, sectorRule: S
       const t1 = [
         { key: 'permit', ok: permit, value: dual ? nd : spd, need: dual ? C.ndx.permit : C.sp.permit },
         { key: 'noVeto', ok: !veto },
+        ...creditChecks,
         { key: 'volVote', ok: volVote },
         ...(sectorNow && sectorRule === 'extraVote' ? [{ key: 'extraVote', ok: decelVote }] : []),
       ];
@@ -288,6 +336,7 @@ export function computeTranches(P: PreparedTranches, date: string, sectorRule: S
         { key: 'afterT1', ok: !!fired.T1 && k - fired.T1.k >= C.minGapT2, value: fired.T1 ? k - fired.T1.k : null, need: C.minGapT2 },
         { key: 'ddReached', ok: spDdMax <= C.sp.t2 || (dual && ndxDdMax <= C.ndx.t2), value: dual ? ndxDdMax : spDdMax, need: dual ? C.ndx.t2 : C.sp.t2 },
         { key: 'noVeto', ok: !veto },
+        ...creditChecks,
         { key: 'votes2', ok: votes >= 2, value: votes, need: 2 },
       ];
       // T3 · validación: retest del mínimo con votos, o respaldo de 3 cierres sobre la EMA50 ascendente
@@ -298,6 +347,7 @@ export function computeTranches(P: PreparedTranches, date: string, sectorRule: S
       const t3 = [
         { key: 'afterT2', ok: !!fired.T2 && k - fired.T2.k >= C.minGapT3, value: fired.T2 ? k - fired.T2.k : null, need: C.minGapT3 },
         { key: 'noVeto', ok: !veto },
+        ...creditChecks,
         { key: 'retestOrEma', ok: retest || (above3 && e50Up), value: retest ? 'retest' : above3 && e50Up ? 'ema50' : null },
       ];
       // T4 · valuación profunda (independiente)
@@ -367,7 +417,7 @@ export function computeTranches(P: PreparedTranches, date: string, sectorRule: S
       volSignal, vix: P.vix[D], vixMax20: P.vixMax20[D], bht: s.bht?.[D] ?? null,
       decelVote: sn.decelVote, slope: P.slope[D] != null ? (P.slope[D] as number) * 100 : null, curv: P.curv[D] != null ? (P.curv[D] as number) * 100 : null,
       slopeMin: open ? slopeMin * 100 : null, recover: sn.recover != null ? sn.recover * 100 : null, boll: sn.boll,
-      votes: sn.votes, cape: s.cape[D], capeMedian20: s.capeMedian20[D],
+      votes: sn.votes, cape: s.cape[D], capeMedian20: s.capeMedian20[D], credit: creditAt(P, D),
     },
     ath: { spx: athAt(s.dates, P.spx, D), qqq: dual ? athAt(s.dates, P.qqq, D) : null, tqqq: dual && s.tqqq ? athAt(s.dates, s.tqqq, D) : null },
     tranches, deployed, leverage, avgPrice, captured, pnl: wavg('pnl'), pnlMix: wavg('pnlMix'),
@@ -451,7 +501,9 @@ export type SellResult = {
   date: string; route: TrancheRoute; active: boolean; light: 'gray' | 'amber' | 'orange' | 'red';
   cycle: null | { start: string; days: number; peak: number; peakDate: string; fromPeak: number };
   lastCycle: null | { start: string; end: string };
-  today: { price: number | null; bht: number | null; hi20: number | null; fromHi20: number | null; sma50: number | null; sma200: number | null; below200days: number; deathCross: boolean; weak: boolean };
+  today: { price: number | null; bht: number | null; hi20: number | null; fromHi20: number | null; sma50: number | null; sma200: number | null; below200days: number; deathCross: boolean; weak: boolean; credit: CreditState };
+  /** El ciclo abrió (o sigue) por crisis de crédito y no por valuación. */
+  creditCycle: boolean;
   tranches: SellState[]; sold: number; leverage: number; avgPrice: number | null; pnl: number | null;
 };
 
@@ -463,7 +515,7 @@ export function computeSellTranches(P: PreparedTranches, date: string): SellResu
   const C = SELL_CFG;
   const bht = ffill(s.bht ?? s.dates.map(() => null));
   const s50 = sma(px, 50), s200 = sma(px, 200), hi20 = rollingMax(px, 20);
-  let open = false, start = -1, low = 0, lastVal = -999, peak = 0, peakIdx = -1, below = 0;
+  let open = false, start = -1, low = 0, lastVal = -999, peak = 0, peakIdx = -1, below = 0, calm = 0, creditCycle = false;
   let lastCycle: SellResult['lastCycle'] = null;
   const fired: Partial<Record<SellId, number>> = {};
   let checksAt: Partial<Record<SellId, Check[]>> = {};
@@ -473,8 +525,12 @@ export function computeSellTranches(P: PreparedTranches, date: string): SellResu
     if (p == null) continue;
     below = s200[k] != null && p < (s200[k] as number) ? below + 1 : 0;
     low = b != null && b < C.resetBht ? low + 1 : 0;
-    if (open && low >= C.resetDays) { lastCycle = { start: s.dates[start], end: s.dates[k] }; open = false; for (const id of Object.keys(fired)) delete fired[id as SellId]; }
-    if (!open && b != null && b >= C.bht.V1) { open = true; start = k; peak = 0; lastVal = -999; }
+    // Crisis de crédito (divergencia crédito-bolsa, CREDIT_CFG): abre ciclo y quita el filtro de BHT a V4/V5.
+    const st = P.credDiv[k];
+    calm = st ? 0 : calm + 1;
+    if (open && low >= C.resetDays && calm >= C.resetDays) { lastCycle = { start: s.dates[start], end: s.dates[k] }; open = false; creditCycle = false; for (const id of Object.keys(fired)) delete fired[id as SellId]; }
+    if (!open && ((b != null && b >= C.bht.V1) || st)) { open = true; start = k; peak = 0; lastVal = -999; creditCycle = st && !(b != null && b >= C.bht.V1); }
+    if (open && st) creditCycle = creditCycle || Object.keys(fired).length === 0;
     if (open && p > peak) { peak = p; peakIdx = k; }
     const weak = hi20[k] != null && p <= C.pullback * (hi20[k] as number);
     const dc = s50[k] != null && s200[k] != null && k > 0 && s50[k - 1] != null && s200[k - 1] != null && (s50[k] as number) < (s200[k] as number) && (s50[k - 1] as number) >= (s200[k - 1] as number);
@@ -486,8 +542,8 @@ export function computeSellTranches(P: PreparedTranches, date: string): SellResu
         V1: [{ key: 'bht', ok: bv >= C.bht.V1, value: b, need: C.bht.V1 }, { key: 'weak', ok: weak, value: hi20[k] ? (p / (hi20[k] as number) - 1) * 100 : null, need: -3 }, { key: 'gap', ok: spaced }],
         V2: [{ key: 'bht', ok: bv >= C.bht.V2, value: b, need: C.bht.V2 }, { key: 'weak', ok: weak, value: hi20[k] ? (p / (hi20[k] as number) - 1) * 100 : null, need: -3 }, { key: 'gap', ok: spaced }],
         V3: [{ key: 'bht', ok: bv >= C.bht.V3, value: b, need: C.bht.V3 }, { key: 'weak', ok: weak, value: hi20[k] ? (p / (hi20[k] as number) - 1) * 100 : null, need: -3 }, { key: 'gap', ok: spaced }],
-        V4: [{ key: 'bht', ok: bv >= C.bht.V4, value: b, need: C.bht.V4 }, { key: 'below50', ok: s50[k] != null && p < (s50[k] as number), value: s50[k] ? (p / (s50[k] as number) - 1) * 100 : null }],
-        V5: [{ key: 'trendBroken', ok: (below >= 3 && bv >= C.bht.V5) || (dc && bv >= C.bht.V5dc), value: below, need: 3 }, { key: 'afterSale', ok: anyFired }],
+        V4: [{ key: st ? 'creditStress' : 'bht', ok: bv >= C.bht.V4 || st, value: b, need: C.bht.V4 }, { key: 'below50', ok: s50[k] != null && p < (s50[k] as number), value: s50[k] ? (p / (s50[k] as number) - 1) * 100 : null }],
+        V5: [{ key: 'trendBroken', ok: (below >= 3 && (bv >= C.bht.V5 || st)) || (dc && (bv >= C.bht.V5dc || st)), value: below, need: 3 }, { key: st ? 'creditStress' : 'afterSale', ok: anyFired || st }],
       };
       for (const id of ['V1', 'V2', 'V3', 'V4', 'V5'] as SellId[]) {
         if (fired[id] == null && cs[id].every((c) => c.ok)) { fired[id] = k; if (id === 'V1' || id === 'V2' || id === 'V3') lastVal = k; break; }
@@ -496,7 +552,7 @@ export function computeSellTranches(P: PreparedTranches, date: string): SellResu
     }
     if (k === D) snap = {
       price: p, bht: b, hi20: hi20[k], fromHi20: hi20[k] ? (p / (hi20[k] as number) - 1) * 100 : null, sma50: s50[k], sma200: s200[k],
-      below200days: below, deathCross: s50[k] != null && s200[k] != null && (s50[k] as number) < (s200[k] as number), weak,
+      below200days: below, deathCross: s50[k] != null && s200[k] != null && (s50[k] as number) < (s200[k] as number), weak, credit: creditAt(P, k),
     };
   }
   const ids: SellId[] = ['V1', 'V2', 'V3', 'V4', 'V5'];
@@ -521,7 +577,7 @@ export function computeSellTranches(P: PreparedTranches, date: string): SellResu
   return {
     date: s.dates[D], route, active: open, light,
     cycle: open ? { start: s.dates[start], days: D - start, peak, peakDate: s.dates[peakIdx], fromPeak: ((px[D] as number) / peak - 1) * 100 } : null,
-    lastCycle: open ? null : lastCycle,
+    lastCycle: open ? null : lastCycle, creditCycle: open && creditCycle,
     today: snap!, tranches, sold, leverage: left > 0 ? (one + 3 * three) / left : 0, avgPrice,
     pnl: avgPrice != null ? ((px[D] as number) / avgPrice - 1) * 100 : null,
   };

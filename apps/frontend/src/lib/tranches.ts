@@ -43,6 +43,9 @@ const LABEL: Record<string, [string, string]> = {
   gap: ['15 sesiones desde la venta anterior', '15 sessions since the previous sale'], below50: ['cierre bajo la SMA50', 'close below the SMA50'],
   trendBroken: ['3 cierres bajo la SMA200 (BHT ≥ 60) o Death Cross (BHT ≥ 55)', '3 closes below the SMA200 (BHT ≥ 60) or Death Cross (BHT ≥ 55)'],
   afterSale: ['otra venta antes', 'a previous sale'],
+  // Crisis de crédito
+  creditEase: ['crédito aliviándose (HY OAS ≥ 10% bajo su máx. de 63 días) o BHT ≤ 40', 'credit easing (HY OAS ≥ 10% below its 63-day high) or BHT ≤ 40'],
+  creditStress: ['crisis de crédito', 'credit crisis'],
 };
 
 /** Texto corto de una condición, con su valor contra lo exigido cuando aplica (p. ej. «caída alcanzada −16.0% / −22%»). */
@@ -61,6 +64,7 @@ export function trancheCheckText(c: TrancheCheck, locale: string): string {
   if (c.key === 'weak' && typeof c.value === 'number') return `${name} (${c.value > 0 ? '+' : ''}${num(c.value)}%)`;
   if (c.key === 'below50' && typeof c.value === 'number') return `${name} (${c.value > 0 ? '+' : ''}${num(c.value)}%)`;
   if (c.key === 'trendBroken' && typeof c.value === 'number') return `${name} (${c.value}/3)`;
+  if (c.key === 'creditEase' && typeof c.value === 'number') return `${name} (${c.value > 0 ? '+' : ''}${num(c.value)}%)`;
   return name;
 }
 
@@ -71,3 +75,23 @@ export function pnlColor(v: number): string {
   if (v > -15) return TOKENS.elevated;
   return TOKENS.risk;
 }
+
+/** Estado del crédito que devuelve el backend (CREDIT_CFG): divergencia crédito-bolsa, crisis vigente y alivio. */
+export type CreditState = {
+  div: boolean; crisis: boolean; easing: boolean; lastDiv: string | null;
+  oas: number | null; oasMin252: number | null; ratio: number | null; d3: number | null; fromHi252: number | null; fromMax63: number | null;
+};
+export type CreditStatus = 'div' | 'crisis' | 'easing' | 'calm';
+/** div: el crédito se rompe con la bolsa cerca de máximos (señal de venta) · crisis: compras en espera · easing: ya se alivia. */
+export function creditStatus(c: CreditState | null | undefined): CreditStatus {
+  if (!c) return 'calm';
+  if (c.div) return 'div';
+  if (c.crisis) return c.easing ? 'easing' : 'crisis';
+  return 'calm';
+}
+export const CREDIT_META: Record<CreditStatus, { color: string; es: string; en: string }> = {
+  div: { color: TOKENS.risk, es: 'Crisis de crédito: el crédito se rompe con la bolsa cerca de máximos', en: 'Credit crisis: credit breaks while stocks are near highs' },
+  crisis: { color: TOKENS.elevated, es: 'Crisis de crédito vigente: compras esperan alivio o BHT ≤ 40', en: 'Credit crisis ongoing: buys wait for easing or BHT ≤ 40' },
+  easing: { color: TOKENS.caution, es: 'Crisis de crédito aliviándose', en: 'Credit crisis easing' },
+  calm: { color: '#94a3b8', es: 'Sin crisis de crédito', en: 'No credit crisis' },
+};

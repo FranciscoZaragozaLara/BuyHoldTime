@@ -7,7 +7,7 @@ import { useEffect, useState } from 'react';
 import { getApiBase } from '@/lib/apiBase';
 import { TOKENS } from '@/lib/designTokens';
 import { athColor, athTone } from '@/lib/athDrawdown';
-import { MODE_META, pnlColor, SELL_LIGHT, trancheMode, trancheCheckText, TRANCHE_LIGHT, type TrancheCheck, type TrancheLight } from '@/lib/tranches';
+import { CREDIT_META, creditStatus, MODE_META, pnlColor, SELL_LIGHT, trancheMode, trancheCheckText, TRANCHE_LIGHT, type CreditState, type TrancheCheck, type TrancheLight } from '@/lib/tranches';
 
 type Route = 'voo' | 'qqq';
 type Rule = 'half' | 'extraVote';
@@ -21,6 +21,7 @@ type Result = {
     ratio: number | null; volSource: 'ratio' | 'fallback'; volVote: boolean; volArmedAt: string | null;
     volSignal?: 'ratio' | 'level' | null; vix?: number | null; vixMax20?: number | null; bht?: number | null;
     decelVote: boolean; slope: number | null; curv: number | null; slopeMin: number | null; recover: number | null; boll: boolean; votes: number; cape: number | null; capeMedian20: number | null;
+    credit?: CreditState;
   };
   ath?: { spx: Ath | null; qqq: Ath | null; tqqq?: Ath | null };
   tranches: Tranche[]; deployed: number; leverage: number; avgPrice: number | null; captured: number | null; pnl?: number | null; pnlMix?: number | null;
@@ -29,7 +30,8 @@ type Sell = {
   date: string; active: boolean; light: 'gray' | 'amber' | 'orange' | 'red';
   cycle: null | { start: string; days: number; peak: number; peakDate: string; fromPeak: number };
   lastCycle: null | { start: string; end: string };
-  today: { price: number | null; bht: number | null; hi20: number | null; fromHi20: number | null; sma50: number | null; sma200: number | null; below200days: number; deathCross: boolean; weak: boolean };
+  today: { price: number | null; bht: number | null; hi20: number | null; fromHi20: number | null; sma50: number | null; sma200: number | null; below200days: number; deathCross: boolean; weak: boolean; credit?: CreditState };
+  creditCycle?: boolean;
   tranches: Array<{ id: string; weight: number; from3x: number; status: 'fired' | 'today' | 'pending'; date: string | null; price: number | null; pnl: number | null; checks: TrancheCheck[] }>;
   sold: number; leverage: number; avgPrice: number | null; pnl: number | null;
 };
@@ -64,7 +66,7 @@ const T = {
     episode: 'Episodio desde el pico del', days: 'días', ddNow: 'Caída hoy', ddMax: 'máxima del episodio', trough: 'mínimo', sector: 'corrección sectorial: el S&P 500 no confirma',
     noEpisode: 'Sin episodio abierto', fromAth: 'desde ATH', atAth: 'En máximo histórico', at5y: 'En máximo de 5 años', lastEp: 'Último episodio', ended: 'cerró el',
     cond: 'Condiciones del día', permit: 'Permiso', veto: 'Veto de crédito', vol: 'Voto de volatilidad', decel: 'Voto de desaceleración', val: 'Valuación (T4)',
-    vetoOn: 'activo: HY OAS en su máximo de 63 días y sobre su SMA20', vetoOff: 'sin veto',
+    vetoOn: 'activo: HY OAS en su máximo de 63 días y sobre su SMA20', vetoOff: 'sin veto', credit: 'Crisis de crédito', crMin: 'mín. 12m', crD3: 'Δ3M', crPx: 'precio vs máx. 12m', crMax63: 'vs máx. 63d', crEase: 'alivio ≤ −10% o BHT ≤ 40', crSince: 'última divergencia', creditCycle: 'Ciclo abierto por crisis de crédito (no por valuación): V4 y V5 venden sin exigir BHT alto',
     volFallback: 'respaldo con niveles de VIX (sin VIX3M antes de 2007)', armed: 'armado el', notArmed: 'no se armó en este episodio', orLevel: 'o nivel:', max20: 'máx 20d', ratio: 'VIX/VIX3M', volA: 'A · Curva VIX/VIX3M', volArmRule: 'se arma > 1.05 y se activa al bajar de 1', volB: 'B · Caída del VIX', volNow: 'hoy', volFromMax: 'vs su máx. de 20 días', volNeed: 'requiere ≤ −25%, VIX ≤', volMaxNeed: 'máx. ≥ 25', volBht: 'y BHT', needLt: 'requiere < 50', volEither: 'Basta A o B.',
     slope: 'pendiente EMA50', recover: 'recuperó', boll: 'reingreso a la banda de Bollinger −2σ', capeVs: 'CAPE vs mediana 20 años',
     tranche: 'Tranche', weight: 'Peso', mix: 'Mezcla', status: 'Estado', fired: 'Disparado', today: 'Hoy', pending: 'Falta', backup: 'respaldo (12 meses sobre la EMA200)', halfSize: 'medio tamaño',
@@ -82,7 +84,7 @@ const T = {
     episode: 'Episode since the peak of', days: 'days', ddNow: 'Drawdown today', ddMax: 'episode max', trough: 'low', sector: 'sector correction: the S&P 500 does not confirm',
     noEpisode: 'No open episode', fromAth: 'from ATH', atAth: 'At all-time high', at5y: 'At 5-year high', lastEp: 'Last episode', ended: 'closed on',
     cond: 'Conditions of the day', permit: 'Permission', veto: 'Credit veto', vol: 'Volatility vote', decel: 'Deceleration vote', val: 'Valuation (T4)',
-    vetoOn: 'active: HY OAS at its 63-day high and above its SMA20', vetoOff: 'no veto',
+    vetoOn: 'active: HY OAS at its 63-day high and above its SMA20', vetoOff: 'no veto', credit: 'Credit crisis', crMin: '12m low', crD3: 'Δ3M', crPx: 'price vs 12m high', crMax63: 'vs 63d high', crEase: 'easing ≤ −10% or BHT ≤ 40', crSince: 'last divergence', creditCycle: 'Cycle opened by a credit crisis (not valuation): V4 and V5 sell without requiring a high BHT',
     volFallback: 'VIX-level fallback (no VIX3M before 2007)', armed: 'armed on', notArmed: 'not armed in this episode', orLevel: 'or level:', max20: '20d high', ratio: 'VIX/VIX3M', volA: 'A · VIX/VIX3M curve', volArmRule: 'arms > 1.05, fires when it drops below 1', volB: 'B · VIX drop', volNow: 'today', volFromMax: 'vs its 20-day high', volNeed: 'needs ≤ −25%, VIX ≤', volMaxNeed: 'high ≥ 25', volBht: 'and BHT', needLt: 'needs < 50', volEither: 'A or B is enough.',
     slope: 'EMA50 slope', recover: 'recovered', boll: 'back inside the −2σ Bollinger band', capeVs: 'CAPE vs 20-year median',
     tranche: 'Tranche', weight: 'Weight', mix: 'Mix', status: 'Status', fired: 'Fired', today: 'Today', pending: 'Missing', backup: 'backup (12 months above the EMA200)', halfSize: 'half size',
@@ -201,6 +203,12 @@ export default function BhtTranchesView({ date, locale }: { date: string; locale
                   <td><Mark ok={!r.today.veto} /></td><td className="text-slate-300 pr-2 whitespace-nowrap">{t.veto}</td>
                   <td className={r.today.veto ? 'text-risk-300' : 'text-slate-400'}>{r.today.veto ? t.vetoOn : t.vetoOff} · OAS {r.today.oas?.toFixed(2) ?? '—'}% · máx63 {r.today.oasMax63?.toFixed(2) ?? '—'} · SMA20 {r.today.oasSma20?.toFixed(2) ?? '—'}</td>
                 </tr>
+                {r.today.credit && (
+                  <tr className="border-b border-slate-800/60">
+                    <td><Mark ok={!r.today.credit.crisis || r.today.credit.easing} /></td><td className="text-slate-300 pr-2 whitespace-nowrap">{t.credit}</td>
+                    <td className="text-slate-400"><CreditLine c={r.today.credit} es={es} t={t} /></td>
+                  </tr>
+                )}
                 <tr className="border-b border-slate-800/60">
                   <td><Mark ok={r.today.volVote} /></td><td className="text-slate-300 pr-2 whitespace-nowrap">{t.vol}</td>
                   <td className="text-slate-400">
@@ -282,6 +290,28 @@ export default function BhtTranchesView({ date, locale }: { date: string; locale
 }
 
 type TT = typeof T.es;
+/** Línea de crédito (CREDIT_CFG): estado y cada requisito en verde si cumple. Divergencia = OAS ≥ 1.5× su mínimo de 12 meses,
+ *  Δ3M ≥ +0.5 y precio a menos de 7% de su máximo; en crisis, las compras esperan alivio (≥10% bajo su máx. de 63 días) o BHT ≤ 40. */
+function CreditLine({ c, es, t }: { c: CreditState | undefined; es: boolean; t: TT }) {
+  if (!c) return null;
+  const st = creditStatus(c), M = CREDIT_META[st];
+  const okC = (ok: boolean | null) => (ok == null ? 'text-slate-200' : ok ? 'text-risk-300 font-bold' : 'text-slate-200');
+  const sg = (v: number | null, d = 1) => (v == null ? '—' : `${v > 0 ? '+' : ''}${v.toFixed(d)}`);
+  return (
+    <div className="flex flex-col">
+      <span className="font-bold" style={{ color: M.color }}>{es ? M.es : M.en}</span>
+      <span>
+        HY OAS <b className="text-slate-200">{c.oas?.toFixed(2) ?? '—'}%</b>
+        {' = '}<b className={okC(c.ratio != null ? c.ratio >= 1.5 : null)}>{c.ratio?.toFixed(2) ?? '—'}×</b> {t.crMin} (≥ 1.5)
+        {' · '}{t.crD3} <b className={okC(c.d3 != null ? c.d3 >= 0.5 : null)}>{sg(c.d3, 2)}</b> (≥ +0.5)
+        {' · '}{t.crPx} <b className={okC(c.fromHi252 != null ? c.fromHi252 >= -7 : null)}>{sg(c.fromHi252)}%</b> (&gt; −7%)
+      </span>
+      {c.crisis && (
+        <span>{t.crMax63} <b className={c.easing ? 'text-favorable-300' : 'text-slate-200'}>{sg(c.fromMax63)}%</b> ({t.crEase}){c.lastDiv && <> · {t.crSince} {c.lastDiv}</>}</span>
+      )}
+    </div>
+  );
+}
 /** Vista de la escalera de venta: ciclo de codicia, condiciones del día y los 5 tranches de venta (color rosa). */
 function SellView({ sell, es, t, one, three, fresh }: { sell: Sell; es: boolean; t: TT; one: string; three: string; fresh: boolean }) {
   const L = SELL_LIGHT[sell.light];
@@ -296,6 +326,7 @@ function SellView({ sell, es, t, one, three, fresh }: { sell: Sell; es: boolean;
         ) : (
           <div className="mt-1 font-mono text-slate-400">{t.noCycle}{sell.lastCycle && <> · {t.lastCycle} {sell.lastCycle.start} → {sell.lastCycle.end}</>}</div>
         )}
+        {sell.creditCycle && <div className="mt-1 font-bold" style={{ color: CREDIT_META.div.color }}>{t.creditCycle}</div>}
       </div>
       <div>
         <div className="text-[10px] uppercase tracking-wide text-slate-500 mb-0.5">{t.cond}</div>
@@ -306,6 +337,7 @@ function SellView({ sell, es, t, one, three, fresh }: { sell: Sell; es: boolean;
           <span>{t.below200} <span className={td.below200days >= 3 ? 'text-risk-300 font-bold' : 'text-slate-200'}>{td.below200days}</span></span>
           <span>{t.dcross} <span className={td.deathCross ? 'text-risk-300 font-bold' : 'text-slate-200'}>{td.deathCross ? t.yes : t.no}</span></span>
         </div>
+        {td.credit && <div className="mt-1 font-mono text-slate-400"><CreditLine c={td.credit} es={es} t={t} /></div>}
       </div>
       <table className="w-full font-mono">
         <thead className="text-[9px] uppercase tracking-wide text-slate-500">
