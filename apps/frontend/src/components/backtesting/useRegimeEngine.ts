@@ -1,10 +1,12 @@
 import { useMemo } from 'react';
 import type { RegimeLive } from './RegimesDocsTable';
-import { getClosestPrice, getCpiYoY, getRecentPrice, marginGdpRatio } from '@/lib/seriesLookup';
+import { getClosestPrice, getCpiYoY, getRecentPrice, marginGdpRatio, withPubLag } from '@/lib/seriesLookup';
 
 // Motor de los 3 regímenes (R1 estructural CAPE+Core CPI, R2 Z(Margin/GDP) con memoria 6M, R3 complacencia HY)
 // y snapshot vivo para la documentación. Antes dentro de RegimesPanel; la ventana de R3 depende de la vista.
-export function useRegimeEngine(cape: any[], marketHistory: Record<string, Map<string, number>>, capeView: 'daily' | 'monthly' | 'yearly') {
+export function useRegimeEngine(cape: any[], marketHistoryRaw: Record<string, Map<string, number>>, capeView: 'daily' | 'monthly' | 'yearly') {
+  // Punto en el tiempo: FINRA, PIB y Core CPI cuentan desde su publicación (PUB_LAG_DAYS, igual que el BHT).
+  const marketHistory = useMemo(() => withPubLag(marketHistoryRaw) as Record<string, Map<string, number>>, [marketHistoryRaw]);
   const getMarginGdpRatio = (d: string) => marginGdpRatio(marketHistory['FINRA_DEBIT'], marketHistory['GDP'], d);
   // Régimen simple: Bull/Bear/Stress basado en umbrales (legacy, para columna Régimen)
   function getRegime(d:string, capeVal:number|null, ratio:number|null): string {
