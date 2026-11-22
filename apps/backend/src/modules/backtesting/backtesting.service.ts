@@ -15,7 +15,7 @@ import { PROVISIONAL_OF, rowsWithProvisional, withProvisional } from './provisio
 /** Tickers cuyo precio en vivo se toma de otro símbolo de Yahoo (la serie histórica viene de otra fuente). */
 export const YAHOO_LIVE_ALIAS: Record<string, string> = { DCOILWTICO: 'CL=F', VIXCLS: '^VIX' };
 import { spliceSeries } from '../market-data/valuation-daily';
-import { computeThermoLive, LivePoints, THERMO_LIVE_TICKERS, THERMO_TICKERS, getHyBonus, getHySigma24, getLiqBonus, getOilBonus, lagSeries, PUB_LAG_DAYS, PriceMap } from './thermo-history';
+import { computeThermoLive, LivePoints, THERMO_LIVE_TICKERS, THERMO_TICKERS, getHyBonus, getHySigma24, getLiqBonus, getOilBonus, lagSeries, CREDIT_BASE, creditFromBaa, PUB_LAG_DAYS, PriceMap } from './thermo-history';
 
 // Día con mercado (lun–vie). Sáb/dom no operan y el BHT no se calcula.
 export function isTradingDayIso(isoDate: string): boolean {
@@ -346,7 +346,7 @@ export class BacktestingService {
   async getLivePrice(ticker: string) {
     const t = ticker.trim();
     // VIX: FRED (VIXCLS) publica al día siguiente; en vivo se toma ^VIX de Yahoo (valor parcial del día).
-    const isFred = ['DFEDTARU','DGS2','DGS10','DGS30','BAMLH0A0HYM2','BAMLH0A0HYM2EY','CPIAUCSL','CPILFESL','GDP','GDPC1','MSACSR'].includes(t);
+    const isFred = ['DFEDTARU','DGS2','DGS10','DGS30','BAA10Y','BAMLH0A0HYM2','BAMLH0A0HYM2EY','CPIAUCSL','CPILFESL','GDP','GDPC1','MSACSR'].includes(t);
     const isCnn = t === 'FEAR_GREED';
     const cacheKey = `live:${t}`;
     const cached = this.liveCache.get(cacheKey) as any;
@@ -866,15 +866,18 @@ export class BacktestingService {
     const denominator = parts.reduce((m, p) => m + Number(p.weight), 0);
     const th = await this.prisma.btThermoHistory.findUnique({ where: { date: r.date }, select: { bonus: true, bonusLabel: true, liqBonus: true, liqBonusLabel: true, oilBonus: true, oilBonusLabel: true, trendRegime: true, spxSma50: true, spxSma200: true } });
     // Insumos del trigger del bonus HY (valor, Δ1M, z y σ24) para transparentar el disparo en el hover.
-    let bonusHy: number | null = null, bonusD1: number | null = null, bonusZ: number | null = null, bonusSigma: number | null = null, bonusFed: number | null = null;
+    let hyReal: number | null = null, bonusHy: number | null = null, bonusD1: number | null = null, bonusZ: number | null = null, bonusSigma: number | null = null, bonusFed: number | null = null;
     try {
       const iso = r.date.toISOString().slice(0, 10);
-      const hyRows = await this.prisma.btMarketData.findMany({ where: { ticker: { in: ['BAMLH0A0HYM2', 'DFEDTARU'] }, date: { lte: r.date } }, orderBy: { date: 'desc' }, take: 2200 });
-      const hyMap: PriceMap = new Map(hyRows.filter((x: any) => x.ticker === 'BAMLH0A0HYM2').map((x: any) => [x.date.toISOString().slice(0, 10), Number(x.close)]));
+      const hyRows = await this.prisma.btMarketData.findMany({ where: { ticker: { in: [CREDIT_BASE, 'DFEDTARU'] }, date: { lte: r.date } }, orderBy: { date: 'desc' }, take: 2200 });
+      const hyMap: PriceMap = creditFromBaa(new Map(hyRows.filter((x: any) => x.ticker === CREDIT_BASE).map((x: any) => [x.date.toISOString().slice(0, 10), Number(x.close)])))!;
       const fedMap: PriceMap = new Map(hyRows.filter((x: any) => x.ticker === 'DFEDTARU').map((x: any) => [x.date.toISOString().slice(0, 10), Number(x.close)]));
       const hb = getHyBonus(hyMap, iso, fedMap);
       bonusHy = hb.hy; bonusD1 = hb.d1; bonusZ = hb.z; bonusFed = hb.fed;
       bonusSigma = getHySigma24(hyMap, iso);
+      // HY OAS real (ICE), solo informativo: el modelo usa 1.913 × BAA10Y.
+      const real = await this.prisma.btMarketData.findFirst({ where: { ticker: 'BAMLH0A0HYM2', date: { lte: r.date } }, orderBy: { date: 'desc' }, select: { close: true, source: true } });
+      if (real && real.source === 'fred') hyReal = Number(real.close);
     } catch {}
     // Insumos del bonus de liquidez M2/M0 para transparentar el disparo en el hover.
     let liqYoy: number | null = null, liqM0d3: number | null = null, liqDrop: number | null = null;
@@ -914,7 +917,7 @@ export class BacktestingService {
       quotes,
       // Régimen tendencial del S&P 500 ese día (cierre vs SMA 50/200).
       trend: th?.trendRegime ? { regime: th.trendRegime, sma50: th.spxSma50, sma200: th.spxSma200, close: r.spx ?? null } : null,
-      bonus: th?.bonus ?? 0, bonusLabel: th?.bonusLabel ?? null, bonusHy, bonusD1, bonusZ, bonusSigma, bonusFed,
+      bonus: th?.bonus ?? 0, bonusLabel: th?.bonusLabel ?? null, bonusHy, hyReal, bonusD1, bonusZ, bonusSigma, bonusFed,
       liqBonus: (th as any)?.liqBonus ?? 0, liqBonusLabel: (th as any)?.liqBonusLabel ?? null, liqYoy, liqM0d3, liqDrop,
       oilBonus: (th as any)?.oilBonus ?? 0, oilBonusLabel: (th as any)?.oilBonusLabel ?? null, oilPrice, oilRatio,
       parts: parts.map((p) => ({ key: p.key, value: p.value, score: p.score, weight: p.weight, aporte: denominator ? (p.score * p.weight) / denominator : null })),

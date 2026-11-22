@@ -201,7 +201,7 @@ export default function BhtTranchesView({ date, locale }: { date: string; locale
                 </tr>
                 <tr className="border-b border-slate-800/60">
                   <td><Mark ok={!r.today.veto} /></td><td className="text-slate-300 pr-2 whitespace-nowrap">{t.veto}</td>
-                  <td className={r.today.veto ? 'text-risk-300' : 'text-slate-400'}>{r.today.veto ? t.vetoOn : t.vetoOff} · OAS {r.today.oas?.toFixed(2) ?? '—'}% · máx63 {r.today.oasMax63?.toFixed(2) ?? '—'} · SMA20 {r.today.oasSma20?.toFixed(2) ?? '—'}</td>
+                  <td className={r.today.veto ? 'text-risk-300' : 'text-slate-400'}>{r.today.veto ? t.vetoOn : t.vetoOff} · HY (Baa×1.91) {r.today.oas?.toFixed(2) ?? '—'}% · máx63 {r.today.oasMax63?.toFixed(2) ?? '—'} · SMA20 {r.today.oasSma20?.toFixed(2) ?? '—'}</td>
                 </tr>
                 {r.today.credit && (
                   <tr className="border-b border-slate-800/60">
@@ -301,7 +301,7 @@ function CreditLine({ c, es, t }: { c: CreditState | undefined; es: boolean; t: 
     <div className="flex flex-col">
       <span className="font-bold" style={{ color: M.color }}>{es ? M.es : M.en}</span>
       <span>
-        HY OAS <b className="text-slate-200">{c.oas?.toFixed(2) ?? '—'}%</b>
+        HY <span className="text-slate-500">(Baa×1.91)</span> <b className="text-slate-200">{c.oas?.toFixed(2) ?? '—'}%</b>
         {' = '}<b className={okC(c.ratio != null ? c.ratio >= 1.5 : null)}>{c.ratio?.toFixed(2) ?? '—'}×</b> {t.crMin} (≥ 1.5)
         {' · '}{t.crD3} <b className={okC(c.d3 != null ? c.d3 >= 0.5 : null)}>{sg(c.d3, 2)}</b> (≥ +0.5)
         {' · '}{t.crPx} <b className={okC(c.fromHi252 != null ? c.fromHi252 >= -7 : null)}>{sg(c.fromHi252)}%</b> (&gt; −7%)

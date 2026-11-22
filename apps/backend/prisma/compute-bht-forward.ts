@@ -9,7 +9,7 @@ import { PROVISIONAL_OF, withProvisional } from '../src/modules/backtesting/prov
 // Uso: npx ts-node prisma/compute-bht-forward.ts [FROM=1993-01-01]
 const FROM = process.env.FROM || '1993-01-01';
 const TICKERS = ['^GSPC', '^IXIC', 'TQQQ'];
-const ALL_TICKERS = ['^GSPC', 'SPX_EPS', 'SPX_FWD_EPS', 'CPIAUCSL', 'CPILFESL', 'DFEDTARU', 'DGS2', 'DGS30', 'BAMLH0A0HYM2', 'FINRA_DEBIT', 'GDP', 'GDPC1', 'MSACSR', 'VIXCLS', 'FEAR_GREED'];
+const ALL_TICKERS = ['^GSPC', 'SPX_EPS', 'SPX_FWD_EPS', 'CPIAUCSL', 'CPILFESL', 'DFEDTARU', 'DGS2', 'DGS30', 'BAA10Y', 'FINRA_DEBIT', 'GDP', 'GDPC1', 'MSACSR', 'VIXCLS', 'FEAR_GREED'];
 
 async function main() {
   const pool = new Pool({ connectionString: process.env.DATABASE_URL });

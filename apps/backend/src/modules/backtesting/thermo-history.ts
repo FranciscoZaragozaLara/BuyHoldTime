@@ -51,6 +51,25 @@ export type PriceMap = Map<string, number>;
 export type Series = Record<string, PriceMap>;
 
 /**
+ * Serie de crédito del modelo («HY» del bonus, veto y señal de crisis de crédito de los tranches): 1.913477 × BAA10Y
+ * (spread Baa − Tesoro 10 años de Moody's, FRED). Es exactamente la historia con la que se calibró todo (el «HY OAS»
+ * guardado antes de ago-2023 era ese proxy: FRED solo publica 3 años del ICE real). Usarla también en vivo mantiene
+ * los umbrales consistentes; el HY OAS real (BAMLH0A0HYM2) queda solo como dato informativo.
+ */
+export const CREDIT_BASE = 'BAA10Y';
+export const HY_BAA_SCALE = 1.913477;
+const creditCache = new WeakMap<PriceMap, PriceMap>();
+export function creditFromBaa(baa: PriceMap | undefined): PriceMap | undefined {
+  if (!baa) return undefined;
+  const hit = creditCache.get(baa);
+  if (hit) return hit;
+  const out: PriceMap = new Map();
+  for (const [d, v] of baa) out.set(d, v * HY_BAA_SCALE);
+  creditCache.set(baa, out);
+  return out;
+}
+
+/**
  * Rezago de publicación (días desde la fecha guardada hasta que el dato se conoce). Las series mensuales y
  * trimestrales se guardan con la fecha de su periodo (día 1), no con la de publicación: sin esto la historia
  * usaba cada dato ~6–17 semanas antes de existir (estudio nov-2026: M2/M0 movía el BHT hasta 30 pts).
@@ -449,9 +468,9 @@ export function getGdpc1YoY(s: Series, isoDate: string): number | null {
 }
 
 /** Series que usa el termómetro (BD bt_market_data). */
-export const THERMO_TICKERS = ['^GSPC', 'SPX_EPS', 'SPX_FWD_EPS', 'CPIAUCSL', 'CPILFESL', 'DFEDTARU', 'DGS2', 'DGS30', 'BAMLH0A0HYM2', 'FINRA_DEBIT', 'GDP', 'GDPC1', 'MSACSR', 'VIXCLS', 'FEAR_GREED', 'M2SL', 'BOGMBASE', 'DCOILWTICO'];
+export const THERMO_TICKERS = ['^GSPC', 'SPX_EPS', 'SPX_FWD_EPS', 'CPIAUCSL', 'CPILFESL', 'DFEDTARU', 'DGS2', 'DGS30', 'BAA10Y', 'FINRA_DEBIT', 'GDP', 'GDPC1', 'MSACSR', 'VIXCLS', 'FEAR_GREED', 'M2SL', 'BOGMBASE', 'DCOILWTICO'];
 /** Series a las que se les anexa el dato en vivo para el termómetro de hoy. */
-export const THERMO_LIVE_TICKERS = ['^GSPC', 'CPIAUCSL', 'CPILFESL', 'DGS2', 'DGS30', 'MSACSR', 'GDPC1', 'VIXCLS', 'FEAR_GREED', 'BAMLH0A0HYM2', 'M2SL', 'BOGMBASE', 'DCOILWTICO'];
+export const THERMO_LIVE_TICKERS = ['^GSPC', 'CPIAUCSL', 'CPILFESL', 'DGS2', 'DGS30', 'MSACSR', 'GDPC1', 'VIXCLS', 'FEAR_GREED', 'BAA10Y', 'M2SL', 'BOGMBASE', 'DCOILWTICO'];
 
 export interface ThermoPart { key: string; score: number; weight: number; value: number }
 export interface ThermoDay { value: number; numerator: number; denominator: number; coverage: number; parts: ThermoPart[]; bonus: number; bonusLabel: string; liqBonus: number; liqBonusLabel: string; oilBonus: number; oilBonusLabel: string }
@@ -485,7 +504,7 @@ export function computeThermoDay(
   const y30ma = getMa126(s['DGS30'], isoDate);
   push('30Y', y30 != null && y30ma != null ? y30mScore(y30, y30ma) : null, 10, y30);
   // HY fuera del promedio: bonus asimétrico de crisis de liquidez (Régimen 3).
-  const hyB = getHyBonus(s['BAMLH0A0HYM2'], isoDate, s['DFEDTARU']);
+  const hyB = getHyBonus(creditFromBaa(s[CREDIT_BASE]), isoDate, s['DFEDTARU']);
   const mg = getMarginGdpRatio(s, isoDate);
   const mgMa = getMarginGdpMa24(s, isoDate);
   push('MG', mg != null && mgMa != null ? mgScore(mg, mgMa) : null, 10, mg);
@@ -526,7 +545,7 @@ export function computeThermoLive(
     series[t] = m;
   }
   const day = computeThermoDay(isoDate, series, cape);
-  const hy = getHyBonus(series['BAMLH0A0HYM2'], isoDate, series['DFEDTARU']);
+  const hy = getHyBonus(creditFromBaa(series[CREDIT_BASE]), isoDate, series['DFEDTARU']);
   const L = withPubLag(series);
   const liq = getLiqBonusSmoothed(L['M2SL'], L['BOGMBASE'], isoDate, L['CPIAUCSL']);
   const oil = getOilBonus(series['DCOILWTICO'], isoDate);

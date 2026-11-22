@@ -15,6 +15,8 @@ import { PROVISIONAL_OF } from '../backtesting/provisional-series';
 
 /** Series de Yahoo sin equivalente en FRED que se bajan a diario con las provisionales. */
 export const YAHOO_EXTRA = ['^VIX3M'];
+/** Series de FRED que daily_update.py no baja: BAA10Y es la base de la serie de crédito del modelo (CREDIT_BASE). */
+export const FRED_EXTRA = ['BAA10Y'];
 
 /**
  * Construye la línea planchada del día `date` para shiller_daily.csv SIN asumir
@@ -158,6 +160,32 @@ export class MarketSyncService {
         this.logger.warn(`Provisional ${t} falló: ${String(e?.message ?? e).slice(0, 120)}`);
       }
     }
+    for (const t of FRED_EXTRA) {
+      try {
+        const n = await this.upsertFredCsv(t);
+        this.logger.log(`FRED ${t}: ${n} filas`);
+      } catch (e: any) {
+        this.logger.warn(`FRED ${t} falló: ${String(e?.message ?? e).slice(0, 120)}`);
+      }
+    }
+  }
+
+  /** CSV público de FRED: la primera vez guarda toda la historia (desde 1986); después, las últimas 60 filas. */
+  private async upsertFredCsv(ticker: string): Promise<number> {
+    const have = await this.prisma.btMarketData.count({ where: { ticker } });
+    const r: any = await fetch(`https://fred.stlouisfed.org/graph/fredgraph.csv?id=${encodeURIComponent(ticker)}`, { headers: { 'User-Agent': 'Mozilla/5.0' } as any, signal: AbortSignal.timeout(20000) } as any);
+    if (!r.ok) throw new Error(`FRED ${r.status}`);
+    const lines = String(await r.text()).trim().split('\n').slice(1);
+    const rows = lines.map((l) => l.split(',')).map(([d, v]) => [String(d).slice(0, 10), parseFloat(v)] as const).filter(([d, v]) => d && Number.isFinite(v));
+    const pick = have === 0 ? rows : rows.slice(-60);
+    for (const [d, v] of pick) {
+      await this.prisma.btMarketData.upsert({
+        where: { ticker_date: { ticker, date: new Date(d) } },
+        update: { open: v, high: v, low: v, close: v, adjClose: v, volume: BigInt(0), isValidated: true },
+        create: { ticker, date: new Date(d), open: v, high: v, low: v, close: v, adjClose: v, volume: BigInt(0), isValidated: true, source: 'fred' },
+      });
+    }
+    return pick.length;
   }
 
   // CAPE diario: el CSV (/tmp) es solo intercambio con BackTesting; la fuente es
@@ -534,7 +562,8 @@ export class MarketSyncService {
       { ticker: 'NYSE_DEC_VOL', name: 'NYSE_DEC_VOL', purpose: 'Volumen retroceso NYSE — amplitud', source: 'WSJ', api: 'https://www.wsj.com/market-data/stocks/marketsdiary?id=%7B%22application%22%3A%22WSJ%22%2C%22marketsDiaryType%22%3A%22diaries%22%7D&type=mdc_marketsdiary', kind: 'wsj' },
       { ticker: 'NSDQ_ADV_VOL', name: 'NSDQ_ADV_VOL', purpose: 'Volumen avance Nasdaq — amplitud', source: 'WSJ', api: 'https://www.wsj.com/market-data/stocks/marketsdiary?id=%7B%22application%22%3A%22WSJ%22%2C%22marketsDiaryType%22%3A%22diaries%22%7D&type=mdc_marketsdiary', kind: 'wsj' },
       { ticker: 'NSDQ_DEC_VOL', name: 'NSDQ_DEC_VOL', purpose: 'Volumen retroceso Nasdaq — amplitud', source: 'WSJ', api: 'https://www.wsj.com/market-data/stocks/marketsdiary?id=%7B%22application%22%3A%22WSJ%22%2C%22marketsDiaryType%22%3A%22diaries%22%7D&type=mdc_marketsdiary', kind: 'wsj' },
-      { ticker: 'BAMLH0A0HYM2', name: 'BAMLH0A0HYM2', purpose: 'HY OAS — complacencia crediticia G1-G4', source: 'FRED', api: 'https://fred.stlouisfed.org/graph/fredgraph.csv?id=BAMLH0A0HYM2', kind: 'fred' },
+{ ticker: 'BAA10Y', name: 'BAA10Y', purpose: 'Spread Baa − Tesoro 10A: base de la serie de crédito del modelo (bonus HY, veto y crisis de crédito; 1.913 × BAA10Y)', source: 'FRED', api: 'https://fred.stlouisfed.org/graph/fredgraph.csv?id=BAA10Y', kind: 'fred' },
+            { ticker: 'BAMLH0A0HYM2', name: 'BAMLH0A0HYM2', purpose: 'HY OAS real (ICE) — solo informativo; el modelo usa 1.913 × BAA10Y', source: 'FRED', api: 'https://fred.stlouisfed.org/graph/fredgraph.csv?id=BAMLH0A0HYM2', kind: 'fred' },
       { ticker: 'BAMLH0A0HYM2EY', name: 'BAMLH0A0HYM2EY', purpose: 'HY Effective Yield — spread + yield', source: 'FRED', api: 'https://fred.stlouisfed.org/graph/fredgraph.csv?id=BAMLH0A0HYM2EY', kind: 'fred' },
       { ticker: 'CPIAUCSL', name: 'CPIAUCSL', purpose: 'CPI YoY — inflación headline', source: 'FRED', api: 'https://fred.stlouisfed.org/graph/fredgraph.csv?id=CPIAUCSL', kind: 'fred' },
       { ticker: 'CPILFESL', name: 'CPILFESL', purpose: 'Core CPI YoY — F0/G2/G4 régimen', source: 'FRED', api: 'https://fred.stlouisfed.org/graph/fredgraph.csv?id=CPILFESL', kind: 'fred' },

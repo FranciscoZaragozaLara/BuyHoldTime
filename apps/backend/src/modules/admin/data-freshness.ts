@@ -31,7 +31,7 @@ export const DATA_SOURCES: SourceConfig[] = [
   { id: 'etf_prices', type: 'api', cadence: 'daily', lateDays: 4, staleDays: 8,
     sql: mdMax('yfinance', ['^GSPC', '^IXIC', 'SPY', 'QQQ', 'TQQQ', 'VOO', 'SCHD', 'JEPQ', 'SQQQ']), series: ['^GSPC', '^IXIC', 'SPY', 'QQQ', 'TQQQ', 'VOO', 'SCHD', 'JEPQ', 'SQQQ'] },
   { id: 'fred_daily', type: 'api', cadence: 'daily', lateDays: 4, staleDays: 8,
-    sql: mdMax('fred', ['DGS2', 'DGS10', 'DGS30', 'DFEDTARU', 'BAMLH0A0HYM2', 'BAMLH0A0HYM2EY', 'VIXCLS', 'DCOILWTICO']), series: ['DGS2', 'DGS10', 'DGS30', 'DFEDTARU', 'BAMLH0A0HYM2', 'BAMLH0A0HYM2EY', 'VIXCLS', 'DCOILWTICO'] },
+    sql: mdMax('fred', ['DGS2', 'DGS10', 'DGS30', 'DFEDTARU', 'BAA10Y', 'BAMLH0A0HYM2', 'BAMLH0A0HYM2EY', 'VIXCLS', 'DCOILWTICO']), series: ['DGS2', 'DGS10', 'DGS30', 'DFEDTARU', 'BAA10Y', 'BAMLH0A0HYM2', 'BAMLH0A0HYM2EY', 'VIXCLS', 'DCOILWTICO'] },
   { id: 'fred_inflation', type: 'api', cadence: 'monthly', lateDays: 50, staleDays: 80,
     sql: mdMax('fred', ['CPIAUCSL', 'CPILFESL']), series: ['CPIAUCSL', 'CPILFESL'] },
   { id: 'fred_money_housing', type: 'api', cadence: 'monthly', lateDays: 80, staleDays: 120,

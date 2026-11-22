@@ -7,6 +7,7 @@
 // Ruta 'voo' = S&P 500 (VOO/UPRO); ruta 'qqq' = Nasdaq-100 con QQQ como proxy (QQQ/TQQQ), permiso dual con el S&P.
 // Se recorre día a día desde el inicio de la serie hasta la fecha pedida: así se sabe cuándo se disparó cada tranche.
 
+import { CREDIT_BASE, creditFromBaa } from './thermo-history';
 import { spliceSeries } from '../market-data/valuation-daily';
 import { withProvisional } from './provisional-series';
 
@@ -453,8 +454,8 @@ type Rows = Array<{ d: string; v: unknown }>;
 export async function loadTrancheSeries(query: (sql: string) => Promise<Rows>): Promise<TrancheSeries> {
   const toMap = (r: Rows) => new Map(r.filter((x) => x.v != null).map((x) => [x.d, Number(x.v)] as [string, number]));
   const md = (t: string) => query(`SELECT date::text AS d, close AS v FROM bt_market_data WHERE ticker = '${t}' AND date >= '1989-01-01'`).then(toMap);
-  const [spx, vixF, vixY, vix3m, oas, tqqq, qOld, qNew, capeD, capeM, bht] = await Promise.all([
-    md('^GSPC'), md('VIXCLS'), md('^VIX'), md('^VIX3M'), md('BAMLH0A0HYM2'), md('TQQQ'),
+  const [spx, vixF, vixY, vix3m, oasBaa, tqqq, qOld, qNew, capeD, capeM, bht] = await Promise.all([
+    md('^GSPC'), md('VIXCLS'), md('^VIX'), md('^VIX3M'), md(CREDIT_BASE), md('TQQQ'),
     query(`SELECT h.date::text AS d, h.close AS v FROM historical_prices h JOIN tickers t ON t.id = h.ticker_id WHERE t.symbol = 'QQQ'`).then(toMap),
     md('QQQ'),
     query(`SELECT date::text AS d, cape AS v FROM bt_shiller_daily`).then(toMap),
@@ -462,6 +463,7 @@ export async function loadTrancheSeries(query: (sql: string) => Promise<Rows>): 
     query(`SELECT date::text AS d, value AS v FROM bt_thermo_history`).then(toMap),
   ]);
   const vix = withProvisional(vixF, vixY);
+  const oas = creditFromBaa(oasBaa)!; // serie de crédito del modelo (1.913477 × BAA10Y)
   const qqq = spliceSeries(qOld, qNew);
   const dates = [...spx.keys()].filter((d) => d >= '1990-01-02').sort();
   // CAPE mensual: Shiller (desde 1881) y, después de su último mes, el CAPE diario de cierre de mes.
