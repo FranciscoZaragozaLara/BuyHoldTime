@@ -41,7 +41,8 @@ export const TRANCHE_CFG = {
   t0Ratio: 1.2, t0Oas: 6, volArm: 1.05, volWindow: 20,
   /** Voto de volatilidad híbrido blindado (por defecto): ratio VIX/VIX3M del doc, o VIX ≥25% bajo su máximo de 20 días
    *  (≥25) solo con BHT < 50. Backtest 1990–2026: despliega 72% (VOO) y 47% (QQQ) vs 60% y 37% del doc, y captura 62% y
-   *  73% vs 56% y 61%, sin entrar temprano en 2000–03 ni 2008 (con BHT 55–60 sí; con 40–45 se pierde 2022). */
+   *  73% vs 56% y 61%, sin entrar temprano en 2000–03 ni 2008 (con BHT 55–60 sí; con 40–45 se pierde 2022).
+   *  Con el BHT sin look-ahead y el filtro de crisis de crédito (nov-2026): VOO 72% desplegado / 64% capturado, QQQ 43% / 77%. */
   volMode: 'hybrid' as 'ratio' | 'hybrid', lvlMaxBht: 50 as number | undefined,
   decelSmin: -0.015, decelRecover: 0.5, minGapT2: 5, minGapT3: 10, t4OasOff: 0.15, t4BackupDays: 252,
 };
