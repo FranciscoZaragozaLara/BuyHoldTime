@@ -137,7 +137,7 @@ export function BhtHoverTip({ point, bht, prices, trend }: { point: { d: string;
 /** Fecha del encabezado del popover: día de la semana, día, mes y año (p. ej. «jue 21 abr 2022»). */
 const fmtDay = (d: string, loc: string) => new Date(`${d}T12:00:00Z`).toLocaleDateString(loc === 'es' ? 'es-MX' : 'en-US', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
 
-export function BhtDetailPopover({ hover, detail: detailIn, onLeave, onHold, liveValue, onClose, nav }: { hover: { d: string; x: number; y: number }; detail: any; forward?: any; onLeave?: () => void; onHold?: () => void; liveValue?: number | null; onClose?: () => void; nav?: BhtPinNav | null }) {
+export function BhtDetailPopover({ hover, detail: detailIn, onLeave, onHold, liveValue, onClose, nav, trancheRoute }: { hover: { d: string; x: number; y: number }; detail: any; forward?: any; onLeave?: () => void; onHold?: () => void; liveValue?: number | null; onClose?: () => void; nav?: BhtPinNav | null; trancheRoute?: 'voo' | 'qqq' }) {
   const ti = useTranslations('Backtesting.indicators');
   const loc = useLocale();
   const missing = !!detailIn?.missing;
@@ -328,7 +328,7 @@ export function BhtDetailPopover({ hover, detail: detailIn, onLeave, onHold, liv
         </>
       )}
       {view === 'tranches' ? (
-        <BhtTranchesView date={hover.d} locale={loc} />
+        <BhtTranchesView key={trancheRoute ?? "qqq"} date={hover.d} locale={loc} initialRoute={trancheRoute} />
       ) : view === 'drawdowns' ? (
         <BhtDrawdownsView date={hover.d} locale={loc} />
       ) : view === 'strategy' ? (

@@ -1,6 +1,6 @@
 import { TOKENS } from './designTokens';
 import { describe, expect, it } from 'vitest';
-import { athDrawdownLine, buildValuationChart, buyLadderMarkers, sellLadderMarkers, signalMarkers, signalState, thinMarkers, DEATH_CROSS_MIN_BHT, CROSS_MIN_SESSIONS, SIGNAL_REPEAT, type ChartPoint, type DailyValuation, type MonthlyRow } from './valuationChart';
+import { athDrawdownLine, buildValuationChart, buyLadderMarkers, mergeSellLabels, sellLadderMarkers, signalMarkers, signalState, thinMarkers, DEATH_CROSS_MIN_BHT, CROSS_MIN_SESSIONS, SIGNAL_REPEAT, type ChartPoint, type DailyValuation, type MonthlyRow } from './valuationChart';
 
 const monthly: MonthlyRow[] = [
   { date: '1989-11', sp500Price: 340, peRatio: 14, shillerPe: 17 },
@@ -119,8 +119,12 @@ describe('señales BHT × tendencia y cruces', () => {
     expect(m[0]).toMatchObject({ kind: 'sell', shape: 'arrowDown', position: 'aboveBar' });
     expect(m[1].size).toBeGreaterThan(m[0].size);
     expect(m[2].color).toBe(TOKENS.risk);
-    // el raleo por zoom conserva la venta más grave
-    expect(thinMarkers(m, (t) => m.findIndex((x) => x.time === t), 10).map((x) => x.text)).toEqual(['V5']);
+    // el raleo por zoom conserva la venta más grave y le suma las que chocan (etiqueta compacta)
+    const thin = thinMarkers(m, (t) => m.findIndex((x) => x.time === t), 10);
+    expect(thin.map((x) => [x.time, x.text])).toEqual([[day(3), 'V1/4/5·C']]);
+    expect(mergeSellLabels(['V4', 'V1'])).toBe('V1/4');
+    // zoom cercano: cada venta con su etiqueta
+    expect(thinMarkers(m, (t) => m.findIndex((x) => x.time === t), 1).map((x) => x.text)).toEqual(['V1', 'V5', 'V4·C']);
     // signalMarkers ya no genera ventas
     expect(signalMarkers(pts(3, (k) => ({ bht: [60, 80, 90][k], trend: 'U' }))).some((x) => x.kind === 'sell')).toBe(false);
   });

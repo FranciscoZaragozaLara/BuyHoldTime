@@ -252,23 +252,46 @@ export const MARKER_MIN_PX = 30;
  * Raleo según el zoom: en cada carril (position) se acepta una señal solo si no hay otra aceptada a menos de
  * `minGapBars` sesiones. Se decide por prioridad (cruces, luego entradas, luego recordatorios; a igual prioridad,
  * $$ sobre $ y ¼$) y luego por fecha, así lo importante nunca se pierde. `indexOf` da la posición de cada fecha.
+ * Ventas que chocan con otra venta no se pierden: su etiqueta se suma a la que queda en forma compacta (p. ej.
+ * «V1/4»), para que la gráfica no contradiga al detalle del día.
  */
-export function thinMarkers<T extends Pick<SignalMarker, 'time' | 'kind' | 'priority' | 'position'>>(markers: T[], indexOf: (time: string) => number | undefined, minGapBars: number): T[] {
+/** Etiqueta compacta de ventas agrupadas: «V4», «V1» → «V1/4»; con crisis de crédito («V4·C») → «V1/4·C». */
+export function mergeSellLabels(texts: string[]): string {
+  const credit = texts.some((t) => t.endsWith('·C'));
+  const nums = [...new Set(texts.map((t) => t.replace(/^V/, '').replace(/·C$/, '')))].sort();
+  return `V${nums.join('/')}${credit ? '·C' : ''}`;
+}
+
+export function thinMarkers<T extends Pick<SignalMarker, 'time' | 'kind' | 'priority' | 'position'> & { text?: string }>(markers: T[], indexOf: (time: string) => number | undefined, minGapBars: number): T[] {
   if (minGapBars <= 1) return markers;
   const KIND_RANK: Partial<Record<SignalKind, number>> = { max: 4, sell: 4, strong: 3, danger: 3, buy: 2, starter: 1 };
   const order = markers
     .map((m, k) => ({ m, k, idx: indexOf(m.time) }))
     .filter((x) => x.idx != null)
     .sort((a, b) => b.m.priority - a.m.priority || (KIND_RANK[b.m.kind] ?? 0) - (KIND_RANK[a.m.kind] ?? 0) || a.idx! - b.idx!);
-  const taken: Record<string, number[]> = {};
+  const taken: Record<string, Array<{ idx: number; k: number }>> = {};
   const keep = new Set<number>();
+  const merged = new Map<number, Array<{ idx: number; text: string }>>();
   for (const x of order) {
     const lane = (taken[x.m.position] ??= []);
-    if (lane.some((j) => Math.abs(j - x.idx!) < minGapBars)) continue;
-    lane.push(x.idx!);
+    const hit = lane.find((j) => Math.abs(j.idx - x.idx!) < minGapBars);
+    if (hit) {
+      const host = markers[hit.k];
+      if (x.m.kind === 'sell' && host.kind === 'sell' && x.m.text) {
+        const list = merged.get(hit.k) ?? [{ idx: hit.idx, text: host.text ?? '' }];
+        list.push({ idx: x.idx!, text: x.m.text });
+        merged.set(hit.k, list);
+      }
+      continue;
+    }
+    lane.push({ idx: x.idx!, k: x.k });
     keep.add(x.k);
   }
-  return markers.filter((_, k) => keep.has(k));
+  return markers.flatMap((m, k) => {
+    if (!keep.has(k)) return [];
+    const list = merged.get(k);
+    return [list ? { ...m, text: mergeSellLabels(list.map((t) => t.text)) } : m];
+  });
 }
 
 /** Línea de caída desde el máximo: del pico (ATH, o máximo de 5 años si el ATH tiene más de 5 años) al último precio. */

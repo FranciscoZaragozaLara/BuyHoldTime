@@ -832,6 +832,7 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
               forward={fwdCache[bhtPin.pin.d]}
               onClose={bhtPin.close}
               nav={pinNav}
+              trancheRoute={instrument === 'spx' ? 'voo' : 'qqq'}
             />
           )}
         </div>

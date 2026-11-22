@@ -96,10 +96,11 @@ const T = {
   },
 };
 
-export default function BhtTranchesView({ date, locale }: { date: string; locale: string }) {
+/** initialRoute: la de la gráfica que abrió el detalle (S&P 500 → VOO; QQQ/TQQQ → QQQ), para que sus marcas V/T coincidan. */
+export default function BhtTranchesView({ date, locale, initialRoute = 'qqq' }: { date: string; locale: string; initialRoute?: Route }) {
   const es = locale === 'es';
   const t = es ? T.es : T.en;
-  const [route, setRoute] = useState<Route>('qqq');
+  const [route, setRoute] = useState<Route>(initialRoute);
   const [rule, setRule] = useState<Rule>('half');
   const key = `${date}:${route}`;
   const [state, setState] = useState<{ key: string; data: Both | null } | null>(null);
