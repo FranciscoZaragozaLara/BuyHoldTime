@@ -97,7 +97,7 @@ const T = {
 };
 
 /** initialRoute: la de la gráfica que abrió el detalle (S&P 500 → VOO; QQQ/TQQQ → QQQ), para que sus marcas V/T coincidan. */
-export default function BhtTranchesView({ date, locale, initialRoute = 'qqq' }: { date: string; locale: string; initialRoute?: Route }) {
+export default function BhtTranchesView({ date, locale, initialRoute = 'qqq', chartRoute }: { date: string; locale: string; initialRoute?: Route; chartRoute?: Route }) {
   const es = locale === 'es';
   const t = es ? T.es : T.en;
   const [route, setRoute] = useState<Route>(initialRoute);
@@ -142,6 +142,12 @@ export default function BhtTranchesView({ date, locale, initialRoute = 'qqq' }: 
           <button type="button" className={seg(route === 'voo')} onClick={(e) => { e.stopPropagation(); setRoute('voo'); }}>VOO</button>
           <button type="button" className={seg(route === 'qqq')} onClick={(e) => { e.stopPropagation(); setRoute('qqq'); }}>QQQ / TQQQ</button>
         </div>
+        {/* Las marcas V/T de la gráfica son de la ruta de la gráfica: si la tabla muestra otra, las fechas no coinciden. */}
+        {chartRoute && chartRoute !== route && (
+          <span className="text-[10px] text-caution-300">{es
+            ? `Las marcas de la gráfica son de la ruta ${chartRoute === 'voo' ? 'VOO (S&P 500)' : 'QQQ'}; esta tabla es ${route === 'voo' ? 'VOO' : 'QQQ/TQQQ'}, sus fechas pueden no coincidir.`
+            : `Chart marks follow the ${chartRoute === 'voo' ? 'VOO (S&P 500)' : 'QQQ'} route; this table is ${route === 'voo' ? 'VOO' : 'QQQ/TQQQ'}, so dates may differ.`}</span>
+        )}
         {route === 'qqq' && view === 'buy' && (
           <div className="inline-flex rounded-lg border border-slate-700 bg-slate-950/60 p-0.5" title={t.ruleTitle}>
             <button type="button" className={seg(rule === 'half')} onClick={(e) => { e.stopPropagation(); setRule('half'); }}>{t.half}</button>

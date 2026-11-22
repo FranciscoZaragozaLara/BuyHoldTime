@@ -14,6 +14,7 @@ import { TrendBadge } from './TrendBadge';
 import type { BhtPinNav } from './bhtChartPin';
 import { TOKENS } from '@/lib/designTokens';
 import { athColor, athTone } from '@/lib/athDrawdown';
+import { quoteEvent } from '@/lib/quoteEvents';
 
 // Vista Estrategia: su código se descarga solo cuando se pulsa el botón (lazy) y calcula en el backend bajo demanda.
 const BhtStrategyView = dynamic(() => import('./BhtStrategyView'), { ssr: false, loading: () => <div className="mt-2 font-mono text-slate-500">…</div> });
@@ -209,7 +210,10 @@ export function BhtDetailPopover({ hover, detail: detailIn, onLeave, onHold, liv
             .map(([k, id]) => ({ k, price: q?.[id]?.price ?? (detail.prices[id] != null ? Number(detail.prices[id]) : null), qt: q?.[id] ?? null }))
             .filter((r) => r.price != null);
           const anyHigh5y = rows.some((r) => r.qt?.window5y);
+          // Nuevo máximo / mínimo del día por instrumento (badge con pulso; verde máximo, rojo mínimo de la corrección).
+          const events = rows.map((r) => ({ k: r.k, ev: quoteEvent(r.qt, detail.date) })).filter((x) => x.ev);
           return (
+            <>
             <table className="mt-1.5 font-mono text-[11px] leading-5 border-collapse">
               <thead>
                 <tr className="text-[9px] uppercase tracking-wide text-slate-500 whitespace-nowrap">
@@ -244,6 +248,33 @@ export function BhtDetailPopover({ hover, detail: detailIn, onLeave, onHold, liv
                 ))}
               </tbody>
             </table>
+            {events.length > 0 && (
+              <div className="mt-1.5 flex flex-wrap gap-1.5">
+                {(['high', 'low'] as const).map((kind) => {
+                  const list = events.filter((x) => x.ev!.kind === kind);
+                  if (!list.length) return null;
+                  const high = kind === 'high';
+                  const color = high ? TOKENS.favorable : TOKENS.risk;
+                  const label = high
+                    ? (loc === 'es' ? (list.every((x) => x.ev!.window5y) ? 'Nuevo máximo de 5 años' : 'Nuevo máximo histórico') : (list.every((x) => x.ev!.window5y) ? 'New 5-year high' : 'New all-time high'))
+                    : (loc === 'es' ? 'Nuevo mínimo de la corrección' : 'New correction low');
+                  return (
+                    <span key={kind} className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full border text-[10px] font-bold uppercase tracking-wide"
+                      style={{ color, borderColor: `color-mix(in srgb, ${color} 60%, transparent)`, backgroundColor: `color-mix(in srgb, ${color} 14%, transparent)` }}
+                      title={high ? undefined : list.map((x) => `${x.k} ${x.ev!.fromHigh?.toFixed(1)}% ${loc === 'es' ? 'desde máx.' : 'from high'}`).join(' · ')}>
+                      {/* Punto que late (indicador «en vivo»); sin animación si el sistema pide menos movimiento. */}
+                      <span className="relative flex h-2 w-2" aria-hidden>
+                        <span className="motion-safe:animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ backgroundColor: color }} />
+                        <span className="relative inline-flex h-2 w-2 rounded-full" style={{ backgroundColor: color }} />
+                      </span>
+                      <span aria-hidden>{high ? '▲' : '▼'}</span>{label}
+                      <span className="normal-case tracking-normal text-slate-200">{list.map((x) => x.k).join(' · ')}</span>
+                    </span>
+                  );
+                })}
+              </div>
+            )}
+            </>
           );
         })()}
       </div>
@@ -328,7 +359,7 @@ export function BhtDetailPopover({ hover, detail: detailIn, onLeave, onHold, liv
         </>
       )}
       {view === 'tranches' ? (
-        <BhtTranchesView key={trancheRoute ?? "qqq"} date={hover.d} locale={loc} initialRoute={trancheRoute} />
+        <BhtTranchesView key={trancheRoute ?? "qqq"} date={hover.d} locale={loc} initialRoute={trancheRoute} chartRoute={trancheRoute} />
       ) : view === 'drawdowns' ? (
         <BhtDrawdownsView date={hover.d} locale={loc} />
       ) : view === 'strategy' ? (
