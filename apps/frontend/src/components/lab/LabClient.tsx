@@ -3,12 +3,13 @@
 import { useEffect, useState } from 'react';
 import { getApiBase } from '@/lib/apiBase';
 import { TOKENS } from '@/lib/designTokens';
-import { pnlByStrategy, positionPnl, sparkPath, type PaperPosition } from '@/lib/labPaper';
+import { onEpisodes, pnlByStrategy, positionPnl, sparkPath, type PaperPosition } from '@/lib/labPaper';
 
 type Score = { score_key: string; date: string; value: number; state: string | null; components: Record<string, unknown> | null; is_backfill: boolean };
 type Summary = {
   experimental: true;
   config?: { version: string; frozen_at: string; notes: string | null };
+  configs?: Array<{ version: string; frozen_at: string }>;
   latest: Score[];
   basket: { month: string | null; members: Array<{ symbol: string; rank: number; sector: string | null; ext_sma50: number | null; fragility: Record<string, boolean> | null; is_anchor: boolean }> };
   cohort: { cohort_id?: string; frozen_at?: string; members: Array<{ symbol: string; cohort_size: number; sector: string | null; industry: string | null; phoenix_rank: number; components: Record<string, number | null> | null; status: string }> };
@@ -20,7 +21,7 @@ type Summary = {
 const STATE_COLOR: Record<string, string> = { VERDE: TOKENS.favorable, AMARILLO: TOKENS.caution, ROJO: TOKENS.risk, GIRO: TOKENS.favorable };
 const SCORE_NAMES: Record<string, [string, string]> = {
   canary_p_etf: ['Canary‑P · canasta ETFs', 'Canary‑P · ETF basket'], canary_p_stocks: ['Canary‑P · canasta de acciones', 'Canary‑P · stock basket'],
-  csi_live: ['CSI en vivo (puts simulados)', 'Live CSI (simulated puts)'], csi_synthetic: ['CSI sintético (backtest)', 'Synthetic CSI (backtest)'],
+  csi_live: ['CSI en vivo (puts simulados)', 'Live CSI (simulated puts)'], csi_synthetic: ['CSI sintético (puts teóricos Black‑Scholes)', 'Synthetic CSI (Black‑Scholes puts)'],
   phoenix_score_20: ['Phoenix Score · cohorte 20', 'Phoenix Score · cohort 20'], phoenix_score_10: ['Phoenix Score · cohorte 10', 'Phoenix Score · cohort 10'],
   ref_arkk_qqq: ['Referencia ARKK/QQQ < MA50', 'ARKK/QQQ < MA50 reference'],
 };
@@ -42,6 +43,36 @@ function Spark({ k }: { k: string }) {
   return d ? <svg width={160} height={32} className="mt-1"><path d={d} fill="none" stroke="#94a3b8" strokeWidth={1.2} /></svg> : <div className="h-8" />;
 }
 
+// Riesgo de techo (H1 v1): Canary ROJO (CSI sintético o Canary‑P ETFs ≥ 56) con BHT ≥ 60. Zona de riesgo, no orden de venta.
+function TopRiskCard({ x, es }: { x: Score; es: boolean }) {
+  const [rows, setRows] = useState<Array<{ date: string; state: string | null }> | null>(null);
+  useEffect(() => {
+    const from = new Date(); from.setFullYear(from.getFullYear() - 1);
+    fetch(`${getApiBase()}/api/experimental/scores?key=canary_top_risk&from=${from.toISOString().slice(0, 10)}`).then((r) => r.json()).then((j) => setRows(j.rows ?? [])).catch(() => setRows([]));
+  }, []);
+  const on = x.state === 'ROJO';
+  const c = (x.components ?? {}) as { bht?: number | null; canary_p?: number | null; csi?: number | null };
+  const ep = rows ? onEpisodes(rows) : null;
+  const n = (v: number | null | undefined) => (v == null ? '—' : Number(v).toFixed(1));
+  const ok = (v: number | null | undefined, need: number) => <span style={{ color: v != null && v >= need ? TOKENS.risk : '#94a3b8' }}>{n(v)}</span>;
+  return (
+    <section className="p-4 rounded-xl bg-slate-900 border" style={{ borderColor: on ? TOKENS.risk : '#334155' }}>
+      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        <h2 className="font-bold">{es ? 'Riesgo de techo' : 'Top risk'}</h2>
+        <span className="text-sm font-bold" style={{ color: on ? TOKENS.risk : TOKENS.favorable }}>{on ? (es ? 'ENCENDIDO' : 'ON') : (es ? 'APAGADO' : 'OFF')}</span>
+        <span className="text-[10px] text-slate-500 ml-auto">v1 · {x.date}{x.is_backfill ? ' · backtest' : ''}</span>
+      </div>
+      <div className="text-sm font-mono mt-1">
+        BHT {ok(c.bht, 60)} <span className="text-slate-500">(≥ 60)</span> · Canary‑P {ok(c.canary_p, 56)} · CSI {ok(c.csi, 56)} <span className="text-slate-500">({es ? 'alguno ≥ 56' : 'either ≥ 56'})</span>
+      </div>
+      {ep && <div className="text-xs text-slate-400 mt-1">{es ? 'Último año' : 'Last year'}: {ep.starts} {es ? 'encendidos' : 'activations'}{ep.lastOn && <> · {es ? 'última vez' : 'last on'} {ep.lastOn}</>}{on && ep.run > 0 && <> · {ep.run} {es ? 'sesiones seguidas' : 'sessions in a row'}</>}</div>}
+      <p className="text-xs text-slate-500 mt-2">{es
+        ? 'Canary en ROJO mientras el BHT está en zona cara. En el backtest 2011–2026 se encendió antes de 7 de 9 caídas de QQQ ≥ 10% que empezaron con BHT alto, con 0.44 falsas alarmas al año, pero en promedio ~14 semanas antes y ~9% abajo del techo: indica zona de riesgo, no momento de venta. No cambia el semáforo BHT ni la escalera de venta (como disparador de V1–V3 no la mejoró).'
+        : 'Canary RED while the BHT is in the expensive zone. In the 2011–2026 backtest it lit before 7 of 9 QQQ drops ≥ 10% that began with a high BHT, with 0.44 false alarms a year, but on average ~14 weeks early and ~9% below the top: it flags a risk zone, not a sell moment. It does not change the BHT light or the sell ladder (as a V1–V3 trigger it did not improve it).'}</p>
+    </section>
+  );
+}
+
 export default function LabClient({ locale }: { locale: string }) {
   const es = locale === 'es';
   const [s, setS] = useState<Summary | null>(null);
@@ -59,11 +90,12 @@ export default function LabClient({ locale }: { locale: string }) {
         <p className="text-sm text-slate-400 mt-1">{es
           ? 'Indicadores de techo (Canary) y suelo (Phoenix), canastas mensuales y paper trading de opciones con datos retrasados. Se calculan en modo sombra: no cambian el semáforo BHT, el termómetro ni los tranches. Investigación cuantitativa, no asesoría financiera.'
           : 'Top (Canary) and bottom (Phoenix) indicators, monthly baskets and paper options trading on delayed data. Shadow mode: they do not change the BHT light, the thermometer or the tranches. Quantitative research, not financial advice.'}</p>
-        {s?.config && <p className="text-xs text-slate-500 mt-1">{es ? 'Parámetros congelados' : 'Frozen parameters'} {s.config.version} · {s.config.frozen_at?.slice(0, 10)}{s.options?.ts && <> · {es ? 'último snapshot de opciones' : 'last options snapshot'} {s.options.ts.slice(0, 16)} ({s.options.n})</>}</p>}
+        {s?.config && <p className="text-xs text-slate-500 mt-1">{es ? 'Parámetros congelados' : 'Frozen parameters'} {(s.configs?.length ? s.configs : [s.config]).map((c) => `${c.version} · ${c.frozen_at?.slice(0, 10)}`).join(' / ')}{s.options?.ts && <> · {es ? 'último snapshot de opciones' : 'last options snapshot'} {s.options.ts.slice(0, 16)} ({s.options.n})</>}</p>}
       </div>
       {err && <div className="text-risk-300 text-sm">{es ? 'No se pudo cargar el laboratorio.' : 'Could not load the lab.'}</div>}
       {s && (
         <>
+          {(() => { const tr = s.latest.find((x) => x.score_key === 'canary_top_risk'); return tr ? <TopRiskCard x={tr} es={es} /> : null; })()}
           <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {s.latest.filter((x) => SCORE_NAMES[x.score_key]).map((x) => (
               <div key={x.score_key} className="p-3 rounded-xl bg-slate-900 border border-slate-700">

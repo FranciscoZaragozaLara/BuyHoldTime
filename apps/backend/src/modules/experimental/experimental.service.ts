@@ -46,7 +46,9 @@ export class ExperimentalService {
   /** Todo lo que muestra la página Laboratorio en una respuesta. */
   async summary() {
     const q = <T = any>(sql: string, ...p: unknown[]) => this.prisma.$queryRawUnsafe<T[]>(sql, ...p);
-    const [config] = await q(`SELECT version, frozen_at::text AS frozen_at, notes FROM exp_score_config ORDER BY frozen_at DESC LIMIT 1`);
+    // v0 = parámetros congelados del plan; versiones posteriores = hipótesis nuevas (p. ej. v1 riesgo de techo).
+    const configs = await q(`SELECT version, frozen_at::text AS frozen_at, notes FROM exp_score_config ORDER BY frozen_at`);
+    const config = configs[0];
     const latest = await q(`SELECT DISTINCT ON (score_key) score_key, date::text AS date, value, state, components, is_backfill
       FROM exp_scores_daily ORDER BY score_key, is_backfill ASC, date DESC`);
     const [m] = await q<{ month: string }>(`SELECT max(month)::text AS month FROM exp_canary_basket`);
@@ -59,7 +61,7 @@ export class ExperimentalService {
       ORDER BY p.status, p.opened_at DESC`);
     const events = await q(`SELECT episode_id, peak_date::text AS peak_date, trough_date::text AS trough_date, recovery_date::text AS recovery_date, depth, metrics FROM exp_bt_events ORDER BY peak_date`);
     const [snap] = await q(`SELECT max(snapshot_ts)::text AS ts, count(*)::int AS n FROM exp_option_quotes WHERE snapshot_ts > now() - interval '4 days'`);
-    return { experimental: true, config, latest, basket: { month: m?.month ?? null, members: basket }, cohort: { ...(coh ?? {}), members: cohort }, positions, events, options: snap };
+    return { experimental: true, config, configs, latest, basket: { month: m?.month ?? null, members: basket }, cohort: { ...(coh ?? {}), members: cohort }, positions, events, options: snap };
   }
 
   /** Serie de un score (backfill + vivo) para las gráficas. */

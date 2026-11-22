@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { pnlByStrategy, positionPnl, sparkPath, type PaperPosition } from './labPaper';
+import { onEpisodes, pnlByStrategy, positionPnl, sparkPath, type PaperPosition } from './labPaper';
 
 const base: PaperPosition = { id: '1', strategy: 'canary_put', tranche: '2026-11-01', underlying: 'X', legs: [{ qty: 1 }], opened_at: '2026-11-21', entry_price: 2, status: 'open', exit_price: null, mark_conservative: 3, roi_pct: 50, exit_reason: null };
 
@@ -18,5 +18,11 @@ describe('labPaper', () => {
   it('trazo de la gráfica pequeña', () => {
     expect(sparkPath([0, 100], 10, 10)).toBe('M0.0,10.0L10.0,0.0');
     expect(sparkPath([5], 10, 10)).toBeNull();
+  });
+  it('episodios de una luz on/off', () => {
+    const r = (d: string, s: string) => ({ date: d, state: s });
+    expect(onEpisodes([r('a', 'VERDE'), r('b', 'ROJO'), r('c', 'ROJO'), r('d', 'VERDE'), r('e', 'ROJO')])).toEqual({ starts: 2, lastOn: 'e', run: 1 });
+    expect(onEpisodes([r('a', 'ROJO'), r('b', 'VERDE')])).toEqual({ starts: 1, lastOn: 'a', run: 0 });
+    expect(onEpisodes([])).toEqual({ starts: 0, lastOn: null, run: 0 });
   });
 });

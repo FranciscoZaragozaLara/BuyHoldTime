@@ -37,3 +37,16 @@ export function sparkPath(values: number[], w: number, h: number, min = 0, max =
   const span = max - min || 1;
   return v.map((x, i) => `${i ? 'L' : 'M'}${((i / (v.length - 1)) * w).toFixed(1)},${(h - ((Math.min(max, Math.max(min, x)) - min) / span) * h).toFixed(1)}`).join('');
 }
+
+/** Episodios encendidos de una luz on/off (state ROJO): cuántas veces se encendió, última vez encendida y días seguidos
+ *  del episodio actual (0 si está apagada). Las filas vienen en orden de fecha. */
+export function onEpisodes(rows: Array<{ date: string; state: string | null }>, on = 'ROJO') {
+  let starts = 0, lastOn: string | null = null, run = 0, prev = false;
+  for (const r of rows) {
+    const v = r.state === on;
+    if (v && !prev) starts++;
+    if (v) { lastOn = r.date; run++; } else run = 0;
+    prev = v;
+  }
+  return { starts, lastOn, run };
+}
