@@ -12,6 +12,7 @@ import { wsjPointChanged } from './wsj-pe';
 import { syncIndicatorsTable } from './indicator-sync';
 import { notifyFrontendRevalidate } from './frontend-revalidate';
 import { PROVISIONAL_OF } from '../backtesting/provisional-series';
+import { FINRA_MARGIN_URL, readFinraWorkbook } from './finra-margin';
 
 /** Series de Yahoo sin equivalente en FRED que se bajan a diario con las provisionales. */
 export const YAHOO_EXTRA = ['^VIX3M'];
@@ -720,12 +721,24 @@ export class MarketSyncService {
           daysExtracted = r.changed ? 1 : 0;
           if (r.after) { after = r.after.value; afterDate = r.after.date; }
         } else if (ind.kind === 'finra') {
-          // FINRA no bloquea SSE: solo lectura DB, python va en background via patchBH/cron
-          // no await runPython
-          // after value from DB
-          const row: any = await this.prisma.btMarketData.findFirst({ where: { ticker: ind.ticker }, orderBy: { date: 'desc' } });
-          if (row) { after = Number(row.close); afterDate = row.date.toISOString().slice(0, 10); }
-          daysExtracted = 1;
+          // Excel de FINRA (~20 KB) descargado aquí mismo: antes solo se leía la BD y el modal mostraba el dato viejo
+          // mientras daily_update.py corría en segundo plano. daysExtracted = meses nuevos (0 = sin dato nuevo).
+          const r: any = await fetch(FINRA_MARGIN_URL, { headers: { 'User-Agent': 'Mozilla/5.0' } as any, signal: AbortSignal.timeout(15000) } as any);
+          if (!r.ok) throw new Error(`FINRA ${r.status}`);
+          const rows = readFinraWorkbook(Buffer.from(await r.arrayBuffer()));
+          if (!rows.length) throw new Error('FINRA: Excel sin filas');
+          const have = await this.prisma.btMarketData.count({ where: { ticker: ind.ticker } });
+          let fresh = 0;
+          for (const [d, v] of have === 0 ? rows : rows.slice(0, 60)) {
+            if (!beforeDate || d > beforeDate) fresh++;
+            await this.prisma.btMarketData.upsert({
+              where: { ticker_date: { ticker: ind.ticker, date: new Date(d) } },
+              update: { open: v, high: v, low: v, close: v, adjClose: v, volume: BigInt(0), isValidated: true },
+              create: { ticker: ind.ticker, date: new Date(d), open: v, high: v, low: v, close: v, adjClose: v, volume: BigInt(0), isValidated: true, source: 'finra' },
+            });
+          }
+          after = rows[0][1]; afterDate = rows[0][0];
+          daysExtracted = fresh;
         } else if (ind.kind === 'cape') {
           // CAPE no bloquea SSE: solo lectura indicators, build_shiller_daily va en cron/background
           // no await runPython
