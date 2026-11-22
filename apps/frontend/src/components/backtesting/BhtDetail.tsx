@@ -202,7 +202,7 @@ export function BhtDetailPopover({ hover, detail: detailIn, onLeave, onHold, liv
         {detail?.asOf && <div className="text-[11px] text-caution-300 mt-0.5">{ti('detailMarketClosed', { day: fmtDay(detail.asOf, loc) })}</div>}
         {/* Cotizaciones del día: precio, cambio diario (verde/rojo) y % desde el máximo (semáforo; máximo de 5 años si el ATH es más viejo). */}
         {detail?.prices && (() => {
-          const q = detail.quotes as Record<string, null | { price: number; change: number | null; fromHigh: number | null; high: number | null; highDate: string | null; window5y: boolean }> | null | undefined;
+          const q = detail.quotes as Record<string, null | { price: number; change: number | null; fromHigh: number | null; high: number | null; highDate: string | null; window5y: boolean; fromBottom?: number | null; bottom?: number | null; bottomDate?: string | null }> | null | undefined;
           const fmtP = (v: number) => v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
           const pct = (v: number) => `${v > 0 ? '+' : ''}${v.toFixed(2)}%`;
           const rows = ([['S&P 500', 'spx'], ['QQQ', 'qqq'], ['TQQQ', 'tqqq']] as const)
@@ -212,12 +212,17 @@ export function BhtDetailPopover({ hover, detail: detailIn, onLeave, onHold, liv
           return (
             <table className="mt-1.5 font-mono text-[11px] leading-5 border-collapse">
               <thead>
-                <tr className="text-[9px] uppercase tracking-wide text-slate-500">
+                <tr className="text-[9px] uppercase tracking-wide text-slate-500 whitespace-nowrap">
                   <th className="text-left font-normal pr-4"></th>
                   <th className="text-right font-normal pr-4">{loc === 'es' ? 'Precio' : 'Price'}</th>
                   <th className="text-right font-normal pr-4">{loc === 'es' ? 'Día' : 'Day'}</th>
                   <th className="text-right font-normal" title={loc === 'es' ? 'Caída desde el máximo histórico; si ocurrió hace más de 5 años, desde el máximo de 5 años' : 'Drop from the all-time high; if older than 5 years, from the 5-year high'}>
                     {loc === 'es' ? 'Desde máx.' : 'From high'}{anyHigh5y ? '*' : ''}</th>
+                  <th className="text-right font-normal pl-3 pr-4">{loc === 'es' ? 'Fecha máx.' : 'High date'}</th>
+                  <th className="text-right font-normal pr-4" title={loc === 'es' ? 'Ganancia desde el piso de la última corrección (caída ≥ 10% en S&P 500 y QQQ; ≥ 30% en TQQQ)' : 'Gain from the bottom of the last correction (drop ≥ 10% for S&P 500 and QQQ; ≥ 30% for TQQQ)'}>
+                    {loc === 'es' ? 'Desde mín.' : 'From bottom'}</th>
+                  <th className="text-right font-normal pr-4">{loc === 'es' ? 'Mínimo' : 'Bottom'}</th>
+                  <th className="text-right font-normal">{loc === 'es' ? 'Fecha mín.' : 'Bottom date'}</th>
                 </tr>
               </thead>
               <tbody>
@@ -230,6 +235,11 @@ export function BhtDetailPopover({ hover, detail: detailIn, onLeave, onHold, liv
                     <td className="text-right font-semibold" style={qt?.fromHigh != null ? { color: athColor(athTone(qt.fromHigh)) } : undefined}
                       title={qt?.high != null ? `${loc === 'es' ? 'Máximo' : 'High'}${qt.window5y ? ' 5Y' : ''}: ${fmtP(qt.high)} (${qt.highDate})` : undefined}>
                       {qt?.fromHigh == null ? '—' : `${pct(qt.fromHigh)}${qt.window5y ? '*' : ''}`}</td>
+                    <td className="pl-3 pr-4 text-right text-slate-400 whitespace-nowrap">{qt?.highDate ?? '—'}</td>
+                    <td className="pr-4 text-right font-semibold" style={qt?.fromBottom != null ? { color: qt.fromBottom > 0 ? TOKENS.favorable : undefined } : undefined}>
+                      {qt?.fromBottom == null ? '—' : pct(qt.fromBottom)}</td>
+                    <td className="pr-4 text-right text-slate-300">{qt?.bottom == null ? '—' : fmtP(qt.bottom)}</td>
+                    <td className="text-right text-slate-400 whitespace-nowrap">{qt?.bottomDate ?? '—'}</td>
                   </tr>
                 ))}
               </tbody>

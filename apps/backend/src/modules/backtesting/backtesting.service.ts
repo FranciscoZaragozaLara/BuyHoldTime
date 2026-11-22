@@ -7,7 +7,7 @@ import { toShillerApiRow } from './shiller-daily';
 import { monthlyPartsFromDaily } from './bht-forward';
 import { computeBhtStrategy, type Instrument as StrategyInstrument, type SampleWindow, type StrategySeries } from './bht-strategy';
 import { computeBhtDrawdowns } from './bht-drawdowns';
-import { dayQuote } from './day-quotes';
+import { BOTTOM_DROP, dayQuote } from './day-quotes';
 import { computeSellTranches, computeTranches, loadTrancheSeries, prepareTranches, type PreparedTranches, type SectorRule, type SellEvent, type BuyEvent, type TrancheRoute } from './tranches';
 import { liveTrend } from './trend-regime';
 import { PROVISIONAL_OF, rowsWithProvisional, withProvisional } from './provisional-series';
@@ -945,7 +945,7 @@ export class BacktestingService {
       await this.ensureStrategyFresh();
       const S = await this.strategySeries();
       const D = S.dates.indexOf(r.date.toISOString().slice(0, 10));
-      if (D >= 0) quotes = { spx: dayQuote(S.dates, S.px.spx, D), qqq: dayQuote(S.dates, S.px.qqq, D), tqqq: dayQuote(S.dates, S.px.tqqq, D) };
+      if (D >= 0) quotes = { spx: dayQuote(S.dates, S.px.spx, D, BOTTOM_DROP.spx), qqq: dayQuote(S.dates, S.px.qqq, D, BOTTOM_DROP.qqq), tqqq: dayQuote(S.dates, S.px.tqqq, D, BOTTOM_DROP.tqqq) };
     } catch {}
     return {
       date: r.date.toISOString().slice(0, 10), asOf, value: r.bhtValue, numerator, denominator, coverage: parts.length,
