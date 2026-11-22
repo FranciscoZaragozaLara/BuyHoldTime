@@ -11,6 +11,7 @@ import { AdminModule } from './modules/admin/admin.module';
 import { MarginDebtModule } from './modules/margin-debt/margin-debt.module';
 import { BacktestingModule } from './modules/backtesting/backtesting.module';
 import { MarketDataModule } from './modules/market-data/market-data.module';
+import { ExperimentalModule } from './modules/experimental/experimental.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { MarketDataModule } from './modules/market-data/market-data.module';
     MarginDebtModule,
     BacktestingModule,
     MarketDataModule,
+    ExperimentalModule,
   ],
   controllers: [AppController],
   providers: [AppService],
