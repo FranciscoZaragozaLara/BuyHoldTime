@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { BACKTEST_DIR } from '../../config/backtest-dir';
+import { PYTHON_BIN } from '../../config/python-bin';
 import { Cron } from '@nestjs/schedule';
 import { spawn } from 'child_process';
 import * as fs from 'fs';
@@ -477,7 +478,7 @@ export class MarketSyncService {
 
   private runPythonWithEnv(script: string, args: string[], extraEnv: Record<string, string>): Promise<void> {
     return new Promise((resolve, reject) => {
-      const proc = spawn('python3', [path.join(this.base, script), ...args], {
+      const proc = spawn(PYTHON_BIN, [path.join(this.base, script), ...args], {
         cwd: this.base,
         env: { ...process.env, ...extraEnv },
       });
@@ -490,7 +491,7 @@ export class MarketSyncService {
 
   private runPython(script: string, args: string[]): Promise<void> {
     return new Promise((resolve, reject) => {
-      const proc = spawn('python3', [path.join(this.base, script), ...args], {
+      const proc = spawn(PYTHON_BIN, [path.join(this.base, script), ...args], {
         cwd: this.base,
         env: { ...process.env, TICKERS: process.env.TICKERS || 'TQQQ,QQQ,SCHD,JEPQ,SQQQ,VOO,SPY,^GSPC,^IXIC' },
       });

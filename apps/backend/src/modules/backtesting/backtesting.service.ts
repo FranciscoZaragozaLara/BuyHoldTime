@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { BACKTEST_DIR } from '../../config/backtest-dir';
+import { PYTHON_BIN } from '../../config/python-bin';
 import { PrismaService } from '../../prisma/prisma.service';
 import NodeCache from 'node-cache';
 import { toShillerApiRow } from './shiller-daily';
@@ -214,7 +215,7 @@ export class BacktestingService {
       const ticker = inferTicker(strategyCode, strategy) || (strategy as any)?.paramsSchema?.ticker as string | undefined;
       const env: any = { ...process.env, START_DATE: startDate };
       if (ticker) env.TICKER = ticker.toUpperCase();
-      const proc = spawn('python3', [script], { cwd: base, env });
+      const proc = spawn(PYTHON_BIN, [script], { cwd: base, env });
       let stderr = '';
       proc.stderr.on('data', d => stderr += d.toString());
       proc.on('close', code => code === 0 ? resolve() : reject(new Error(`Backtest failed ${code}: ${stderr.slice(0,500)}`)));
@@ -486,7 +487,7 @@ export class BacktestingService {
         await new Promise<void>((resolve, reject) => {
           const env: any = { ...process.env, START_DATE: targetStart, STRATEGY_CODE: code };
           if (ticker) env.TICKER = ticker.toUpperCase();
-          const proc = spawn('python3', [pathMod.join(base, script)], { cwd: base, env });
+          const proc = spawn(PYTHON_BIN, [pathMod.join(base, script)], { cwd: base, env });
           let stderr = '';
           proc.stderr.on('data', (d) => (stderr += d.toString()));
           proc.on('close', (c) => (c === 0 ? resolve() : reject(new Error(`${script} exit ${c}: ${stderr.slice(0,500)}`))));
