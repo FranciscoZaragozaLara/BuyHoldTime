@@ -291,8 +291,38 @@ export function BhtDetailPopover({ hover, detail: detailIn, onLeave, onHold, liv
                 {detail.bonusHy != null && <> · <span title={loc === 'es' ? 'Serie de crédito del modelo: 1.913 × spread Baa − Tesoro 10A (FRED BAA10Y), la misma con la que se calibró la historia. El HY OAS real de ICE solo tiene 3 años en FRED y se muestra como referencia.' : 'Model credit series: 1.913 × Baa − 10Y Treasury spread (FRED BAA10Y), the same one the history was calibrated on. The real ICE HY OAS has only 3 years on FRED and is shown for reference.'}>HY {Number(detail.bonusHy).toFixed(2)} <span className="text-slate-500">(Baa×1.91)</span></span>{detail.hyReal != null && <span className="text-slate-500"> · {loc === 'es' ? 'HY real' : 'real HY'} {Number(detail.hyReal).toFixed(2)}</span>}{detail.bonusD1 != null && <> · Δ1M {Number(detail.bonusD1) >= 0 ? '+' : ''}{Number(detail.bonusD1).toFixed(2)} ({ti('triggerShort')} ≥ +1.00)</>}{detail.bonusZ != null && <> · z {Number(detail.bonusZ) >= 0 ? '+' : ''}{Number(detail.bonusZ).toFixed(1)}σ ({ti('triggerShort')} z&gt;1.5, HY&gt;5)</>}</>}
               </div>
             )}
-            {(detail.liqBonus ?? 0) !== 0 && <div className={Number(detail.liqBonus) > 0 ? 'text-elevated-300' : 'text-favorable-300'}>{ti('liqBonusRow', { label: detail.liqBonusLabel ?? '' })}: {sign(Number(detail.liqBonus))}</div>}
-            {(detail.oilBonus ?? 0) !== 0 && <div className={Number(detail.oilBonus) > 0 ? 'text-elevated-300' : 'text-favorable-300'}>{ti('oilBonusRow', { label: detail.oilBonusLabel ?? '' })}: {sign(Number(detail.oilBonus))}{detail.oilRatio != null && <> · ×{Number(detail.oilRatio).toFixed(2)} SMA36M</>}</div>}
+            {/* Liquidez y petróleo: siempre visibles (aunque el bonus sea 0) para seguir su evolución; color = signo del bonus. */}
+            {(() => {
+              const tone = (b: number) => (b > 0 ? 'text-elevated-300' : b < 0 ? 'text-favorable-300' : 'text-slate-300');
+              const p1 = (v: number) => `${v >= 0 ? '+' : ''}${v.toFixed(1)}%`;
+              const lb = Number(detail.liqBonus ?? 0), ob = Number(detail.oilBonus ?? 0);
+              const es = loc === 'es';
+              const liqTip = es
+                ? 'M2 YoY y M0 Δ3M con rezago de publicación. Megabazuca M0 Δ3M > 30% y M2 > 8%: −25 · bazuca M0 > 5% y M2 > 8%: −20 · viento a favor M2 > 4% acelerando con M0 > 0: −10 (promedio 3 meses) · viento en contra M2 cae ≥ 50% de su pico con inflación en máximos: +10'
+                : 'M2 YoY and M0 3M change with publication lag. Mega-bazooka M0 3M > 30% and M2 > 8%: −25 · bazooka M0 > 5% and M2 > 8%: −20 · tailwind M2 > 4% accelerating with M0 > 0: −10 (3-month average) · headwind M2 down ≥ 50% from its peak with inflation at highs: +10';
+              const oilTip = es
+                ? 'WTI ÷ su media de 36 meses. ≥ 1.45 shock: +10 (sin mes previo ≥ 1.20: +5) · 1.20–1.45 caro: +5 · 0.90–1.20 neutral: 0 · 0.70–0.90 barato: −5 · < 0.70 alivio: −10'
+                : 'WTI ÷ its 36-month average. ≥ 1.45 shock: +10 (without a prior month ≥ 1.20: +5) · 1.20–1.45 expensive: +5 · 0.90–1.20 neutral: 0 · 0.70–0.90 cheap: −5 · < 0.70 relief: −10';
+              return (
+                <>
+                  <div title={liqTip}>
+                    <span className={lb !== 0 ? tone(lb) : undefined}>{es ? 'Liquidez M2/M0' : 'Liquidity M2/M0'}</span>:{' '}
+                    <span className={tone(lb)}>M2 YoY {detail.liqYoy != null ? p1(Number(detail.liqYoy)) : '—'}</span>
+                    {' · '}<span className={tone(lb)}>M0 Δ3M {detail.liqM0d3 != null ? p1(Number(detail.liqM0d3)) : '—'}</span>
+                    {detail.liqDrop != null && Number(detail.liqDrop) > 0 && <span className="text-slate-500"> · M2 {es ? 'vs pico' : 'vs peak'} −{Number(detail.liqDrop).toFixed(0)}%</span>}
+                    {' → '}<span className={`font-bold ${tone(lb)}`}>{lb !== 0 ? sign(lb) : '0'}</span>
+                    {lb !== 0 && detail.liqBonusLabel && <span className={tone(lb)}> ({detail.liqBonusLabel})</span>}
+                  </div>
+                  <div title={oilTip}>
+                    <span className={ob !== 0 ? tone(ob) : undefined}>{es ? 'Petróleo WTI' : 'WTI oil'}</span>:{' '}
+                    <span className={tone(ob)}>{detail.oilPrice != null ? `$${Number(detail.oilPrice).toFixed(2)}` : '—'}</span>
+                    {' · '}<span className={tone(ob)}>×{detail.oilRatio != null ? Number(detail.oilRatio).toFixed(2) : '—'} SMA36M</span>
+                    {' → '}<span className={`font-bold ${tone(ob)}`}>{ob !== 0 ? sign(ob) : '0'}</span>
+                    {ob !== 0 && detail.oilBonusLabel && <span className={tone(ob)}> ({detail.oilBonusLabel})</span>}
+                  </div>
+                </>
+              );
+            })()}
             <div>Σ {Number(detail.numerator).toFixed(1)} ÷ {detail.denominator}{(detail.bonus ?? 0) > 0 ? ` + ${Number(detail.bonus).toFixed(0)}` : ''}{(detail.liqBonus ?? 0) !== 0 ? ` ${sign(Number(detail.liqBonus))}` : ''}{(detail.oilBonus ?? 0) !== 0 ? ` ${sign(Number(detail.oilBonus))}` : ''} = <span className="text-slate-100 font-bold">{Number(detail.value).toFixed(1)}</span> · {detail.coverage}/13</div>
           </div>
         </>
