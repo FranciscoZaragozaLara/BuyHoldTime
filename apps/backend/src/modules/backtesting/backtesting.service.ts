@@ -8,7 +8,7 @@ import { monthlyPartsFromDaily } from './bht-forward';
 import { computeBhtStrategy, type Instrument as StrategyInstrument, type SampleWindow, type StrategySeries } from './bht-strategy';
 import { computeBhtDrawdowns } from './bht-drawdowns';
 import { dayQuote } from './day-quotes';
-import { computeSellTranches, computeTranches, loadTrancheSeries, prepareTranches, type PreparedTranches, type SectorRule, type SellEvent, type TrancheRoute } from './tranches';
+import { computeSellTranches, computeTranches, loadTrancheSeries, prepareTranches, type PreparedTranches, type SectorRule, type SellEvent, type BuyEvent, type TrancheRoute } from './tranches';
 import { liveTrend } from './trend-regime';
 import { PROVISIONAL_OF, rowsWithProvisional, withProvisional } from './provisional-series';
 
@@ -841,6 +841,23 @@ export class BacktestingService {
     if (!sell) { sell = computeSellTranches(P, date); if (sell) this.strategyCache.set(sk, sell); }
     out.sell = sell ?? null;
     return out.half === null && out.extraVote === null ? { error: 'not found' } : out;
+  }
+
+  /** Compras (T0–T4) y ventas (V1–V5) de los tranches en una pasada cada una, para la gráfica de /indicators. */
+  async getTrancheLadder(instrument: string) {
+    const route: TrancheRoute = instrument === 'voo' || instrument === 'spx' ? 'voo' : 'qqq';
+    await this.ensureStrategyFresh();
+    const key = `tr:ladder:${route}`;
+    const hit = this.strategyCache.get(key);
+    if (hit) return hit;
+    const P = await this.trancheSeries(route);
+    const last = P.s.dates[P.s.dates.length - 1];
+    const buys: BuyEvent[] = [], sells: SellEvent[] = [];
+    computeTranches(P, last, 'half', { onFire: (e) => buys.push(e) });
+    computeSellTranches(P, last, (e) => sells.push(e));
+    const out = { route, buys, sells };
+    this.strategyCache.set(key, out);
+    return out;
   }
 
   /** Todas las ventas de la escalera (V1–V5) en una pasada, para marcarlas en la gráfica de /indicators. */

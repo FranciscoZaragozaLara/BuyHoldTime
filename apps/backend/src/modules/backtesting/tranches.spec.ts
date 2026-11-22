@@ -22,6 +22,16 @@ describe('módulo de reentrada por tranches', () => {
     expect(r.deployed).toBeCloseTo(TRANCHE_CFG.weights.T0, 9);
     expect(r.leverage).toBeCloseTo(0.25, 9);
   });
+  test('compra: onFire reporta cada compra histórica con la fecha y el precio del resultado', () => {
+    const s = series();
+    const P = prepareTranches(s, 'voo');
+    const ev: Array<{ date: string; id: string; price: number }> = [];
+    const r = computeTranches(P, s.dates[s.dates.length - 1], 'half', { onFire: (e) => ev.push(e) })!;
+    const t0 = r.tranches.find((t) => t.id === 'T0')!;
+    expect(t0.status).not.toBe('pending');
+    expect(ev.find((e) => e.id === 'T0')).toMatchObject({ date: t0.date, price: t0.price, size: 1, backup: false });
+  });
+
   test('crédito en zona sistémica: no hay T0 y el veto pinta rojo', () => {
     const P = prepareTranches(series({ oasRising: true }), 'voo');
     const r = computeTranches(P, '2020-11-05')!;

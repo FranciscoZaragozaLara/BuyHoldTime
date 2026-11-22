@@ -8,7 +8,7 @@ import { Eye, EyeOff, Calendar, Table, LineChart as ChartIcon, Sparkles } from '
 import { IndicatorDetails } from '@/services/api';
 import { TOKENS } from '@/lib/designTokens';
 import { getApiBase } from '@/lib/apiBase';
-import { athDrawdownLine, buildValuationChart, sellLadderMarkers, signalMarkers, thinMarkers, MARKER_MIN_PX, type DailyValuation, type Instrument, type SellLadderEvent } from '@/lib/valuationChart';
+import { athDrawdownLine, buildValuationChart, buyLadderMarkers, sellLadderMarkers, signalMarkers, thinMarkers, MARKER_MIN_PX, type BuyLadderEvent, type DailyValuation, type Instrument, type SellLadderEvent } from '@/lib/valuationChart';
 import { BHT_BANDS, bhtBandColor } from '@/components/backtesting/bhtBands';
 import { BhtDetailPopover, BhtHoverTip, useBhtDetail, useBhtPin } from '@/components/backtesting/BhtDetail';
 import { attachBhtChartPin, type BhtPinNav, type BhtPoint } from '@/components/backtesting/bhtChartPin';
@@ -190,20 +190,21 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
   // Puntos de la gráfica (mensual antes de 1990, diaria después) con SMA 50/200 y señales BHT × tendencia.
   const points = useMemo(() => buildValuationChart(mergedData, daily, instrument), [mergedData, daily, instrument]);
   // Señales BHT × tendencia ($$, $, ⚠) y cruces SMA 50/200 (Golden / Death Cross) sobre la línea del precio.
-  // Escalera de venta V1–V5: el mismo motor de la pestaña Tranches (S&P 500 → ruta VOO; QQQ y TQQQ → ruta QQQ).
-  const [sellEvents, setSellEvents] = useState<Record<string, SellLadderEvent[]>>({});
-  const sellRoute = instrument === 'spx' ? 'spx' : 'qqq';
+  // Escaleras de compra (T0–T4) y venta (V1–V5): el mismo motor de la pestaña Tranches (S&P 500 → ruta VOO; QQQ y TQQQ → ruta QQQ).
+  const [ladder, setLadder] = useState<Record<string, { buys: BuyLadderEvent[]; sells: SellLadderEvent[] }>>({});
+  const ladderRoute = instrument === 'spx' ? 'spx' : 'qqq';
   useEffect(() => {
-    if (sellEvents[sellRoute]) return;
-    fetch(`${getApiBase()}/api/backtesting/sell-ladder?instrument=${sellRoute}`)
+    if (ladder[ladderRoute]) return;
+    fetch(`${getApiBase()}/api/backtesting/tranche-ladder?instrument=${ladderRoute}`)
       .then((r) => (r.ok ? r.json() : null))
-      .then((j: { events?: SellLadderEvent[] } | null) => { if (j?.events) setSellEvents((m) => ({ ...m, [sellRoute]: j.events! })); })
+      .then((j: { buys?: BuyLadderEvent[]; sells?: SellLadderEvent[] } | null) => { if (j?.buys && j?.sells) setLadder((m) => ({ ...m, [ladderRoute]: { buys: j.buys!, sells: j.sells! } })); })
       .catch(() => {});
-  }, [sellRoute, sellEvents]);
+  }, [ladderRoute, ladder]);
   const opportunityMarkers = useMemo(() => {
     const times = new Set(points.filter((p) => p.daily).map((p) => p.time));
-    return [...signalMarkers(points, locale), ...sellLadderMarkers(sellEvents[sellRoute], times)].sort((a, b) => a.time.localeCompare(b.time));
-  }, [points, locale, sellEvents, sellRoute]);
+    const L = ladder[ladderRoute];
+    return [...signalMarkers(points, locale, { buys: false }), ...buyLadderMarkers(L?.buys, times), ...sellLadderMarkers(L?.sells, times)].sort((a, b) => a.time.localeCompare(b.time));
+  }, [points, locale, ladder, ladderRoute]);
   // Caída desde el máximo (ATH o máximo de 5 años) para la línea y la badge de la gráfica.
   const athDl = useMemo(() => athDrawdownLine(points), [points]);
 
@@ -810,9 +811,8 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
           {/* Leyenda de las señales sobre la línea del precio. */}
           <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-slate-400">
             <span>
-              {locale === 'es' ? 'Compras (más barato = tramo más grande): ' : 'Buys (cheaper = bigger tranche): '}
-              <b style={{ color: TOKENS.caution }}>¼$</b> BHT 50–60 · <b style={{ color: TOKENS.accent }}>$</b> 40–49 · <b style={{ color: TOKENS.favorable }}>$$</b> 30–39 · <b style={{ color: TOKENS.favorable }}>$$$</b> &lt; 30
-              {locale === 'es' ? ' con tendencia alcista; abajo de la SMA 200 baja un nivel (40–49 → ¼$). Se repiten cada ~mes mientras siga barato.' : ' in an uptrend; below the 200-day SMA one level lower (40–49 → ¼$). Repeated about monthly while it stays cheap.'}
+              <b style={{ color: TOKENS.favorable }}>● T0–T4</b> {locale === 'es' ? 'escalera de compra (la misma de la pestaña Tranches): ' : 'buy ladder (same as the Tranches tab): '}
+              <b style={{ color: '#a855f7' }}>T0</b> {locale === 'es' ? 'capitulación' : 'capitulation'} · <b style={{ color: TOKENS.caution }}>T1</b> {locale === 'es' ? 'pánico terminando' : 'panic ending'} · <b style={{ color: TOKENS.accent }}>T2</b> {locale === 'es' ? 'desaceleración' : 'deceleration'} · <b style={{ color: TOKENS.favorable }}>T3</b> {locale === 'es' ? 'validación' : 'validation'} · <b style={{ color: TOKENS.favorable }}>T4</b> {locale === 'es' ? 'valuación profunda (·r respaldo)' : 'deep value (·r backup)'}
             </span>
             <span><b style={{ color: TOKENS.elevated }}>▼ V1–V5</b> {locale === 'es' ? 'escalera de venta (la misma de la pestaña Tranches): V1–V3 BHT 70/75/80 en la primera debilidad · V4 bajo la SMA 50 · V5 tendencia rota' : 'sell ladder (same as the Tranches tab): V1–V3 BHT 70/75/80 on the first weakness · V4 below the 50-day SMA · V5 broken trend'} · <b style={{ color: TOKENS.risk }}>·C</b> {locale === 'es' ? 'ciclo por crisis de crédito' : 'credit-crisis cycle'}</span>
             <span><b style={{ color: TOKENS.risk }}>⚠</b> {locale === 'es' ? 'Riesgo: BHT ≥ 50 con el S&P 500 en tendencia bajista (abajo de su SMA 50 y 200); una por caída, salvo que el precio suba' : 'Risk: BHT ≥ 50 with the S&P 500 in a downtrend (below its 50- and 200-day SMA); once per decline unless price rises'}</span>

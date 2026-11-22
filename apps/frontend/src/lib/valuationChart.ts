@@ -107,6 +107,23 @@ const SELL_COLOR: Record<SellLadderEvent['id'], string> = { V1: TOKENS.caution, 
 const SELL_RANK: Record<SellLadderEvent['id'], number> = { V1: 1, V2: 2, V3: 3, V4: 2, V5: 4 };
 /** Marcas de la escalera de venta: V1 Codicia · V2 Codicia extrema · V3 Euforia · V4 Primera grieta · V5 Tendencia rota
  *  (más grave = flecha más grande y más roja; «·C» si el ciclo lo abrió la crisis de crédito). Solo fechas de la gráfica. */
+/** Compra de la escalera T0–T4 que calcula el backend (/api/backtesting/tranche-ladder, mismo motor de la pestaña). */
+export type BuyLadderEvent = { date: string; id: 'T0' | 'T1' | 'T2' | 'T3' | 'T4'; price: number; size: number; backup: boolean };
+const BUY_STYLE: Record<BuyLadderEvent['id'], { color: string; size: number }> = {
+  T0: { color: '#a855f7', size: 1.5 }, T1: { color: TOKENS.caution, size: 0.95 }, T2: { color: TOKENS.accent, size: 1.3 },
+  T3: { color: TOKENS.favorable, size: 1.15 }, T4: { color: TOKENS.favorable, size: 1.0 },
+};
+/** Marcas de la escalera de compra: T0 Capitulación (morado) · T1 Pánico terminando · T2 Desaceleración · T3 Validación ·
+ *  T4 Valuación profunda; tamaño según el peso del tranche (25/15/25/20/15); «½» medio tranche, «·r» respaldo de T4. */
+export function buyLadderMarkers(events: BuyLadderEvent[] | null | undefined, times?: Set<string>): SignalMarker[] {
+  return (events ?? [])
+    .filter((e) => !times || times.has(e.date))
+    .map((e) => ({
+      position: 'belowBar' as const, shape: 'circle' as const, time: e.date, kind: 'buy' as const, priority: 3.05,
+      text: `${e.id}${e.size < 1 ? '½' : ''}${e.backup ? '·r' : ''}`, color: BUY_STYLE[e.id].color, size: BUY_STYLE[e.id].size,
+    }));
+}
+
 export function sellLadderMarkers(events: SellLadderEvent[] | null | undefined, times?: Set<string>): SignalMarker[] {
   return (events ?? [])
     .filter((e) => !times || times.has(e.date))
@@ -158,7 +175,9 @@ export function signalState(bht: number | undefined, trend: string | undefined):
  * SIGNAL_COOLDOWN entre entradas), una por episodio bajista salvo que el precio suba. Y cruces de la SMA 50 sobre la SMA 200 del precio mostrado (Golden Cross hacia arriba,
  * Death Cross hacia abajo), descartando los que se revierten en menos de CROSS_MIN_SESSIONS sesiones.
  */
-export function signalMarkers(points: ChartPoint[], locale = 'es'): SignalMarker[] {
+export function signalMarkers(points: ChartPoint[], locale = 'es', opts: { buys?: boolean } = {}): SignalMarker[] {
+  // buys: false → sin la escalera ¼$…$$$ por BHT (la gráfica usa las compras T0–T4 de los tranches).
+  const withBuys = opts.buys !== false;
   const daily = points.filter((p) => p.daily && p.sp500Price != null);
   const out: Array<{ time: string; kind: SignalKind; priority: number }> = [];
   // Las ventas (V1–V5) ya no se calculan aquí: vienen del backend (sellLadderMarkers).
@@ -175,6 +194,7 @@ export function signalMarkers(points: ChartPoint[], locale = 'es'): SignalMarker
     const reg = toTrendRegime(p.trend);
     if (reg === 'UPTREND' || reg === 'PULLBACK') episodeDanger = null;
     if (st && BUY_RANK[st]) {
+      if (!withBuys) { prev = st; return; }
       // Compras: entrada, nivel más barato o recordatorio mensual mientras siga en zona de compra.
       const deeper = !!lastBuy && BUY_RANK[st] > (BUY_RANK[lastBuy.kind] ?? 0) && i - lastBuy.i < SIGNAL_REPEAT;
       if (!lastBuy || deeper || i - lastBuy.i >= SIGNAL_REPEAT) {

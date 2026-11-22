@@ -1,12 +1,14 @@
 import { TOKENS } from './designTokens';
 import { describe, expect, it } from 'vitest';
-import { athDrawdownLine, buildValuationChart, sellLadderMarkers, signalMarkers, signalState, thinMarkers, DEATH_CROSS_MIN_BHT, CROSS_MIN_SESSIONS, SIGNAL_REPEAT, type ChartPoint, type DailyValuation, type MonthlyRow } from './valuationChart';
+import { athDrawdownLine, buildValuationChart, buyLadderMarkers, sellLadderMarkers, signalMarkers, signalState, thinMarkers, DEATH_CROSS_MIN_BHT, CROSS_MIN_SESSIONS, SIGNAL_REPEAT, type ChartPoint, type DailyValuation, type MonthlyRow } from './valuationChart';
 
 const monthly: MonthlyRow[] = [
   { date: '1989-11', sp500Price: 340, peRatio: 14, shillerPe: 17 },
   { date: '1989-12', sp500Price: 350, peRatio: 14.5, shillerPe: 17.5 },
   { date: '1990-01', sp500Price: 330, peRatio: 13.9, shillerPe: 17.1 },
 ];
+
+const BUY_KINDS = ['max', 'strong', 'buy', 'starter'];
 
 describe('valuationChart', () => {
   it('sin serie diaria: puntos mensuales con SMA de 3 y 10 meses (≈ 50 y 200 sesiones)', () => {
@@ -121,6 +123,21 @@ describe('señales BHT × tendencia y cruces', () => {
     expect(thinMarkers(m, (t) => m.findIndex((x) => x.time === t), 10).map((x) => x.text)).toEqual(['V5']);
     // signalMarkers ya no genera ventas
     expect(signalMarkers(pts(3, (k) => ({ bht: [60, 80, 90][k], trend: 'U' }))).some((x) => x.kind === 'sell')).toBe(false);
+  });
+
+  it('compras T0–T4 del backend: T0 morado y grande, medio tranche «½», respaldo «·r»; buys:false apaga la escalera ¼$…$$$', () => {
+    const ev = [
+      { date: day(1), id: 'T0' as const, price: 100, size: 1, backup: false },
+      { date: day(2), id: 'T1' as const, price: 101, size: 0.5, backup: false },
+      { date: day(3), id: 'T4' as const, price: 99, size: 1, backup: true },
+    ];
+    const m = buyLadderMarkers(ev);
+    expect(m.map((x) => x.text)).toEqual(['T0', 'T1½', 'T4·r']);
+    expect(m[0]).toMatchObject({ position: 'belowBar', shape: 'circle', color: '#a855f7' });
+    expect(m[0].size).toBeGreaterThan(m[1].size);
+    const p = pts(40, () => ({ bht: 35, trend: 'U' }));
+    expect(signalMarkers(p).some((x) => BUY_KINDS.includes(x.kind))).toBe(true);
+    expect(signalMarkers(p, 'es', { buys: false }).some((x) => BUY_KINDS.includes(x.kind))).toBe(false);
   });
 
   it('Golden Cross y Death Cross del precio (SMA 50 cruzando la SMA 200)', () => {

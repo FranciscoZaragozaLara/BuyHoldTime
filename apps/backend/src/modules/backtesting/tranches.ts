@@ -198,7 +198,10 @@ export type EpisodeSummary = { start: string; end: string | null; peak: number; 
 /** volMode 'hybrid': el voto de volatilidad también se activa si el VIX cae ≥25% desde su máximo de 20 días (≥25),
  *  para los mercados bajistas lentos donde la estructura VIX/VIX3M casi no se invierte (2022). */
 export type TrancheOpts = { volArm?: number; volMode?: 'ratio' | 'hybrid'; /** Blindaje: la señal por nivel solo cuenta con BHT < este valor. */ lvlMaxBht?: number; onEpisodeEnd?: (e: EpisodeSummary) => void;
-  /** false: sin el filtro de crisis de crédito en T1–T3 (backtests). */ creditGate?: boolean };
+  /** false: sin el filtro de crisis de crédito en T1–T3 (backtests). */ creditGate?: boolean;
+  /** Cada compra histórica (para marcarla en la gráfica). */ onFire?: (e: BuyEvent) => void };
+/** Compra histórica de la escalera: tranche, fecha, precio de referencia, tamaño (0.5 = medio tranche) y si fue el respaldo de T4. */
+export type BuyEvent = { date: string; id: TrancheId; price: number; size: number; backup: boolean };
 
 export function computeTranches(P: PreparedTranches, date: string, sectorRule: SectorRule = 'half', opts: TrancheOpts = {}): TranchesResult | null {
   const { s, route, px } = P;
@@ -362,12 +365,13 @@ export function computeTranches(P: PreparedTranches, date: string, sectorRule: S
         { key: 'votes1', ok: votes >= 1, value: votes, need: 1 },
       ];
       const all = (cs: Check[]) => cs.every((c) => c.ok);
-      if (!fired.T0 && all(t0)) fired.T0 = { k, size: 1 };
-      if (!fired.T1 && all(t1)) fired.T1 = { k, size: sectorNow && sectorRule === 'half' ? 0.5 : 1 };
-      if (!fired.T2 && all(t2)) fired.T2 = { k, size: 1 };
-      if (!fired.T3 && all(t3)) fired.T3 = { k, size: 1 };
-      if (!fired.T4 && all(t4)) fired.T4 = { k, size: 1 };
-      else if (!fired.T4 && k - start >= C.t4BackupDays && P.e200[k] != null && p > (P.e200[k] as number)) fired.T4 = { k, size: 1, backup: true };
+      const fire = (id: TrancheId, f: { k: number; size: number; backup?: boolean }) => { fired[id] = f; opts.onFire?.({ date: s.dates[k], id, price: p, size: f.size, backup: !!f.backup }); };
+      if (!fired.T0 && all(t0)) fire('T0', { k, size: 1 });
+      if (!fired.T1 && all(t1)) fire('T1', { k, size: sectorNow && sectorRule === 'half' ? 0.5 : 1 });
+      if (!fired.T2 && all(t2)) fire('T2', { k, size: 1 });
+      if (!fired.T3 && all(t3)) fire('T3', { k, size: 1 });
+      if (!fired.T4 && all(t4)) fire('T4', { k, size: 1 });
+      else if (!fired.T4 && k - start >= C.t4BackupDays && P.e200[k] != null && p > (P.e200[k] as number)) fire('T4', { k, size: 1, backup: true });
       if (k === D) Object.assign(checksAt, { T0: t0, T1: t1, T2: t2, T3: t3, T4: t4 });
     }
     if (k === D) snap = { veto, volVote, decelVote, votes, spDd, ndxDd, ratio, boll, recover };
