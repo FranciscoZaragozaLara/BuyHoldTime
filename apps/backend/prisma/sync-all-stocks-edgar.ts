@@ -4,6 +4,7 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
 import YahooFinance from 'yahoo-finance2';
 import { deriveQ4Amount, epsFacts, isFiscalYearFact, isQuarterFact, netIncomeFacts, revenueFacts } from './edgar-duration';
+import { missingFilingFacts } from './edgar-xbrl-instance';
 
 const yahooFinance = new YahooFinance({ suppressNotices: ['ripHistorical', 'yahooSurvey'] });
 
@@ -172,6 +173,24 @@ async function main() {
           sharesUnits.push(...(usGaap?.['WeightedAverageNumberOfDilutedSharesOutstanding']?.units?.['shares'] || usGaap?.['WeightedAverageNumberOfSharesOutstandingBasic']?.units?.['shares'] || []));
         }
       } catch (err: any) {}
+    }
+
+    // Respaldo: reportes que la SEC ya recibió (submissions) pero companyfacts aún no incorpora → se leen del XBRL del
+    // propio reporte y se suman a los mismos hechos (CEG nov-2026: el 10-Q del 9-nov seguía fuera de companyfacts).
+    if (edgarUnits.length > 0 && (primaryCik || targetCiks[0])) {
+      try {
+        const maxEnd = edgarUnits.reduce((m: string | null, u: any) => (u.end && (!m || u.end > m) ? u.end : m), null);
+        const extra = await missingFilingFacts(primaryCik || targetCiks[0], maxEnd);
+        for (const g of extra) {
+          edgarUnits.push(...epsFacts(g));
+          revUnits.push(...revenueFacts(g));
+          netUnits.push(...netIncomeFacts(g));
+          sharesUnits.push(...(g['WeightedAverageNumberOfDilutedSharesOutstanding']?.units?.['shares'] || g['WeightedAverageNumberOfSharesOutstandingBasic']?.units?.['shares'] || []));
+        }
+        if (extra.length) console.log(`${symbol}: ${extra.length} reporte(s) leído(s) del XBRL (companyfacts aún no los incorpora)`);
+      } catch (err: any) {
+        console.warn(`${symbol}: respaldo XBRL falló: ${err.message}`);
+      }
     }
 
     if (edgarUnits.length > 0) {
