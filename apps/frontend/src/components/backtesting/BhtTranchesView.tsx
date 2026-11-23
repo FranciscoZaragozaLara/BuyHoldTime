@@ -50,7 +50,9 @@ function fetchTranches(date: string, route: Route) {
   if (!cache.has(key)) {
     cache.set(key, fetch(`${getApiBase()}/api/backtesting/bht-tranches?date=${date}&instrument=${route}`)
       .then((r) => (r.ok ? r.json() : null)).then((j) => (j && !j.error ? (j as Both) : null))
-      .catch(() => { cache.delete(key); return null; }));
+      .catch(() => null)
+      // Un fallo (backend reiniciando, error momentáneo) no se guarda: la siguiente vez se vuelve a pedir.
+      .then((v) => { if (!v) cache.delete(key); return v; }));
   }
   return cache.get(key)!;
 }
