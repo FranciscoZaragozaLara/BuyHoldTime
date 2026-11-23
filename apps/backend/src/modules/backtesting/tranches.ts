@@ -44,6 +44,10 @@ export const TRANCHE_CFG = {
    *  73% vs 56% y 61%, sin entrar temprano en 2000–03 ni 2008 (con BHT 55–60 sí; con 40–45 se pierde 2022).
    *  Con el BHT sin look-ahead y el filtro de crisis de crédito (nov-2026): VOO 72% desplegado / 64% capturado, QQQ 43% / 77%. */
   volMode: 'hybrid' as 'ratio' | 'hybrid', lvlMaxBht: 50 as number | undefined,
+  /** Voto B con BHT < 55 si el CAPE está ≤ 1.25× su mediana de 20 años (estudio nov-2026, prisma/vol-fast-study.ts):
+   *  2022 T1 4-nov a +2–5% del piso (antes 23-nov, +11–13%); en 2001 (CAPE 1.9×) no aplica. Sistema 1993–2026:
+   *  VOO 9.98% → 10.01%, QQQ 15.47% → 15.55%, mismas caídas. Sin el candado, 52–55 compraba en ene-2001. */
+  lvlMaxBhtCheap: 55 as number | undefined, lvlCheapCape: 1.25,
   decelSmin: -0.015, decelRecover: 0.5, minGapT2: 5, minGapT3: 10, t4OasOff: 0.15, t4BackupDays: 252,
 };
 
@@ -206,7 +210,7 @@ export type TrancheOpts = { volArm?: number; volMode?: 'ratio' | 'hybrid'; /** B
   vetoRise5?: number; vetoT1?: boolean;
   /** Voto B (caída del VIX desde su máximo de 20 días), estudio: caída requerida (por defecto 0.25 = −25%). */
   lvlDrop?: number;
-  /** Voto B, estudio: umbral de BHT más alto (lvlMaxBhtCheap) solo con el CAPE ≤ lvlCheapCape × su mediana de 20 años. */
+  /** Voto B: umbral de BHT más alto (lvlMaxBhtCheap, por defecto 55; undefined = sin él) con el CAPE ≤ lvlCheapCape × su mediana de 20 años. */
   lvlMaxBhtCheap?: number; lvlCheapCape?: number;
   /** Cada compra histórica (para marcarla en la gráfica). */ onFire?: (e: BuyEvent) => void };
 /** Compra histórica de la escalera: tranche, fecha, precio de referencia, tamaño (0.5 = medio tranche) y si fue el respaldo de T4. */
@@ -222,6 +226,7 @@ export function computeTranches(P: PreparedTranches, date: string, sectorRule: S
   const volArm = opts.volArm ?? C.volArm;
   const volMode = opts.volMode ?? C.volMode;
   const lvlMaxBht = 'lvlMaxBht' in opts ? opts.lvlMaxBht : C.lvlMaxBht;
+  const lvlCheap = 'lvlMaxBhtCheap' in opts ? opts.lvlMaxBhtCheap : C.lvlMaxBhtCheap;
   const useCredit = opts.creditGate !== false;
   const summarize = (end: string | null): EpisodeSummary => {
     let dep = 0, lev = 0, cost = 0;
@@ -313,8 +318,8 @@ export function computeTranches(P: PreparedTranches, date: string, sectorRule: S
       const v = P.vix[k], m20 = P.vixMax20[k];
       if (v != null && m20 != null) {
         if (v >= m20) lvlOnAt = -1;
-        else if (m20 >= 25 && v <= (1 - (opts.lvlDrop ?? 0.25)) * m20 && lvlOnAt < 0 && (lvlMaxBht == null || (s.bht?.[k] ?? 100) < lvlMaxBht || (opts.lvlMaxBhtCheap != null && (s.bht?.[k] ?? 100) < opts.lvlMaxBhtCheap
-          && s.cape[k] != null && s.capeMedian20[k] != null && (s.cape[k] as number) <= (opts.lvlCheapCape ?? 1.25) * (s.capeMedian20[k] as number)))) lvlOnAt = k;
+        else if (m20 >= 25 && v <= (1 - (opts.lvlDrop ?? 0.25)) * m20 && lvlOnAt < 0 && (lvlMaxBht == null || (s.bht?.[k] ?? 100) < lvlMaxBht || (lvlCheap != null && (s.bht?.[k] ?? 100) < lvlCheap
+          && s.cape[k] != null && s.capeMedian20[k] != null && (s.cape[k] as number) <= (opts.lvlCheapCape ?? C.lvlCheapCape) * (s.capeMedian20[k] as number)))) lvlOnAt = k;
       }
     }
     const ratioOn = volOnAt >= 0 && k - volOnAt < C.volWindow, lvlOn = lvlOnAt >= 0 && k - lvlOnAt < C.volWindow;
