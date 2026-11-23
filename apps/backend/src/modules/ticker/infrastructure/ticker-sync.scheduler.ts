@@ -4,6 +4,7 @@ import { SyncTickersUseCase } from '../application/use-cases/sync-tickers.use-ca
 import { PrismaService } from '../../../prisma/prisma.service';
 import { logSourceRun } from '../../admin/data-source-runs';
 import { runTsScript } from './stock-sync.service';
+import { EDGAR_UA, fetchLatestFilings, symbolsToSync } from './edgar-new-filings';
 
 /**
  * Sincronización diaria de precios históricos y métricas de los tickers (Yahoo).
@@ -82,8 +83,42 @@ export class TickerSyncScheduler {
     }
   }
 
+  /**
+   * Chequeo diario de reportes nuevos (L-V 21:30 ET): revisa en la SEC el último 10-Q/10-K de cada acción con EDGAR y
+   * sincroniza solo las que presentaron algo después de lo guardado, sin esperar al sync semanal del domingo (en
+   * temporada de reportes la espera llegaba a 7 días). Antes de market-sync (22:05) y del sync de tickers (23:00).
+   * Se desactiva junto con el semanal (EDGAR_SYNC_CRON=off).
+   */
+  @Cron('30 21 * * 1-5', { timeZone: 'America/New_York' })
+  async handleDailyEdgarNewFilings(): Promise<void> {
+    if (process.env.EDGAR_SYNC_CRON?.trim().toLowerCase() === 'off' || !this.prisma) return;
+    if (this.edgarRunning) { this.logger.warn('EDGAR sync en curso; se omite el chequeo diario'); return; }
+    this.edgarRunning = true;
+    const t0 = Date.now();
+    try {
+      const rows = await this.prisma.$queryRawUnsafe<Array<{ symbol: string; filed: string | null }>>(
+        `SELECT t.symbol, max(e->>'date') AS filed FROM tickers t, jsonb_array_elements(COALESCE(t.historical_eps_quarterly::jsonb, '[]'::jsonb)) e
+         WHERE e->>'source' = 'EDGAR' GROUP BY t.symbol`);
+      const stored = new Map(rows.map((r) => [r.symbol.toUpperCase(), r.filed] as [string, string | null]));
+      const map = (await (await fetch('https://www.sec.gov/files/company_tickers.json', { headers: { 'User-Agent': EDGAR_UA } })).json()) as Record<string, { ticker: string; cik_str: number }>;
+      const ciks = new Map<string, string>();
+      for (const v of Object.values(map)) { const sym = String(v.ticker).toUpperCase(); if (stored.has(sym)) ciks.set(sym, String(v.cik_str).padStart(10, '0')); }
+      const todo = symbolsToSync(stored, await fetchLatestFilings(ciks));
+      if (todo.length) {
+        this.logger.log(`EDGAR diario: reportes nuevos de ${todo.join(', ')}`);
+        await this.runTsScript('prisma/sync-all-stocks-edgar.ts', 30 * 60 * 1000, { SYMBOLS: todo.join(',') });
+      }
+      await logSourceRun(this.prisma, { source: 'sec_edgar', process: 'edgar-daily', startedAt: new Date(t0), status: 'ok', rows: todo.length, message: todo.length ? todo.join(',') : null });
+    } catch (e: any) {
+      this.logger.error(`EDGAR diario falló: ${e.message}`);
+      await logSourceRun(this.prisma, { source: 'sec_edgar', process: 'edgar-daily', startedAt: new Date(t0), status: 'error', message: e.message });
+    } finally {
+      this.edgarRunning = false;
+    }
+  }
+
   /** Lanza un script ts-node desde la raíz de apps/backend (src/ o dist/src/). */
-  protected runTsScript(script: string, timeoutMs: number): Promise<void> {
-    return runTsScript(script, timeoutMs, (line) => this.logger.log(line));
+  protected runTsScript(script: string, timeoutMs: number, extraEnv: Record<string, string> = {}): Promise<void> {
+    return runTsScript(script, timeoutMs, (line) => this.logger.log(line), extraEnv);
   }
 }

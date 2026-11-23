@@ -129,11 +129,11 @@ export class StockSyncService {
 }
 
 /** Lanza un script ts-node desde la raíz de apps/backend (src/ o dist/src/) y entrega cada línea de stdout. */
-export function runTsScript(script: string, timeoutMs: number, onLine: (line: string) => void): Promise<void> {
+export function runTsScript(script: string, timeoutMs: number, onLine: (line: string) => void, extraEnv: Record<string, string> = {}): Promise<void> {
   return new Promise((resolve, reject) => {
     let root = path.resolve(__dirname, '..', '..', '..', '..');
     if (path.basename(root) === 'dist') root = path.resolve(root, '..');
-    const proc = spawn('npx', ['ts-node', script], { cwd: root, env: process.env });
+    const proc = spawn('npx', ['ts-node', script], { cwd: root, env: { ...process.env, ...extraEnv } });
     let stderr = '', buf = '';
     const timer = setTimeout(() => {
       proc.kill('SIGTERM');
