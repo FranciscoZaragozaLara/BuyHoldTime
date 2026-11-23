@@ -292,6 +292,7 @@ export default function BhtTranchesView({ date, locale, initialRoute = 'qqq', ch
                       ) : !r.episode ? <span className="text-slate-600">—</span> : (
                         <span className="text-slate-400">{t.pending}: {missing.map((c) => trancheCheckText(c, locale)).join(' · ') || '—'}</span>
                       )}
+                      <RuleKey id={x.id} es={es} />
                     </td>
                   </tr>
                 );
@@ -449,10 +450,10 @@ function NetRows({ net, es, money }: { net: Net; es: boolean; money: (v: number 
                 <span className="text-favorable-300 font-bold">{fired.map((e) => `${e.date === net.date ? (es ? 'Hoy' : 'Today') : (es ? 'Disparado' : 'Fired')} ${e.date} @ ${money(e.price)} (R${e.pct})`).join(' · ')}</span>
               )}
               {fired.length === 0 && r.target > 0 && net.active && <span className="text-favorable-300 font-bold">{es ? 'Cumple hoy' : 'Met today'}: {es ? 'objetivo' : 'target'} {(r.target * 100).toFixed(0)}%</span>}
-              {fired.length === 0 && !(r.target > 0 && net.active) && (!net.active
-                ? <span className="text-slate-600">—</span>
-                : <span className="text-slate-400">{es ? 'Falta' : 'Missing'}: {missing.map((c) => netCheckText(c, es)).join(' · ') || '—'}</span>)}
-              <div className="text-[10px] text-slate-500">{NET_NAMES[id][2]}</div>
+              {fired.length === 0 && !(r.target > 0) && (
+                <span className="text-slate-400">{es ? 'Falta' : 'Missing'}: {missing.map((c) => netCheckText(c, es)).join(' · ') || '—'}</span>)}
+              {fired.length === 0 && r.target > 0 && !net.active && <span className="text-slate-400">{es ? 'Cumple, sin efectivo pendiente que recomprar' : 'Met, no pending cash to buy back'}</span>}
+              <div className="text-[10px] text-slate-500">{NET_NAMES[id][2]} · <RuleKey id={id} es={es} inline /></div>
             </td>
           </tr>
         );
@@ -483,4 +484,32 @@ function Tick({ on }: { on: boolean }) {
       {on ? '✓' : ''}
     </span>
   );
+}
+
+/** Reglas completas de cada tranche y de la red (tooltip); en la tabla solo va la clave corta. */
+const RULES: Record<string, { es: [string, string]; en: [string, string] }> = {
+  T0: { es: ['4 condiciones', 'Capitulación, una vez por episodio, el primer día con las 4: (1) profundidad S&P ≤ −15% o QQQ ≤ −20% de su máximo; (2) velocidad S&P −10% o QQQ −13% en 10 sesiones; (3) pánico VIX/VIX3M > 1.20 (antes de 2007: VIX > 35 y ≥ 1.5× su promedio de 20 días); (4) crédito HY < 6%. No usa votos. 100% en 1×.'],
+        en: ['4 conditions', 'Capitulation, once per episode, first day with all 4: (1) depth S&P ≤ −15% or QQQ ≤ −20% from its high; (2) speed S&P −10% or QQQ −13% in 10 sessions; (3) panic VIX/VIX3M > 1.20 (before 2007: VIX > 35 and ≥ 1.5× its 20-day average); (4) credit HY < 6%. No votes. 100% at 1×.'] },
+  T1: { es: ['Regla compuesta', 'Permiso (S&P ≤ −10% o QQQ ≤ −15% de su máximo de 12 meses) + sin veto de crédito (veto = HY en su máximo de 63 días y sobre su SMA20) + voto de volatilidad: A · curva VIX/VIX3M que se arma > 1.05 y se activa al bajar de 1, o B · VIX ≥ 25% bajo su máximo de 20 días (máximo ≥ 25) con BHT < 50, o < 55 si el CAPE ≤ 1.25× su mediana de 20 años. En crisis de crédito espera alivio (HY ≥ 10% bajo su máximo de 63 días) o BHT ≤ 40. Si solo cae el Nasdaq: medio tamaño (o voto extra). 100% en 1×.'],
+        en: ['Compound rule', 'Permit (S&P ≤ −10% or QQQ ≤ −15% from the 12-month high) + no credit veto (veto = HY at its 63-day high and above its SMA20) + volatility vote: A · VIX/VIX3M curve armed > 1.05, fires when it drops below 1, or B · VIX ≥ 25% below its 20-day high (high ≥ 25) with BHT < 50, or < 55 if CAPE ≤ 1.25× its 20-year median. In a credit crisis it waits for easing (HY ≥ 10% below its 63-day high) or BHT ≤ 40. Nasdaq-only drop: half size (or an extra vote). 100% at 1×.'] },
+  T2: { es: ['Regla compuesta', '≥ 5 sesiones después de T1 + caída alcanzada en el episodio S&P ≤ −15% o QQQ ≤ −22% + sin veto de crédito + 2 votos: volatilidad (ver T1) y desaceleración (curvatura positiva de la EMA50 con su pendiente recuperada ≥ 50% desde el mínimo, o reingreso a la banda de Bollinger −2σ). Mezcla 70/30 (1×/3×).'],
+        en: ['Compound rule', '≥ 5 sessions after T1 + episode drop reached S&P ≤ −15% or QQQ ≤ −22% + no credit veto + 2 votes: volatility (see T1) and deceleration (positive EMA50 curvature with its slope ≥ 50% recovered from the low, or re-entry into the −2σ Bollinger band). Mix 70/30 (1×/3×).'] },
+  T3: { es: ['Principal o respaldo', '≥ 10 sesiones después de T2 + sin veto de crédito y: principal · retest del mínimo (precio ≤ 3% sobre el mínimo, tras un rebote ≥ 8%) con ≥ 1 voto; respaldo · 3 cierres sobre la EMA50 ascendente. Mezcla 40/60 (1×/3×).'],
+        en: ['Main or backup', '≥ 10 sessions after T2 + no credit veto and: main · retest of the low (price ≤ 3% above the low, after a ≥ 8% rebound) with ≥ 1 vote; backup · 3 closes above a rising EMA50. Mix 40/60 (1×/3×).'] },
+  T4: { es: ['Principal o respaldo', 'Principal · valuación profunda: caída alcanzada S&P ≤ −25% o QQQ ≤ −35% + CAPE debajo de su mediana de 20 años + HY ≥ 15% debajo de su máximo de 12 meses + ≥ 1 voto; compra 0/100 (todo en 3×). Respaldo · si a los 12 meses (252 sesiones) del inicio del episodio no se activó y el precio está sobre su EMA200, compra en 1×.'],
+        en: ['Main or backup', 'Main · deep value: drop reached S&P ≤ −25% or QQQ ≤ −35% + CAPE below its 20-year median + HY ≥ 15% below its 12-month high + ≥ 1 vote; buys 0/100 (all 3×). Backup · if 12 months (252 sessions) into the episode it has not fired and price is above its EMA200, it buys at 1×.'] },
+  Bv: { es: ['Reglas', 'Barato con rebote: BHT < 50 recompra 50% del efectivo de la venta, < 40 el 100%, con el precio sobre su SMA50 ascendente; además CAPE ≤ 1.25× su mediana de 20 años, sin crisis de crédito y, con el crédito estresado (HY ≥ 1.5× su mínimo de 12 meses), esperando a que se alivie (≥ 10% bajo su máximo de 63 días).'],
+        en: ['Rules', 'Cheap with rebound: BHT < 50 buys back 50% of the sale cash, < 40 100%, with price above its rising SMA50; also CAPE ≤ 1.25× its 20-year median, no credit crisis and, with stressed credit (HY ≥ 1.5× its 12-month low), waiting for it to ease (≥ 10% below its 63-day high).'] },
+  Ds: { es: ['Reglas', 'Valuación en mínimos: con el crédito aliviándose (HY ≥ 10% bajo su máximo de 63 días), sin esperar rebote: BHT < 45 → 50%, < 40 → 75%, < 35 → 100% del efectivo de la venta; además CAPE ≤ 1.25× su mediana de 20 años y sin crisis de crédito.'],
+        en: ['Rules', 'Valuation lows: with credit easing (HY ≥ 10% below its 63-day high), without waiting for a rebound: BHT < 45 → 50%, < 40 → 75%, < 35 → 100% of the sale cash; also CAPE ≤ 1.25× its 20-year median and no credit crisis.'] },
+  R1e: { es: ['Reglas', 'Regreso a máximos: si después de la venta hubo una corrección (se abrió un episodio de compra) y el precio vuelve a su máximo de 12 meses con SMA50 > SMA200 y BHT < 70, recompra todo el efectivo pendiente.'],
+        en: ['Rules', 'Back at highs: if a correction followed the sale (a buy episode opened) and price returns to its 12-month high with SMA50 > SMA200 and BHT < 70, it buys back all pending cash.'] },
+};
+/** Clave corta de la regla con su explicación completa en el tooltip. */
+function RuleKey({ id, es, inline }: { id: string; es: boolean; inline?: boolean }) {
+  const r = RULES[id];
+  if (!r) return null;
+  const [short, full] = es ? r.es : r.en;
+  const el = <span className="text-[10px] text-slate-500 underline decoration-dotted underline-offset-2 cursor-help" title={full}>{short} ⓘ</span>;
+  return inline ? el : <div>{el}</div>;
 }
