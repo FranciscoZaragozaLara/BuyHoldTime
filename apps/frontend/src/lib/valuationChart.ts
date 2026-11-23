@@ -103,13 +103,13 @@ export const CROSS_MIN_SESSIONS = 10;
 /** Venta de la escalera V1–V5 que calcula el backend (/api/backtesting/sell-ladder, el mismo motor de la pestaña
  *  Tranches). credit: ciclo abierto por crisis de crédito. */
 export type SellLadderEvent = { date: string; id: 'V1' | 'V2' | 'V3' | 'V4' | 'V5'; price: number; credit: boolean };
-const SELL_COLOR: Record<SellLadderEvent['id'], string> = { V1: TOKENS.caution, V2: TOKENS.elevated, V3: TOKENS.elevated, V4: TOKENS.elevated, V5: TOKENS.risk };
+export const SELL_COLOR: Record<SellLadderEvent['id'], string> = { V1: TOKENS.caution, V2: TOKENS.elevated, V3: TOKENS.elevated, V4: TOKENS.elevated, V5: TOKENS.risk };
 const SELL_RANK: Record<SellLadderEvent['id'], number> = { V1: 1, V2: 2, V3: 3, V4: 2, V5: 4 };
 /** Marcas de la escalera de venta: V1 Codicia · V2 Codicia extrema · V3 Euforia · V4 Primera grieta · V5 Tendencia rota
  *  (más grave = flecha más grande y más roja; «·C» si el ciclo lo abrió la crisis de crédito). Solo fechas de la gráfica. */
 /** Compra de la escalera T0–T4 que calcula el backend (/api/backtesting/tranche-ladder, mismo motor de la pestaña). */
 export type BuyLadderEvent = { date: string; id: 'T0' | 'T1' | 'T2' | 'T3' | 'T4'; price: number; size: number; backup: boolean };
-const BUY_STYLE: Record<BuyLadderEvent['id'], { color: string; size: number }> = {
+export const BUY_STYLE: Record<BuyLadderEvent['id'], { color: string; size: number }> = {
   T0: { color: '#a855f7', size: 1.5 }, T1: { color: TOKENS.caution, size: 0.95 }, T2: { color: TOKENS.accent, size: 1.3 },
   T3: { color: TOKENS.favorable, size: 1.15 }, T4: { color: TOKENS.favorable, size: 1.0 },
 };

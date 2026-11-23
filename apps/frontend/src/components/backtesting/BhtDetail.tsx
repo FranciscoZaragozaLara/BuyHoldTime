@@ -15,6 +15,7 @@ import type { BhtPinNav } from './bhtChartPin';
 import { TOKENS } from '@/lib/designTokens';
 import { athColor, athTone } from '@/lib/athDrawdown';
 import { quoteEvent } from '@/lib/quoteEvents';
+import { ladderBadgesOn, type LadderData, type LadderRoute } from '@/lib/ladderBadges';
 
 // Vista Estrategia: su código se descarga solo cuando se pulsa el botón (lazy) y calcula en el backend bajo demanda.
 const BhtStrategyView = dynamic(() => import('./BhtStrategyView'), { ssr: false, loading: () => <div className="mt-2 font-mono text-slate-500">…</div> });
@@ -135,6 +136,37 @@ export function BhtHoverTip({ point, bht, prices, trend }: { point: { d: string;
   );
 }
 
+// Escaleras de compra/venta y red por ruta (las mismas marcas de la gráfica), cargadas una vez por sesión.
+const ladderCache: Partial<Record<LadderRoute, Promise<LadderData | null>>> = {};
+function loadLadder(route: LadderRoute) {
+  return (ladderCache[route] ??= fetch(`${getApiBase()}/api/backtesting/tranche-ladder?instrument=${route === 'voo' ? 'spx' : 'qqq'}`)
+    .then((r) => (r.ok ? r.json() : null))
+    .then((j) => (j?.buys && j?.sells ? { buys: j.buys, sells: j.sells, net: j.net ?? [] } : null))
+    .catch(() => null));
+}
+function useLadders(): Partial<Record<LadderRoute, LadderData>> {
+  const [l, setL] = useState<Partial<Record<LadderRoute, LadderData>>>({});
+  useEffect(() => {
+    let alive = true;
+    for (const r of ['voo', 'qqq'] as LadderRoute[]) loadLadder(r).then((d) => { if (alive && d) setL((m) => ({ ...m, [r]: d })); });
+    return () => { alive = false; };
+  }, []);
+  return l;
+}
+/** Badge con punto que late (sin animación si el sistema pide menos movimiento). */
+function PulseBadge({ color, title, children }: { color: string; title?: string; children: React.ReactNode }) {
+  return (
+    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full border text-[10px] font-bold uppercase tracking-wide"
+      style={{ color, borderColor: `color-mix(in srgb, ${color} 60%, transparent)`, backgroundColor: `color-mix(in srgb, ${color} 14%, transparent)` }} title={title}>
+      <span className="relative flex h-2 w-2" aria-hidden>
+        <span className="motion-safe:animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ backgroundColor: color }} />
+        <span className="relative inline-flex h-2 w-2 rounded-full" style={{ backgroundColor: color }} />
+      </span>
+      {children}
+    </span>
+  );
+}
+
 /** Fecha del encabezado del popover: día de la semana, día, mes y año (p. ej. «jue 21 abr 2022»). */
 const fmtDay = (d: string, loc: string) => new Date(`${d}T12:00:00Z`).toLocaleDateString(loc === 'es' ? 'es-MX' : 'en-US', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
 
@@ -143,6 +175,7 @@ export function BhtDetailPopover({ hover, detail: detailIn, onLeave, onHold, liv
   const loc = useLocale();
   const missing = !!detailIn?.missing;
   const detail = missing ? null : detailIn;
+  const ladders = useLadders();
   const popRef = useRef<HTMLDivElement>(null);
   // La vista va atada a la fecha: cada fecha nueva abre en Estrategia (vista por defecto); Historia y Drawdowns se
   // calculan solo si se piden.
@@ -248,32 +281,39 @@ export function BhtDetailPopover({ hover, detail: detailIn, onLeave, onHold, liv
                 ))}
               </tbody>
             </table>
-            {events.length > 0 && (
-              <div className="mt-1.5 flex flex-wrap gap-1.5">
-                {(['high', 'low'] as const).map((kind) => {
-                  const list = events.filter((x) => x.ev!.kind === kind);
-                  if (!list.length) return null;
-                  const high = kind === 'high';
-                  const color = high ? TOKENS.favorable : TOKENS.risk;
-                  const label = high
-                    ? (loc === 'es' ? (list.every((x) => x.ev!.window5y) ? 'Nuevo máximo de 5 años' : 'Nuevo máximo histórico') : (list.every((x) => x.ev!.window5y) ? 'New 5-year high' : 'New all-time high'))
-                    : (loc === 'es' ? 'Nuevo mínimo de la corrección' : 'New correction low');
-                  return (
-                    <span key={kind} className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full border text-[10px] font-bold uppercase tracking-wide"
-                      style={{ color, borderColor: `color-mix(in srgb, ${color} 60%, transparent)`, backgroundColor: `color-mix(in srgb, ${color} 14%, transparent)` }}
-                      title={high ? undefined : list.map((x) => `${x.k} ${x.ev!.fromHigh?.toFixed(1)}% ${loc === 'es' ? 'desde máx.' : 'from high'}`).join(' · ')}>
-                      {/* Punto que late (indicador «en vivo»); sin animación si el sistema pide menos movimiento. */}
-                      <span className="relative flex h-2 w-2" aria-hidden>
-                        <span className="motion-safe:animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ backgroundColor: color }} />
-                        <span className="relative inline-flex h-2 w-2 rounded-full" style={{ backgroundColor: color }} />
-                      </span>
-                      <span aria-hidden>{high ? '▲' : '▼'}</span>{label}
-                      <span className="normal-case tracking-normal text-slate-200">{list.map((x) => x.k).join(' · ')}</span>
-                    </span>
-                  );
-                })}
-              </div>
-            )}
+            {(() => {
+              // Compras, ventas y red de seguridad de ese día: la ruta de la gráfica (o las dos si el detalle no viene de una).
+              const lb = ladderBadgesOn(detail.date, ladders, trancheRoute ? [trancheRoute] : ['voo', 'qqq'], loc === 'es');
+              if (!events.length && !lb.length) return null;
+              const routeTag = (rs: LadderRoute[]) => rs.map((r) => (r === 'voo' ? 'VOO' : 'QQQ')).join(' · ');
+              return (
+                <div className="mt-1.5 flex flex-wrap gap-1.5">
+                  {(['high', 'low'] as const).map((kind) => {
+                    const list = events.filter((x) => x.ev!.kind === kind);
+                    if (!list.length) return null;
+                    const high = kind === 'high';
+                    const label = high
+                      ? (loc === 'es' ? (list.every((x) => x.ev!.window5y) ? 'Nuevo máximo de 5 años' : 'Nuevo máximo histórico') : (list.every((x) => x.ev!.window5y) ? 'New 5-year high' : 'New all-time high'))
+                      : (loc === 'es' ? 'Nuevo mínimo de la corrección' : 'New correction low');
+                    return (
+                      <PulseBadge key={kind} color={high ? TOKENS.favorable : TOKENS.risk}
+                        title={high ? undefined : list.map((x) => `${x.k} ${x.ev!.fromHigh?.toFixed(1)}% ${loc === 'es' ? 'desde máx.' : 'from high'}`).join(' · ')}>
+                        <span aria-hidden>{high ? '▲' : '▼'}</span>{label}
+                        <span className="normal-case tracking-normal text-slate-200">{list.map((x) => x.k).join(' · ')}</span>
+                      </PulseBadge>
+                    );
+                  })}
+                  {lb.map((b) => (
+                    <PulseBadge key={`${b.kind}:${b.code}`} color={b.color}
+                      title={b.kind === 'net' ? (loc === 'es' ? 'Red de seguridad: % del efectivo de la venta que recompra' : 'Safety net: % of the sale cash bought back') : undefined}>
+                      <span aria-hidden>{b.kind === 'sell' ? '▼' : '●'}</span>
+                      {b.kind === 'sell' ? (loc === 'es' ? 'Venta' : 'Sell') : (loc === 'es' ? 'Compra' : 'Buy')} {b.code}
+                      <span className="normal-case tracking-normal text-slate-200">{b.name} · {routeTag(b.routes)}</span>
+                    </PulseBadge>
+                  ))}
+                </div>
+              );
+            })()}
             </>
           );
         })()}
