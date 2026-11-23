@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
 import { termsPath } from '@/lib/legal';
-import { TrendingUp, BarChart3, Compass, Briefcase, LayoutGrid, Menu, X, Mail, Globe, LogIn } from 'lucide-react';
+import { TrendingUp, BarChart3, Compass, Briefcase, LayoutGrid, Menu, X, Mail, Globe, LogIn, FlaskConical } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { UserMenu } from '@/components/UserMenu';
 import { AuthModal } from '@/components/AuthModal';
@@ -31,6 +31,8 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
     { name: t('indicators'), path: `/${locale}/indicators`, icon: <BarChart3 size={18} /> },
     { name: t('backtester'), path: `/${locale}/backtesting`, icon: <Briefcase size={18} /> },
     ...(role === 'ADMIN' ? [{ name: 'Admin', path: `/${locale}/admin`, icon: <Briefcase size={18} /> }] : []),
+    // Laboratorio Canary & Phoenix (experimental): solo administradores.
+    ...(role === 'ADMIN' ? [{ name: locale === 'es' ? 'Laboratorio' : 'Lab', path: `/${locale}/lab`, icon: <FlaskConical size={18} /> }] : []),
   ];
 
 

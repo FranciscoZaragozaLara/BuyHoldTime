@@ -7,10 +7,13 @@ import { ExperimentalService } from './experimental.service';
 export class ExperimentalController {
   constructor(private readonly svc: ExperimentalService) {}
 
+  // Solo admin (o x-api-key de servicio): investigación en curso, no se expone a usuarios.
   @Get('summary')
+  @UseGuards(AdminOrApiKeyGuard)
   summary() { return this.svc.summary(); }
 
   @Get('scores')
+  @UseGuards(AdminOrApiKeyGuard)
   scores(@Query('key') key: string, @Query('from') from?: string) { return this.svc.scores(key, from); }
 
   @Post('run')

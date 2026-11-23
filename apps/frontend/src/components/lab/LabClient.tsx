@@ -2,6 +2,7 @@
 // Página «Laboratorio» del plan Canary & Phoenix: solo informativa. No cambia el semáforo BHT ni los tranches.
 import { useEffect, useState } from 'react';
 import { getApiBase } from '@/lib/apiBase';
+import { useAuth } from '@/context/AuthContext';
 import { TOKENS } from '@/lib/designTokens';
 import { onEpisodes, pnlByStrategy, positionPnl, sparkPath, type PaperPosition } from '@/lib/labPaper';
 
@@ -34,22 +35,26 @@ const usd = (v: number) => `${v < 0 ? '−' : ''}$${Math.abs(v).toLocaleString('
 const pct = (v: number | null | undefined, d = 1) => (v == null ? '—' : `${v > 0 ? '+' : ''}${v.toFixed(d)}%`);
 
 function Spark({ k }: { k: string }) {
+  const { token } = useAuth();
   const [vals, setVals] = useState<number[] | null>(null);
   useEffect(() => {
+    if (!token) return;
     const from = new Date(); from.setFullYear(from.getFullYear() - 2);
-    fetch(`${getApiBase()}/api/experimental/scores?key=${k}&from=${from.toISOString().slice(0, 10)}`).then((r) => r.json()).then((j) => setVals((j.rows ?? []).map((r: { value: number }) => Number(r.value)))).catch(() => setVals([]));
-  }, [k]);
+    fetch(`${getApiBase()}/api/experimental/scores?key=${k}&from=${from.toISOString().slice(0, 10)}`, { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json()).then((j) => setVals((j.rows ?? []).map((r: { value: number }) => Number(r.value)))).catch(() => setVals([]));
+  }, [k, token]);
   const d = vals ? sparkPath(vals, 160, 32) : null;
   return d ? <svg width={160} height={32} className="mt-1"><path d={d} fill="none" stroke="#94a3b8" strokeWidth={1.2} /></svg> : <div className="h-8" />;
 }
 
 // Riesgo de techo (H1 v1): Canary ROJO (CSI sintético o Canary‑P ETFs ≥ 56) con BHT ≥ 60. Zona de riesgo, no orden de venta.
 function TopRiskCard({ x, es }: { x: Score; es: boolean }) {
+  const { token } = useAuth();
   const [rows, setRows] = useState<Array<{ date: string; state: string | null }> | null>(null);
   useEffect(() => {
+    if (!token) return;
     const from = new Date(); from.setFullYear(from.getFullYear() - 1);
-    fetch(`${getApiBase()}/api/experimental/scores?key=canary_top_risk&from=${from.toISOString().slice(0, 10)}`).then((r) => r.json()).then((j) => setRows(j.rows ?? [])).catch(() => setRows([]));
-  }, []);
+    fetch(`${getApiBase()}/api/experimental/scores?key=canary_top_risk&from=${from.toISOString().slice(0, 10)}`, { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json()).then((j) => setRows(j.rows ?? [])).catch(() => setRows([]));
+  }, [token]);
   const on = x.state === 'ROJO';
   const c = (x.components ?? {}) as { bht?: number | null; canary_p?: number | null; csi?: number | null };
   const ep = rows ? onEpisodes(rows) : null;
@@ -75,13 +80,29 @@ function TopRiskCard({ x, es }: { x: Score; es: boolean }) {
 
 export default function LabClient({ locale }: { locale: string }) {
   const es = locale === 'es';
+  const { role, token, loading: authLoading } = useAuth();
+  const isAdmin = role === 'ADMIN' && !!token;
   const [s, setS] = useState<Summary | null>(null);
   const [err, setErr] = useState(false);
-  useEffect(() => { fetch(`${getApiBase()}/api/experimental/summary`, { cache: 'no-store' }).then((r) => r.json()).then(setS).catch(() => setErr(true)); }, []);
+  useEffect(() => {
+    if (!isAdmin) return;
+    fetch(`${getApiBase()}/api/experimental/summary`, { cache: 'no-store', headers: { Authorization: `Bearer ${token}` } })
+      .then((r) => (r.ok ? r.json() : Promise.reject(r.status))).then(setS).catch(() => setErr(true));
+  }, [isAdmin, token]);
   const L = (pair: [string, string] | undefined, fallback: string) => (pair ? (es ? pair[0] : pair[1]) : fallback);
   const tot = s ? pnlByStrategy(s.positions) : {};
   const sig = ['canary_p_red', 'canary_p_yellow', 'ref_arkk_qqq', 'csi_synthetic_red'];
   const sigName: Record<string, string> = { canary_p_red: 'Canary‑P ROJO', canary_p_yellow: es ? 'Canary‑P AMARILLO+' : 'Canary‑P YELLOW+', ref_arkk_qqq: 'ARKK/QQQ', csi_synthetic_red: es ? 'CSI sint. ROJO' : 'Synth. CSI RED' };
+  // Solo administradores: a los demás se les muestra «no encontrado» (la página no existe para ellos).
+  if (authLoading) return <div className="max-w-6xl mx-auto px-4 py-16 text-slate-500 text-sm">…</div>;
+  if (!isAdmin) {
+    return (
+      <div className="max-w-6xl mx-auto px-4 py-24 text-center text-slate-300">
+        <div className="text-5xl font-bold text-slate-600">404</div>
+        <p className="mt-3">{es ? 'Página no encontrada.' : 'Page not found.'}</p>
+      </div>
+    );
+  }
   return (
     <div className="max-w-6xl mx-auto px-4 py-8 text-slate-200 space-y-6">
       <div>
