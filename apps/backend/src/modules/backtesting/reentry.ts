@@ -158,6 +158,11 @@ export type ReentryResult = {
   rules: Record<ReentryRuleId, { target: number; checks: ReentryCheck[] }>;
   /** Compras de la red en toda la historia hasta la fecha. */
   events: NetEvent[];
+  /** Compras de la red del ciclo vigente (desde la última venta); vacío si el ciclo ya se cerró. */
+  cycleEvents: NetEvent[];
+  /** El ciclo se cierra cuando ya no queda efectivo de la venta y termina el episodio en que se reinvirtió
+   *  (o ese mismo día si no había episodio abierto); después, la red espera la siguiente venta. */
+  cycleClosedAt: string | null;
 };
 
 /** Estado de la red de seguridad en una fecha (para la tabla de tranches) y sus compras históricas (para la gráfica). */
@@ -194,5 +199,22 @@ export function computeReentry(P: PreparedTranches, date: string): ReentryResult
       ] },
     },
     events: sim.netEvents,
+    ...netCycle(P, sim, st.lastSale, D),
   };
+}
+
+/** Eventos del ciclo vigente de la red y fecha de cierre (reseteo) si ya ocurrió hasta D. */
+function netCycle(P: PreparedTranches, sim: ReturnType<typeof simulateReentry>, lastSale: string | null, D: number): { cycleEvents: NetEvent[]; cycleClosedAt: string | null } {
+  if (!lastSale) return { cycleEvents: [], cycleClosedAt: null };
+  const dates = P.s.dates, kS = dates.indexOf(lastSale);
+  let full = -1;
+  for (let k = kS + 1; k <= D; k++) if (sim.cashFrac[k] < 0.005) { full = k; break; }
+  let closed: string | null = null;
+  if (full >= 0) {
+    const cd = dates[full];
+    const ep = ladderEvents(P).eps.find((e) => e.start <= cd && (!e.end || e.end >= cd));
+    const end = ep ? ep.end : cd;
+    if (end && end <= dates[D]) closed = end;
+  }
+  return { cycleEvents: closed ? [] : sim.netEvents.filter((e) => e.date > lastSale && e.date <= dates[D]), cycleClosedAt: closed };
 }

@@ -40,6 +40,9 @@ type Net = {
   date: string; cashPct: number; netBoughtPct: number; lastSale: string | null; corrected: boolean; active: boolean;
   rules: Record<'Bv' | 'Ds' | 'R1e', { target: number; checks: NetCheck[] }>;
   events: Array<{ date: string; rule: string; pct: number; price: number }>;
+  /** Compras del ciclo vigente (vacío si el ciclo ya se cerró) y fecha de cierre del último ciclo. */
+  cycleEvents?: Array<{ date: string; rule: string; pct: number; price: number }>;
+  cycleClosedAt?: string | null;
 };
 type Both = Partial<Record<Rule, Result | null>> & { sell?: Sell | null; net?: Net | null };
 type Ath = { pct: number; date: string; price: number; window5y: boolean };
@@ -423,7 +426,7 @@ function netCheckText(c: NetCheck, es: boolean): string {
 /** Filas de la red de seguridad dentro de la tabla de tranches: mismas columnas (peso sobre el efectivo de la venta,
  *  mezcla 1×/3× y estado: disparos del ciclo, «cumple hoy» o lo que falta). */
 function NetRows({ net, es, money }: { net: Net; es: boolean; money: (v: number | null) => string }) {
-  const recent = net.lastSale ? net.events.filter((e) => e.date > net.lastSale!) : [];
+  const recent = net.cycleEvents ?? (net.lastSale ? net.events.filter((e) => e.date > net.lastSale!) : []);
   const weights: Record<'Bv' | 'Ds' | 'R1e', string> = { Bv: '50–100%', Ds: '50–100%', R1e: '100%' };
   return (
     <>
@@ -432,7 +435,9 @@ function NetRows({ net, es, money }: { net: Net; es: boolean; money: (v: number 
           {es ? 'Red de seguridad · efectivo de la venta que T0–T4 no recompraron' : 'Safety net · sale cash T0–T4 left'}
           <span className="normal-case tracking-normal font-normal text-slate-400"> · {net.active
             ? <>{es ? 'pendiente' : 'pending'} <b className="text-slate-100">{(net.cashPct * 100).toFixed(0)}%</b> {es ? 'del portafolio · venta' : 'of the portfolio · sale'} {net.lastSale}</>
-            : (es ? 'sin efectivo pendiente' : 'no pending cash')}</span>
+            : net.cycleClosedAt
+              ? (es ? `ciclo cerrado el ${net.cycleClosedAt}: espera una nueva venta` : `cycle closed on ${net.cycleClosedAt}: waits for a new sale`)
+              : (es ? 'sin efectivo pendiente' : 'no pending cash')}</span>
         </td>
       </tr>
       {(['Bv', 'Ds', 'R1e'] as const).map((id) => {
