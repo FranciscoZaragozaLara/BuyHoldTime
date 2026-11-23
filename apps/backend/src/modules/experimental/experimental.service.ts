@@ -21,7 +21,8 @@ export class ExperimentalService {
 
   // Cerca del cierre: cotizaciones de opciones del día, scores y paper trading.
   @Cron('50 15 * * 1-5', { timeZone: 'America/New_York' })
-  async nearClose() { if (this.cronOn) await this.run('snapshot,scores,paper'); }
+  // Antes del cierre también se actualizan precios: sin ellos, los scores mezclaban QQQ de hoy con los ETFs de ayer.
+  async nearClose() { if (this.cronOn) await this.run('prices,snapshot,scores,paper'); }
 
   // Tras el sync diario (22:05) y la amplitud (22:35): precios, corrida mensual si toca y scores con los cierres.
   @Cron('50 22 * * 1-5', { timeZone: 'America/New_York' })
