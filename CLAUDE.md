@@ -22,7 +22,7 @@ Plan y estado actual: **`docs/plan/HANDOFF.md`** (léelo antes de empezar una ta
 
 ## Datos y crons
 - Precios: `POST /tickers/sync` (x-api-key = `SYNC_API_KEY`); cron L-V 23:00 ET (`TickerSyncScheduler`).
-- EDGAR trimestral: `apps/backend/prisma/sync-all-stocks-edgar.ts` (`SYMBOLS=AAPL,MSFT` opcional); cron domingo 03:00 ET y chequeo diario L-V 21:30 ET de reportes nuevos (10-Q/10-K en las submissions de la SEC con periodo posterior al último trimestre guardado → sync solo de esas acciones).
+- EDGAR trimestral: `apps/backend/prisma/sync-all-stocks-edgar.ts` (`SYMBOLS=AAPL,MSFT` opcional); cron domingo 03:00 ET y chequeo diario L-V 21:30 ET de reportes nuevos (10-Q/10-K en las submissions de la SEC con periodo posterior al último trimestre guardado → sync solo de esas acciones). Si companyfacts aún no incorpora un reporte que la SEC ya recibió, el sync lee su XBRL (`prisma/edgar-xbrl-instance.ts`).
   Reglas en `docs/eps-quarterly-calculation-rules.md`; helpers puros y testeados en `prisma/edgar-duration.ts`
   (conceptos por empresa: net income, EPS, ingresos; Q4 = anual − (Q1+Q2+Q3)).
 - Otros crons (market-sync): L-V 22:05 ET `daily_update.py`, 22:35 ET breadth.
