@@ -10,7 +10,9 @@ const A_OPTS: Record<string, TrancheOpts> = { A: {}, Apd10: { volArm: 1.10, volP
 const V_OPTS: Record<string, TrancheOpts> = { veto: {}, rise10: { vetoRise5: 0.10 }, rise20: { vetoRise5: 0.20 }, t1libre: { vetoT1: false } };
 const GRID = Object.entries(A_OPTS).flatMap(([a, ao]) => Object.entries(V_OPTS).map(([v, vo]) => ({ key: `${a}+${v}`, name: `${a} · ${v}`, opts: { ...ao, ...vo } })));
 const B_GRID = [0.28, 0.25, 0.22, 0.20].map((d) => ({ key: `B${Math.round(d * 100)}`, name: `Voto B: VIX ≥${Math.round(d * 100)}% bajo su máximo de 20 días`, opts: { lvlDrop: d } as TrancheOpts }));
-const VARIANTS: Array<{ key: string; name: string; opts: TrancheOpts }> = process.env.BGRID ? B_GRID : process.env.GRID ? GRID : [
+const L_GRID = [...[50, 52, 53, 55].map((b) => ({ key: `L${b}`, name: `Voto B con BHT < ${b}`, opts: { lvlMaxBht: b } as TrancheOpts })),
+  ...[53, 55, 58].map((b) => ({ key: `L${b}c`, name: `Voto B con BHT < 50, o < ${b} con CAPE ≤ 1.25× su mediana`, opts: { lvlMaxBhtCheap: b, lvlCheapCape: 1.25 } as TrancheOpts }))];
+const VARIANTS: Array<{ key: string; name: string; opts: TrancheOpts }> = process.env.LGRID ? L_GRID : process.env.BGRID ? B_GRID : process.env.GRID ? GRID : [
   { key: 'base', name: 'Actual: arma > 1.05, activa < 1.00', opts: {} },
   { key: 'a105r102', name: 'Arma > 1.05, activa < 1.02', opts: { volArm: 1.05, volRelease: 1.02, volCancel: 1.05 } },
   { key: 'a110r105', name: 'Arma > 1.10, activa < 1.05', opts: { volArm: 1.10, volRelease: 1.05, volCancel: 1.10 } },
