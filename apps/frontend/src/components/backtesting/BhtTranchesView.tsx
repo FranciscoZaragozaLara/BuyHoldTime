@@ -510,11 +510,20 @@ const RULES: Record<string, { es: [string, string]; en: [string, string] }> = {
   R1e: { es: ['Reglas', 'Regreso a máximos: si después de la venta hubo una corrección (se abrió un episodio de compra) y el precio vuelve a su máximo de 12 meses con SMA50 > SMA200 y BHT < 70, recompra todo el efectivo pendiente.'],
         en: ['Rules', 'Back at highs: if a correction followed the sale (a buy episode opened) and price returns to its 12-month high with SMA50 > SMA200 and BHT < 70, it buys back all pending cash.'] },
 };
-/** Clave corta de la regla con su explicación completa en el tooltip. */
+/** Clave corta de la regla: al pasar el mouse muestra la explicación completa; con clic la deja abierta debajo. */
 function RuleKey({ id, es, inline }: { id: string; es: boolean; inline?: boolean }) {
+  const [open, setOpen] = useState(false);
   const r = RULES[id];
   if (!r) return null;
   const [short, full] = es ? r.es : r.en;
-  const el = <span className="text-[10px] text-slate-500 underline decoration-dotted underline-offset-2 cursor-help" title={full}>{short} ⓘ</span>;
-  return inline ? el : <div>{el}</div>;
+  const box = 'rounded-md border border-slate-600 bg-slate-950 p-2 text-[11px] leading-snug text-slate-200 font-sans normal-case tracking-normal whitespace-normal';
+  const key = (
+    <span className="relative group inline-block">
+      <button type="button" aria-expanded={open} onClick={(e) => { e.stopPropagation(); setOpen((o) => !o); }}
+        className="text-[10px] text-slate-400 underline decoration-dotted underline-offset-2 cursor-help hover:text-sky-300">{short} ⓘ</button>
+      {!open && <span role="tooltip" className={`pointer-events-none absolute left-0 top-full z-50 mt-1 hidden w-80 max-w-[70vw] shadow-xl group-hover:block ${box}`}>{full}</span>}
+    </span>
+  );
+  const pinned = open ? <div className={`mt-1 ${box}`}>{full}</div> : null;
+  return inline ? <>{key}{pinned}</> : <div>{key}{pinned}</div>;
 }
