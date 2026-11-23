@@ -25,8 +25,30 @@ describe('data-freshness', () => {
     const gdp = DATA_SOURCES.find((s) => s.id === 'fred_gdp')!;
     expect(evaluateSource(cpi, [{ series: 'CPIAUCSL', d: '2026-10-01' }], today).status).toBe('fresh');
     expect(evaluateSource(gdp, [{ series: 'GDP', d: '2026-07-01' }], today).status).toBe('fresh');
-    expect(evaluateSource(cpi, [{ series: 'CPIAUCSL', d: '2026-09-01' }], today).status).toBe('late');
-    expect(evaluateSource(cpi, [{ series: 'CPIAUCSL', d: '2026-08-01' }], today).status).toBe('stale');
+    // pasada la publicación de octubre (~13 nov) y su margen, tener solo septiembre es estar atrasado
+    expect(evaluateSource(cpi, [{ series: 'CPIAUCSL', d: '2026-09-01' }], '2026-11-20').status).toBe('late');
+    expect(evaluateSource(cpi, [{ series: 'CPIAUCSL', d: '2026-08-01' }], '2026-11-20').status).toBe('stale');
+  });
+
+  test('el dato mensual sigue al día hasta que sale el siguiente periodo (CPI, M2, Shiller)', () => {
+    const src = (id: string) => DATA_SOURCES.find((s) => s.id === id)!;
+    // CPI de octubre al 15-dic (el de noviembre sale ~10-15 dic)
+    expect(evaluateSource(src('fred_inflation'), [{ series: 'CPIAUCSL', d: '2026-10-01' }], '2026-12-15').status).toBe('fresh');
+    // M2 de septiembre al 27-nov (octubre sale ~24-27 nov)
+    expect(evaluateSource(src('fred_money_housing'), [{ series: 'M2SL', d: '2026-09-01' }], '2026-11-27').status).toBe('fresh');
+    // E10 de octubre al 3-dic (noviembre se publica ~3 dic)
+    expect(evaluateSource(src('shiller_cape'), [{ series: 'E10', d: '2026-10-01' }], '2026-12-03').status).toBe('fresh');
+  });
+
+  test('WTI semanal dentro de FRED diario: umbrales propios; la fuente toma la peor serie con sus umbrales', () => {
+    const fred = DATA_SOURCES.find((s) => s.id === 'fred_daily')!;
+    const rows = [{ series: 'DGS10', d: '2026-11-19' }, { series: 'DCOILWTICO', d: '2026-11-17' }];
+    const r = evaluateSource(fred, rows, '2026-11-23');
+    expect(r.status).toBe('fresh');
+    expect(r.lastDate).toBe('2026-11-17');
+    expect(r.expectedBy).toBe('2026-11-23'); // DGS10 + 4 días
+    expect(evaluateSource(fred, [{ series: 'DGS10', d: '2026-11-17' }, { series: 'DCOILWTICO', d: '2026-11-17' }], '2026-11-23').status).toBe('late');
+    expect(evaluateSource(fred, [{ series: 'DGS10', d: '2026-11-21' }, { series: 'DCOILWTICO', d: '2026-11-04' }], '2026-11-23').status).toBe('stale');
   });
 
   test('configuración: ids únicos, umbrales coherentes y SQL sin punto y coma', () => {

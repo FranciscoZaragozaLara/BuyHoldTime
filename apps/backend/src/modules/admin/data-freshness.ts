@@ -2,9 +2,10 @@
 // según su ritmo de publicación. No registra corridas (eso será la tabla data_source_runs, fase 2).
 //
 // lateDays / staleDays = antigüedad (días naturales desde el último dato hasta hoy) a partir de la
-// cual la fuente está atrasada / vencida. Incluyen el retraso normal de publicación: p. ej. el CPI
-// de octubre (fechado 2026-10-01) sale a mediados de noviembre, así que tener "octubre" el 13 nov
-// es estar al día. Las consultas son fijas (sin entrada del usuario) y devuelven filas (serie, d).
+// cual la fuente está atrasada / vencida. Las series mensuales se fechan con el día 1 de su periodo, así que
+// el umbral cubre hasta la publicación del periodo SIGUIENTE: un mes + su rezago de publicación + margen.
+// P. ej. CPI: octubre (2026-10-01) sigue al día hasta que sale noviembre (~10-15 dic): 31 + 43 + 4 ≈ 78 días.
+// Las consultas son fijas (sin entrada del usuario) y devuelven filas (serie, d).
 
 export type SourceType = 'api' | 'file' | 'scraper' | 'computed';
 export type Cadence = 'daily' | 'weekly' | 'monthly' | 'quarterly';
@@ -20,6 +21,8 @@ export interface SourceConfig {
   sql: string;
   /** Series de bt_market_data que pertenecen a la fuente (para registrar corridas por serie). */
   series?: string[];
+  /** Umbrales propios [lateDays, staleDays] de series con otro ritmo dentro de la fuente (p. ej. WTI semanal en FRED diario). */
+  seriesDays?: Record<string, [number, number]>;
 }
 
 const mdMax = (source: string | null, tickers: string[]) =>
@@ -30,11 +33,15 @@ export const DATA_SOURCES: SourceConfig[] = [
     sql: `SELECT 'historical_prices' AS series, max(date)::date::text AS d FROM historical_prices` },
   { id: 'etf_prices', type: 'api', cadence: 'daily', lateDays: 4, staleDays: 8,
     sql: mdMax('yfinance', ['^GSPC', '^IXIC', 'SPY', 'QQQ', 'TQQQ', 'VOO', 'SCHD', 'JEPQ', 'SQQQ']), series: ['^GSPC', '^IXIC', 'SPY', 'QQQ', 'TQQQ', 'VOO', 'SCHD', 'JEPQ', 'SQQQ'] },
+  // WTI (EIA) llega a FRED una vez por semana con ~1 semana de rezago: sus umbrales son propios.
   { id: 'fred_daily', type: 'api', cadence: 'daily', lateDays: 4, staleDays: 8,
-    sql: mdMax('fred', ['DGS2', 'DGS10', 'DGS30', 'DFEDTARU', 'BAA10Y', 'BAMLH0A0HYM2', 'BAMLH0A0HYM2EY', 'VIXCLS', 'DCOILWTICO']), series: ['DGS2', 'DGS10', 'DGS30', 'DFEDTARU', 'BAA10Y', 'BAMLH0A0HYM2', 'BAMLH0A0HYM2EY', 'VIXCLS', 'DCOILWTICO'] },
-  { id: 'fred_inflation', type: 'api', cadence: 'monthly', lateDays: 50, staleDays: 80,
+    sql: mdMax('fred', ['DGS2', 'DGS10', 'DGS30', 'DFEDTARU', 'BAA10Y', 'BAMLH0A0HYM2', 'BAMLH0A0HYM2EY', 'VIXCLS', 'DCOILWTICO']), series: ['DGS2', 'DGS10', 'DGS30', 'DFEDTARU', 'BAA10Y', 'BAMLH0A0HYM2', 'BAMLH0A0HYM2EY', 'VIXCLS', 'DCOILWTICO'],
+    seriesDays: { DCOILWTICO: [11, 18] } },
+  // CPI: el mes M sale ~43 días después del día 1 de M → el siguiente, ~74 días después del dato que se tiene.
+  { id: 'fred_inflation', type: 'api', cadence: 'monthly', lateDays: 78, staleDays: 110,
     sql: mdMax('fred', ['CPIAUCSL', 'CPILFESL']), series: ['CPIAUCSL', 'CPILFESL'] },
-  { id: 'fred_money_housing', type: 'api', cadence: 'monthly', lateDays: 80, staleDays: 120,
+  // M2/M0 (H.6, ~57 días) y ventas de vivienda (~55 días): el siguiente mes llega ~88 días después del dato que se tiene.
+  { id: 'fred_money_housing', type: 'api', cadence: 'monthly', lateDays: 95, staleDays: 125,
     sql: mdMax('fred', ['M2SL', 'BOGMBASE', 'MSACSR']), series: ['M2SL', 'BOGMBASE', 'MSACSR'] },
   { id: 'fred_gdp', type: 'api', cadence: 'quarterly', lateDays: 150, staleDays: 200,
     sql: mdMax('fred', ['GDP', 'GDPC1']), series: ['GDP', 'GDPC1'] },
@@ -44,7 +51,8 @@ export const DATA_SOURCES: SourceConfig[] = [
     sql: mdMax(null, ['NYSE_ADV_VOL', 'NYSE_DEC_VOL', 'NSDQ_ADV_VOL', 'NSDQ_DEC_VOL', 'SPX_ADV_VOL', 'SPX_DEC_VOL']), series: ['NYSE_ADV_VOL', 'NYSE_DEC_VOL', 'NSDQ_ADV_VOL', 'NSDQ_DEC_VOL', 'SPX_ADV_VOL', 'SPX_DEC_VOL'] },
   { id: 'finra_margin', type: 'file', cadence: 'monthly', lateDays: 85, staleDays: 120,
     sql: mdMax('finra', ['FINRA_DEBIT']), series: ['FINRA_DEBIT'] },
-  { id: 'shiller_cape', type: 'file', cadence: 'monthly', lateDays: 50, staleDays: 80,
+  // Shiller publica el mes M−1 hacia el día 3 de M: el siguiente E10 llega ~63 días después del día 1 del que se tiene.
+  { id: 'shiller_cape', type: 'file', cadence: 'monthly', lateDays: 68, staleDays: 100,
     sql: `SELECT 'E10 (ie_data.xls)' AS series, max(e10_month)::text AS d FROM bt_shiller_daily` },
   // EPS estimado del S&P 500: P/E estimado de Birinyi (tabla de WSJ, viernes) → cron diario de market-sync.
   { id: 'spx_fwd_eps', type: 'scraper', cadence: 'weekly', lateDays: 10, staleDays: 21,
@@ -108,18 +116,24 @@ export function evaluateSource(
   cfg: SourceConfig, rows: { series: string; d: string | null }[], today: string, error?: string,
   run: { lastRun: LastRun | null; lastOkAt: string | null } = { lastRun: null, lastOkAt: null },
 ): SourceFreshness {
+  const days = (name: string) => cfg.seriesDays?.[name] ?? [cfg.lateDays, cfg.staleDays];
   const series = rows.map((r) => {
     const d = r.d && ISO.test(r.d) ? r.d.slice(0, 10) : null;
-    return { series: r.series, lastDate: d, status: freshnessStatus(d, today, cfg.lateDays, cfg.staleDays) };
+    const [late, stale] = days(r.series);
+    return { series: r.series, lastDate: d, status: freshnessStatus(d, today, late, stale) };
   });
   const dates = series.map((s) => s.lastDate).filter((d): d is string => d != null).sort();
   const lastDate = series.length && dates.length === series.length ? dates[0] : null;
+  // Estatus = el de la peor serie (cada una con sus umbrales); fecha esperada = la más próxima entre las series.
+  const RANK: Record<FreshnessStatus, number> = { fresh: 0, late: 1, stale: 2, missing: 3 };
+  const worst = !series.length || !lastDate ? 'missing' : series.reduce<FreshnessStatus>((w, x) => (RANK[x.status] > RANK[w] ? x.status : w), 'fresh');
+  const expected = series.filter((x) => x.lastDate).map((x) => addDays(x.lastDate!, days(x.series)[0])).sort()[0] ?? null;
   return {
     id: cfg.id, type: cfg.type, cadence: cfg.cadence, lateDays: cfg.lateDays, staleDays: cfg.staleDays,
     lastDate, ageDays: lastDate ? daysBetween(lastDate, today) : null,
-    status: error ? 'missing' : freshnessStatus(lastDate, today, cfg.lateDays, cfg.staleDays),
+    status: error ? 'missing' : worst,
     series,
-    expectedBy: lastDate ? addDays(lastDate, cfg.lateDays) : null,
+    expectedBy: lastDate ? expected : null,
     lastRun: run.lastRun, lastOkAt: run.lastOkAt, runFailing: run.lastRun?.status === 'error',
     ...(error ? { error } : {}),
   };
