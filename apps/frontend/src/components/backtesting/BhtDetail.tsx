@@ -282,8 +282,9 @@ export function BhtDetailPopover({ hover, detail: detailIn, onLeave, onHold, liv
               </tbody>
             </table>
             {(() => {
-              // Compras, ventas y red de seguridad de ese día: la ruta de la gráfica (o las dos si el detalle no viene de una).
-              const lb = ladderBadgesOn(detail.date, ladders, trancheRoute ? [trancheRoute] : ['voo', 'qqq'], loc === 'es');
+              // Compras, ventas y red de seguridad de ese día en las dos rutas (cada badge dice su ruta); primero la de la gráfica.
+              const routes: LadderRoute[] = trancheRoute === 'qqq' ? ['qqq', 'voo'] : ['voo', 'qqq'];
+              const lb = ladderBadgesOn(detail.date, ladders, routes, loc === 'es');
               if (!events.length && !lb.length) return null;
               const routeTag = (rs: LadderRoute[]) => rs.map((r) => (r === 'voo' ? 'VOO' : 'QQQ')).join(' · ');
               return (
