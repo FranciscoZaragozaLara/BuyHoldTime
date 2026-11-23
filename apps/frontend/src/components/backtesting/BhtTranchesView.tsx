@@ -276,7 +276,7 @@ export default function BhtTranchesView({ date, locale, initialRoute = 'qqq', ch
                 const missing = x.checks.filter((c) => !c.ok);
                 return (
                   <tr key={x.id} className={`border-b border-slate-800/60 align-top ${x.status === 'today' ? 'bg-favorable-500/10' : ''}`}>
-                    <td className="py-0.5 whitespace-nowrap"><span className="font-bold text-slate-100">{x.id}</span> <span className="text-slate-400 font-sans">{t.names[x.id]}</span></td>
+                    <td className="py-0.5 whitespace-nowrap"><Tick on={x.status !== 'pending'} /><span className="font-bold text-slate-100">{x.id}</span> <span className="text-slate-400 font-sans">{t.names[x.id]}</span></td>
                     <td className="text-right text-slate-300">{(x.weight * 100).toFixed(0)}%</td>
                     <td className="text-right text-slate-400 px-2 whitespace-nowrap">{Math.round((1 - x.lev3x) * 100)}/{Math.round(x.lev3x * 100)}</td>
                     <td className="text-slate-300">
@@ -366,7 +366,7 @@ function SellView({ sell, es, t, one, three, fresh }: { sell: Sell; es: boolean;
             const missing = x.checks.filter((c) => !c.ok);
             return (
               <tr key={x.id} className="border-b border-slate-800/60 align-top" style={x.status === 'today' ? { backgroundColor: `${MODE_META.sell.color}1a` } : undefined}>
-                <td className="py-0.5 whitespace-nowrap"><span className="font-bold text-slate-100">{x.id}</span> <span className="text-slate-400 font-sans">{names[x.id]?.[es ? 0 : 1]}</span></td>
+                <td className="py-0.5 whitespace-nowrap"><Tick on={x.status !== 'pending'} /><span className="font-bold text-slate-100">{x.id}</span> <span className="text-slate-400 font-sans">{names[x.id]?.[es ? 0 : 1]}</span></td>
                 <td className="text-right text-slate-300">{(x.weight * 100).toFixed(0)}%</td>
                 <td className="text-right text-slate-500 px-2">{three} → {one}</td>
                 <td className="text-slate-300">
@@ -434,7 +434,7 @@ function NetRows({ net, es, money }: { net: Net; es: boolean; money: (v: number 
         const today = fired.some((e) => e.date === net.date);
         return (
           <tr key={id} className={`border-b border-slate-800/60 align-top ${today ? 'bg-favorable-500/10' : ''}`}>
-            <td className="py-0.5 whitespace-nowrap"><span className="font-bold" style={{ color: NET_RULE_COLOR[id] }}>R</span> <span className="text-slate-400 font-sans">{es ? NET_NAMES[id][0] : NET_NAMES[id][1]}</span></td>
+            <td className="py-0.5 whitespace-nowrap"><Tick on={fired.length > 0} /><span className="font-bold" style={{ color: NET_RULE_COLOR[id] }}>R</span> <span className="text-slate-400 font-sans">{es ? NET_NAMES[id][0] : NET_NAMES[id][1]}</span></td>
             <td className="text-right text-slate-300 whitespace-nowrap" title={NET_NAMES[id][2]}>{weights[id]}</td>
             <td className="text-right text-slate-400 px-2 whitespace-nowrap">100/0</td>
             <td className="text-slate-300">
@@ -465,5 +465,15 @@ function NetFooter({ net, es }: { net: Net | null | undefined; es: boolean }) {
         ? 'Red de seguridad (R): solo actúa sobre el efectivo de la venta que T0–T4 no recompraron (% de ese efectivo, en 1×). Barato y mínimos exigen el CAPE ≤ 1.25× su mediana de 20 años (en 2001 estaba en 1.9×) y sin crisis de crédito; con el crédito estresado, barato espera a que se alivie. Backtest 1993–2026 (1×): S&P 8.9% → 10.0% anual, QQQ 12.9% → 15.5%; días con ≥ 50% en efectivo 14% → 10% y 24% → 11%. Costo: caída máx. del S&P −33% → −43% (compra de ene-2009).'
         : 'Safety net (R): only acts on the sale cash T0–T4 left (% of that cash, at 1×). Cheap and lows require CAPE ≤ 1.25× its 20-year median (1.9× in 2001) and no credit crisis; with stressed credit, cheap waits for it to ease. Backtest 1993–2026 (1×): S&P 8.9% → 10.0% a year, QQQ 12.9% → 15.5%; days with ≥ 50% cash 14% → 10% and 24% → 11%. Cost: S&P max drawdown −33% → −43% (Jan-2009 buy).'}</div>
     </>
+  );
+}
+
+/** Casilla del tranche: vacía si no se ha ejecutado, palomita verde si ya se ejecutó (en este episodio o ciclo). */
+function Tick({ on }: { on: boolean }) {
+  return (
+    <span role="img" aria-label={on ? 'ejecutado' : 'pendiente'}
+      className={`inline-flex items-center justify-center w-3 h-3 mr-1.5 align-[-1px] rounded-[3px] border text-[9px] leading-none font-bold ${on ? 'bg-favorable-500 border-favorable-400 text-slate-950' : 'border-slate-500'}`}>
+      {on ? '✓' : ''}
+    </span>
   );
 }
