@@ -199,6 +199,9 @@ export type EpisodeSummary = { start: string; end: string | null; peak: number; 
  *  para los mercados bajistas lentos donde la estructura VIX/VIX3M casi no se invierte (2022). */
 export type TrancheOpts = { volArm?: number; volMode?: 'ratio' | 'hybrid'; /** Blindaje: la señal por nivel solo cuenta con BHT < este valor. */ lvlMaxBht?: number; onEpisodeEnd?: (e: EpisodeSummary) => void;
   /** false: sin el filtro de crisis de crédito en T1–T3 (backtests). */ creditGate?: boolean;
+  /** Voto A (curva VIX/VIX3M), estudio: se activa al bajar de volRelease (por defecto 1) y se anula al volver a pasar
+   *  volCancel (por defecto 1); con volPeakDrop, se activa al caer esa fracción desde el pico del ratio desde que se armó. */
+  volRelease?: number; volCancel?: number; volPeakDrop?: number;
   /** Cada compra histórica (para marcarla en la gráfica). */ onFire?: (e: BuyEvent) => void };
 /** Compra histórica de la escalera: tranche, fecha, precio de referencia, tamaño (0.5 = medio tranche) y si fue el respaldo de T4. */
 export type BuyEvent = { date: string; id: TrancheId; price: number; size: number; backup: boolean };
@@ -225,7 +228,8 @@ export function computeTranches(P: PreparedTranches, date: string, sectorRule: S
   // Estado
   let open = false, start = -1, peak = 0, peakIdx = -1, minP = Infinity, minIdx = -1, ddMax = 0, spDdMax = 0, ndxDdMax = 0, sectorOnly = false;
   let lastEp: TranchesResult['lastEpisode'] = null;
-  let armed = false, volOnAt = -1, armedAt = -1, lvlOnAt = -1;
+  let armed = false, volOnAt = -1, armedAt = -1, lvlOnAt = -1, armPeak = 0;
+  const volRelease = opts.volRelease ?? 1, volCancel = opts.volCancel ?? 1, volPeakDrop = opts.volPeakDrop;
   let volSignal: 'ratio' | 'level' | null = null;
   let bollAt = -1, curvRun = 0, slopeMin = 0;
   const fired: Partial<Record<TrancheId, { k: number; size: number; backup?: boolean }>> = {};
@@ -278,9 +282,17 @@ export function computeTranches(P: PreparedTranches, date: string, sectorRule: S
     const ratio = ratioAt(k);
     let volVote = false;
     if (ratio != null) {
-      if (ratio > volArm) { armed = true; armedAt = k; volOnAt = -1; }
-      else if (armed && ratio < 1) { volOnAt = k; armed = false; }
-      if (ratio > 1) volOnAt = -1;
+      if (volPeakDrop != null) {
+        // Variante por caída desde el pico: se arma al pasar volArm; se activa al caer volPeakDrop desde el pico de la ola;
+        // un nuevo pico mayor que el que la activó la anula y la vuelve a armar.
+        const fresh = volOnAt < 0 || k - volOnAt >= C.volWindow;
+        if (!armed && ratio > volArm && (fresh || ratio > armPeak)) { armed = true; armedAt = k; volOnAt = -1; armPeak = ratio; }
+        if (armed) { armPeak = Math.max(armPeak, ratio); if (ratio <= armPeak * (1 - volPeakDrop)) { volOnAt = k; armed = false; } }
+      } else {
+        if (ratio > volArm) { armed = true; armedAt = k; volOnAt = -1; }
+        else if (armed && ratio < volRelease) { volOnAt = k; armed = false; }
+        if (ratio > volCancel) volOnAt = -1;
+      }
     } else {
       const v = P.vix[k], m10 = P.vixMax10[k];
       if (v != null && m10 != null) {

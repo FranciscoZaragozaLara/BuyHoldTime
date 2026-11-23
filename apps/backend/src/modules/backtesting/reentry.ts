@@ -12,7 +12,7 @@
 // Backtest 1993–2026 (1×): VOO 8.9% → 10.0% anual, QQQ 12.9% → 15.5%; caída máx. QQQ igual (−42%), VOO −33% → −43%
 // (compra de ene-2009, antes del piso de marzo). Días con ≥ 50% en efectivo: VOO 13.7% → 9.8%, QQQ 23.9% → 10.7%.
 // Sensibilidad: inicio de Ds en 48–55 en vez de 45 solo adelanta la compra de 2022 (más cara); CAPE 1.15–1.4 estable.
-import { CREDIT_CFG, SELL_CFG, TRANCHE_CFG, computeSellTranches, computeTranches, type BuyEvent, type EpisodeSummary, type PreparedTranches, type SellEvent } from './tranches';
+import { CREDIT_CFG, SELL_CFG, TRANCHE_CFG, computeSellTranches, computeTranches, type BuyEvent, type EpisodeSummary, type PreparedTranches, type SellEvent, type TrancheOpts } from './tranches';
 
 export const REENTRY_CFG = {
   bv: { half: 50, full: 40 }, ds: { bands: [[35, 1], [40, 0.75], [45, 0.5]] as Array<[number, number]>, ease: CREDIT_CFG.ease * 100 },
@@ -60,15 +60,15 @@ export const NET_RULE: ReentryRule = (c) => {
 
 /** Eventos completos de las dos escaleras (causales: los de antes de una fecha no cambian al alargar la serie). */
 const evCache = new WeakMap<PreparedTranches, { sells: SellEvent[]; buys: BuyEvent[]; eps: EpisodeSummary[] }>();
-export function ladderEvents(P: PreparedTranches) {
-  const hit = evCache.get(P);
+export function ladderEvents(P: PreparedTranches, opts?: TrancheOpts) {
+  const hit = opts ? undefined : evCache.get(P);
   if (hit) return hit;
   const last = P.s.dates[P.s.dates.length - 1];
   const sells: SellEvent[] = [], buys: BuyEvent[] = [], eps: EpisodeSummary[] = [];
   computeSellTranches(P, last, (e) => sells.push(e));
-  computeTranches(P, last, 'half', { onFire: (e) => buys.push(e), onEpisodeEnd: (e) => eps.push(e) });
+  computeTranches(P, last, 'half', { ...opts, onFire: (e) => buys.push(e), onEpisodeEnd: (e) => eps.push(e) });
   const out = { sells, buys, eps };
-  evCache.set(P, out);
+  if (!opts) evCache.set(P, out);
   return out;
 }
 
@@ -80,9 +80,9 @@ export type SimCycle = { k: number; kLast: number; base: number; sold: number; s
  * unidades al inicio de cada ciclo; compras T0–T4 por su peso sobre el efectivo del episodio; la regla extra sobre el
  * efectivo de la última venta. Devuelve la serie de efectivo, las compras y el estado final.
  */
-export function simulateReentry(P: PreparedTranches, rule?: ReentryRule, until?: number) {
+export function simulateReentry(P: PreparedTranches, rule?: ReentryRule, until?: number, opts?: TrancheOpts) {
   const { s, px, route } = P;
-  const { sells, buys, eps } = ladderEvents(P);
+  const { sells, buys, eps } = ladderEvents(P, opts);
   const bht = ffill(s.bht ?? []), s50 = sma(px, 50), s200 = sma(px, 200);
   const hi = route === 'voo' ? P.spMax : P.qMax;
   const sellAt = new Map<string, SellEvent[]>(); for (const e of sells) sellAt.set(e.date, [...(sellAt.get(e.date) ?? []), e]);
