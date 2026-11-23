@@ -204,6 +204,8 @@ export type TrancheOpts = { volArm?: number; volMode?: 'ratio' | 'hybrid'; /** B
   volRelease?: number; volCancel?: number; volPeakDrop?: number;
   /** Veto de crédito, estudio: solo veta si además el HY subió ≥ vetoRise5 puntos en 5 sesiones; vetoT1 false = T1 sin veto. */
   vetoRise5?: number; vetoT1?: boolean;
+  /** Voto B (caída del VIX desde su máximo de 20 días), estudio: caída requerida (por defecto 0.25 = −25%). */
+  lvlDrop?: number;
   /** Cada compra histórica (para marcarla en la gráfica). */ onFire?: (e: BuyEvent) => void };
 /** Compra histórica de la escalera: tranche, fecha, precio de referencia, tamaño (0.5 = medio tranche) y si fue el respaldo de T4. */
 export type BuyEvent = { date: string; id: TrancheId; price: number; size: number; backup: boolean };
@@ -309,7 +311,7 @@ export function computeTranches(P: PreparedTranches, date: string, sectorRule: S
       const v = P.vix[k], m20 = P.vixMax20[k];
       if (v != null && m20 != null) {
         if (v >= m20) lvlOnAt = -1;
-        else if (m20 >= 25 && v <= 0.75 * m20 && lvlOnAt < 0 && (lvlMaxBht == null || (s.bht?.[k] ?? 100) < lvlMaxBht)) lvlOnAt = k;
+        else if (m20 >= 25 && v <= (1 - (opts.lvlDrop ?? 0.25)) * m20 && lvlOnAt < 0 && (lvlMaxBht == null || (s.bht?.[k] ?? 100) < lvlMaxBht)) lvlOnAt = k;
       }
     }
     const ratioOn = volOnAt >= 0 && k - volOnAt < C.volWindow, lvlOn = lvlOnAt >= 0 && k - lvlOnAt < C.volWindow;
