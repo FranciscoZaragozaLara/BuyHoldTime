@@ -202,6 +202,8 @@ export type TrancheOpts = { volArm?: number; volMode?: 'ratio' | 'hybrid'; /** B
   /** Voto A (curva VIX/VIX3M), estudio: se activa al bajar de volRelease (por defecto 1) y se anula al volver a pasar
    *  volCancel (por defecto 1); con volPeakDrop, se activa al caer esa fracción desde el pico del ratio desde que se armó. */
   volRelease?: number; volCancel?: number; volPeakDrop?: number;
+  /** Veto de crédito, estudio: solo veta si además el HY subió ≥ vetoRise5 puntos en 5 sesiones; vetoT1 false = T1 sin veto. */
+  vetoRise5?: number; vetoT1?: boolean;
   /** Cada compra histórica (para marcarla en la gráfica). */ onFire?: (e: BuyEvent) => void };
 /** Compra histórica de la escalera: tranche, fecha, precio de referencia, tamaño (0.5 = medio tranche) y si fue el respaldo de T4. */
 export type BuyEvent = { date: string; id: TrancheId; price: number; size: number; backup: boolean };
@@ -272,7 +274,9 @@ export function computeTranches(P: PreparedTranches, date: string, sectorRule: S
 
     // Veto de crédito: HY OAS en su máximo de 63 días y sobre su SMA20.
     const oas = P.oas[k];
-    const veto = oas != null && P.oasMax63[k] != null && P.oasSma20[k] != null && oas >= (P.oasMax63[k] as number) && oas > (P.oasSma20[k] as number);
+    const o5 = k >= 5 ? P.oas[k - 5] : null;
+    const veto = oas != null && P.oasMax63[k] != null && P.oasSma20[k] != null && oas >= (P.oasMax63[k] as number) && oas > (P.oasSma20[k] as number)
+      && (opts.vetoRise5 == null || (o5 != null && oas - o5 >= opts.vetoRise5));
     // Crisis de crédito: T1–T3 esperan alivio del crédito o un BHT bajo (CREDIT_CFG).
     const cr = useCredit ? creditAt(P, k) : null;
     const bk = s.bht?.[k] ?? null;
@@ -343,7 +347,7 @@ export function computeTranches(P: PreparedTranches, date: string, sectorRule: S
       const sectorNow = dual && permitNdx && !permitSp;
       const t1 = [
         { key: 'permit', ok: permit, value: dual ? nd : spd, need: dual ? C.ndx.permit : C.sp.permit },
-        { key: 'noVeto', ok: !veto },
+        { key: 'noVeto', ok: !veto || opts.vetoT1 === false },
         ...creditChecks,
         { key: 'volVote', ok: volVote },
         ...(sectorNow && sectorRule === 'extraVote' ? [{ key: 'extraVote', ok: decelVote }] : []),

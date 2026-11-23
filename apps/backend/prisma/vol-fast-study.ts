@@ -6,7 +6,10 @@ import { databaseUrl } from './db-url';
 import { computeTranches, loadTrancheSeries, prepareTranches, type BuyEvent, type EpisodeSummary, type TrancheOpts, type TrancheRoute } from '../src/modules/backtesting/tranches';
 import { NET_RULE, simulateReentry } from '../src/modules/backtesting/reentry';
 
-const VARIANTS: Array<{ key: string; name: string; opts: TrancheOpts }> = [
+const A_OPTS: Record<string, TrancheOpts> = { A: {}, Apd10: { volArm: 1.10, volPeakDrop: 0.10 }, Ar105: { volArm: 1.10, volRelease: 1.05, volCancel: 1.10 } };
+const V_OPTS: Record<string, TrancheOpts> = { veto: {}, rise10: { vetoRise5: 0.10 }, rise20: { vetoRise5: 0.20 }, t1libre: { vetoT1: false } };
+const GRID = Object.entries(A_OPTS).flatMap(([a, ao]) => Object.entries(V_OPTS).map(([v, vo]) => ({ key: `${a}+${v}`, name: `${a} · ${v}`, opts: { ...ao, ...vo } })));
+const VARIANTS: Array<{ key: string; name: string; opts: TrancheOpts }> = process.env.GRID ? GRID : [
   { key: 'base', name: 'Actual: arma > 1.05, activa < 1.00', opts: {} },
   { key: 'a105r102', name: 'Arma > 1.05, activa < 1.02', opts: { volArm: 1.05, volRelease: 1.02, volCancel: 1.05 } },
   { key: 'a110r105', name: 'Arma > 1.10, activa < 1.05', opts: { volArm: 1.10, volRelease: 1.05, volCancel: 1.10 } },
