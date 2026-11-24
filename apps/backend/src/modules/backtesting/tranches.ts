@@ -28,6 +28,8 @@ export type TrancheSeries = {
   cape: (number | null)[];
   /** BHT Index del día (desde 1993): blinda la señal por nivel del VIX del modo híbrido. */
   bht?: (number | null)[];
+  /** Solo estudios: BHT alterno que usa la escalera de VENTA (si falta, usa `bht`). Producción no lo llena. */
+  sellBht?: (number | null)[];
   /** Mediana de 20 años del CAPE vigente cada día (null sin historia suficiente). */
   capeMedian20: (number | null)[];
 };
@@ -548,7 +550,7 @@ export function computeSellTranches(P: PreparedTranches, date: string, onSale?: 
   for (let k = s.dates.length - 1; k >= 0; k--) if (s.dates[k] <= date) { D = k; break; }
   if (D < 0 || px[D] == null) return null;
   const C = SELL_CFG;
-  const bht = ffill(s.bht ?? s.dates.map(() => null));
+  const bht = ffill(s.sellBht ?? s.bht ?? s.dates.map(() => null));
   const s50 = sma(px, 50), s200 = sma(px, 200), hi20 = rollingMax(px, 20);
   let open = false, start = -1, low = 0, lastVal = -999, peak = 0, peakIdx = -1, below = 0, calm = 0, creditCycle = false;
   let lastCycle: SellResult['lastCycle'] = null;
