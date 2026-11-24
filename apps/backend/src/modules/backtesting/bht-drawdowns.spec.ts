@@ -30,6 +30,16 @@ describe('caída máxima por año', () => {
     expect(y2.vsBasePct).toBeCloseTo(-10, 6);
     expect(y2.troughDate! >= '2001-01-01' && y2.troughDate! <= '2002-01-01').toBe(true);
   });
+  test('BHT del día del pico y del valle (el último conocido si ese día no hay BHT)', () => {
+    const d = monthly(4);
+    const r2 = computeBhtDrawdowns(mk(d, [50, 70, null, 40], [100, 120, 90, 80]), '2000-01-01', 'spx')!;
+    expect(r2.years[0].peakDate).toBe('2000-02-01');
+    expect(r2.years[0].peakBht).toBe(70);
+    expect(r2.years[0].troughBht).toBe(40);
+    const r3 = computeBhtDrawdowns(mk(d, [50, 70, null, 40], [100, 120, 80, 90]), '2000-01-01', 'spx')!;
+    expect(r3.years[0].troughDate).toBe('2000-03-01');
+    expect(r3.years[0].troughBht).toBe(70);
+  });
   test('año sin caída: 0%; años después de hoy sin datos; el año en curso es parcial', () => {
     expect(r.years[2].ddPct).toBe(0);
     expect(r.years[2].partial).toBe(true);

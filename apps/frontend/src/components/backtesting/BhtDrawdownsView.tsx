@@ -15,7 +15,7 @@ type PricePoint = { date: string; price: number; bht: number | null };
 type Result = {
   date: string; bht: number;
   base: { price: number | null; today: string; todayPrice: number | null };
-  years: Array<{ year: number; from: string; to: string; partial: boolean; peakDate: string | null; peakPrice: number | null; troughDate: string | null; troughPrice: number | null; ddPct: number | null; vsBasePct: number | null }>;
+  years: Array<{ year: number; from: string; to: string; partial: boolean; peakDate: string | null; peakPrice: number | null; troughDate: string | null; troughPrice: number | null; peakBht?: number | null; troughBht?: number | null; ddPct: number | null; vsBasePct: number | null }>;
   sinceBuy?: {
     maxDd: { pct: number; nominal: number; vsBasePct: number; peak: PricePoint; trough: PricePoint } | null;
     maxPeak: (PricePoint & { pct: number; nominal: number }) | null;
@@ -99,6 +99,7 @@ export default function BhtDrawdownsView({ date, locale }: { date: string; local
     if (kind === 'buy') return BUY_STYLE[id.slice(0, 2) as keyof typeof BUY_STYLE]?.color ?? TOKENS.favorable;
     return NET_COLOR[id.split('·')[1] ?? ''] ?? TOKENS.favorable;
   };
+  const bhtCell = (b?: number | null) => <td className="text-right font-bold" style={b != null ? { color: capeScoreColor(b) } : undefined}>{b != null ? b.toFixed(1) : '—'}</td>;
   const routeName = (rt: 'voo' | 'qqq') => (rt === 'voo' ? 'VOO · S&P 500' : 'QQQ');
 
   return (
@@ -150,8 +151,8 @@ export default function BhtDrawdownsView({ date, locale }: { date: string; local
               <thead className="text-[9px] uppercase tracking-wide text-slate-500">
                 <tr className="border-b border-slate-700/70">
                   <th className="text-left font-normal py-0.5">{t.year}</th>
-                  <th className="text-right font-normal">{t.peak}</th><th className="text-right font-normal">{t.price}</th><th className="text-right font-normal">{t.vsBase}</th>
-                  <th className="text-right font-normal">{t.trough}</th><th className="text-right font-normal">{t.price}</th><th className="text-right font-normal">{t.vsBase}</th>
+                  <th className="text-right font-normal">{t.peak}</th><th className="text-right font-normal">{t.bht}</th><th className="text-right font-normal">{t.price}</th><th className="text-right font-normal">{t.vsBase}</th>
+                  <th className="text-right font-normal">{t.trough}</th><th className="text-right font-normal">{t.bht}</th><th className="text-right font-normal">{t.price}</th><th className="text-right font-normal">{t.vsBase}</th>
                   <th className="text-right font-normal" title={t.ddTitleCol}>{t.dd}</th>
                 </tr>
               </thead>
@@ -160,20 +161,23 @@ export default function BhtDrawdownsView({ date, locale }: { date: string; local
                   <tr className="border-b border-slate-800/60 bg-slate-800/30">
                     <td className="py-[1px] font-semibold text-favorable-300">{t.entry}</td>
                     <td className="text-right text-slate-300">{r.date}</td>
+                    <td className="text-right font-bold" style={{ color: capeScoreColor(r.bht) }}>{r.bht.toFixed(1)}</td>
                     <td className="text-right text-slate-100">{money(r.base.price)}</td>
                     <td className="text-right text-slate-400">{pctTxt(0)}</td>
-                    <td colSpan={4} className="text-right text-slate-500">{t.entryNote} · BHT <span className="font-bold" style={{ color: capeScoreColor(r.bht) }}>{r.bht.toFixed(1)}</span></td>
+                    <td colSpan={5} className="text-right text-slate-500">{t.entryNote}</td>
                   </tr>
                 )}
                 {r.years.map((y) => (
                   <tr key={y.year} className="border-b border-slate-800/60" title={`${y.from} → ${y.to}`}>
                     <td className="py-[1px] text-slate-400">{y.year}{y.partial && y.ddPct != null && <span className="text-slate-600"> · {t.partial}</span>}</td>
-                    {y.ddPct == null ? <td colSpan={7} className="text-right text-slate-600">{t.nodata}</td> : (
+                    {y.ddPct == null ? <td colSpan={9} className="text-right text-slate-600">{t.nodata}</td> : (
                       <>
                         <td className="text-right text-slate-400">{y.peakDate}</td>
+                        {bhtCell(y.peakBht)}
                         <td className="text-right text-slate-300">{money(y.peakPrice)}</td>
                         {(() => { const v = r.base.price && y.peakPrice != null ? (y.peakPrice / r.base.price - 1) * 100 : null; return <td className={`text-right ${pctCls(v)}`}>{pctTxt(v)}</td>; })()}
                         <td className="text-right text-slate-300">{y.troughDate}</td>
+                        {bhtCell(y.troughBht)}
                         <td className="text-right text-slate-100">{money(y.troughPrice)}</td>
                         <td className={`text-right ${pctCls(y.vsBasePct)}`}>{pctTxt(y.vsBasePct)}</td>
                         <td className={`text-right font-bold ${y.ddPct < 0 ? 'text-risk-300' : 'text-slate-400'}`}>{pctTxt(y.ddPct)}</td>

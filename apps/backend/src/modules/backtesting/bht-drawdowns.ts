@@ -13,6 +13,8 @@ export const DD_YEARS = 5;
 export type YearDrawdown = {
   year: number; from: string; to: string; partial: boolean;
   peakDate: string | null; peakPrice: number | null; troughDate: string | null; troughPrice: number | null;
+  /** BHT del día del pico y del valle (último BHT ≤ ese día). */
+  peakBht: number | null; troughBht: number | null;
   ddPct: number | null; vsBasePct: number | null;
 };
 export type MaxDd = { pct: number; peakDate: string | null; troughDate: string | null };
@@ -55,13 +57,18 @@ export function computeBhtDrawdowns(s: StrategySeries, date: string, instrument:
   let lastPx: number | null = null;
   for (let k = last; k >= i && lastPx == null; k--) lastPx = px[k];
 
+  // BHT vigente cada día (último BHT ≤ ese día).
+  const bhtAt: (number | null)[] = [];
+  { let lb: number | null = null; for (let k = 0; k <= last; k++) { if (s.bht[k] != null) lb = s.bht[k]; bhtAt[k] = lb; } }
+  const bhtOn = (d: string | null) => { if (!d) return null; const k = lastOnOrBefore(s.dates, d); return k >= 0 ? bhtAt[k] : null; };
+
   // 1) Caída máxima por año, desde el pico acumulado desde la compra.
   const years: YearDrawdown[] = [];
   let peak = p0, peakD: string | null = p0 != null ? s.dates[i] : null;
   let j = i + 1;
   for (let y = 1; y <= DD_YEARS; y++) {
     const from = addYears(s.dates[i], y - 1), to = addYears(s.dates[i], y);
-    const row: YearDrawdown = { year: y, from, to, partial: to > today, peakDate: null, peakPrice: null, troughDate: null, troughPrice: null, ddPct: null, vsBasePct: null };
+    const row: YearDrawdown = { year: y, from, to, partial: to > today, peakDate: null, peakPrice: null, troughDate: null, troughPrice: null, peakBht: null, troughBht: null, ddPct: null, vsBasePct: null };
     if (from > today || p0 == null) { years.push(row); continue; }
     let best: { dd: number; k: number; peak: number; peakD: string } | null = null;
     for (; j <= last && s.dates[j] <= to; j++) {
@@ -74,6 +81,7 @@ export function computeBhtDrawdowns(s: StrategySeries, date: string, instrument:
     if (best) {
       Object.assign(row, {
         peakDate: best.peakD, peakPrice: best.peak, troughDate: s.dates[best.k], troughPrice: px[best.k],
+        peakBht: bhtOn(best.peakD), troughBht: bhtAt[best.k],
         ddPct: best.dd, vsBasePct: (px[best.k]! / p0 - 1) * 100,
       });
     }
@@ -83,9 +91,6 @@ export function computeBhtDrawdowns(s: StrategySeries, date: string, instrument:
   // 3) Desde la compra hasta hoy: caída máxima y pico máximo, con el BHT del día (último BHT ≤ ese día).
   const sinceBuy: SinceBuy = { maxDd: null, maxPeak: null };
   if (p0 != null) {
-    let lastBht: number | null = null;
-    const bhtAt: (number | null)[] = [];
-    for (let k = 0; k <= last; k++) { if (s.bht[k] != null) lastBht = s.bht[k]; bhtAt[k] = lastBht; }
     const pt = (k: number): PricePoint => ({ date: s.dates[k], price: px[k]!, bht: bhtAt[k] });
     let peakK = i, hiK = i, best: { dd: number; peakK: number; k: number } | null = null;
     for (let k = i + 1; k <= last; k++) {
