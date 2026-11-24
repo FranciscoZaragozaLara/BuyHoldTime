@@ -21,7 +21,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { RiskDisclaimer } from '@/components/RiskDisclaimer';
 import { useIsAdmin } from '@/context/AuthContext';
 import { TOKENS } from '@/lib/designTokens';
-import { capeRiskScore, fwdRiskScore, ratioRiskScore, CPI_LVL_SEGS, CPI_TRD_SEGS, cpiMScore, Y2M_LVL_SEGS, Y2M_TRD_SEGS, Y30M_LVL_SEGS, y30mRiskScore, MG_SEGS, MG_TRD_SEGS, vixRiskScore, msRiskScore, gdpRiskScore, partName, partLabel, fwdBandLabel, CAPE_BANDS, RATIO_BANDS, ratioBandLabel, CPI_BANDS, cpiBandLabel, Y2M_BANDS, y2mBandLabel, Y30_BANDS, y30mBandLabel, hyBandLabel, MG_BANDS, mgBandLabel, GDP_BANDS, MS_BANDS, VIX_BANDS, oilRiskScore, OIL_BANDS, fgRiskScore, FG_BANDS, FWD_BANDS, type MomBlend, momBlend } from '@/lib/thermoScoring';
+import { PART_BANDS, PART_DEC, capeRiskScore, fwdRiskScore, ratioRiskScore, CPI_LVL_SEGS, CPI_TRD_SEGS, cpiMScore, Y2M_LVL_SEGS, Y2M_TRD_SEGS, Y30M_LVL_SEGS, y30mRiskScore, MG_SEGS, MG_TRD_SEGS, vixRiskScore, msRiskScore, gdpRiskScore, partName, partLabel, fwdBandLabel, CAPE_BANDS, RATIO_BANDS, ratioBandLabel, CPI_BANDS, cpiBandLabel, Y2M_BANDS, y2mBandLabel, Y30_BANDS, y30mBandLabel, hyBandLabel, MG_BANDS, mgBandLabel, GDP_BANDS, MS_BANDS, VIX_BANDS, oilRiskScore, OIL_BANDS, fgRiskScore, FG_BANDS, FWD_BANDS, type MomBlend, momBlend } from '@/lib/thermoScoring';
 import { type ThermoLive, useThermoLive, useLiveTicker } from './useThermoLive';
 import { BhtHistoryBlock, ScoreOrb } from './ThermoOrbs';
 import { TrendBadge } from './TrendBadge';
@@ -243,12 +243,7 @@ export function IndicatorsPanel() {
       {(()=>{
         // Termómetro compuesto: promedio ponderado base 100 (no suma). Cada indicador aporta
         // puntaje 0-100 × peso; al agregar más, se normaliza entre el peso total acumulado.
-        const PART_DEC: Record<string, number> = { RATIO: 3, FG: 0, MS: 1 };
-        // Bandas de cada componente (las mismas de los orbes de las cards) para el popover del detalle.
-        const PART_BANDS: Record<string, [number, number, string, string, string][]> = {
-          CAPE: CAPE_BANDS, FWD: FWD_BANDS, RATIO: RATIO_BANDS, CPI: CPI_BANDS, CORE: CPI_BANDS, Y2M: Y2M_BANDS,
-          '30Y': Y30_BANDS, MG: MG_BANDS, VIX: VIX_BANDS, FG: FG_BANDS, MS: MS_BANDS, PIB: GDP_BANDS,
-        };
+        // PART_DEC y PART_BANDS: lib/thermoScoring (compartidos con la página de indicadores).
         const parts = (thermoLive?.parts ?? []).map((p) => ({ ...p, dec: PART_DEC[p.key] ?? 2 }));
         const wTotal = parts.reduce((m, p) => m + p.weight, 0);
         const hyB = hyBonusNow;

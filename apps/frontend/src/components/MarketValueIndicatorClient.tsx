@@ -4,7 +4,7 @@ import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useLocale } from 'next-intl';
 import { athColor } from '@/lib/athDrawdown';
 import { createChart, ColorType, LineSeries, IChartApi, createSeriesMarkers, type Time } from 'lightweight-charts';
-import { Eye, EyeOff, LineChart as ChartIcon, Sparkles } from 'lucide-react';
+import { Eye, EyeOff, LineChart as ChartIcon } from 'lucide-react';
 import { IndicatorDetails } from '@/services/api';
 import { TOKENS } from '@/lib/designTokens';
 import { getApiBase } from '@/lib/apiBase';
@@ -18,14 +18,12 @@ interface MarketValueIndicatorClientProps {
   peRatioData: IndicatorDetails;
   sp500PriceData: IndicatorDetails;
   /** P/E estimado actual (WSJ / Birinyi), el mismo del termómetro. */
-  fwdPe?: number | null;
 }
 
 export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProps> = ({
   shillerPeData,
   peRatioData,
   sp500PriceData,
-  fwdPe = null,
 }) => {
   const locale = useLocale();
   
@@ -529,69 +527,6 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
   return (
     <div className="flex flex-col gap-10">
       
-      {/* Visual Header / Summary Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="p-6 rounded-2xl border border-slate-900 bg-slate-900/30 backdrop-blur-sm relative overflow-hidden group">
-          <div className="absolute top-0 right-0 p-3 opacity-10 text-accent-400 group-hover:scale-110 transition duration-300">
-            <Sparkles size={48} />
-          </div>
-          <p className="text-xs text-slate-500 font-bold tracking-wider uppercase">
-            {locale === 'es' ? 'VALOR S&P 500' : 'S&P 500 PRICE'}
-          </p>
-          <p className="text-3xl font-extrabold mt-2 text-accent-400">
-            {Number.isFinite(sp500PriceData.indicator.currentValue) ? sp500PriceData.indicator.currentValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—'}
-          </p>
-          <p className="text-xs text-slate-400 mt-2">
-            {locale === 'es' ? 'Último cierre del índice' : 'Latest index close'}
-          </p>
-        </div>
-
-        <div className="p-6 rounded-2xl border border-slate-900 bg-slate-900/30 backdrop-blur-sm relative overflow-hidden group">
-          <div className="absolute top-0 right-0 p-3 opacity-10 text-caution-500 group-hover:scale-110 transition duration-300">
-            <Sparkles size={48} />
-          </div>
-          <p className="text-xs text-slate-500 font-bold tracking-wider uppercase">
-            {locale === 'es' ? 'P/E RATIO REGULAR' : 'REGULAR P/E RATIO'}
-          </p>
-          <p className="text-3xl font-extrabold mt-2 text-caution-400">
-            {Number.isFinite(peRatioData.indicator.currentValue) ? `${peRatioData.indicator.currentValue.toFixed(2)}x` : '—'}
-          </p>
-          <p className="text-xs text-slate-400 mt-2">
-            {locale === 'es' ? 'Múltiplo de ganancias tradicional' : 'Traditional price-to-earnings multiple'}
-          </p>
-        </div>
-
-        <div className="p-6 rounded-2xl border border-slate-900 bg-slate-900/30 backdrop-blur-sm relative overflow-hidden group">
-          <div className="absolute top-0 right-0 p-3 opacity-10 text-risk-500 group-hover:scale-110 transition duration-300">
-            <Sparkles size={48} />
-          </div>
-          <p className="text-xs text-slate-500 font-bold tracking-wider uppercase">
-            {locale === 'es' ? 'SHILLER PE (CAPE)' : 'SHILLER PE (CAPE)'}
-          </p>
-          <p className="text-3xl font-extrabold mt-2 text-risk-400">
-            {Number.isFinite(shillerPeData.indicator.currentValue) ? `${shillerPeData.indicator.currentValue.toFixed(2)}x` : '—'}
-          </p>
-          <p className="text-xs text-slate-400 mt-2">
-            {locale === 'es' ? 'Ajustado por inflación (promedio 10 años)' : 'Inflation-adjusted 10-year earnings multiple'}
-          </p>
-        </div>
-
-        <div className="p-6 rounded-2xl border border-slate-900 bg-slate-900/30 backdrop-blur-sm relative overflow-hidden group">
-          <div className="absolute top-0 right-0 p-3 opacity-10 text-favorable-500 group-hover:scale-110 transition duration-300">
-            <Sparkles size={48} />
-          </div>
-          <p className="text-xs text-slate-500 font-bold tracking-wider uppercase">
-            {locale === 'es' ? 'P/E ESTIMADO (FORWARD)' : 'FORWARD P/E'}
-          </p>
-          <p className="text-3xl font-extrabold mt-2 text-favorable-400">
-            {fwdPe != null ? `${fwdPe.toFixed(2)}x` : '—'}
-          </p>
-          <p className="text-xs text-slate-400 mt-2">
-            {locale === 'es' ? 'Precio ÷ EPS estimado a 12 meses (WSJ / Birinyi)' : 'Price ÷ 12-month estimated EPS (WSJ / Birinyi)'}
-          </p>
-        </div>
-      </div>
-
       {/* Main Chart Section */}
       <div className="p-6 rounded-2xl border border-slate-900 bg-slate-900/10 backdrop-blur-sm flex flex-col gap-6">
         <div className="flex flex-wrap items-center justify-between gap-4">

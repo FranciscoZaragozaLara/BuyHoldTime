@@ -2,6 +2,10 @@ import React from 'react';
 import { Layout } from '@/components/Layout';
 import { MarketValueIndicatorClient } from '@/components/MarketValueIndicatorClient';
 import { getIndicatorDetails, IndicatorDetails } from '@/services/api';
+import { getApiBase } from '@/lib/apiBase';
+import { BhtTodaySummary } from '@/components/indicators/BhtTodaySummary';
+import { BhtComponents } from '@/components/indicators/BhtComponents';
+import type { ThermoLive } from '@/components/backtesting/useThermoLive';
 import { Sparkles } from 'lucide-react';
 import { getTranslations } from 'next-intl/server';
 
@@ -48,11 +52,13 @@ export default async function IndicatorsPage({
     getIndicatorDetails('pe_ratio', 1500),
     getIndicatorDetails('sp500_price', 1500),
     getIndicatorDetails('fwd_pe_ratio', 1),
+    // Termómetro BHT de hoy (fuente única del BHT); el cliente lo refresca cada 5 min.
+    fetch(`${getApiBase()}/api/backtesting/thermo-live`, { next: { revalidate: 300 } }).then((r) => (r.ok ? r.json() : null)),
   ]);
   const shillerPeData = results[0].status === 'fulfilled' ? results[0].value : empty('schiller_pe', 'Shiller PE Ratio (CAPE)', 'x');
   const peRatioData = results[1].status === 'fulfilled' ? results[1].value : empty('pe_ratio', 'S&P 500 PE Ratio', 'x');
   const sp500PriceData = results[2].status === 'fulfilled' ? results[2].value : empty('sp500_price', 'S&P 500 Price');
-  const fwdPe = results[3].status === 'fulfilled' ? results[3].value.indicator.currentValue : null;
+  const thermo = results[4].status === 'fulfilled' && Array.isArray((results[4].value as ThermoLive | null)?.parts) ? (results[4].value as ThermoLive) : null;
   const missing = results.slice(0, 3).some((r) => r.status === 'rejected');
   if (missing) console.error('Indicators page: some series failed', results.map((r) => r.status));
 
@@ -64,17 +70,17 @@ export default async function IndicatorsPage({
         <div className="flex flex-col gap-4 text-center sm:text-left max-w-3xl">
           <div className="inline-flex items-center gap-1.5 self-center sm:self-start px-3 py-1 rounded-full border border-accent-500/25 bg-accent-500/5 text-accent-400 text-[10px] font-bold uppercase tracking-wider">
             <Sparkles size={12} className="animate-pulse" />
-            {locale === 'es' ? 'Indicador de Valoración Macro' : 'Macro Valuation Indicator'}
+            {locale === 'es' ? 'BHT Index y valuación del mercado' : 'BHT Index and market valuation'}
           </div>
 
           <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-white">
-            {locale === 'es' ? 'Indicadores de Valuación de Mercado (CAPE)' : 'Market Value Indicators (CAPE)'}
+            {locale === 'es' ? 'Indicadores del mercado' : 'Market indicators'}
           </h1>
 
           <p className="text-sm sm:text-base text-slate-400 leading-relaxed">
             {locale === 'es'
-              ? 'Analiza el nivel de valuación histórica del S&P 500. Compara el índice de precios con el P/E ratio tradicional y el Shiller PE (CAPE) ajustado cíclicamente por inflación para identificar sobrevaloraciones o gangas de mercado.'
-              : 'Analyze the S&P 500 historical valuation level. Compare the price index with the traditional P/E ratio and the inflation-adjusted Shiller PE (CAPE) to spot market bubbles or buying opportunities.'}
+              ? 'El BHT Index resume en un número de 0 a 100 la valuación (CAPE de Shiller, P/E), la inflación, las tasas, el apalancamiento, el sentimiento y la economía. Abajo: su lectura de hoy, la gráfica histórica del S&P 500, el Nasdaq-100 y TQQQ con sus señales, y cada componente con su dato.'
+              : 'The BHT Index sums up valuation (Shiller CAPE, P/E), inflation, rates, leverage, sentiment and the economy in a single 0–100 number. Below: today’s reading, the historical chart of the S&P 500, Nasdaq-100 and TQQQ with its signals, and every component with its data.'}
           </p>
         </div>
 
@@ -87,13 +93,18 @@ export default async function IndicatorsPage({
           </div>
         )}
 
-        {/* Client Interactive Area */}
+        {/* 1) BHT de hoy: termómetro, tendencia, KPIs y rendimientos históricos de la combinación de hoy */}
+        <BhtTodaySummary initial={thermo} pe={peRatioData.indicator.currentValue} />
+
+        {/* 2) Gráfica del valor de mercado (BHT, señales y detalle por fecha) */}
         <MarketValueIndicatorClient
           shillerPeData={shillerPeData}
           peRatioData={peRatioData}
           sp500PriceData={sp500PriceData}
-          fwdPe={fwdPe}
         />
+
+        {/* 3) Componentes del BHT con su dato, puntaje, peso y aporte */}
+        <BhtComponents initial={thermo} />
 
       </div>
     </Layout>

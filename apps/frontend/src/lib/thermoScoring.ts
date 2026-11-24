@@ -179,3 +179,11 @@ export function momBlend(lvlSegs: Seg[], trdSegs: Seg[], y: number, ma: number, 
   const trendScore = bandScore(trdSegs, y - ma);
   return { level: y, levelScore, delta: y - ma, ma, maLabel, trendScore };
 }
+
+/** Bandas de cada componente del BHT (las de los orbes), por clave de thermo-live. */
+export const PART_BANDS: Record<string, [number, number, string, string, string][]> = {
+  CAPE: CAPE_BANDS, FWD: FWD_BANDS, RATIO: RATIO_BANDS, CPI: CPI_BANDS, CORE: CPI_BANDS, Y2M: Y2M_BANDS,
+  '30Y': Y30_BANDS, MG: MG_BANDS, VIX: VIX_BANDS, FG: FG_BANDS, MS: MS_BANDS, PIB: GDP_BANDS,
+};
+/** Decimales para mostrar el valor de cada componente en su orbe. */
+export const PART_DEC: Record<string, number> = { RATIO: 3, FG: 0, MS: 1 };

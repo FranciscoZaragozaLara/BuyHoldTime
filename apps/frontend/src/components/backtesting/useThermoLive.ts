@@ -15,9 +15,17 @@ export type ThermoLive = {
   oil: { bonus: number; label: string; ratio: number | null; price: number | null };
   /** Régimen tendencial del S&P 500 de hoy (cierre en vivo vs SMA 50/200). */
   trend?: { regime: string; close: number | null; sma50: number | null; sma200: number | null } | null;
+  /** CAPE registrado del día y su razón contra la media de 3 años. */
+  cape?: { date: string; cape: number; ratio: number } | null;
+  /** Fecha y fuente del último dato de cada serie usada (CPIAUCSL, DGS2, VIXCLS…). */
+  live?: Record<string, { date: string; source: string }>;
+  numerator?: number; denominator?: number;
 };
-export function useThermoLive(){
+/** `initial`: termómetro ya leído en el servidor (página de indicadores) para pintar sin esperar al cliente. */
+export function useThermoLive(initial?: ThermoLive | null){
   return useQuery({
+    initialData: initial ?? undefined,
+    initialDataUpdatedAt: initial ? Date.now() - 2 * 60 * 1000 : undefined,
     queryKey: ['live', 'thermo'],
     queryFn: async (): Promise<ThermoLive> => {
       const r = await fetch(`${getApiBase()}/api/backtesting/thermo-live`, { cache: 'no-store' });
