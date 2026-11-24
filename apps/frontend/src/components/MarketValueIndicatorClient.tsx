@@ -4,7 +4,7 @@ import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useLocale } from 'next-intl';
 import { athColor } from '@/lib/athDrawdown';
 import { createChart, ColorType, LineSeries, IChartApi, createSeriesMarkers, type Time } from 'lightweight-charts';
-import { Eye, EyeOff, LineChart as ChartIcon } from 'lucide-react';
+import { Crown, Eye, EyeOff, LineChart as ChartIcon } from 'lucide-react';
 import { IndicatorDetails } from '@/services/api';
 import { TOKENS } from '@/lib/designTokens';
 import { getApiBase } from '@/lib/apiBase';
@@ -47,7 +47,8 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
   const chartRef = useRef<IChartApi | null>(null);
   // Zoom y posición vigentes: la gráfica se recrea al prender/apagar series o cambiar de instrumento y debe
   // conservarlos; solo los botones de rango (1Y…ALL) los cambian.
-  const viewRef = useRef<{ from: any; to: any } | null>(null);
+  // Vista guardada; `atEnd` = llegaba a la última sesión (así sigue al final cuando llegan datos más nuevos).
+  const viewRef = useRef<{ from: any; to: any; atEnd?: boolean } | null>(null);
   const lastTimeframeRef = useRef<string | null>(null);
 
   // Hovered data state for interactive legend displays
@@ -63,6 +64,9 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
 
   // Timeframe selection: 1Y, 3Y, 5Y, 10Y, 25Y, ALL
   const [timeframe, setTimeframe] = useState<'1Y' | '3Y' | '5Y' | '10Y' | '25Y' | 'ALL'>('10Y');
+  // Íconos parpadeantes del último ATH (corona) y del valor actual (punto en vivo), encima de la gráfica en píxeles.
+  type AthIcon = { x: number; y: number; label: string } | null;
+  const [athIcons, setAthIcons] = useState<{ ath: AthIcon; now: AthIcon; color: string } | null>(null);
 
   // Serie mensual (precio, P/E y CAPE) por mes
   const mergedData = useMemo(() => {
@@ -318,16 +322,31 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
           const ts = chart.timeScale();
           const x0 = ts.timeToCoordinate(dl.from.time as Time), x1 = ts.timeToCoordinate(dl.to.time as Time);
           const far = x0 == null || x1 == null || Math.abs(x1 - x0) >= 100;
-          athMarkers.setMarkers([
-            { time: dl.from.time, position: 'aboveBar', color: c, shape: 'circle', size: 0.5, text: far ? peakText : '' },
-            { time: dl.to.time, position: 'belowBar', color: c, shape: 'circle', size: 0.5, text: pctTxt ?? (es ? `En ${ath}` : `At ${ath}`) },
-          ]);
+          // Sin círculos de marcador: los puntos van como íconos HTML parpadeantes (corona = ATH, punto = hoy).
+          athMarkers.setMarkers([]);
+          const off = chart.priceScale('left').width();
+          const plotW = ts.width();
+          const at = (x: number | null, price: number): { x: number; y: number } | null => {
+            const y = athSeries.priceToCoordinate(price);
+            return x == null || y == null || x < 0 || x > plotW ? null : { x: x + off, y };
+          };
+          const pa = at(x0, dl.ath), pn = at(x1, dl.to.value);
+          setAthIcons({
+            color: c,
+            ath: pa ? { ...pa, label: far ? peakText : '' } : null,
+            now: pn ? { ...pn, label: pctTxt ?? (es ? `En ${ath}` : `At ${ath}`) } : null,
+          });
         };
         let rafAth = 0;
-        const onAthRange = () => { cancelAnimationFrame(rafAth); rafAth = requestAnimationFrame(applyAth); };
+        // Doble cuadro: la escala de precios se reajusta (autoescala) después del cambio de rango; medir antes deja los
+        // íconos desfasados.
+        const onAthRange = () => { cancelAnimationFrame(rafAth); rafAth = requestAnimationFrame(() => { rafAth = requestAnimationFrame(applyAth); }); };
         chart.timeScale().subscribeVisibleLogicalRangeChange(onAthRange);
         onAthRange();
-        detachAth = () => { cancelAnimationFrame(rafAth); try { chart.timeScale().unsubscribeVisibleLogicalRangeChange(onAthRange); } catch { /* noop */ } };
+        // Al redimensionar también cambian las coordenadas de los íconos.
+        const roAth = new ResizeObserver(onAthRange);
+        if (chartContainerRef.current) roAth.observe(chartContainerRef.current);
+        detachAth = () => { cancelAnimationFrame(rafAth); roAth.disconnect(); setAthIcons(null); try { chart.timeScale().unsubscribeVisibleLogicalRangeChange(onAthRange); } catch { /* noop */ } };
       }
     }
 
@@ -453,7 +472,8 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
     };
     let restored = false;
     if (!timeframeChanged && viewRef.current) {
-      try { setView(isoOf(viewRef.current.from), isoOf(viewRef.current.to)); restored = true; } catch { /* rango inválido: se aplica el del botón */ }
+      // Si la vista llegaba al final (p. ej. la serie mensual antes de que cargue la diaria), se extiende al último día.
+      try { setView(isoOf(viewRef.current.from), viewRef.current.atEnd && latest ? latest.time : isoOf(viewRef.current.to)); restored = true; } catch { /* rango inválido: se aplica el del botón */ }
     }
     if (latest && !restored) {
       const years: Record<string, number> = { '1Y': 1, '3Y': 3, '5Y': 5, '10Y': 10, '25Y': 25 };
@@ -464,7 +484,7 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
     }
 
     // Guarda cada cambio de zoom/desplazamiento (después de aplicar el rango inicial).
-    const rememberView = (r: { from: any; to: any } | null) => { if (r) viewRef.current = { from: r.from, to: r.to }; };
+    const rememberView = (r: { from: any; to: any } | null) => { if (r) viewRef.current = { from: r.from, to: r.to, atEnd: !!latest && isoOf(r.to) >= latest.time }; };
     chart.timeScale().subscribeVisibleTimeRangeChange(rememberView);
 
     const maxLineTimer = setTimeout(updateMaxLine, 100);
@@ -679,7 +699,31 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
               </div>
             );
           })()}
-          <div ref={chartContainerRef} data-bht-chart className="h-[400px] w-full" />
+          <div className="relative">
+            <div ref={chartContainerRef} data-bht-chart className="h-[400px] w-full" />
+            {athIcons && (
+              <div className="pointer-events-none absolute inset-0 z-10 overflow-hidden" aria-hidden>
+                {athIcons.ath && (
+                  <div className="absolute flex flex-col items-center" style={{ left: athIcons.ath.x, top: athIcons.ath.y, transform: 'translate(-50%, -100%)', color: athIcons.color }}>
+                    {athIcons.ath.label && <span className="mb-0.5 whitespace-nowrap font-mono text-[10px] font-semibold">{athIcons.ath.label}</span>}
+                    <span className="relative flex h-5 w-5 items-center justify-center">
+                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full opacity-40" style={{ background: athIcons.color }} />
+                      <Crown size={14} strokeWidth={2.5} className="relative drop-shadow" fill="currentColor" fillOpacity={0.25} />
+                    </span>
+                  </div>
+                )}
+                {athIcons.now && (
+                  <div className="absolute flex flex-col items-center" style={{ left: athIcons.now.x, top: athIcons.now.y, transform: 'translate(-50%, -50%)', color: athIcons.color }}>
+                    <span className="relative flex h-3.5 w-3.5 items-center justify-center">
+                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full opacity-60" style={{ background: athIcons.color }} />
+                      <span className="relative inline-flex h-2.5 w-2.5 rounded-full ring-2 ring-slate-950" style={{ background: athIcons.color }} />
+                    </span>
+                    <span className="mt-0.5 whitespace-nowrap font-mono text-[10px] font-semibold">{athIcons.now.label}</span>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
           {/* Leyenda de las señales sobre la línea del precio. */}
           <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-slate-400">
             <span>
