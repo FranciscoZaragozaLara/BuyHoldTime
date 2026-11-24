@@ -19,7 +19,7 @@ export type ThermoHistRow = { value: number; numerator: number; denominator: num
 // Orden de riesgo del régimen tendencial para ordenar la columna (1 alcista … 4 bajista).
 const trendRank = (r?: string | null) => { const i = TREND_ORDER.indexOf((r ?? '') as TrendRegime); return i >= 0 ? i + 1 : null; };
 
-// Tabla "CAPE de Shiller — S&P 500 / Nasdaq / TQQQ": vistas diaria/mensual/anual, orden, scroll infinito,
+// Tabla diaria del mercado (precios, valuación, macro y BHT Index; antes "CAPE de Shiller — S&P 500 / Nasdaq / TQQQ"): vistas diaria/mensual/anual, orden, scroll infinito,
 // export a Excel y popovers (BHT por fecha y rendimiento de SP500/Nasdaq/TQQQ). Estado propio; los datos
 // los carga IndicatorsPanel. Las consultas en vivo se repiten aquí (react-query las comparte por clave).
 export function CapeHistoryTable({ cape, capeRows, marketHistory: marketHistoryRaw, volHistory, thermoHist, regEps, hyBonusNow, liqBonusNow, oilBonusNow, liqM2Map: liqM2Raw, liqM0Map: liqM0Raw, liveBhtRef, showForward = true }: {

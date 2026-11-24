@@ -86,8 +86,8 @@ export function IndicatorsLowerSections({ initial }: { initial?: ThermoLive | nu
       </section>
       <section className="flex flex-col gap-2">
         <div>
-          <h2 className="text-lg font-bold text-white">{es ? 'Historial diario: CAPE, BHT y precios' : 'Daily history: CAPE, BHT and prices'}</h2>
-          <p className="text-xs text-slate-400">{es ? 'Cada día desde 1990: S&P 500, Nasdaq y TQQQ, CAPE de Shiller y sus medias, P/E, BHT Index con su tendencia y rendimientos. Descargable en Excel.' : 'Every day since 1990: S&P 500, Nasdaq and TQQQ, Shiller CAPE and its averages, P/E, BHT Index with its trend and returns. Downloadable to Excel.'}</p>
+          <h2 className="text-lg font-bold text-white">{es ? 'Historial diario del mercado' : 'Daily market history'}</h2>
+          <p className="text-xs text-slate-400">{es ? 'Cada día desde 1990: S&P 500, Nasdaq y TQQQ con sus rendimientos; valuación (CAPE de Shiller y sus medias, P/E, P/E estimado); tasas y crédito (Fed, Tesoros 2/10/30 años, high-yield); liquidez (M2, M0), petróleo, inflación, PIB, apalancamiento, vivienda, sentimiento y amplitud; y el BHT Index con su tendencia y sus ajustes. Descargable en Excel.' : 'Every day since 1990: S&P 500, Nasdaq and TQQQ with their returns; valuation (Shiller CAPE and its averages, P/E, forward P/E); rates and credit (Fed, 2/10/30-year Treasuries, high yield); liquidity (M2, M0), oil, inflation, GDP, leverage, housing, sentiment and breadth; and the BHT Index with its trend and adjustments. Downloadable to Excel.'}</p>
         </div>
         <WhenVisible id="historial" minH={480}><DailyHistory /></WhenVisible>
       </section>

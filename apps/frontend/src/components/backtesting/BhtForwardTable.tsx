@@ -17,7 +17,10 @@ export function BhtForwardTable({ live }: { live: { current: { v: number | null;
   const loc = useLocale();
   const liveBht = live.current.v;
   const [rows, setRows] = useState<any[]>([]);
-  const [view, setView] = useState<'daily' | 'monthly' | 'yearly'>('daily');
+  // Mensual por defecto: ~400 filas legibles (la diaria son ~8,500 casi iguales y arranca con retornos sin madurar).
+  const [view, setView] = useState<'daily' | 'monthly' | 'yearly'>('monthly');
+  // Al abrir, la vista mensual se coloca en el último mes con retorno a 1 año ya maduro (arriba quedan los recientes, con «—»).
+  const autoScrolled = useRef(false);
   const [sortCol, setSortCol] = useState('date');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   // Estándar de tablas: scroll infinito (ver tabla CAPE). Sin botón "Ver más".
@@ -51,6 +54,21 @@ export function BhtForwardTable({ live }: { live: { current: { v: number | null;
   }, [visibleCount, view, rows.length, sortCol, sortDir]);
   // Pico hasta hoy de cada índice (máximo desde la fecha de la fila), de la serie diaria completa.
   const peaks = useMemo(() => ({ spx: peakSinceMap(rows, 'spx'), ndx: peakSinceMap(rows, 'ndx'), tqqq: peakSinceMap(rows, 'tqqq') }), [rows]);
+  useEffect(() => {
+    if (autoScrolled.current || view !== 'monthly' || sortCol !== 'date' || sortDir !== 'desc' || !rows.length) return;
+    const el = scrollRef.current;
+    if (!el) return;
+    // Último cierre de cada mes (igual que la vista mensual) y, de ellos, el más reciente con retorno a 1 año.
+    const lastOfMonth = new Map<string, { date: string; spx1y?: number | null }>();
+    for (const r of rows) lastOfMonth.set(String(r.date).slice(0, 7), r);
+    const target = Array.from(lastOfMonth.values()).reverse().find((r) => r.spx1y != null);
+    if (!target) return;
+    const row = el.querySelector<HTMLTableRowElement>(`tr[data-date="${String(target.date).slice(0, 10)}"]`);
+    if (!row) return;
+    autoScrolled.current = true;
+    const head = el.querySelector('thead')?.getBoundingClientRect().height ?? 0;
+    el.scrollTop = Math.max(0, row.offsetTop - head);
+  });
   // Mientras carga (~10 s: retornos maduros desde 1993) se muestra un aviso en vez de dejar el hueco vacío.
   if (!rows.length) return <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 text-sm text-slate-500 animate-pulse">{loc === 'es' ? 'Cargando retornos históricos…' : 'Loading historical returns…'}</div>;
   let list = rows;
@@ -135,7 +153,7 @@ export function BhtForwardTable({ live }: { live: { current: { v: number | null;
               const isCurrent = sortCol === 'date' && sortDir === 'desc' && r.date === maxDate;
               const isLast = idx === Math.min(visibleCount, sorted.length) - 1 && visibleCount < sorted.length;
               return (
-                <tr key={r.date} ref={isLast ? sentinelRef : null} className={`${isCurrent ? 'bg-accent-500/[0.08] border-l-2 border-l-accent-500 ring-1 ring-accent-500/15' : 'hover:bg-slate-900/40'} transition-colors`}>
+                <tr key={r.date} data-date={d} ref={isLast ? sentinelRef : null} className={`${isCurrent ? 'bg-accent-500/[0.08] border-l-2 border-l-accent-500 ring-1 ring-accent-500/15' : 'hover:bg-slate-900/40'} transition-colors`}>
                   <td className={`p-1.5 px-2 font-mono whitespace-nowrap w-[92px] min-w-[92px] max-w-[92px] align-top sticky left-0 z-10 shadow-[2px_0_4px_rgba(0,0,0,0.25)] ${isCurrent ? 'bg-slate-900' : 'bg-slate-950 group-hover:bg-slate-900'}`}><div className="flex flex-col items-start leading-none gap-0.5"><span className={`${isCurrent ? 'text-accent-300 font-bold' : 'text-slate-200'} text-xs`}>{view === 'yearly' ? d.slice(0, 4) : view === 'monthly' ? d.slice(0, 7) : d}</span>{isCurrent && <span className="text-[9px] px-1 py-0.5 rounded bg-accent-500 text-white font-bold leading-none">Actual</span>}</div></td>
                   {(() => { const isLive = isCurrent && liveBht != null; const v = isLive ? liveBht : r.bhtValue; if (v == null) return <td className="p-2 text-right font-mono text-slate-600 whitespace-nowrap">—</td>; return <td className="p-2 text-right font-mono font-semibold whitespace-nowrap cursor-help" style={{ color: capeScoreColor(v) }} onMouseEnter={(e) => { bhtDet.setHover({ d, x: e.clientX, y: e.clientY }); bhtDet.load(d); }} onMouseMove={(e) => bhtDet.setHover((s) => s && s.d === d ? { ...s, x: e.clientX, y: e.clientY } : s)} onMouseLeave={(e) => bhtLeaveGuard(e, bhtDet)} onClick={(e) => bhtPinT.pinAt(d, e.clientX, e.clientY)}><span className="border-b border-dotted border-slate-400/40" title={isLive ? 'En vivo (igual que el semáforo)' : undefined}>{Number(v).toFixed(1)}{isLive && <span className="text-accent-300"> •</span>}</span></td>; })()}
                   {(() => { const tr = (isCurrent && live.current.trend) || (r.trendRegime ? { regime: r.trendRegime } : null); return <td className="p-2 whitespace-nowrap">{tr ? <TrendBadge trend={tr} size="xs" /> : <span className="font-mono text-slate-600">—</span>}</td>; })()}

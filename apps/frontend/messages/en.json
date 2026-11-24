@@ -305,7 +305,7 @@
       "thermoTitle": "BuyHoldTime Thermometer",
       "underConstruction": "under construction",
       "marketHint": "Live market (5 min) + FRED (1h). Daily CAPE. Hover “?” for the interpretation.",
-      "capeChartTitle": "Shiller CAPE — S&P 500 / Nasdaq / TQQQ",
+      "capeChartTitle": "Daily table: prices, valuation, macro and BHT Index",
       "excel3": "Excel (3 sheets)",
       "fwdTitle": "BHT Forward — mature 1/2/3/5Y returns",
       "trendWeighs": "trend weighs more",
