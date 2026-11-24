@@ -15,7 +15,8 @@ type PricePoint = { date: string; price: number; bht: number | null };
 type Result = {
   date: string; bht: number;
   base: { price: number | null; today: string; todayPrice: number | null };
-  years: Array<{ year: number; from: string; to: string; partial: boolean; peakDate: string | null; peakPrice: number | null; troughDate: string | null; troughPrice: number | null; peakBht?: number | null; troughBht?: number | null; ddPct: number | null; vsBasePct: number | null }>;
+  episodes: Array<{ peakDate: string; peakPrice: number; peakBht: number | null; peakVsBasePct: number; troughDate: string; troughPrice: number; troughBht: number | null; vsBasePct: number; ddPct: number; recoveryDate: string | null; daysToTrough: number; daysToRecovery: number | null }>;
+  minDd: number;
   sinceBuy?: {
     maxDd: { pct: number; nominal: number; vsBasePct: number; peak: PricePoint; trough: PricePoint } | null;
     maxPeak: (PricePoint & { pct: number; nominal: number }) | null;
@@ -55,8 +56,8 @@ const T = {
   es: {
     sinceTitle: 'Desde la compra hasta hoy', sinceDd: 'Caída máxima', sincePeak: 'Pico máximo', from: 'desde el pico del', noDd: 'Sin caídas: el precio no bajó de su máximo.', noPeak: 'Sin datos posteriores a la compra.',
     entry: 'Entrada', entryNote: 'compra inicial · 100% invertido',
-    ddTitleCol: 'Caída del pico al valle', ddTitle: 'Caída máxima en cada año después de la fecha', ddNote: 'Desde el pico acumulado desde la compra hasta el valle de ese año. «vs compra» = cambio contra el precio de entrada; «Caída» = del pico al valle.',
-    year: 'Año', peak: 'Pico', trough: 'Valle', dd: 'Caída', vsBase: 'vs compra', partial: 'en curso', nodata: 'sin datos', base: 'Compra',
+    ddTitleCol: 'Caída del pico al valle', ddTitle: 'Episodios de caída desde la fecha', ddNote: 'Cada caída de {min}% o más desde un pico hasta su valle; termina al recuperar ese pico, así que no se traslapan. «vs compra» = cambio contra el precio de entrada; «Caída» = del pico al valle.', recovered: 'Recuperó', ongoing: 'en curso', months: 'm', noEpisodes: 'Sin caídas de {min}% o más desde esta fecha.', epNum: '#',
+    peak: 'Pico', trough: 'Valle', dd: 'Caída', vsBase: 'vs compra', base: 'Compra',
     trTitle: 'Sistema BuyHoldTime desde esta fecha', trRules: 'Parte 100% invertido. Mismas escaleras que la gráfica y la pestaña Tranches: vende con V1–V5 y recompra con T0–T4 y la red de seguridad (R). Sin comisiones ni intereses del efectivo.', trTqqq: 'En TQQQ las escaleras deciden con QQQ: mismas fechas y mismas fracciones (cada venta vende la misma parte de lo invertido y cada compra usa la misma parte del efectivo), aplicadas al precio real de TQQQ.', sigQqq: 'señales de QQQ', noTqqq: 'TQQQ cotiza desde el 11-feb-2010: elige una fecha posterior para simular el sistema en TQQQ.', sysName: 'Sistema', holdName: 'Hold', pctPort: '% cartera', cashAfter: 'Efectivo después', cashToday: 'Efectivo hoy', route: 'ruta',
     op: 'Operación', sell: 'Venta', buy: 'Compra', level: 'Nivel', date: 'Fecha', bht: 'BHT', bhtTitle: 'BHT del día anterior → BHT del día de la operación', price: 'Precio', invested: 'Invertido',
     none: 'Sin operaciones desde esta fecha: sigue 100% invertido.',
@@ -67,8 +68,8 @@ const T = {
   en: {
     sinceTitle: 'From the purchase until today', sinceDd: 'Maximum drawdown', sincePeak: 'Maximum peak', from: 'from the peak on', noDd: 'No drawdown: the price never fell below its high.', noPeak: 'No data after the purchase.',
     entry: 'Entry', entryNote: 'initial buy · 100% invested',
-    ddTitleCol: 'Drop from peak to trough', ddTitle: 'Maximum drawdown in each year after the date', ddNote: 'From the running peak since the purchase to the trough of that year. “vs buy” = change against the entry price; “Drawdown” = peak to trough.',
-    year: 'Year', peak: 'Peak', trough: 'Trough', dd: 'Drawdown', vsBase: 'vs buy', partial: 'in progress', nodata: 'no data', base: 'Buy',
+    ddTitleCol: 'Drop from peak to trough', ddTitle: 'Drawdown episodes since the date', ddNote: 'Every drop of {min}% or more from a peak to its trough; it ends when that peak is regained, so they do not overlap. “vs buy” = change against the entry price; “Drawdown” = peak to trough.', recovered: 'Recovered', ongoing: 'ongoing', months: 'mo', noEpisodes: 'No drops of {min}% or more since this date.', epNum: '#',
+    peak: 'Peak', trough: 'Trough', dd: 'Drawdown', vsBase: 'vs buy', base: 'Buy',
     trTitle: 'BuyHoldTime system since this date', trRules: 'Starts 100% invested. Same ladders as the chart and the Tranches tab: sells with V1–V5 and buys back with T0–T4 and the safety net (R). No fees, cash earns nothing.', trTqqq: 'On TQQQ the ladders decide with QQQ: same dates and same fractions (each sale sells the same share of the invested part and each buy uses the same share of cash), applied to the real TQQQ price.', sigQqq: 'QQQ signals', noTqqq: 'TQQQ trades since 11-Feb-2010: pick a later date to simulate the system on TQQQ.', sysName: 'System', holdName: 'Hold', pctPort: '% portfolio', cashAfter: 'Cash after', cashToday: 'Cash today', route: 'route',
     op: 'Trade', sell: 'Sell', buy: 'Buy', level: 'Level', date: 'Date', bht: 'BHT', bhtTitle: 'BHT the day before → BHT on the trade day', price: 'Price', invested: 'Invested',
     none: 'No trades since this date: still 100% invested.',
@@ -146,14 +147,16 @@ export default function BhtDrawdownsView({ date, locale }: { date: string; local
 
           <div>
             <div className="text-[11px] font-semibold text-slate-100">{t.ddTitle} · {INST[inst]}</div>
-            <div className="text-[10px] text-slate-500 mb-1">{t.ddNote}</div>
+            <div className="text-[10px] text-slate-500 mb-1">{t.ddNote.replace('{min}', String(r.minDd))}</div>
+            <div className="max-h-64 overflow-y-auto">
             <table className="w-full font-mono text-[11px]">
-              <thead className="text-[9px] uppercase tracking-wide text-slate-500">
+              <thead className="text-[9px] uppercase tracking-wide text-slate-500 sticky top-0 bg-slate-900">
                 <tr className="border-b border-slate-700/70">
-                  <th className="text-left font-normal py-0.5">{t.year}</th>
+                  <th className="text-left font-normal py-0.5">{t.epNum}</th>
                   <th className="text-right font-normal">{t.peak}</th><th className="text-right font-normal">{t.bht}</th><th className="text-right font-normal">{t.price}</th><th className="text-right font-normal">{t.vsBase}</th>
                   <th className="text-right font-normal">{t.trough}</th><th className="text-right font-normal">{t.bht}</th><th className="text-right font-normal">{t.price}</th><th className="text-right font-normal">{t.vsBase}</th>
                   <th className="text-right font-normal" title={t.ddTitleCol}>{t.dd}</th>
+                  <th className="text-right font-normal">{t.recovered}</th>
                 </tr>
               </thead>
               <tbody>
@@ -164,29 +167,30 @@ export default function BhtDrawdownsView({ date, locale }: { date: string; local
                     <td className="text-right font-bold" style={{ color: capeScoreColor(r.bht) }}>{r.bht.toFixed(1)}</td>
                     <td className="text-right text-slate-100">{money(r.base.price)}</td>
                     <td className="text-right text-slate-400">{pctTxt(0)}</td>
-                    <td colSpan={5} className="text-right text-slate-500">{t.entryNote}</td>
+                    <td colSpan={6} className="text-right text-slate-500">{t.entryNote}</td>
                   </tr>
                 )}
-                {r.years.map((y) => (
-                  <tr key={y.year} className="border-b border-slate-800/60" title={`${y.from} → ${y.to}`}>
-                    <td className="py-[1px] text-slate-400">{y.year}{y.partial && y.ddPct != null && <span className="text-slate-600"> · {t.partial}</span>}</td>
-                    {y.ddPct == null ? <td colSpan={9} className="text-right text-slate-600">{t.nodata}</td> : (
-                      <>
-                        <td className="text-right text-slate-400">{y.peakDate}</td>
-                        {bhtCell(y.peakBht)}
-                        <td className="text-right text-slate-300">{money(y.peakPrice)}</td>
-                        {(() => { const v = r.base.price && y.peakPrice != null ? (y.peakPrice / r.base.price - 1) * 100 : null; return <td className={`text-right ${pctCls(v)}`}>{pctTxt(v)}</td>; })()}
-                        <td className="text-right text-slate-300">{y.troughDate}</td>
-                        {bhtCell(y.troughBht)}
-                        <td className="text-right text-slate-100">{money(y.troughPrice)}</td>
-                        <td className={`text-right ${pctCls(y.vsBasePct)}`}>{pctTxt(y.vsBasePct)}</td>
-                        <td className={`text-right font-bold ${y.ddPct < 0 ? 'text-risk-300' : 'text-slate-400'}`}>{pctTxt(y.ddPct)}</td>
-                      </>
-                    )}
+                {r.episodes.length === 0 && r.base.price != null && (
+                  <tr><td colSpan={11} className="py-0.5 text-slate-500">{t.noEpisodes.replace('{min}', String(r.minDd))}</td></tr>
+                )}
+                {r.episodes.map((e, k) => (
+                  <tr key={e.peakDate} className="border-b border-slate-800/60" title={`${e.peakDate} → ${e.troughDate}: ${e.daysToTrough} d`}>
+                    <td className="py-[1px] text-slate-400">{k + 1}</td>
+                    <td className="text-right text-slate-400">{e.peakDate}</td>
+                    {bhtCell(e.peakBht)}
+                    <td className="text-right text-slate-300">{money(e.peakPrice)}</td>
+                    <td className={`text-right ${pctCls(e.peakVsBasePct)}`}>{pctTxt(e.peakVsBasePct)}</td>
+                    <td className="text-right text-slate-300">{e.troughDate}</td>
+                    {bhtCell(e.troughBht)}
+                    <td className="text-right text-slate-100">{money(e.troughPrice)}</td>
+                    <td className={`text-right ${pctCls(e.vsBasePct)}`}>{pctTxt(e.vsBasePct)}</td>
+                    <td className="text-right font-bold text-risk-300">{pctTxt(e.ddPct)}</td>
+                    <td className="text-right text-slate-400">{e.recoveryDate ? <>{e.recoveryDate} <span className="text-slate-600">({Math.round((e.daysToRecovery ?? 0) / 30.44)}{t.months})</span></> : <span className="text-caution-300">{t.ongoing}</span>}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
 
           {!r.system && inst === 'tqqq' && <div className="text-[11px] text-slate-400">{t.noTqqq}</div>}

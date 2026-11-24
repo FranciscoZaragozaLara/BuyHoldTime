@@ -14,37 +14,41 @@ describe('maxDrawdown', () => {
   });
 });
 
-describe('caída máxima por año', () => {
-  // 3 años mensuales: sube a 120 en el año 1 y cae a 90 en el año 2; año 3 sin caída.
-  const dates = monthly(36);
-  const px = dates.map((_, k) => (k <= 6 ? 100 + k * (20 / 6) : k < 12 ? 120 : k < 18 ? 120 - (k - 11) * 5 : k < 24 ? 90 : 150 + k));
-  const s = mk(dates, dates.map(() => 50), px);
-  const r = computeBhtDrawdowns(s, '2000-01-01', 'spx')!;
+describe('episodios de caída', () => {
+  test('cada episodio tiene su propio pico, termina al recuperarlo y no se traslapa; el último puede seguir en curso', () => {
+    const d = monthly(12);
+    // 100 → 120 (pico) → 90 (−25%) → 125 (recupera; pico nuevo) → 118 (−5.6%, no cuenta) → 130 → 104 (−20%, en curso)
+    const px = [100, 120, 90, 110, 125, 118, 130, 117, 104, 110, 112, 115];
+    const r = computeBhtDrawdowns(mk(d, d.map((_, k) => 40 + k), px), '2000-01-01', 'spx')!;
+    expect(r.minDd).toBe(10);
+    expect(r.episodes.map((e) => [e.peakDate, e.troughDate, e.recoveryDate])).toEqual([
+      ['2000-02-01', '2000-03-01', '2000-05-01'],
+      ['2000-07-01', '2000-09-01', null],
+    ]);
+    const [e1, e2] = r.episodes;
+    expect(e1.ddPct).toBeCloseTo(-25, 9);
+    expect(e1.peakVsBasePct).toBeCloseTo(20, 9);
+    expect(e1.vsBasePct).toBeCloseTo(-10, 9);
+    expect([e1.peakBht, e1.troughBht]).toEqual([41, 42]);
+    expect(e1.daysToTrough).toBe(29);
+    expect(e1.daysToRecovery).toBe(90);
+    expect(e2.ddPct).toBeCloseTo(-20, 9);
+    expect(e2.daysToRecovery).toBeNull();
+  });
 
-  test('año 2: del pico 120 al valle 90 (-25%), -10% contra la compra', () => {
-    const y2 = r.years[1];
-    expect(y2.year).toBe(2);
-    expect(y2.peakPrice).toBeCloseTo(120, 6);
-    expect(y2.troughPrice).toBe(90);
-    expect(y2.ddPct).toBeCloseTo(-25, 6);
-    expect(y2.vsBasePct).toBeCloseTo(-10, 6);
-    expect(y2.troughDate! >= '2001-01-01' && y2.troughDate! <= '2002-01-01').toBe(true);
-  });
-  test('BHT del día del pico y del valle (el último conocido si ese día no hay BHT)', () => {
+  test('BHT del día del pico y del valle: el último conocido si ese día no hay BHT', () => {
     const d = monthly(4);
-    const r2 = computeBhtDrawdowns(mk(d, [50, 70, null, 40], [100, 120, 90, 80]), '2000-01-01', 'spx')!;
-    expect(r2.years[0].peakDate).toBe('2000-02-01');
-    expect(r2.years[0].peakBht).toBe(70);
-    expect(r2.years[0].troughBht).toBe(40);
-    const r3 = computeBhtDrawdowns(mk(d, [50, 70, null, 40], [100, 120, 80, 90]), '2000-01-01', 'spx')!;
-    expect(r3.years[0].troughDate).toBe('2000-03-01');
-    expect(r3.years[0].troughBht).toBe(70);
+    const r = computeBhtDrawdowns(mk(d, [50, 70, null, 40], [100, 120, 80, 90]), '2000-01-01', 'spx')!;
+    expect(r.episodes[0].peakBht).toBe(70);
+    expect(r.episodes[0].troughBht).toBe(70);
   });
-  test('año sin caída: 0%; años después de hoy sin datos; el año en curso es parcial', () => {
-    expect(r.years[2].ddPct).toBe(0);
-    expect(r.years[2].partial).toBe(true);
-    expect(r.years[3].ddPct).toBeNull();
-    expect(r.years[4].troughDate).toBeNull();
+
+  test('TQQQ cuenta caídas desde 30%; sin caídas suficientes no hay episodios', () => {
+    const d = monthly(4);
+    const s: StrategySeries = { dates: d, bht: [50, 50, 50, 50], px: { spx: [100, 120, 100, 130], qqq: [100, 120, 100, 130], tqqq: [10, 14, 9, 15] } };
+    expect(computeBhtDrawdowns(s, '2000-01-01', 'tqqq')!.episodes.map((e) => Math.round(e.ddPct))).toEqual([-36]);
+    expect(computeBhtDrawdowns(s, '2000-01-01', 'tqqq')!.minDd).toBe(30);
+    expect(computeBhtDrawdowns(mk(d, [50, 50, 50, 50], [100, 105, 99, 110]), '2000-01-01', 'spx')!.episodes).toEqual([]);
   });
 });
 
@@ -63,7 +67,7 @@ describe('Hold completo', () => {
     const s = mk(monthly(3), [50, 80, 50], [100, 120, 110]);
     const r = computeBhtDrawdowns(s, '2000-01-01', 'qqq')!;
     expect(r.base.price).toBeNull();
-    expect(r.years[0].ddPct).toBeNull();
+    expect(r.episodes).toEqual([]);
     expect(r.hold.pct).toBeNull();
   });
 });

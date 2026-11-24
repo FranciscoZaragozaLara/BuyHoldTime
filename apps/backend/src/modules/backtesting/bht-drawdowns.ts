@@ -1,21 +1,25 @@
 // Vista "Drawdowns" del popover del BHT (se calcula bajo demanda, solo al pulsar el botón):
-// 1) Caída máxima del instrumento en cada año posterior a la fecha (años 1..5): desde el pico acumulado desde la
-//    compra hasta el valle de ese año (fecha y precio de ambos, % de caída y precio del valle contra la compra).
+// 1) Episodios de caída desde la fecha hasta hoy: cada caída ≥ umbral (10% en S&P 500/QQQ, 30% en TQQQ) desde un
+//    pico hasta su valle, que termina al recuperar ese pico (o sigue en curso). No se traslapan: cada uno tiene su
+//    propio pico.
 // 2) El sistema BuyHoldTime desde esa fecha (escaleras de venta V1–V5, compra T0–T4 y red de seguridad, las mismas de
 //    la gráfica y de la pestaña Tranches) contra Hold: lo agrega el servicio con systemSince (reentry.ts). Antes había
 //    aquí una escalera propia (vender con BHT 72/77/82/87 y recomprar con < 60/55/50/45) que contradecía a las demás.
 // 3) Desde la compra hasta hoy: la caída máxima (pico → valle) y el pico máximo, con precio, %, fecha y BHT del día.
-import { addYears, lastOnOrBefore, type Instrument, type StrategySeries } from './bht-strategy';
+import { daysBetween, lastOnOrBefore, type Instrument, type StrategySeries } from './bht-strategy';
 import type { SystemSince } from './reentry';
 
-export const DD_YEARS = 5;
-
-export type YearDrawdown = {
-  year: number; from: string; to: string; partial: boolean;
-  peakDate: string | null; peakPrice: number | null; troughDate: string | null; troughPrice: number | null;
-  /** BHT del día del pico y del valle (último BHT ≤ ese día). */
-  peakBht: number | null; troughBht: number | null;
-  ddPct: number | null; vsBasePct: number | null;
+/** Caída mínima para contar un episodio (desde su pico): 10% en 1× (corrección) y 30% en TQQQ (~3×). */
+export const EPISODE_MIN_DD: Record<Instrument, number> = { spx: 10, qqq: 10, tqqq: 30 };
+export type DrawdownEpisode = {
+  peakDate: string; peakPrice: number; peakBht: number | null; peakVsBasePct: number;
+  troughDate: string; troughPrice: number; troughBht: number | null; vsBasePct: number;
+  /** Del pico al valle (%). */
+  ddPct: number;
+  /** Día en que el precio volvió al pico (null = sin recuperar todavía). */
+  recoveryDate: string | null;
+  /** Días naturales del pico al valle y del pico a la recuperación. */
+  daysToTrough: number; daysToRecovery: number | null;
 };
 export type MaxDd = { pct: number; peakDate: string | null; troughDate: string | null };
 export type PricePoint = { date: string; price: number; bht: number | null };
@@ -28,7 +32,9 @@ export type SinceBuy = {
 export type DrawdownResult = {
   date: string; instrument: Instrument; bht: number;
   base: { price: number | null; today: string; todayPrice: number | null };
-  years: YearDrawdown[];
+  /** Episodios de caída ≥ minDd desde la fecha (el último puede seguir en curso). */
+  episodes: DrawdownEpisode[];
+  minDd: number;
   sinceBuy: SinceBuy;
   hold: { pct: number | null; maxDd: MaxDd | null };
   /** Sistema real desde la fecha (lo agrega el servicio; ruta VOO para el S&P 500 y QQQ para QQQ/TQQQ). */
@@ -60,32 +66,29 @@ export function computeBhtDrawdowns(s: StrategySeries, date: string, instrument:
   // BHT vigente cada día (último BHT ≤ ese día).
   const bhtAt: (number | null)[] = [];
   { let lb: number | null = null; for (let k = 0; k <= last; k++) { if (s.bht[k] != null) lb = s.bht[k]; bhtAt[k] = lb; } }
-  const bhtOn = (d: string | null) => { if (!d) return null; const k = lastOnOrBefore(s.dates, d); return k >= 0 ? bhtAt[k] : null; };
 
-  // 1) Caída máxima por año, desde el pico acumulado desde la compra.
-  const years: YearDrawdown[] = [];
-  let peak = p0, peakD: string | null = p0 != null ? s.dates[i] : null;
-  let j = i + 1;
-  for (let y = 1; y <= DD_YEARS; y++) {
-    const from = addYears(s.dates[i], y - 1), to = addYears(s.dates[i], y);
-    const row: YearDrawdown = { year: y, from, to, partial: to > today, peakDate: null, peakPrice: null, troughDate: null, troughPrice: null, peakBht: null, troughBht: null, ddPct: null, vsBasePct: null };
-    if (from > today || p0 == null) { years.push(row); continue; }
-    let best: { dd: number; k: number; peak: number; peakD: string } | null = null;
-    for (; j <= last && s.dates[j] <= to; j++) {
-      const p = px[j];
-      if (p == null) continue;
-      if (peak == null || p > peak) { peak = p; peakD = s.dates[j]; }
-      const dd = (p / peak - 1) * 100;
-      if (!best || dd < best.dd) best = { dd, k: j, peak, peakD: peakD! };
-    }
-    if (best) {
-      Object.assign(row, {
-        peakDate: best.peakD, peakPrice: best.peak, troughDate: s.dates[best.k], troughPrice: px[best.k],
-        peakBht: bhtOn(best.peakD), troughBht: bhtAt[best.k],
-        ddPct: best.dd, vsBasePct: (px[best.k]! / p0 - 1) * 100,
+  // 1) Episodios de caída: pico → valle (≥ minDd) → recuperación del pico.
+  const minDd = EPISODE_MIN_DD[instrument];
+  const episodes: DrawdownEpisode[] = [];
+  if (p0 != null) {
+    let pk = i, tr = i;
+    const push = (rec: number | null) => {
+      const dd = (px[tr]! / px[pk]! - 1) * 100;
+      if (dd > -minDd) return;
+      episodes.push({
+        peakDate: s.dates[pk], peakPrice: px[pk]!, peakBht: bhtAt[pk], peakVsBasePct: (px[pk]! / p0 - 1) * 100,
+        troughDate: s.dates[tr], troughPrice: px[tr]!, troughBht: bhtAt[tr], vsBasePct: (px[tr]! / p0 - 1) * 100,
+        ddPct: dd, recoveryDate: rec != null ? s.dates[rec] : null,
+        daysToTrough: daysBetween(s.dates[pk], s.dates[tr]), daysToRecovery: rec != null ? daysBetween(s.dates[pk], s.dates[rec]) : null,
       });
+    };
+    for (let k = i + 1; k <= last; k++) {
+      const p = px[k];
+      if (p == null) continue;
+      if (p >= px[pk]!) { if (tr !== pk) push(k); pk = k; tr = k; }
+      else if (p < px[tr]!) tr = k;
     }
-    years.push(row);
+    if (tr !== pk) push(null); // en curso
   }
 
   // 3) Desde la compra hasta hoy: caída máxima y pico máximo, con el BHT del día (último BHT ≤ ese día).
@@ -116,7 +119,7 @@ export function computeBhtDrawdowns(s: StrategySeries, date: string, instrument:
   return {
     date: s.dates[i], instrument, bht: s.bht[i]!,
     base: { price: p0, today, todayPrice: lastPx },
-    years,
+    episodes, minDd,
     sinceBuy,
     hold: { pct: p0 != null && lastPx != null ? (lastPx / p0 - 1) * 100 : null, maxDd: maxDrawdown(hd, hv) },
   };
