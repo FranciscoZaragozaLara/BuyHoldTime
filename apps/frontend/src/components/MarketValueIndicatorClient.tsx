@@ -244,7 +244,8 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
       title: 'Shiller PE',
     });
 
-    // BHT Index (0-100) en su propia escala superpuesta y fija, con el color del semáforo en cada punto.
+    // BHT Index (0-100) en su propia escala superpuesta, con el color del semáforo en cada punto. La escala se ajusta al
+    // tramo visible (zoom o 1Y/3Y/5Y/10Y…) para que no se vea plano cuando no hubo extremos; nunca sale de 0–100.
     const bhtSeries = chart.addSeries(LineSeries, {
       color: '#94a3b8',
       lineWidth: 1,
@@ -253,7 +254,13 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
       lastValueVisible: true,
       visible: showBht,
       title: 'BHT',
-      autoscaleInfoProvider: () => ({ priceRange: { minValue: 0, maxValue: 100 } }),
+      autoscaleInfoProvider: (original: () => { priceRange: { minValue: number; maxValue: number } | null } | null) => {
+        const r = original();
+        if (!r?.priceRange) return r;
+        const { minValue, maxValue } = r.priceRange;
+        // Margen de 2 puntos para que la línea no toque los bordes; recortado a 0–100.
+        return { ...r, priceRange: { minValue: Math.max(0, minValue - 2), maxValue: Math.min(100, maxValue + 2) } };
+      },
     });
     chart.priceScale('bht').applyOptions({ visible: false, scaleMargins: { top: 0.05, bottom: 0.05 } });
 
