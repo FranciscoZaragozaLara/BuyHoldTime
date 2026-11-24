@@ -1,7 +1,6 @@
 'use client';
 import { TrendBadge } from './TrendBadge';
 import { TREND_ORDER } from '@/lib/trendRegime';
-import { getApiBase } from '@/lib/apiBase';
 import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import { peakGainPct, peakSinceMap, type Peak } from '@/lib/peakSince';
 import { shortDate } from '@/lib/orbHistory';
@@ -9,6 +8,7 @@ import { useLocale, useTranslations } from 'next-intl';
 import { capeScoreColor } from './bhtBands';
 import { bhtLeaveGuard, BhtDetailPopover } from './BhtDetail';
 import { useBhtTablePin } from './useBhtTablePin';
+import { fetchBhtForwardAll } from '@/lib/bhtForwardData';
 
 // Tabla BHT Forward: BHT Index + precios y retornos forward maduros 1/2/3/5Y.
 // Solo pinta horizontes con fecha objetivo ya cumplida (el resto es '—').
@@ -30,15 +30,14 @@ export function BhtForwardTable({ live }: { live: { current: { v: number | null;
   // Hover con el detalle; clic, ← → o el calendario lo fijan con navegación por fecha (igual que la gráfica).
   const bhtPinT = useBhtTablePin();
   const bhtDet = bhtPinT.det;
-  const loadRows = useCallback(async () => {
-    try {
-      const r = await fetch(`${getApiBase()}/api/backtesting/bht-forward?from=1993-01-01`, { cache: 'no-store' });
-      if (r.ok) setRows(await r.json());
-    } catch {}
+  // Descarga compartida con el resumen por bandas (una sola por sesión; `force` tras una actualización).
+  const loadRows = useCallback(async (force = false) => {
+    const j = await fetchBhtForwardAll(force);
+    if (j.length) setRows(j);
   }, []);
   useEffect(() => {
     loadRows();
-    const onSync = () => loadRows();
+    const onSync = () => loadRows(true);
     window.addEventListener('bht:synced', onSync);
     return () => window.removeEventListener('bht:synced', onSync);
   }, [loadRows]);

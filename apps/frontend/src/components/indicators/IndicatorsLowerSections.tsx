@@ -8,6 +8,7 @@ import { getApiBase } from '@/lib/apiBase';
 import { MarginGdpChart } from '@/components/backtesting/MarginGdpChart';
 import { CrisisEventsTable } from '@/components/backtesting/CrisisEventsTable';
 import { BhtForwardTable } from '@/components/backtesting/BhtForwardTable';
+import { BhtBandReturns } from './BhtBandReturns';
 import { type ThermoLive, useThermoLive } from '@/components/backtesting/useThermoLive';
 import dynamic from 'next/dynamic';
 
@@ -62,7 +63,13 @@ function ForwardTable({ initial }: { initial?: ThermoLive | null }) {
   // BhtForwardTable lee el BHT en vivo de una ref (fila de hoy); se arma con el termómetro de la página.
   const live = useRef<{ v: number | null; d: string | null; trend?: ThermoLive['trend'] }>({ v: null, d: null, trend: null });
   useEffect(() => { live.current = { v: th?.value ?? null, d: th?.date ?? null, trend: th?.trend ?? null }; }, [th]);
-  return <BhtForwardTable live={live} />;
+  return (
+    <div className="flex flex-col gap-3">
+      {/* Resumen: retornos a 1 y 3 años por banda del BHT (o por CAPE) y, abajo, el detalle día por día. */}
+      <BhtBandReturns bhtToday={th?.value ?? null} capeToday={th?.cape?.cape ?? null} />
+      <BhtForwardTable live={live} />
+    </div>
+  );
 }
 
 export function IndicatorsLowerSections({ initial }: { initial?: ThermoLive | null }) {
@@ -80,7 +87,7 @@ export function IndicatorsLowerSections({ initial }: { initial?: ThermoLive | nu
       <section className="flex flex-col gap-2">
         <div>
           <h2 className="text-lg font-bold text-white">{es ? '¿Funciona el BHT? Retornos posteriores' : 'Does the BHT work? Subsequent returns'}</h2>
-          <p className="text-xs text-slate-400">{es ? 'Para cada día: el BHT de ese día y lo que hicieron el S&P 500, el Nasdaq-100 y TQQQ a 1, 2, 3 y 5 años.' : 'For each day: that day’s BHT and what the S&P 500, Nasdaq-100 and TQQQ did over 1, 2, 3 and 5 years.'}</p>
+          <p className="text-xs text-slate-400">{es ? 'Primero el resumen por banda (qué pasó después de comprar con cada nivel del BHT, o del CAPE) y abajo cada día: su BHT y lo que hicieron el S&P 500, el Nasdaq-100 y TQQQ a 1, 2, 3 y 5 años.' : 'First the summary by band (what happened after buying at each BHT level, or CAPE level) and below each day: its BHT and what the S&P 500, Nasdaq-100 and TQQQ did over 1, 2, 3 and 5 years.'}</p>
         </div>
         <WhenVisible id="bht-forward" minH={480}><ForwardTable initial={initial} /></WhenVisible>
       </section>
