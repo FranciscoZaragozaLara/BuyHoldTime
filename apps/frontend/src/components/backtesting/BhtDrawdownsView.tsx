@@ -8,6 +8,7 @@ import { getApiBase } from '@/lib/apiBase';
 import { bhtBand, capeScoreColor } from './bhtBands';
 import { TOKENS } from '@/lib/designTokens';
 import { BUY_STYLE, NET_COLOR, SELL_COLOR } from '@/lib/valuationChart';
+import { cagrFromTotal, yearsBetween } from '@/lib/cagr';
 
 type Instrument = 'spx' | 'qqq' | 'tqqq';
 type MaxDd = { pct: number; peakDate: string | null; troughDate: string | null };
@@ -58,7 +59,7 @@ const T = {
     entry: 'Entrada', entryNote: 'compra inicial · 100% invertido',
     ddTitleCol: 'Caída del pico al valle', ddTitle: 'Episodios de caída desde la fecha', ddNote: 'Cada caída de {min}% o más desde un pico hasta su valle; termina al recuperar ese pico, así que no se traslapan. «vs compra» = cambio contra el precio de entrada; «Caída» = del pico al valle.', recovered: 'Recuperó', ongoing: 'en curso', months: 'm', noEpisodes: 'Sin caídas de {min}% o más desde esta fecha.', epNum: '#',
     peak: 'Pico', trough: 'Valle', dd: 'Caída', vsBase: 'vs compra', base: 'Compra',
-    trTitle: 'Sistema BuyHoldTime desde esta fecha', trRules: 'Parte 100% invertido. Mismas escaleras que la gráfica y la pestaña Tranches: vende con V1–V5 y recompra con T0–T4 y la red de seguridad (R). Sin comisiones ni intereses del efectivo.', trTqqq: 'En TQQQ las escaleras deciden con QQQ: mismas fechas y mismas fracciones (cada venta vende la misma parte de lo invertido y cada compra usa la misma parte del efectivo), aplicadas al precio real de TQQQ.', sigQqq: 'señales de QQQ', noTqqq: 'TQQQ cotiza desde el 11-feb-2010: elige una fecha posterior para simular el sistema en TQQQ.', sysName: 'Sistema', holdName: 'Hold', pctPort: '% cartera', cashAfter: 'Efectivo después', cashToday: 'Efectivo hoy', route: 'ruta',
+    trTitle: 'Sistema BuyHoldTime desde esta fecha', trRules: 'Parte 100% invertido. Mismas escaleras que la gráfica y la pestaña Tranches: vende con V1–V5 y recompra con T0–T4 y la red de seguridad (R). Sin comisiones ni intereses del efectivo.', trTqqq: 'En TQQQ las escaleras deciden con QQQ: mismas fechas y mismas fracciones (cada venta vende la misma parte de lo invertido y cada compra usa la misma parte del efectivo), aplicadas al precio real de TQQQ.', sigQqq: 'señales de QQQ', noTqqq: 'TQQQ cotiza desde el 11-feb-2010: elige una fecha posterior para simular el sistema en TQQQ.', sysName: 'Sistema', holdName: 'Hold', pctPort: '% cartera', cashAfter: 'Efectivo después', cashToday: 'Efectivo hoy', cagr: 'CAGR', cagrTitle: 'Rendimiento anual compuesto (solo con 1 año o más)', short: '< 1 año', yrs: 'años', pp: 'pp', route: 'ruta',
     op: 'Operación', sell: 'Venta', buy: 'Compra', level: 'Nivel', date: 'Fecha', bht: 'BHT', bhtTitle: 'BHT del día anterior → BHT del día de la operación', price: 'Precio', invested: 'Invertido',
     none: 'Sin operaciones desde esta fecha: sigue 100% invertido.',
     vsHold: 'Sistema vs Hold',
@@ -70,7 +71,7 @@ const T = {
     entry: 'Entry', entryNote: 'initial buy · 100% invested',
     ddTitleCol: 'Drop from peak to trough', ddTitle: 'Drawdown episodes since the date', ddNote: 'Every drop of {min}% or more from a peak to its trough; it ends when that peak is regained, so they do not overlap. “vs buy” = change against the entry price; “Drawdown” = peak to trough.', recovered: 'Recovered', ongoing: 'ongoing', months: 'mo', noEpisodes: 'No drops of {min}% or more since this date.', epNum: '#',
     peak: 'Peak', trough: 'Trough', dd: 'Drawdown', vsBase: 'vs buy', base: 'Buy',
-    trTitle: 'BuyHoldTime system since this date', trRules: 'Starts 100% invested. Same ladders as the chart and the Tranches tab: sells with V1–V5 and buys back with T0–T4 and the safety net (R). No fees, cash earns nothing.', trTqqq: 'On TQQQ the ladders decide with QQQ: same dates and same fractions (each sale sells the same share of the invested part and each buy uses the same share of cash), applied to the real TQQQ price.', sigQqq: 'QQQ signals', noTqqq: 'TQQQ trades since 11-Feb-2010: pick a later date to simulate the system on TQQQ.', sysName: 'System', holdName: 'Hold', pctPort: '% portfolio', cashAfter: 'Cash after', cashToday: 'Cash today', route: 'route',
+    trTitle: 'BuyHoldTime system since this date', trRules: 'Starts 100% invested. Same ladders as the chart and the Tranches tab: sells with V1–V5 and buys back with T0–T4 and the safety net (R). No fees, cash earns nothing.', trTqqq: 'On TQQQ the ladders decide with QQQ: same dates and same fractions (each sale sells the same share of the invested part and each buy uses the same share of cash), applied to the real TQQQ price.', sigQqq: 'QQQ signals', noTqqq: 'TQQQ trades since 11-Feb-2010: pick a later date to simulate the system on TQQQ.', sysName: 'System', holdName: 'Hold', pctPort: '% portfolio', cashAfter: 'Cash after', cashToday: 'Cash today', cagr: 'CAGR', cagrTitle: 'Compound annual return (only with 1 year or more)', short: '< 1 year', yrs: 'years', pp: 'pp', route: 'route',
     op: 'Trade', sell: 'Sell', buy: 'Buy', level: 'Level', date: 'Date', bht: 'BHT', bhtTitle: 'BHT the day before → BHT on the trade day', price: 'Price', invested: 'Invested',
     none: 'No trades since this date: still 100% invested.',
     vsHold: 'System vs Hold',
@@ -196,6 +197,10 @@ export default function BhtDrawdownsView({ date, locale }: { date: string; local
           {!r.system && inst === 'tqqq' && <div className="text-[11px] text-slate-400">{t.noTqqq}</div>}
           {r.system && (() => {
             const sy = r.system;
+            // CAGR del sistema y de Hold en el mismo plazo (fecha consultada → hoy).
+            const yrs = yearsBetween(sy.from, sy.today);
+            const cS = cagrFromTotal(sy.system.pct, yrs), cH = cagrFromTotal(sy.hold.pct, yrs);
+            const cagrCell = (v: number | null) => <td className={`text-right font-bold ${pctCls(v)}`} title={t.cagrTitle}>{v != null ? pctTxt(v) : <span className="font-normal text-slate-500">{t.short}</span>}</td>;
             return (
               <div>
                 <div className="text-[11px] font-semibold text-slate-100">{t.trTitle} · {sy.instrument === 'tqqq' ? <>TQQQ · {t.sigQqq}</> : <>{t.route} {routeName(sy.route)}</>}</div>
@@ -242,7 +247,8 @@ export default function BhtDrawdownsView({ date, locale }: { date: string; local
                   <thead className="text-[9px] uppercase tracking-wide text-slate-500">
                     <tr className="border-b border-slate-700/70">
                       <th className="text-left font-normal py-0.5" />
-                      <th className="text-right font-normal">{t.toToday} ({sy.today})</th>
+                      <th className="text-right font-normal">{t.toToday} ({sy.today} · {yrs.toFixed(1)} {t.yrs})</th>
+                      <th className="text-right font-normal" title={t.cagrTitle}>{t.cagr}</th>
                       <th className="text-right font-normal">{t.maxDd}</th>
                       <th className="text-right font-normal">{t.cashToday}</th>
                     </tr>
@@ -251,18 +257,21 @@ export default function BhtDrawdownsView({ date, locale }: { date: string; local
                     <tr className="border-b border-slate-800/60">
                       <td className="py-[1px] text-slate-300">{t.holdName} {routeName(sy.instrument ?? sy.route)}</td>
                       <td className={`text-right font-bold ${pctCls(sy.hold.pct)}`}>{pctTxt(sy.hold.pct)}</td>
+                      {cagrCell(cH)}
                       <td className="text-right">{ddCell(sy.hold.maxDd)}</td>
                       <td className="text-right text-slate-400">0%</td>
                     </tr>
                     <tr className="border-b border-slate-800/60">
                       <td className="py-[1px] text-slate-300">{t.sysName}</td>
                       <td className={`text-right font-bold ${pctCls(sy.system.pct)}`}>{pctTxt(sy.system.pct)}</td>
+                      {cagrCell(cS)}
                       <td className="text-right">{ddCell(sy.system.maxDd)}</td>
                       <td className="text-right text-slate-400">{sy.system.cashPct.toFixed(0)}%</td>
                     </tr>
                     <tr>
                       <td className="py-[1px] text-slate-400">Δ {t.vsHold}</td>
                       <td className={`text-right font-bold ${pctCls(sy.system.pct - sy.hold.pct)}`}>{pctTxt(sy.system.pct - sy.hold.pct)}</td>
+                      <td className={`text-right font-bold ${pctCls(cS != null && cH != null ? cS - cH : null)}`}>{cS != null && cH != null ? `${cS - cH >= 0 ? '+' : ''}${(cS - cH).toFixed(1)} ${t.pp}` : '—'}</td>
                       <td className="text-right"><span className={pctCls(sy.system.maxDd.pct - sy.hold.maxDd.pct)}>{pctTxt(sy.system.maxDd.pct - sy.hold.maxDd.pct)}</span></td>
                       <td />
                     </tr>
