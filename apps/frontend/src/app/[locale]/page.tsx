@@ -113,7 +113,7 @@ export default async function HomePage({
 
             <div className="flex flex-wrap gap-3 mt-2 justify-center lg:justify-start">
               <Link
-                href={indicatorsHref(locale, thermo ? 'bht-thermo' : undefined)}
+                href={indicatorsHref(locale, thermo ? 'bht-hoy' : undefined)}
                 className="flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-bold text-slate-950 bg-accent-400 hover:bg-accent-300 transition"
               >
                 {t('ctaThermo')}

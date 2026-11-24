@@ -52,7 +52,7 @@ export function BhtComponents({ initial }: { initial?: ThermoLive | null }) {
       <p className="text-xs text-slate-400 mb-4">{t.sub}</p>
       <div className="flex flex-col gap-5">
         {groups.map((g) => (
-          <div key={g.key}>
+          <div key={g.key} id={`comp-${g.key}`} className="scroll-mt-24">
             <div className="flex items-baseline justify-between mb-2">
               <h3 className="text-sm font-semibold text-slate-200">{g.name}</h3>
               <span className="text-[11px] font-mono text-slate-500">{g.points.toFixed(1)} {t.points}</span>
@@ -79,7 +79,7 @@ export function BhtComponents({ initial }: { initial?: ThermoLive | null }) {
             </div>
           </div>
         ))}
-        <div>
+        <div id="comp-adjustments" className="scroll-mt-24">
           <div className="mb-2">
             <h3 className="text-sm font-semibold text-slate-200">{t.adj}</h3>
             <p className="text-[11px] text-slate-500">{t.adjSub}</p>

@@ -12,7 +12,7 @@ describe('homeThermo', () => {
     expect(formatPartValue('CPI', 4.0805)).toBe('4.08%');
     expect(formatPartValue('FG', 38.6)).toBe('39');
     expect(formatPartValue('MS', 8.4)).toBe('8.4');
-    expect(indicatorsHref('es', 'cat-tasas')).toBe('/es/backtesting?tab=indicadores#cat-tasas');
-    expect(indicatorsHref('en')).toBe('/en/backtesting?tab=indicadores');
+    expect(indicatorsHref('es', 'comp-rates')).toBe('/es/indicators#comp-rates');
+    expect(indicatorsHref('en')).toBe('/en/indicators');
   });
 });

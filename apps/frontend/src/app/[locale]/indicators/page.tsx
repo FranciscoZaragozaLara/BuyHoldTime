@@ -5,6 +5,7 @@ import { getIndicatorDetails, IndicatorDetails } from '@/services/api';
 import { getApiBase } from '@/lib/apiBase';
 import { BhtTodaySummary } from '@/components/indicators/BhtTodaySummary';
 import { BhtComponents } from '@/components/indicators/BhtComponents';
+import { IndicatorsLowerSections } from '@/components/indicators/IndicatorsLowerSections';
 import type { ThermoLive } from '@/components/backtesting/useThermoLive';
 import { Sparkles } from 'lucide-react';
 import { getTranslations } from 'next-intl/server';
@@ -105,6 +106,9 @@ export default async function IndicatorsPage({
 
         {/* 3) Componentes del BHT con su dato, puntaje, peso y aporte */}
         <BhtComponents initial={thermo} />
+
+        {/* 4–6) Apalancamiento (Margen/PIB), grandes crisis y BHT Forward: se cargan al acercarse */}
+        <IndicatorsLowerSections initial={thermo} />
 
       </div>
     </Layout>

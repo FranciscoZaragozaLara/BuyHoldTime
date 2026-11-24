@@ -60,7 +60,7 @@ export async function HomeThermoCard({ locale, thermo }: { locale: string; therm
       {matrices && <BhtReturnsTable locale={locale} date={thermo.date} score={score} regime={thermo.trend?.regime ?? null} initial={matrices} />}
 
       <div className="mt-4 flex flex-wrap gap-2">
-        <Link href={indicatorsHref(locale, 'bht-thermo')} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold text-slate-950 bg-accent-400 hover:bg-accent-300 transition">
+        <Link href={indicatorsHref(locale, 'bht-hoy')} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold text-slate-950 bg-accent-400 hover:bg-accent-300 transition">
           {t('thermoDetail')} <ArrowRight size={15} />
         </Link>
       </div>

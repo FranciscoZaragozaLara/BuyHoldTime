@@ -231,7 +231,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                   { label: tFooter('toolPrices'), path: `/${locale}/prices` },
                   { label: tFooter('toolCape'), path: `/${locale}/indicators` },
                   { label: tFooter('toolValue'), path: `/${locale}/indicators` },
-                  { label: tFooter('toolMargin'), path: `/${locale}/indicators` },
+                  { label: tFooter('toolMargin'), path: `/${locale}/indicators#apalancamiento` },
                 ].map(({ label, path }) => (
                   <li key={label}>
                     <Link href={path} className="hover:text-accent-400 transition text-[11px]">

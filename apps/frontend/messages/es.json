@@ -79,7 +79,7 @@
   "Backtesting": {
     "tabs": {
       "estrategias": "Estrategias",
-      "indicadores": "Indicadores",
+      "indicadores": "Historial diario",
       "calculadora": "Calculadora",
       "regimes": "Regímenes"
     },
