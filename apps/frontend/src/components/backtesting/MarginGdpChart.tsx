@@ -4,9 +4,11 @@ import { createChart, ColorType, IChartApi, LineSeries, createSeriesMarkers } fr
 import { applyCrisisMarkers, snapToTime } from '@/lib/crisisEvents';
 import { useLocale, useTranslations } from 'next-intl';
 import { TOKENS } from '@/lib/designTokens';
+import { bhtBandColor } from './bhtBands';
 
 interface CapeRow { date: string; cape: number | null; capeRatio?: number | null; }
-/** compact: solo Margen/PIB, S&P 500, CAPE Ratio, MSACSR y SMA (página pública de indicadores). */
+/** compact: solo Margen/PIB, S&P 500, BHT, CAPE Ratio, MSACSR y SMA (página pública de indicadores).
+ *  marketHistory['BHT'] (opcional): BHT Index diario, se pinta en escala fija 0–100 con el color de su banda. */
 interface Props { marketHistory: Record<string, Map<string, number>>; cape?: CapeRow[]; volHistory?: Record<string, Map<string, number>>; compact?: boolean; }
 
 const COLORS = {
@@ -18,6 +20,7 @@ const COLORS = {
   tqqq: '#ec4899',
   hyOas: '#ea580c',
   msacsr: '#eab308',
+  bht: '#fbbf24',
   fed: '#c084fc',
   dgs10: '#7dd3fc',
   dgs30: '#5eead4',
@@ -40,7 +43,7 @@ export function MarginGdpChart({ marketHistory, cape = [], volHistory = {}, comp
   const seriesRefs = useRef<Record<string, any>>({});
 
   const [range, setRange] = useState<'1Y' | '5Y' | '10Y' | '20Y' | '30Y' | 'ALL'>('5Y');
-  const [visible, setVisible] = useState({ ratio: true, spx: true, cape: false, capeRatio: true, ndx: false, tqqq: false, hyOas: false, msacsr: true, fed: false, dgs10: false, dgs30: false, vix: false, fg: false, obv: false, fuerza: false, obvt: false, netadv: false, updown: false, sma50: false, sma200: false });
+  const [visible, setVisible] = useState({ ratio: true, spx: true, cape: false, capeRatio: true, bht: true, ndx: false, tqqq: false, hyOas: false, msacsr: false, fed: false, dgs10: false, dgs30: false, vix: false, fg: false, obv: false, fuerza: false, obvt: false, netadv: false, updown: false, sma50: false, sma200: false });
   const toggle = (k: keyof typeof visible) => setVisible(v => ({ ...v, [k]: !v[k] }));
 
   const getIdxPrice = (ticker: string, iso: string): number | null => {
@@ -80,6 +83,7 @@ export function MarginGdpChart({ marketHistory, cape = [], volHistory = {}, comp
     const tqqqMap = marketHistory['TQQQ'];
     const hyOasMap = marketHistory['BAMLH0A0HYM2'];
     const msacsrMap = marketHistory['MSACSR'];
+    const bhtMap = marketHistory['BHT'];
     const fedMap = marketHistory['DFEDTARU'];
     const dgs10Map = marketHistory['DGS10'];
     const dgs30Map = marketHistory['DGS30'];
@@ -158,6 +162,8 @@ export function MarginGdpChart({ marketHistory, cape = [], volHistory = {}, comp
     } catch {}
     // MSACSR mensual con forward-fill (igual que resto de series)
     for (const r of rows) r.msacsr = getIdx(msacsrMap, r.date);
+    // BHT Index diario (forward-fill corto, como el resto)
+    for (const r of rows) r.bht = getIdx(bhtMap, r.date);
     // Tasas FED/10Y/30Y con forward-fill
     for (const r of rows) { r.fed = getIdx(fedMap, r.date); r.dgs10 = getIdx(dgs10Map, r.date); r.dgs30 = getIdx(dgs30Map, r.date); }
     // VIX/F&G diarios con forward-fill corto
@@ -211,7 +217,7 @@ export function MarginGdpChart({ marketHistory, cape = [], volHistory = {}, comp
     const r = allSeries.rows; return `${r[0].date.slice(0, 10)} → ${r[r.length - 1].date.slice(0, 10)} (${r.length} pts)`;
   }, [allSeries]);
 
-  const [tooltip, setTooltip] = useState<null | { x: number; y: number; date: string; ratio: number | null; spx: number | null; cape: number | null; capeRatio: number | null; mean3y: number | null; ndx: number | null; tqqq: number | null; hyOas: number | null; msacsr: number | null; fed: number | null; dgs10: number | null; dgs30: number | null; vix: number | null; fg: number | null; mgDebt: number | null; gdpN: number | null; vol: number | null; obvV: number | null; fuerza: number | null; obvt: number | null; netadv: number | null; updown: number | null; sma50: number | null; sma200: number | null }>(null);
+  const [tooltip, setTooltip] = useState<null | { x: number; y: number; date: string; ratio: number | null; spx: number | null; cape: number | null; capeRatio: number | null; mean3y: number | null; ndx: number | null; tqqq: number | null; hyOas: number | null; msacsr: number | null; bht: number | null; fed: number | null; dgs10: number | null; dgs30: number | null; vix: number | null; fg: number | null; mgDebt: number | null; gdpN: number | null; vol: number | null; obvV: number | null; fuerza: number | null; obvt: number | null; netadv: number | null; updown: number | null; sma50: number | null; sma200: number | null }>(null);
   const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
@@ -253,6 +259,9 @@ export function MarginGdpChart({ marketHistory, cape = [], volHistory = {}, comp
     const sTqqq = add('tqqq', COLORS.tqqq, 'left', 2);
     const sHy = add('hyOas', COLORS.hyOas, 'left', 2, 2 as any);
     const sMsacsr = add('msacsr', COLORS.msacsr, 'left', 2, 2 as any);
+    const sBht = add('bht', COLORS.bht, 'left', 2);
+    // Su etiqueta en el eje mostraría el valor escalado (no el BHT): se oculta; el BHT real va en el tooltip.
+    sBht.applyOptions({ lastValueVisible: false, title: '' } as any);
     const sFed = add('fed', COLORS.fed, 'left', 2, 2 as any);
     const sDgs10 = add('dgs10', COLORS.dgs10, 'left', 2, 2 as any);
     const sDgs30 = add('dgs30', COLORS.dgs30, 'left', 2, 2 as any);
@@ -291,6 +300,8 @@ export function MarginGdpChart({ marketHistory, cape = [], volHistory = {}, comp
         if (mHy) sHy.setData(toData(mHy,'hyOas')); else sHy.setData([]);
         // MSACSR: escala fija 0–12m (no dinámica) — si supera 12 se pinta al techo
         if (mMsacsr) sMsacsr.setData(src.map((r:any)=> r.msacsr==null? null : { time: r.date as any, value: yMin + Math.min(r.msacsr,12)/12*(yMax-yMin) }).filter(Boolean) as any); else sMsacsr.setData([]);
+        // BHT: escala fija 0–100 sobre el eje izquierdo, cada punto con el color de su banda
+        sBht.setData(src.map((r:any)=> r.bht==null? null : { time: r.date as any, value: yMin + Math.max(0, Math.min(100, r.bht))/100*(yMax-yMin), color: bhtBandColor(r.bht) }).filter(Boolean) as any);
         if (mFed) sFed.setData(toData(mFed,'fed')); else sFed.setData([]);
         if (mDgs10) sDgs10.setData(toData(mDgs10,'dgs10')); else sDgs10.setData([]);
         if (mDgs30) sDgs30.setData(toData(mDgs30,'dgs30')); else sDgs30.setData([]);
@@ -334,7 +345,7 @@ export function MarginGdpChart({ marketHistory, cape = [], volHistory = {}, comp
       const cw = rect?.width ?? 600;
       const tx = Math.max(8, Math.min(param.point.x + 16, cw - 260));
       const ty = Math.max(8, Math.min(param.point.y - 90, 360));
-      setTooltip({ x: tx, y: ty, date: row.date, ratio: row.ratio, spx: row.spx, cape: row.cape, capeRatio: row.capeRatio, mean3y: row.mean3y, ndx: row.ndx, tqqq: row.tqqq, hyOas: row.hyOas, msacsr: row.msacsr, fed: row.fed, dgs10: row.dgs10, dgs30: row.dgs30, vix: row.vix, fg: row.fg, mgDebt: row.mgDebt, gdpN: row.gdpN, vol: row.vol, obvV: row.obvV, fuerza: row.fuerza, obvt: row.obvt, netadv: row.netadv, updown: row.updown, sma50: row.sma50, sma200: row.sma200 });
+      setTooltip({ x: tx, y: ty, date: row.date, ratio: row.ratio, spx: row.spx, cape: row.cape, capeRatio: row.capeRatio, mean3y: row.mean3y, ndx: row.ndx, tqqq: row.tqqq, hyOas: row.hyOas, msacsr: row.msacsr, bht: row.bht ?? null, fed: row.fed, dgs10: row.dgs10, dgs30: row.dgs30, vix: row.vix, fg: row.fg, mgDebt: row.mgDebt, gdpN: row.gdpN, vol: row.vol, obvV: row.obvV, fuerza: row.fuerza, obvt: row.obvt, netadv: row.netadv, updown: row.updown, sma50: row.sma50, sma200: row.sma200 });
     };
     chart.subscribeCrosshairMove(handler);
     const ro = new ResizeObserver(() => {
@@ -359,7 +370,7 @@ export function MarginGdpChart({ marketHistory, cape = [], volHistory = {}, comp
 
   // Visibilidad toggle (show/hide series) — debe correr también tras montar el chart
   useEffect(() => {
-    const vis: Record<string, boolean> = { ratio: visible.ratio, spx: visible.spx, cape: visible.cape, capeRatio: visible.capeRatio, ndx: visible.ndx, tqqq: visible.tqqq, hyOas: visible.hyOas, msacsr: visible.msacsr, fed: visible.fed, dgs10: visible.dgs10, dgs30: visible.dgs30, vix: visible.vix, fg: visible.fg, obv: visible.obv, fuerza: visible.fuerza, obvt: visible.obvt, netadv: visible.netadv, updown: visible.updown, sma50: visible.sma50, sma200: visible.sma200 };
+    const vis: Record<string, boolean> = { ratio: visible.ratio, spx: visible.spx, cape: visible.cape, capeRatio: visible.capeRatio, ndx: visible.ndx, tqqq: visible.tqqq, hyOas: visible.hyOas, msacsr: visible.msacsr, bht: visible.bht, fed: visible.fed, dgs10: visible.dgs10, dgs30: visible.dgs30, vix: visible.vix, fg: visible.fg, obv: visible.obv, fuerza: visible.fuerza, obvt: visible.obvt, netadv: visible.netadv, updown: visible.updown, sma50: visible.sma50, sma200: visible.sma200 };
     for (const [k, s] of Object.entries(seriesRefs.current)) {
       try { s.applyOptions({ visible: !!vis[k] } as any); } catch {}
     }
@@ -420,23 +431,24 @@ export function MarginGdpChart({ marketHistory, cape = [], volHistory = {}, comp
             <div className="font-semibold text-white border-b border-slate-600 pb-1.5 mb-1 col-span-2">{new Date(tooltip.date).toLocaleDateString(locale === 'es' ? 'es-ES' : 'en-US', { day: '2-digit', month: 'long', year: 'numeric' })} <span className="font-normal text-slate-300">· {tooltip.date}</span></div>
             <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 font-mono text-[11px]">
               <div className="text-[10px] font-bold uppercase tracking-wider col-span-2 text-risk-300 mt-1">{tm('leverage')}</div>
+              <div className="flex justify-between gap-4"><span className="text-slate-200">BHT Index</span><span className="font-bold" style={{ color: tooltip.bht != null ? bhtBandColor(tooltip.bht) : undefined }}>{tooltip.bht!=null ? tooltip.bht.toFixed(1) : '—'}</span></div>
               <div className="flex justify-between gap-4"><span className="text-slate-200">Margin/GDP</span><span className="text-white font-bold">{tooltip.ratio!=null ? `${tooltip.ratio.toFixed(2)}%` : '—'}</span></div>
               <div className="flex justify-between gap-4"><span className="text-slate-300">{tm('marginDebt')}</span><span className="text-risk-300 font-semibold">{tooltip.mgDebt!=null ? `$${Number(tooltip.mgDebt).toLocaleString('en-US', { maximumFractionDigits: 0 })}B` : '—'}</span></div>
               <div className="flex justify-between gap-4"><span className="text-slate-300">{tm('nominalGdp')}</span><span className="text-indigo-300 font-semibold">{tooltip.gdpN!=null ? `$${(Number(tooltip.gdpN) / 1000).toFixed(1)}T` : '—'}</span></div>
               <div className="text-[10px] font-bold uppercase tracking-wider col-span-2 text-sky-300 mt-2 pt-1.5 border-t border-slate-700">{tm('market')}</div>
               <div className="flex justify-between gap-4"><span className="text-slate-200">SP500</span><span className="text-sky-300 font-semibold">{tooltip.spx!=null ? `$${Number(tooltip.spx).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}` : '—'}</span></div>
-              <div className="flex justify-between gap-4"><span className="text-slate-200">Nasdaq</span><span className="text-cyan-300 font-semibold">{tooltip.ndx!=null ? `$${Number(tooltip.ndx).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}` : '—'}</span></div>
-              <div className="flex justify-between gap-4"><span className="text-slate-200">TQQQ</span><span className="text-pink-300 font-semibold">{tooltip.tqqq!=null ? `$${Number(tooltip.tqqq).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}` : '—'}</span></div>
-              <div className="text-[10px] font-bold uppercase tracking-wider col-span-2 text-violet-300 mt-2 pt-1.5 border-t border-slate-700">{tm('rates')}</div>
-              <div className="flex justify-between gap-4"><span className="text-slate-200">FED</span><span className="text-purple-300 font-semibold">{tooltip.fed!=null ? `${tooltip.fed.toFixed(2)}%` : '—'}</span></div>
-              <div className="flex justify-between gap-4"><span className="text-slate-200">10Y</span><span className="text-sky-200 font-semibold">{tooltip.dgs10!=null ? `${tooltip.dgs10.toFixed(2)}%` : '—'}</span></div>
-              <div className="flex justify-between gap-4"><span className="text-slate-200">30Y</span><span className="text-accent-200 font-semibold">{tooltip.dgs30!=null ? `${tooltip.dgs30.toFixed(2)}%` : '—'}</span></div>
+              {!compact && <div className="flex justify-between gap-4"><span className="text-slate-200">Nasdaq</span><span className="text-cyan-300 font-semibold">{tooltip.ndx!=null ? `$${Number(tooltip.ndx).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}` : '—'}</span></div>}
+              {!compact && <div className="flex justify-between gap-4"><span className="text-slate-200">TQQQ</span><span className="text-pink-300 font-semibold">{tooltip.tqqq!=null ? `$${Number(tooltip.tqqq).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}` : '—'}</span></div>}
+              {!compact && <div className="text-[10px] font-bold uppercase tracking-wider col-span-2 text-violet-300 mt-2 pt-1.5 border-t border-slate-700">{tm('rates')}</div>}
+              {!compact && <div className="flex justify-between gap-4"><span className="text-slate-200">FED</span><span className="text-purple-300 font-semibold">{tooltip.fed!=null ? `${tooltip.fed.toFixed(2)}%` : '—'}</span></div>}
+              {!compact && <div className="flex justify-between gap-4"><span className="text-slate-200">10Y</span><span className="text-sky-200 font-semibold">{tooltip.dgs10!=null ? `${tooltip.dgs10.toFixed(2)}%` : '—'}</span></div>}
+              {!compact && <div className="flex justify-between gap-4"><span className="text-slate-200">30Y</span><span className="text-accent-200 font-semibold">{tooltip.dgs30!=null ? `${tooltip.dgs30.toFixed(2)}%` : '—'}</span></div>}
               <div className="text-[10px] font-bold uppercase tracking-wider col-span-2 text-elevated-300 mt-2 pt-1.5 border-t border-slate-700">{tm('creditHousing')}</div>
-              <div className="flex justify-between gap-4"><span className="text-slate-200">HY OAS</span><span className="text-elevated-300 font-semibold">{tooltip.hyOas!=null ? `${tooltip.hyOas.toFixed(2)}%` : '—'}</span></div>
+              {!compact && <div className="flex justify-between gap-4"><span className="text-slate-200">HY OAS</span><span className="text-elevated-300 font-semibold">{tooltip.hyOas!=null ? `${tooltip.hyOas.toFixed(2)}%` : '—'}</span></div>}
               <div className="flex justify-between gap-4"><span className="text-slate-200">MSACSR</span><span className="text-caution-300 font-semibold">{tooltip.msacsr!=null ? `${tooltip.msacsr.toFixed(1)} m` : '—'}</span></div>
-              <div className="text-[10px] font-bold uppercase tracking-wider col-span-2 text-favorable-300 mt-2 pt-1.5 border-t border-slate-700">{tm('sentiment')}</div>
-              <div className="flex justify-between gap-4"><span className="text-slate-200">VIX</span><span className="text-risk-300 font-semibold">{tooltip.vix!=null ? tooltip.vix.toFixed(2) : '—'}</span></div>
-              <div className="flex justify-between gap-4"><span className="text-slate-200">F&G</span><span className="text-green-300 font-semibold">{tooltip.fg!=null ? tooltip.fg.toFixed(0) : '—'}</span></div>
+              {!compact && <div className="text-[10px] font-bold uppercase tracking-wider col-span-2 text-favorable-300 mt-2 pt-1.5 border-t border-slate-700">{tm('sentiment')}</div>}
+              {!compact && <div className="flex justify-between gap-4"><span className="text-slate-200">VIX</span><span className="text-risk-300 font-semibold">{tooltip.vix!=null ? tooltip.vix.toFixed(2) : '—'}</span></div>}
+              {!compact && <div className="flex justify-between gap-4"><span className="text-slate-200">F&G</span><span className="text-green-300 font-semibold">{tooltip.fg!=null ? tooltip.fg.toFixed(0) : '—'}</span></div>}
               <div className="text-[10px] font-bold uppercase tracking-wider col-span-2 text-caution-300 mt-2 pt-1.5 border-t border-slate-700">{tm('valuation')}</div>
               <div className="flex justify-between gap-4"><span className="text-slate-200">CAPE</span><span className="text-caution-300 font-semibold">{tooltip.cape!=null ? tooltip.cape.toFixed(2) : '—'}</span></div>
               <div className="flex justify-between gap-4"><span className="text-slate-200">CAPE Ratio</span><span className="text-violet-300 font-semibold">{tooltip.capeRatio!=null ? `${tooltip.capeRatio.toFixed(3)}X` : '—'}</span></div>
@@ -444,13 +456,13 @@ export function MarginGdpChart({ marketHistory, cape = [], volHistory = {}, comp
               <div className="text-[10px] font-bold uppercase tracking-wider col-span-2 text-slate-300 mt-2 pt-1.5 border-t border-slate-700">{tm('spxAverages')}</div>
               <div className="flex justify-between gap-4"><span className="text-slate-200">SMA50</span><span className="text-elevated-300 font-semibold">{tooltip.sma50!=null ? `$${Number(tooltip.sma50).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}` : '—'}</span></div>
               <div className="flex justify-between gap-4"><span className="text-slate-200">SMA200</span><span className="text-green-300 font-semibold">{tooltip.sma200!=null ? `$${Number(tooltip.sma200).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}` : '—'}</span></div>
-              <div className="text-[10px] font-bold uppercase tracking-wider col-span-2 text-fuchsia-300 mt-2 pt-1.5 border-t border-slate-700">{tm('volume')}</div>
-              <div className="flex justify-between gap-4"><span className="text-slate-200">Vol SPY</span><span className="text-sky-300 font-semibold">{tooltip.vol!=null ? (tooltip.vol>=1e9 ? `${(tooltip.vol/1e9).toFixed(2)}B` : `${(tooltip.vol/1e6).toFixed(1)}M`) : '—'}</span></div>
-              <div className="flex justify-between gap-4"><span className="text-slate-200">OBV</span><span className="text-fuchsia-300 font-semibold">{tooltip.obvV!=null ? (tooltip.obvV>=1e9 ? `${(tooltip.obvV/1e9).toFixed(2)}B` : `${(tooltip.obvV/1e6).toFixed(1)}M`) : '—'}</span></div>
-              <div className="flex justify-between gap-4"><span className="text-slate-200">{tm('strength')}</span><span className={tooltip.fuerza!=null && tooltip.fuerza>=0 ? 'text-favorable-300 font-semibold' : 'text-risk-300 font-semibold'}>{tooltip.fuerza!=null ? `${tooltip.fuerza>=0?'+':''}${tooltip.fuerza.toFixed(2)}` : '—'}</span></div>
-              <div className="flex justify-between gap-4"><span className="text-slate-200">Tend-OBV</span><span className={tooltip.obvt!=null && tooltip.obvt>=0 ? 'text-favorable-300 font-semibold' : 'text-risk-300 font-semibold'}>{tooltip.obvt!=null ? `${tooltip.obvt>=0?'+':''}${tooltip.obvt.toFixed(2)}σ` : '—'}</span></div>
-              <div className="flex justify-between gap-4"><span className="text-slate-200">NetAdv</span><span className={tooltip.netadv!=null && tooltip.netadv>=0 ? 'text-favorable-300 font-semibold' : 'text-risk-300 font-semibold'}>{tooltip.netadv!=null ? `${tooltip.netadv>=0?'+':'−'}${(Math.abs(tooltip.netadv)/1e9).toFixed(2)}B` : '—'}</span></div>
-              <div className="flex justify-between gap-4"><span className="text-slate-200">Up/Down</span><span className="text-blue-300 font-semibold">{tooltip.updown!=null ? `${tooltip.updown.toFixed(2)}x` : '—'}</span></div>
+              {!compact && <div className="text-[10px] font-bold uppercase tracking-wider col-span-2 text-fuchsia-300 mt-2 pt-1.5 border-t border-slate-700">{tm('volume')}</div>}
+              {!compact && <div className="flex justify-between gap-4"><span className="text-slate-200">Vol SPY</span><span className="text-sky-300 font-semibold">{tooltip.vol!=null ? (tooltip.vol>=1e9 ? `${(tooltip.vol/1e9).toFixed(2)}B` : `${(tooltip.vol/1e6).toFixed(1)}M`) : '—'}</span></div>}
+              {!compact && <div className="flex justify-between gap-4"><span className="text-slate-200">OBV</span><span className="text-fuchsia-300 font-semibold">{tooltip.obvV!=null ? (tooltip.obvV>=1e9 ? `${(tooltip.obvV/1e9).toFixed(2)}B` : `${(tooltip.obvV/1e6).toFixed(1)}M`) : '—'}</span></div>}
+              {!compact && <div className="flex justify-between gap-4"><span className="text-slate-200">{tm('strength')}</span><span className={tooltip.fuerza!=null && tooltip.fuerza>=0 ? 'text-favorable-300 font-semibold' : 'text-risk-300 font-semibold'}>{tooltip.fuerza!=null ? `${tooltip.fuerza>=0?'+':''}${tooltip.fuerza.toFixed(2)}` : '—'}</span></div>}
+              {!compact && <div className="flex justify-between gap-4"><span className="text-slate-200">Tend-OBV</span><span className={tooltip.obvt!=null && tooltip.obvt>=0 ? 'text-favorable-300 font-semibold' : 'text-risk-300 font-semibold'}>{tooltip.obvt!=null ? `${tooltip.obvt>=0?'+':''}${tooltip.obvt.toFixed(2)}σ` : '—'}</span></div>}
+              {!compact && <div className="flex justify-between gap-4"><span className="text-slate-200">NetAdv</span><span className={tooltip.netadv!=null && tooltip.netadv>=0 ? 'text-favorable-300 font-semibold' : 'text-risk-300 font-semibold'}>{tooltip.netadv!=null ? `${tooltip.netadv>=0?'+':'−'}${(Math.abs(tooltip.netadv)/1e9).toFixed(2)}B` : '—'}</span></div>}
+              {!compact && <div className="flex justify-between gap-4"><span className="text-slate-200">Up/Down</span><span className="text-blue-300 font-semibold">{tooltip.updown!=null ? `${tooltip.updown.toFixed(2)}x` : '—'}</span></div>}
             </div>
           </div>
         )}
@@ -462,6 +474,7 @@ export function MarginGdpChart({ marketHistory, cape = [], volHistory = {}, comp
         <button onClick={()=>toggle('spx')} className={`flex items-center gap-1.5 rounded px-1.5 py-0.5 border transition ${visible.spx ? 'bg-slate-800 border-sky-500/50 text-sky-200' : 'bg-slate-900 border-slate-700 text-slate-500 opacity-60'}`}><span className="w-3 h-0.5 bg-[#38bdf8]" /> SP500</button>
         {!compact && <button onClick={()=>toggle('cape')} className={`flex items-center gap-1.5 rounded px-1.5 py-0.5 border transition ${visible.cape ? 'bg-slate-800 border-caution-500/50 text-caution-200' : 'bg-slate-900 border-slate-700 text-slate-500 opacity-60'}`}><span className="w-3 h-0.5 bg-caution-500" style={{ borderTop: `2px dashed ${TOKENS.caution}` }} /> {tm('scaled', { name: 'CAPE' })}</button>}
         <button onClick={()=>toggle('capeRatio')} className={`flex items-center gap-1.5 rounded px-1.5 py-0.5 border transition ${visible.capeRatio ? 'bg-slate-800 border-violet-500/50 text-violet-200' : 'bg-slate-900 border-slate-700 text-slate-500 opacity-60'}`}><span className="w-3 h-0.5 bg-[#a78bfa]" style={{ borderTop: '2px dashed #a78bfa' }} /> {tm('scaled', { name: 'CAPE Ratio' })}</button>
+        <button onClick={()=>toggle('bht')} className={`flex items-center gap-1.5 rounded px-1.5 py-0.5 border transition ${visible.bht ? 'bg-slate-800 border-amber-400/50 text-amber-200' : 'bg-slate-900 border-slate-700 text-slate-500 opacity-60'}`}><span className="w-3 h-0.5" style={{ background: 'linear-gradient(90deg,#22c55e,#eab308,#ef4444)' }} /> BHT Index</button>
         {!compact && <button onClick={()=>toggle('ndx')} className={`flex items-center gap-1.5 rounded px-1.5 py-0.5 border transition ${visible.ndx ? 'bg-slate-800 border-cyan-500/50 text-cyan-200' : 'bg-slate-900 border-slate-700 text-slate-500 opacity-60'}`}><span className="w-3 h-0.5 bg-[#06b6d4]" style={{ borderTop: '2px dashed #06b6d4' }} /> {tm('scaled', { name: 'Nasdaq' })}</button>}
         {!compact && <button onClick={()=>toggle('tqqq')} className={`flex items-center gap-1.5 rounded px-1.5 py-0.5 border transition ${visible.tqqq ? 'bg-slate-800 border-pink-500/50 text-pink-200' : 'bg-slate-900 border-slate-700 text-slate-500 opacity-60'}`}><span className="w-3 h-0.5 bg-[#ec4899]" style={{ borderTop: '2px dashed #ec4899' }} /> {tm('scaled', { name: 'TQQQ' })}</button>}
         {!compact && <button onClick={()=>toggle('hyOas')} className={`flex items-center gap-1.5 rounded px-1.5 py-0.5 border transition ${visible.hyOas ? 'bg-slate-800 border-elevated-600/50 text-elevated-200' : 'bg-slate-900 border-slate-700 text-slate-500 opacity-60'}`}><span className="w-3 h-0.5 bg-[#ea580c]" style={{ borderTop: '2px dashed #ea580c' }} /> {tm('scaled', { name: 'HY OAS' })}</button>}

@@ -37,6 +37,9 @@ function LeverageChart() {
     Promise.all([
       ...LEVERAGE_TICKERS.map((t) => fetch(`${base}/api/backtesting/market-data?ticker=${encodeURIComponent(t)}&from=1997-01-01&to=${to}`)
         .then((r) => (r.ok ? r.json() : [])).then((rows: Array<{ date: string; close: number }>) => [t, new Map(rows.map((x) => [String(x.date).slice(0, 10), Number(x.close)]))] as const)),
+      // BHT Index diario (bt_thermo_history) para su serie en la gráfica.
+      fetch(`${base}/api/backtesting/thermo-history?from=1997-01-01`).then((r) => (r.ok ? r.json() : []))
+        .then((rows: Array<{ date: string; value: number }>) => ['BHT', new Map(rows.map((x) => [String(x.date).slice(0, 10), Number(x.value)]))] as const),
       fetch(`${base}/api/backtesting/shiller-daily?from=1997-01-01`).then((r) => (r.ok ? r.json() : [])),
     ]).then((res) => {
       if (!alive) return;
