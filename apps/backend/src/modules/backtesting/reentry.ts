@@ -231,11 +231,13 @@ export type SystemSince = {
   route: string; from: string; today: string;
   /** Precio de entrada del instrumento de la ruta el día consultado (compra inicial al 100%). */
   basePrice: number;
+  /** BHT del día consultado (último BHT ≤ ese día). */
+  baseBht: number | null;
   /** Sistema (venta V1–V5, compra T0–T4 y red) desde la fecha, empezando 100% invertido, 1× y sin intereses. */
   system: { pct: number; maxDd: { pct: number; peakDate: string; troughDate: string }; cashPct: number };
   /** Hold del mismo instrumento de la ruta (S&P 500 o QQQ). */
   hold: { pct: number; maxDd: { pct: number; peakDate: string; troughDate: string } };
-  trades: Array<{ date: string; kind: 'sell' | 'buy' | 'net'; id: string; price: number; vsBasePct: number; pctOfPortfolio: number; cashPctAfter: number }>;
+  trades: Array<{ date: string; kind: 'sell' | 'buy' | 'net'; id: string; price: number; bht: number | null; vsBasePct: number; pctOfPortfolio: number; cashPctAfter: number }>;
 };
 
 /** El sistema real desde una fecha (vista Drawdowns del detalle del BHT): mismas escaleras que la gráfica y Tranches. */
@@ -260,15 +262,17 @@ export function systemSince(P: PreparedTranches, date: string): SystemSince | nu
   }
   // Valor de la cartera el día de cada operación (para expresar el monto como % de la cartera).
   const valAt = new Map(sysVals);
+  // BHT vigente un día (último BHT ≤ ese día).
+  const bhtOf = (k: number) => { const b = P.s.bht; if (!b) return null; for (let j = k; j >= 0; j--) if (b[j] != null) return b[j] as number; return null; };
   const pl = holdVals[holdVals.length - 1][1];
   return {
-    route: P.route, from: dates[i], today: dates[sim.kEnd], basePrice: p0,
+    route: P.route, from: dates[i], today: dates[sim.kEnd], basePrice: p0, baseBht: bhtOf(i),
     system: { pct: (V - 1) * 100, maxDd: dd(sysVals), cashPct: sim.cashFrac[sim.kEnd] * 100 },
     hold: { pct: (pl - 1) * 100, maxDd: dd(holdVals) },
     trades: sim.trades.filter((t) => t.k > i).map((t) => {
       // La simulación empieza con valor 1 (1/p0 unidades), igual que la serie V: monto ÷ V = fracción de la cartera.
       const v = valAt.get(t.date) ?? 1;
-      return { date: t.date, kind: t.kind, id: t.id, price: t.price, vsBasePct: (t.price / p0 - 1) * 100,
+      return { date: t.date, kind: t.kind, id: t.id, price: t.price, bht: bhtOf(t.k), vsBasePct: (t.price / p0 - 1) * 100,
         pctOfPortfolio: (t.amount / v) * 100, cashPctAfter: sim.cashFrac[t.k] * 100 };
     }),
   };

@@ -23,10 +23,10 @@ type Result = {
   hold: { pct: number | null; maxDd: MaxDd | null };
   /** Sistema real desde la fecha (escaleras V1–V5, T0–T4 y red; las mismas de la gráfica y de Tranches). */
   system?: {
-    route: 'voo' | 'qqq'; from: string; today: string; basePrice?: number;
+    route: 'voo' | 'qqq'; from: string; today: string; basePrice?: number; baseBht?: number | null;
     system: { pct: number; maxDd: MaxDd; cashPct: number };
     hold: { pct: number; maxDd: MaxDd };
-    trades: Array<{ date: string; kind: 'sell' | 'buy' | 'net'; id: string; price: number; vsBasePct: number; pctOfPortfolio: number; cashPctAfter: number }>;
+    trades: Array<{ date: string; kind: 'sell' | 'buy' | 'net'; id: string; price: number; bht?: number | null; vsBasePct: number; pctOfPortfolio: number; cashPctAfter: number }>;
   } | null;
 };
 
@@ -202,7 +202,7 @@ export default function BhtDrawdownsView({ date, locale }: { date: string; local
                       <thead className="text-[9px] uppercase tracking-wide text-slate-500 sticky top-0 bg-slate-900">
                         <tr className="border-b border-slate-700/70">
                           <th className="text-left font-normal py-0.5">{t.op}</th><th className="text-right font-normal">{t.date}</th>
-                          <th className="text-right font-normal">{t.price}</th><th className="text-right font-normal">{t.vsBase}</th>
+                          <th className="text-right font-normal">{t.bht}</th><th className="text-right font-normal">{t.price}</th><th className="text-right font-normal">{t.vsBase}</th>
                           <th className="text-right font-normal">{t.pctPort}</th><th className="text-right font-normal">{t.cashAfter}</th>
                         </tr>
                       </thead>
@@ -211,6 +211,7 @@ export default function BhtDrawdownsView({ date, locale }: { date: string; local
                           <tr className="border-b border-slate-800/60 bg-slate-800/30">
                             <td className="py-[1px] font-semibold text-favorable-300">{t.entry}</td>
                             <td className="text-right text-slate-300">{sy.from}</td>
+                            {bhtCell(sy.baseBht)}
                             <td className="text-right text-slate-100">{money(sy.basePrice)}</td>
                             <td className="text-right text-slate-400">{pctTxt(0)}</td>
                             <td className="text-right text-slate-300">100%</td>
@@ -221,6 +222,7 @@ export default function BhtDrawdownsView({ date, locale }: { date: string; local
                           <tr key={k} className="border-b border-slate-800/60">
                             <td className="py-[1px] font-semibold"><span className={tr.kind === 'sell' ? 'text-elevated-300' : 'text-favorable-300'}>{tr.kind === 'sell' ? t.sell : t.buy}</span> <b style={{ color: tradeColor(tr.kind, tr.id) }}>{tr.id.split('·')[0]}{tr.id.endsWith('·C') ? '·C' : tr.id.endsWith('·r') ? '·r' : ''}</b></td>
                             <td className="text-right text-slate-300">{tr.date}</td>
+                            {bhtCell(tr.bht)}
                             <td className="text-right text-slate-100">{money(tr.price)}</td>
                             <td className={`text-right ${pctCls(tr.vsBasePct)}`}>{pctTxt(tr.vsBasePct)}</td>
                             <td className="text-right text-slate-300">{tr.pctOfPortfolio.toFixed(0)}%</td>
