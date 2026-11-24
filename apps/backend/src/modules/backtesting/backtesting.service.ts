@@ -846,6 +846,11 @@ export class BacktestingService {
     let net = this.strategyCache.get(nk);
     if (!net) { net = computeReentry(P, date); if (net) this.strategyCache.set(nk, net); }
     out.net = net ?? null;
+    // HY OAS real de ICE (solo informativo junto a la serie del modelo 1.913 × Baa): último dato ≤ la fecha.
+    try {
+      const real = await this.prisma.btMarketData.findFirst({ where: { ticker: 'BAMLH0A0HYM2', date: { lte: new Date(date) } }, orderBy: { date: 'desc' }, select: { close: true, source: true } });
+      out.hyReal = real && real.source === 'fred' ? Number(real.close) : null;
+    } catch { out.hyReal = null; }
     return out.half === null && out.extraVote === null ? { error: 'not found' } : out;
   }
 
