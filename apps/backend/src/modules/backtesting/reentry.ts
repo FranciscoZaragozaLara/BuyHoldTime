@@ -80,7 +80,9 @@ export type SimCycle = { k: number; kLast: number; base: number; sold: number; s
  * unidades al inicio de cada ciclo; compras T0–T4 por su peso sobre el efectivo del episodio; la regla extra sobre el
  * efectivo de la última venta. Devuelve la serie de efectivo, las compras y el estado final.
  */
-export function simulateReentry(P: PreparedTranches, rule?: ReentryRule, until?: number, opts?: TrancheOpts) {
+export type SimTrade = { k: number; date: string; kind: 'sell' | 'buy' | 'net'; id: string; price: number; amount: number };
+
+export function simulateReentry(P: PreparedTranches, rule?: ReentryRule, until?: number, opts?: TrancheOpts, startIdx?: number) {
   const { s, px, route } = P;
   const { sells, buys, eps } = ladderEvents(P, opts);
   const bht = ffill(s.bht ?? []), s50 = sma(px, 50), s200 = sma(px, 200);
@@ -89,12 +91,15 @@ export function simulateReentry(P: PreparedTranches, rule?: ReentryRule, until?:
   const buyAt = new Map<string, BuyEvent[]>(); for (const e of buys) buyAt.set(e.date, [...(buyAt.get(e.date) ?? []), e]);
   const epStart = new Set(eps.map((e) => e.start));
   const kEnd = until ?? s.dates.length - 1;
-  const k0 = s.dates.findIndex((d, k) => d >= (route === 'voo' ? '1993-06-01' : '1999-03-10') && px[k] != null);
+  const kStart = s.dates.findIndex((d, k) => d >= (route === 'voo' ? '1993-06-01' : '1999-03-10') && px[k] != null);
+  // startIdx: empezar 100% invertido ese día (vista Drawdowns: el sistema desde la fecha consultada).
+  const k0 = startIdx != null && startIdx > kStart ? (px[startIdx] != null ? startIdx : -1) : kStart;
+  const trades: SimTrade[] = [];
   const cashFrac: number[] = new Array(s.dates.length).fill(0);
   const buyLog: Array<{ k: number; amt: number; units: number; label: string; rule?: string }> = [];
   const netEvents: NetEvent[] = [];
   const cycles: SimCycle[] = [];
-  if (k0 < 0) return { k0, kEnd, cashFrac, buyLog, netEvents, cycles, units: 0, cash: 0, state: null as null | ReturnType<typeof stateAt> };
+  if (k0 < 0) return { k0, kEnd, cashFrac, buyLog, netEvents, cycles, trades, units: 0, cash: 0, state: null as null | ReturnType<typeof stateAt> };
   let units = 1 / (px[k0] as number), cash = 0;
   let groupIds = new Set<string>(), lastSaleK = -1e9;
   let pool = 0, boughtExtra = 0, extraPool = 0, corrected = false;
@@ -123,6 +128,7 @@ export function simulateReentry(P: PreparedTranches, rule?: ReentryRule, until?:
       groupIds.add(e.id); lastSaleK = k; cur.kLast = k;
       const u = Math.min(units, SELL_CFG.weights[e.id] * cur.base);
       units -= u; cash += u * p;
+      if (u > 1e-12) trades.push({ k, date: d, kind: 'sell', id: e.credit ? `${e.id}·C` : e.id, price: p, amount: u * p });
       cur.sold += u / cur.base; cur.soldUnits += u; cur.sellCost += u * p;
       extraPool = cash; boughtExtra = 0; corrected = false;
     }
@@ -133,6 +139,7 @@ export function simulateReentry(P: PreparedTranches, rule?: ReentryRule, until?:
       if (amt <= 1e-12) continue;
       cash -= amt; units += amt / p;
       buyLog.push({ k, amt, units: amt / p, label: `${e.id}${e.backup ? 'r' : ''}@${d}` });
+      trades.push({ k, date: d, kind: 'buy', id: `${e.id}${e.size < 1 ? '½' : ''}${e.backup ? '·r' : ''}`, price: p, amount: amt });
     }
     if (rule && cash > 1e-9 && cur && k > lastSaleK && extraPool > 0) {
       const r = rule(ctxAt(k));
@@ -142,12 +149,13 @@ export function simulateReentry(P: PreparedTranches, rule?: ReentryRule, until?:
         const pct = Math.round((want / extraPool) * 100);
         buyLog.push({ k, amt: want, units: want / p, label: `+${pct}%@${d}`, rule: r.rule });
         netEvents.push({ date: d, rule: r.rule, pct, price: p });
+        trades.push({ k, date: d, kind: 'net', id: `R${pct}·${r.rule}`, price: p, amount: want });
       }
     }
     cashFrac[k] = cash / (units * p + cash);
   }
   if (cur) cycles.push({ ...cur, end: kEnd, cashLeft: cashFrac[kEnd] });
-  return { k0, kEnd, cashFrac, buyLog, netEvents, cycles, units, cash, state: stateAt(kEnd) };
+  return { k0, kEnd, cashFrac, buyLog, netEvents, cycles, trades, units, cash, state: stateAt(kEnd) };
 }
 
 export type ReentryCheck = { key: string; ok: boolean; value?: number | string | null; need?: number | string | null };
@@ -217,4 +225,49 @@ function netCycle(P: PreparedTranches, sim: ReturnType<typeof simulateReentry>, 
     if (end && end <= dates[D]) closed = end;
   }
   return { cycleEvents: closed ? [] : sim.netEvents.filter((e) => e.date > lastSale && e.date <= dates[D]), cycleClosedAt: closed };
+}
+
+export type SystemSince = {
+  route: string; from: string; today: string;
+  /** Sistema (venta V1–V5, compra T0–T4 y red) desde la fecha, empezando 100% invertido, 1× y sin intereses. */
+  system: { pct: number; maxDd: { pct: number; peakDate: string; troughDate: string }; cashPct: number };
+  /** Hold del mismo instrumento de la ruta (S&P 500 o QQQ). */
+  hold: { pct: number; maxDd: { pct: number; peakDate: string; troughDate: string } };
+  trades: Array<{ date: string; kind: 'sell' | 'buy' | 'net'; id: string; price: number; vsBasePct: number; pctOfPortfolio: number; cashPctAfter: number }>;
+};
+
+/** El sistema real desde una fecha (vista Drawdowns del detalle del BHT): mismas escaleras que la gráfica y Tranches. */
+export function systemSince(P: PreparedTranches, date: string): SystemSince | null {
+  let i = -1;
+  for (let k = P.s.dates.length - 1; k >= 0; k--) if (P.s.dates[k] <= date) { i = k; break; }
+  if (i < 0 || P.px[i] == null) return null;
+  const sim = simulateReentry(P, NET_RULE, undefined, undefined, i);
+  if (sim.k0 < 0) return null;
+  const px = P.px, dates = P.s.dates, p0 = px[i] as number;
+  const dd = (vals: Array<[string, number]>) => {
+    let peak = vals[0][1], pd = vals[0][0], best = { pct: 0, peakDate: pd, troughDate: pd };
+    for (const [d, v] of vals) { if (v > peak) { peak = v; pd = d; } const x = (v / peak - 1) * 100; if (x < best.pct) best = { pct: x, peakDate: pd, troughDate: d }; }
+    return best;
+  };
+  const sysVals: Array<[string, number]> = [], holdVals: Array<[string, number]> = [];
+  let V = 1;
+  for (let k = i; k <= sim.kEnd; k++) {
+    if (px[k] == null) continue;
+    if (k > i) { const prev = px[k - 1] ?? px[k]; V *= (1 - sim.cashFrac[k - 1]) * ((px[k] as number) / (prev as number)) + sim.cashFrac[k - 1]; }
+    sysVals.push([dates[k], V]); holdVals.push([dates[k], (px[k] as number) / p0]);
+  }
+  // Valor de la cartera el día de cada operación (para expresar el monto como % de la cartera).
+  const valAt = new Map(sysVals);
+  const pl = holdVals[holdVals.length - 1][1];
+  return {
+    route: P.route, from: dates[i], today: dates[sim.kEnd],
+    system: { pct: (V - 1) * 100, maxDd: dd(sysVals), cashPct: sim.cashFrac[sim.kEnd] * 100 },
+    hold: { pct: (pl - 1) * 100, maxDd: dd(holdVals) },
+    trades: sim.trades.filter((t) => t.k > i).map((t) => {
+      // La simulación empieza con valor 1 (1/p0 unidades), igual que la serie V: monto ÷ V = fracción de la cartera.
+      const v = valAt.get(t.date) ?? 1;
+      return { date: t.date, kind: t.kind, id: t.id, price: t.price, vsBasePct: (t.price / p0 - 1) * 100,
+        pctOfPortfolio: (t.amount / v) * 100, cashPctAfter: sim.cashFrac[t.k] * 100 };
+    }),
+  };
 }

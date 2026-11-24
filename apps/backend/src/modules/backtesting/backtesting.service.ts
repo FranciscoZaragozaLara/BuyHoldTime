@@ -7,7 +7,7 @@ import { toShillerApiRow } from './shiller-daily';
 import { monthlyPartsFromDaily } from './bht-forward';
 import { computeBhtStrategy, type Instrument as StrategyInstrument, type SampleWindow, type StrategySeries } from './bht-strategy';
 import { computeBhtDrawdowns } from './bht-drawdowns';
-import { NET_RULE, computeReentry, simulateReentry } from './reentry';
+import { NET_RULE, computeReentry, simulateReentry, systemSince } from './reentry';
 import { dayQuote } from './day-quotes';
 import { computeSellTranches, computeTranches, loadTrancheSeries, prepareTranches, type PreparedTranches, type SectorRule, type SellEvent, type BuyEvent, type TrancheRoute } from './tranches';
 import { liveTrend } from './trend-regime';
@@ -896,6 +896,8 @@ export class BacktestingService {
     if (hit) return hit;
     const r = computeBhtDrawdowns(await this.strategySeries(), date, inst);
     if (!r) return { error: 'not found' };
+    // Sistema real desde la fecha (mismas escaleras que la gráfica y Tranches): S&P 500 → VOO; QQQ y TQQQ → QQQ (1×).
+    try { r.system = systemSince(await this.trancheSeries(inst === 'spx' ? 'voo' : 'qqq'), date); } catch { r.system = null; }
     this.strategyCache.set(key, r);
     return r;
   }

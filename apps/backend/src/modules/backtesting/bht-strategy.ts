@@ -6,7 +6,7 @@
 //    caída máxima promedio en esos 12 meses y probabilidad de caer más de 15% (días de la ventana elegida).
 // 3) Comprando en esta fecha y manteniendo hasta hoy, para cada instrumento: rendimiento total y CAGR; y lo mismo
 //    si se vendiera en el pico máximo alcanzado desde la compra.
-// Los tramos de compra/venta y las caídas por año están en la vista Drawdowns (bht-drawdowns.ts).
+// Las caídas por año están en la vista Drawdowns (bht-drawdowns.ts); su simulación usa el sistema real (reentry.ts).
 export type Instrument = 'spx' | 'qqq' | 'tqqq';
 /** Días del rango que entran a los promedios: toda la historia o solo los últimos 5 años. */
 export type SampleWindow = 'all' | '5y';
