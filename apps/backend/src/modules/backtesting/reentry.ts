@@ -229,6 +229,8 @@ function netCycle(P: PreparedTranches, sim: ReturnType<typeof simulateReentry>, 
 
 export type SystemSince = {
   route: string; from: string; today: string;
+  /** Precio de entrada del instrumento de la ruta el día consultado (compra inicial al 100%). */
+  basePrice: number;
   /** Sistema (venta V1–V5, compra T0–T4 y red) desde la fecha, empezando 100% invertido, 1× y sin intereses. */
   system: { pct: number; maxDd: { pct: number; peakDate: string; troughDate: string }; cashPct: number };
   /** Hold del mismo instrumento de la ruta (S&P 500 o QQQ). */
@@ -260,7 +262,7 @@ export function systemSince(P: PreparedTranches, date: string): SystemSince | nu
   const valAt = new Map(sysVals);
   const pl = holdVals[holdVals.length - 1][1];
   return {
-    route: P.route, from: dates[i], today: dates[sim.kEnd],
+    route: P.route, from: dates[i], today: dates[sim.kEnd], basePrice: p0,
     system: { pct: (V - 1) * 100, maxDd: dd(sysVals), cashPct: sim.cashFrac[sim.kEnd] * 100 },
     hold: { pct: (pl - 1) * 100, maxDd: dd(holdVals) },
     trades: sim.trades.filter((t) => t.k > i).map((t) => {
