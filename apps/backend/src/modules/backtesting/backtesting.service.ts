@@ -896,8 +896,12 @@ export class BacktestingService {
     if (hit) return hit;
     const r = computeBhtDrawdowns(await this.strategySeries(), date, inst);
     if (!r) return { error: 'not found' };
-    // Sistema real desde la fecha (mismas escaleras que la gráfica y Tranches): S&P 500 → VOO; QQQ y TQQQ → QQQ (1×).
-    try { r.system = systemSince(await this.trancheSeries(inst === 'spx' ? 'voo' : 'qqq'), date); } catch { r.system = null; }
+    // Sistema real desde la fecha (mismas escaleras que la gráfica y Tranches): S&P 500 → VOO; QQQ y TQQQ → señales de QQQ.
+    // TQQQ: mismas operaciones (fechas, reglas y fracciones de la ruta QQQ) aplicadas al precio real de TQQQ.
+    try {
+      const P = await this.trancheSeries(inst === 'spx' ? 'voo' : 'qqq');
+      r.system = inst === 'tqqq' ? (P.s.tqqq ? systemSince(P, date, P.s.tqqq, 'tqqq') : null) : systemSince(P, date);
+    } catch { r.system = null; }
     this.strategyCache.set(key, r);
     return r;
   }

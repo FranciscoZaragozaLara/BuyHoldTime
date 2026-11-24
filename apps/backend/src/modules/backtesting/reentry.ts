@@ -228,7 +228,10 @@ function netCycle(P: PreparedTranches, sim: ReturnType<typeof simulateReentry>, 
 }
 
 export type SystemSince = {
-  route: string; from: string; today: string;
+  route: string;
+  /** Instrumento al que se aplican las operaciones (la ruta, o TQQQ con las señales de QQQ). */
+  instrument: string;
+  from: string; today: string;
   /** Precio de entrada del instrumento de la ruta el día consultado (compra inicial al 100%). */
   basePrice: number;
   /** BHT del día consultado (último BHT ≤ ese día). */
@@ -240,40 +243,59 @@ export type SystemSince = {
   trades: Array<{ date: string; kind: 'sell' | 'buy' | 'net'; id: string; price: number; bht: number | null; vsBasePct: number; pctOfPortfolio: number; cashPctAfter: number }>;
 };
 
-/** El sistema real desde una fecha (vista Drawdowns del detalle del BHT): mismas escaleras que la gráfica y Tranches. */
-export function systemSince(P: PreparedTranches, date: string): SystemSince | null {
+/**
+ * El sistema real desde una fecha (vista Drawdowns del detalle del BHT): mismas escaleras que la gráfica y Tranches.
+ * Las señales salen siempre de la ruta (S&P 500 o QQQ). Con `onPx` (TQQQ) las mismas operaciones, en las mismas
+ * fechas y por la misma fracción, se aplican a ese instrumento: cada venta vende la misma fracción de lo invertido y
+ * cada compra usa la misma fracción del efectivo que en la simulación de la ruta.
+ */
+export function systemSince(P: PreparedTranches, date: string, onPx?: (number | null)[], instrument?: string): SystemSince | null {
   let i = -1;
   for (let k = P.s.dates.length - 1; k >= 0; k--) if (P.s.dates[k] <= date) { i = k; break; }
   if (i < 0 || P.px[i] == null) return null;
+  const ap = onPx ?? P.px; // precios a los que se aplica
+  if (ap[i] == null) return null;
   const sim = simulateReentry(P, NET_RULE, undefined, undefined, i);
   if (sim.k0 < 0) return null;
-  const px = P.px, dates = P.s.dates, p0 = px[i] as number;
+  const dates = P.s.dates, p0 = ap[i] as number;
   const dd = (vals: Array<[string, number]>) => {
     let peak = vals[0][1], pd = vals[0][0], best = { pct: 0, peakDate: pd, troughDate: pd };
     for (const [d, v] of vals) { if (v > peak) { peak = v; pd = d; } const x = (v / peak - 1) * 100; if (x < best.pct) best = { pct: x, peakDate: pd, troughDate: d }; }
     return best;
   };
+  // Fracción de cada operación en la simulación de la ruta: venta = fracción de las unidades; compra = del efectivo.
+  const rt = P.px;
+  let ru = 1 / (rt[i] as number), rc = 0;
+  const fr = sim.trades.filter((t) => t.k > i).map((t) => {
+    let f: number;
+    if (t.kind === 'sell') { const du = t.amount / t.price; f = ru > 0 ? du / ru : 0; ru -= du; rc += t.amount; }
+    else { f = rc > 0 ? t.amount / rc : 0; rc -= t.amount; ru += t.amount / t.price; }
+    return { t, f: Math.min(1, Math.max(0, f)) };
+  });
+  // Réplica sobre el instrumento aplicado, día a día.
+  let u = 1 / p0, c = 0, last = p0, q = 0;
   const sysVals: Array<[string, number]> = [], holdVals: Array<[string, number]> = [];
-  let V = 1;
-  for (let k = i; k <= sim.kEnd; k++) {
-    if (px[k] == null) continue;
-    if (k > i) { const prev = px[k - 1] ?? px[k]; V *= (1 - sim.cashFrac[k - 1]) * ((px[k] as number) / (prev as number)) + sim.cashFrac[k - 1]; }
-    sysVals.push([dates[k], V]); holdVals.push([dates[k], (px[k] as number) / p0]);
-  }
-  // Valor de la cartera el día de cada operación (para expresar el monto como % de la cartera).
-  const valAt = new Map(sysVals);
-  // BHT vigente un día (último BHT ≤ ese día).
+  const trades: SystemSince['trades'] = [];
   const bhtOf = (k: number) => { const b = P.s.bht; if (!b) return null; for (let j = k; j >= 0; j--) if (b[j] != null) return b[j] as number; return null; };
-  const pl = holdVals[holdVals.length - 1][1];
+  for (let k = i; k <= sim.kEnd; k++) {
+    if (ap[k] != null) last = ap[k] as number;
+    for (; q < fr.length && fr[q].t.k === k; q++) {
+      const { t, f } = fr[q];
+      const V = u * last + c;
+      let amt: number;
+      if (t.kind === 'sell') { const du = u * f; amt = du * last; u -= du; c += amt; }
+      else { amt = c * f; c -= amt; u += amt / last; }
+      trades.push({ date: t.date, kind: t.kind, id: t.id, price: last, bht: bhtOf(k), vsBasePct: (last / p0 - 1) * 100,
+        pctOfPortfolio: V > 0 ? (amt / V) * 100 : 0, cashPctAfter: (c / (u * last + c)) * 100 });
+    }
+    if (ap[k] == null) continue;
+    sysVals.push([dates[k], u * last + c]); holdVals.push([dates[k], last / p0]);
+  }
+  const V = u * last + c, pl = last / p0;
   return {
-    route: P.route, from: dates[i], today: dates[sim.kEnd], basePrice: p0, baseBht: bhtOf(i),
-    system: { pct: (V - 1) * 100, maxDd: dd(sysVals), cashPct: sim.cashFrac[sim.kEnd] * 100 },
+    route: P.route, instrument: instrument ?? P.route, from: dates[i], today: dates[sim.kEnd], basePrice: p0, baseBht: bhtOf(i),
+    system: { pct: (V - 1) * 100, maxDd: dd(sysVals), cashPct: (c / V) * 100 },
     hold: { pct: (pl - 1) * 100, maxDd: dd(holdVals) },
-    trades: sim.trades.filter((t) => t.k > i).map((t) => {
-      // La simulación empieza con valor 1 (1/p0 unidades), igual que la serie V: monto ÷ V = fracción de la cartera.
-      const v = valAt.get(t.date) ?? 1;
-      return { date: t.date, kind: t.kind, id: t.id, price: t.price, bht: bhtOf(t.k), vsBasePct: (t.price / p0 - 1) * 100,
-        pctOfPortfolio: (t.amount / v) * 100, cashPctAfter: sim.cashFrac[t.k] * 100 };
-    }),
+    trades,
   };
 }

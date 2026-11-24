@@ -23,7 +23,7 @@ type Result = {
   hold: { pct: number | null; maxDd: MaxDd | null };
   /** Sistema real desde la fecha (escaleras V1–V5, T0–T4 y red; las mismas de la gráfica y de Tranches). */
   system?: {
-    route: 'voo' | 'qqq'; from: string; today: string; basePrice?: number; baseBht?: number | null;
+    route: 'voo' | 'qqq'; instrument?: string; from: string; today: string; basePrice?: number; baseBht?: number | null;
     system: { pct: number; maxDd: MaxDd; cashPct: number };
     hold: { pct: number; maxDd: MaxDd };
     trades: Array<{ date: string; kind: 'sell' | 'buy' | 'net'; id: string; price: number; bht?: number | null; vsBasePct: number; pctOfPortfolio: number; cashPctAfter: number }>;
@@ -57,7 +57,7 @@ const T = {
     entry: 'Entrada', entryNote: 'compra inicial · 100% invertido',
     ddTitleCol: 'Caída del pico al valle', ddTitle: 'Caída máxima en cada año después de la fecha', ddNote: 'Desde el pico acumulado desde la compra hasta el valle de ese año. «vs compra» = cambio contra el precio de entrada; «Caída» = del pico al valle.',
     year: 'Año', peak: 'Pico', trough: 'Valle', dd: 'Caída', vsBase: 'vs compra', partial: 'en curso', nodata: 'sin datos', base: 'Compra',
-    trTitle: 'Sistema BuyHoldTime desde esta fecha', trRules: 'Parte 100% invertido. Las mismas escaleras que la gráfica y la pestaña Tranches: vende con V1–V5 y recompra con T0–T4 y la red de seguridad (R). En 1×, sin comisiones ni intereses del efectivo.', trTqqq: 'Para TQQQ se simula la ruta QQQ en 1× (las escaleras deciden con QQQ).', sysName: 'Sistema', holdName: 'Hold', pctPort: '% cartera', cashAfter: 'Efectivo después', cashToday: 'Efectivo hoy', route: 'ruta',
+    trTitle: 'Sistema BuyHoldTime desde esta fecha', trRules: 'Parte 100% invertido. Mismas escaleras que la gráfica y la pestaña Tranches: vende con V1–V5 y recompra con T0–T4 y la red de seguridad (R). Sin comisiones ni intereses del efectivo.', trTqqq: 'En TQQQ las escaleras deciden con QQQ: mismas fechas y mismas fracciones (cada venta vende la misma parte de lo invertido y cada compra usa la misma parte del efectivo), aplicadas al precio real de TQQQ.', sigQqq: 'señales de QQQ', noTqqq: 'TQQQ cotiza desde el 11-feb-2010: elige una fecha posterior para simular el sistema en TQQQ.', sysName: 'Sistema', holdName: 'Hold', pctPort: '% cartera', cashAfter: 'Efectivo después', cashToday: 'Efectivo hoy', route: 'ruta',
     op: 'Operación', sell: 'Venta', buy: 'Compra', level: 'Nivel', date: 'Fecha', bht: 'BHT', bhtTitle: 'BHT del día anterior → BHT del día de la operación', price: 'Precio', invested: 'Invertido',
     none: 'Sin operaciones desde esta fecha: sigue 100% invertido.',
     vsHold: 'Sistema vs Hold',
@@ -69,7 +69,7 @@ const T = {
     entry: 'Entry', entryNote: 'initial buy · 100% invested',
     ddTitleCol: 'Drop from peak to trough', ddTitle: 'Maximum drawdown in each year after the date', ddNote: 'From the running peak since the purchase to the trough of that year. “vs buy” = change against the entry price; “Drawdown” = peak to trough.',
     year: 'Year', peak: 'Peak', trough: 'Trough', dd: 'Drawdown', vsBase: 'vs buy', partial: 'in progress', nodata: 'no data', base: 'Buy',
-    trTitle: 'BuyHoldTime system since this date', trRules: 'Starts 100% invested. Same ladders as the chart and the Tranches tab: sells with V1–V5 and buys back with T0–T4 and the safety net (R). At 1×, no fees, cash earns nothing.', trTqqq: 'For TQQQ the QQQ route is simulated at 1× (the ladders decide with QQQ).', sysName: 'System', holdName: 'Hold', pctPort: '% portfolio', cashAfter: 'Cash after', cashToday: 'Cash today', route: 'route',
+    trTitle: 'BuyHoldTime system since this date', trRules: 'Starts 100% invested. Same ladders as the chart and the Tranches tab: sells with V1–V5 and buys back with T0–T4 and the safety net (R). No fees, cash earns nothing.', trTqqq: 'On TQQQ the ladders decide with QQQ: same dates and same fractions (each sale sells the same share of the invested part and each buy uses the same share of cash), applied to the real TQQQ price.', sigQqq: 'QQQ signals', noTqqq: 'TQQQ trades since 11-Feb-2010: pick a later date to simulate the system on TQQQ.', sysName: 'System', holdName: 'Hold', pctPort: '% portfolio', cashAfter: 'Cash after', cashToday: 'Cash today', route: 'route',
     op: 'Trade', sell: 'Sell', buy: 'Buy', level: 'Level', date: 'Date', bht: 'BHT', bhtTitle: 'BHT the day before → BHT on the trade day', price: 'Price', invested: 'Invested',
     none: 'No trades since this date: still 100% invested.',
     vsHold: 'System vs Hold',
@@ -100,7 +100,7 @@ export default function BhtDrawdownsView({ date, locale }: { date: string; local
     return NET_COLOR[id.split('·')[1] ?? ''] ?? TOKENS.favorable;
   };
   const bhtCell = (b?: number | null) => <td className="text-right font-bold" style={b != null ? { color: capeScoreColor(b) } : undefined}>{b != null ? b.toFixed(1) : '—'}</td>;
-  const routeName = (rt: 'voo' | 'qqq') => (rt === 'voo' ? 'VOO · S&P 500' : 'QQQ');
+  const routeName = (rt: string) => (rt === 'voo' ? 'VOO · S&P 500' : rt === 'tqqq' ? 'TQQQ' : 'QQQ');
 
   return (
     <div className="mt-2 pt-1.5 border-t border-slate-800 space-y-2">
@@ -189,12 +189,13 @@ export default function BhtDrawdownsView({ date, locale }: { date: string; local
             </table>
           </div>
 
+          {!r.system && inst === 'tqqq' && <div className="text-[11px] text-slate-400">{t.noTqqq}</div>}
           {r.system && (() => {
             const sy = r.system;
             return (
               <div>
-                <div className="text-[11px] font-semibold text-slate-100">{t.trTitle} · {t.route} {routeName(sy.route)}</div>
-                <div className="text-[10px] text-slate-500 mb-1">{t.trRules}{inst === 'tqqq' && <> {t.trTqqq}</>}</div>
+                <div className="text-[11px] font-semibold text-slate-100">{t.trTitle} · {sy.instrument === 'tqqq' ? <>TQQQ · {t.sigQqq}</> : <>{t.route} {routeName(sy.route)}</>}</div>
+                <div className="text-[10px] text-slate-500 mb-1">{t.trRules}{sy.instrument === 'tqqq' && <> {t.trTqqq}</>}</div>
                 {sy.trades.length === 0 && <div className="text-[11px] text-slate-400">{t.none}</div>}
                 {(sy.trades.length > 0 || sy.basePrice != null) && (
                   <div className="max-h-48 overflow-y-auto">
@@ -244,7 +245,7 @@ export default function BhtDrawdownsView({ date, locale }: { date: string; local
                   </thead>
                   <tbody>
                     <tr className="border-b border-slate-800/60">
-                      <td className="py-[1px] text-slate-300">{t.holdName} {routeName(sy.route)}</td>
+                      <td className="py-[1px] text-slate-300">{t.holdName} {routeName(sy.instrument ?? sy.route)}</td>
                       <td className={`text-right font-bold ${pctCls(sy.hold.pct)}`}>{pctTxt(sy.hold.pct)}</td>
                       <td className="text-right">{ddCell(sy.hold.maxDd)}</td>
                       <td className="text-right text-slate-400">0%</td>
@@ -261,14 +262,6 @@ export default function BhtDrawdownsView({ date, locale }: { date: string; local
                       <td className="text-right"><span className={pctCls(sy.system.maxDd.pct - sy.hold.maxDd.pct)}>{pctTxt(sy.system.maxDd.pct - sy.hold.maxDd.pct)}</span></td>
                       <td />
                     </tr>
-                    {inst === 'tqqq' && (
-                      <tr>
-                        <td className="py-[1px] text-slate-500">{t.holdName} TQQQ</td>
-                        <td className={`text-right ${pctCls(r.hold.pct)}`}>{pctTxt(r.hold.pct)}</td>
-                        <td className="text-right">{ddCell(r.hold.maxDd)}</td>
-                        <td />
-                      </tr>
-                    )}
                   </tbody>
                 </table>
               </div>
