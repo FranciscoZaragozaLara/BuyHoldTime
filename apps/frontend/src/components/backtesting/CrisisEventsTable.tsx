@@ -3,7 +3,8 @@ import { getApiBase } from '@/lib/apiBase';
 import React, { useEffect, useState } from 'react';
 import { CRISIS_EVENTS } from '@/lib/crisisEvents';
 import { useTranslations } from 'next-intl';
-import { BhtDetailPopover, bhtLeaveGuard, useBhtDetail } from './BhtDetail';
+import { BhtDetailPopover, bhtLeaveGuard } from './BhtDetail';
+import { useBhtTablePin } from './useBhtTablePin';
 import { capeScoreColor } from './bhtBands';
 
 const fmt$ = (v: number) => '$' + Number(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -16,7 +17,8 @@ export function CrisisEventsTable() {
   const tc = useTranslations('Backtesting.crisis');
   const [bhtVals, setBhtVals] = useState<Record<string, number | null>>({});
   const [fwdCache, setFwdCache] = useState<Record<string, any>>({});
-  const bhtDet = useBhtDetail();
+  const bhtPinT = useBhtTablePin();
+  const bhtDet = bhtPinT.det;
 
   useEffect(() => {
     const dates = Array.from(new Set(CRISIS_EVENTS.flatMap((e) => [e.peakDate, e.bottomDate])));
@@ -60,6 +62,7 @@ export function CrisisEventsTable() {
         style={{ color: capeScoreColor(v) }}
         onMouseEnter={onEnter(d)}
         onMouseMove={onMove(d)}
+        onClick={(e) => bhtPinT.pinAt(d, e.clientX, e.clientY)}
         onMouseLeave={(e) => bhtLeaveGuard(e, bhtDet)}
       >
         <span className="border-b border-dotted border-slate-400/40">BHT {Number(v).toFixed(1)}</span>
@@ -115,14 +118,16 @@ export function CrisisEventsTable() {
           </tbody>
         </table>
       </div>
-      {bhtDet.hover && (
+      {bhtPinT.showHover && bhtDet.hover && (
         <BhtDetailPopover
           hover={bhtDet.hover}
           detail={bhtDet.cache[bhtDet.hover.d]}
           forward={fwdCache[bhtDet.hover.d]}
           onLeave={() => bhtDet.scheduleClear()} onHold={() => bhtDet.cancelClear()}
+          nav={bhtPinT.hoverNav}
         />
       )}
+      {bhtPinT.pin && <BhtDetailPopover hover={bhtPinT.pin} detail={bhtDet.cache[bhtPinT.pin.d]} onClose={bhtPinT.close} nav={bhtPinT.pinnedNav} />}
     </div>
   );
 }

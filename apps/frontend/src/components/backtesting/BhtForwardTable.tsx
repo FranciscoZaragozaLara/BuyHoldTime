@@ -7,7 +7,8 @@ import { peakGainPct, peakSinceMap, type Peak } from '@/lib/peakSince';
 import { shortDate } from '@/lib/orbHistory';
 import { useLocale, useTranslations } from 'next-intl';
 import { capeScoreColor } from './bhtBands';
-import { useBhtDetail, bhtLeaveGuard, BhtDetailPopover } from './BhtDetail';
+import { bhtLeaveGuard, BhtDetailPopover } from './BhtDetail';
+import { useBhtTablePin } from './useBhtTablePin';
 
 // Tabla BHT Forward: BHT Index + precios y retornos forward maduros 1/2/3/5Y.
 // Solo pinta horizontes con fecha objetivo ya cumplida (el resto es '—').
@@ -23,7 +24,9 @@ export function BhtForwardTable({ live }: { live: { current: { v: number | null;
   const [visibleCount, setVisibleCount] = useState(60);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const sentinelRef = useRef<HTMLTableRowElement | null>(null) as any;
-  const bhtDet = useBhtDetail();
+  // Hover con el detalle; clic, ← → o el calendario lo fijan con navegación por fecha (igual que la gráfica).
+  const bhtPinT = useBhtTablePin();
+  const bhtDet = bhtPinT.det;
   const loadRows = useCallback(async () => {
     try {
       const r = await fetch(`${getApiBase()}/api/backtesting/bht-forward?from=1993-01-01`, { cache: 'no-store' });
@@ -48,7 +51,8 @@ export function BhtForwardTable({ live }: { live: { current: { v: number | null;
   }, [visibleCount, view, rows.length, sortCol, sortDir]);
   // Pico hasta hoy de cada índice (máximo desde la fecha de la fila), de la serie diaria completa.
   const peaks = useMemo(() => ({ spx: peakSinceMap(rows, 'spx'), ndx: peakSinceMap(rows, 'ndx'), tqqq: peakSinceMap(rows, 'tqqq') }), [rows]);
-  if (!rows.length) return null;
+  // Mientras carga (~10 s: retornos maduros desde 1993) se muestra un aviso en vez de dejar el hueco vacío.
+  if (!rows.length) return <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 text-sm text-slate-500 animate-pulse">{loc === 'es' ? 'Cargando retornos históricos…' : 'Loading historical returns…'}</div>;
   let list = rows;
   if (view === 'monthly') { const m = new Map<string, any>(); for (const r of rows) m.set((r.date || '').slice(0, 7), r); list = Array.from(m.values()); }
   if (view === 'yearly') { const m = new Map<string, any>(); for (const r of rows) m.set((r.date || '').slice(0, 4), r); list = Array.from(m.values()); }
@@ -133,7 +137,7 @@ export function BhtForwardTable({ live }: { live: { current: { v: number | null;
               return (
                 <tr key={r.date} ref={isLast ? sentinelRef : null} className={`${isCurrent ? 'bg-accent-500/[0.08] border-l-2 border-l-accent-500 ring-1 ring-accent-500/15' : 'hover:bg-slate-900/40'} transition-colors`}>
                   <td className={`p-1.5 px-2 font-mono whitespace-nowrap w-[92px] min-w-[92px] max-w-[92px] align-top sticky left-0 z-10 shadow-[2px_0_4px_rgba(0,0,0,0.25)] ${isCurrent ? 'bg-slate-900' : 'bg-slate-950 group-hover:bg-slate-900'}`}><div className="flex flex-col items-start leading-none gap-0.5"><span className={`${isCurrent ? 'text-accent-300 font-bold' : 'text-slate-200'} text-xs`}>{view === 'yearly' ? d.slice(0, 4) : view === 'monthly' ? d.slice(0, 7) : d}</span>{isCurrent && <span className="text-[9px] px-1 py-0.5 rounded bg-accent-500 text-white font-bold leading-none">Actual</span>}</div></td>
-                  {(() => { const isLive = isCurrent && liveBht != null; const v = isLive ? liveBht : r.bhtValue; if (v == null) return <td className="p-2 text-right font-mono text-slate-600 whitespace-nowrap">—</td>; return <td className="p-2 text-right font-mono font-semibold whitespace-nowrap cursor-help" style={{ color: capeScoreColor(v) }} onMouseEnter={(e) => { bhtDet.setHover({ d, x: e.clientX, y: e.clientY }); bhtDet.load(d); }} onMouseMove={(e) => bhtDet.setHover((s) => s && s.d === d ? { ...s, x: e.clientX, y: e.clientY } : s)} onMouseLeave={(e) => bhtLeaveGuard(e, bhtDet)}><span className="border-b border-dotted border-slate-400/40" title={isLive ? 'En vivo (igual que el semáforo)' : undefined}>{Number(v).toFixed(1)}{isLive && <span className="text-accent-300"> •</span>}</span></td>; })()}
+                  {(() => { const isLive = isCurrent && liveBht != null; const v = isLive ? liveBht : r.bhtValue; if (v == null) return <td className="p-2 text-right font-mono text-slate-600 whitespace-nowrap">—</td>; return <td className="p-2 text-right font-mono font-semibold whitespace-nowrap cursor-help" style={{ color: capeScoreColor(v) }} onMouseEnter={(e) => { bhtDet.setHover({ d, x: e.clientX, y: e.clientY }); bhtDet.load(d); }} onMouseMove={(e) => bhtDet.setHover((s) => s && s.d === d ? { ...s, x: e.clientX, y: e.clientY } : s)} onMouseLeave={(e) => bhtLeaveGuard(e, bhtDet)} onClick={(e) => bhtPinT.pinAt(d, e.clientX, e.clientY)}><span className="border-b border-dotted border-slate-400/40" title={isLive ? 'En vivo (igual que el semáforo)' : undefined}>{Number(v).toFixed(1)}{isLive && <span className="text-accent-300"> •</span>}</span></td>; })()}
                   {(() => { const tr = (isCurrent && live.current.trend) || (r.trendRegime ? { regime: r.trendRegime } : null); return <td className="p-2 whitespace-nowrap">{tr ? <TrendBadge trend={tr} size="xs" /> : <span className="font-mono text-slate-600">—</span>}</td>; })()}
                   <td className="p-2 text-right font-mono text-sky-300 whitespace-nowrap">{r.spx != null ? `$${Number(r.spx).toFixed(2)}` : '—'}</td>
                   {peakTd(r, 'spx')}
@@ -149,7 +153,8 @@ export function BhtForwardTable({ live }: { live: { current: { v: number | null;
         </table>
       </div>
       <p className="text-[11px] text-slate-500 mt-2">{ti('fwdFoot', { shown: Math.min(visibleCount, sorted.length), total: sorted.length, days: rows.length })}{visibleCount < sorted.length ? ti('fwdMore') : ''}</p>
-      {bhtDet.hover && <BhtDetailPopover hover={bhtDet.hover} detail={bhtDet.cache[bhtDet.hover.d]} forward={rows.find((r) => r.date === bhtDet.hover!.d)} onLeave={() => bhtDet.scheduleClear()} onHold={() => bhtDet.cancelClear()} liveValue={(sortCol === 'date' && sortDir === 'desc' && bhtDet.hover.d === maxDate && liveBht != null) ? liveBht : null} />}
+      {bhtPinT.showHover && bhtDet.hover && <BhtDetailPopover hover={bhtDet.hover} detail={bhtDet.cache[bhtDet.hover.d]} onLeave={() => bhtDet.scheduleClear()} onHold={() => bhtDet.cancelClear()} nav={bhtPinT.hoverNav} liveValue={(bhtDet.hover.d === maxDate && liveBht != null) ? liveBht : null} />}
+      {bhtPinT.pin && <BhtDetailPopover hover={bhtPinT.pin} detail={bhtDet.cache[bhtPinT.pin.d]} onClose={bhtPinT.close} nav={bhtPinT.pinnedNav} liveValue={(bhtPinT.pin.d === maxDate && liveBht != null) ? liveBht : null} />}
     </div>
   );
 }
