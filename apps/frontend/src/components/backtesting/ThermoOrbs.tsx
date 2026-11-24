@@ -12,6 +12,8 @@ import { useThermoPartsMonthly } from './useThermoLive';
 export function OrbHistoryTable({ rows: histRows, loading, valueHeader, dec = 2, showValue = true, compact = false }: { rows: OrbHistoryRow[]; loading: boolean; valueHeader: string; dec?: number; showValue?: boolean; compact?: boolean }) {
   const ti = useTranslations('Backtesting.indicators');
   const loc = useLocale();
+  // Columna BHT junto al puntaje del componente (no aparece en la historia del propio BHT).
+  const showBht = histRows.some((r) => r.bht != null);
   return (
     <>
               {loading ? <div className="text-[10px] text-slate-500 font-mono">{ti('historyLoading')}</div>
@@ -20,7 +22,7 @@ export function OrbHistoryTable({ rows: histRows, loading, valueHeader, dec = 2,
                   <table className="w-full text-[10px] font-mono tabular-nums">
                     <thead>
                       <tr className="text-slate-500">
-                        <th colSpan={showValue ? 3 : 2} />
+                        <th colSpan={(showValue ? 3 : 2) + (showBht ? 1 : 0)} />
                         <th colSpan={3} className="text-center font-normal pb-0.5 border-b border-slate-700/70">{ti('historyPerfToday')}</th>
                         <th className="w-3" />
                         <th colSpan={3} className="text-center font-normal pb-0.5 border-b border-slate-700/70">{ti('historyPeak')}</th>
@@ -29,6 +31,7 @@ export function OrbHistoryTable({ rows: histRows, loading, valueHeader, dec = 2,
                         <th className="text-left font-normal py-0.5">{ti('historyMonth')}</th>
                         {showValue && <th className="text-right font-normal">{valueHeader}</th>}
                         <th className="text-right font-normal pr-2">{ti('historyScore')}</th>
+                        {showBht && <th className="text-right font-normal pr-2" title={loc === 'es' ? 'BHT Index de ese día' : 'BHT Index on that day'}>BHT</th>}
                         <th className="text-right font-normal text-sky-300/80">S&amp;P 500</th>
                         <th className="text-right font-normal text-violet-300/80">Nasdaq</th>
                         <th className="text-right font-normal text-pink-300/80">TQQQ</th>
@@ -57,6 +60,7 @@ export function OrbHistoryTable({ rows: histRows, loading, valueHeader, dec = 2,
                             <td className="py-0.5 whitespace-nowrap capitalize">{monthLabel(r.month, loc)}{r.yearsAgo != null && <span className="text-slate-500 normal-case"> · {ti('historyYearsAgo', { n: r.yearsAgo })}</span>}</td>
                             {showValue && <td className="text-right">{r.value != null ? r.value.toFixed(dec) : '—'}</td>}
                             <td className="text-right font-bold pr-2" style={{ color: r.score != null ? capeScoreColor(r.score) : undefined }}>{r.score != null ? Math.round(r.score) : '—'}</td>
+                            {showBht && <td className="text-right font-bold pr-2" style={{ color: r.bht != null ? capeScoreColor(r.bht) : undefined }}>{r.bht != null ? r.bht.toFixed(1) : '—'}</td>}
                             {pc(r.perf.spx)}{pc(r.perf.ndx)}{pc(r.perf.tqqq)}
                             <td />
                             {pk(r.peak.spx)}{pk(r.peak.ndx)}{pk(r.peak.tqqq)}

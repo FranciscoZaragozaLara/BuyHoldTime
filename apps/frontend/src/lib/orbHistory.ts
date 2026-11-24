@@ -6,7 +6,8 @@ export type IndexPerf = { spx: number | null; ndx: number | null; tqqq: number |
 export type PeakPoint = { pct: number; date: string };
 export type IndexPeak = { spx: PeakPoint | null; ndx: PeakPoint | null; tqqq: PeakPoint | null };
 export type MonthlyParts = { month: string; date: string; parts: Record<string, PartPoint>; bht?: number | null; perf?: IndexPerf; peak?: IndexPeak; yearsAgo?: number | null };
-export type OrbHistoryRow = { month: string; date: string; value: number | null; score: number | null; perf: IndexPerf; peak: IndexPeak; yearsAgo: number | null };
+/** `bht`: BHT Index de ese día (solo en la historia de un componente; en la del propio BHT sería repetido). */
+export type OrbHistoryRow = { month: string; date: string; value: number | null; score: number | null; bht?: number | null; perf: IndexPerf; peak: IndexPeak; yearsAgo: number | null };
 
 /** Nombre del orbe en la card → clave del componente en `parts`. WTI no es componente (es bonus). */
 export const ORB_PART_KEY: Record<string, string> = {
@@ -27,7 +28,7 @@ export function orbHistoryRows(data: MonthlyParts[] | undefined, orbName: string
   return data
     .filter((m) => m.parts?.[key])
     .map((m) => ({
-      month: m.month, date: m.date, value: m.parts[key].value, score: m.parts[key].score,
+      month: m.month, date: m.date, value: m.parts[key].value, score: m.parts[key].score, bht: m.bht ?? null,
       perf: m.perf ?? { spx: null, ndx: null, tqqq: null }, peak: m.peak ?? { spx: null, ndx: null, tqqq: null }, yearsAgo: m.yearsAgo ?? null,
     }));
 }
