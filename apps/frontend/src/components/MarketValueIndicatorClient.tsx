@@ -4,7 +4,7 @@ import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useLocale } from 'next-intl';
 import { athColor } from '@/lib/athDrawdown';
 import { createChart, ColorType, LineSeries, IChartApi, createSeriesMarkers, type Time } from 'lightweight-charts';
-import { Eye, EyeOff, Calendar, Table, LineChart as ChartIcon, Sparkles } from 'lucide-react';
+import { Eye, EyeOff, LineChart as ChartIcon, Sparkles } from 'lucide-react';
 import { IndicatorDetails } from '@/services/api';
 import { TOKENS } from '@/lib/designTokens';
 import { getApiBase } from '@/lib/apiBase';
@@ -17,11 +17,6 @@ interface MarketValueIndicatorClientProps {
   shillerPeData: IndicatorDetails;
   peRatioData: IndicatorDetails;
   sp500PriceData: IndicatorDetails;
-  sp500DividendData: IndicatorDetails;
-  sp500EarningsData: IndicatorDetails;
-  cpiData: IndicatorDetails;
-  rateGs10Data: IndicatorDetails;
-  excessCapeYieldData: IndicatorDetails;
   /** P/E estimado actual (WSJ / Birinyi), el mismo del termómetro. */
   fwdPe?: number | null;
 }
@@ -30,11 +25,6 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
   shillerPeData,
   peRatioData,
   sp500PriceData,
-  sp500DividendData,
-  sp500EarningsData,
-  cpiData,
-  rateGs10Data,
-  excessCapeYieldData,
   fwdPe = null,
 }) => {
   const locale = useLocale();
@@ -76,28 +66,19 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
   // Timeframe selection: 1Y, 3Y, 5Y, 10Y, 25Y, ALL
   const [timeframe, setTimeframe] = useState<'1Y' | '3Y' | '5Y' | '10Y' | '25Y' | 'ALL'>('10Y');
 
-  // Pagination for the table
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 20;
-
-  // Merge the 8 datasets by month/date key
+  // Serie mensual (precio, P/E y CAPE) por mes
   const mergedData = useMemo(() => {
     const map: Record<string, { 
       date: string; 
       sp500Price?: number; 
       peRatio?: number; 
       shillerPe?: number;
-      sp500Dividend?: number;
-      sp500Earnings?: number;
-      cpi?: number;
-      rateGs10?: number;
-      excessCapeYield?: number;
     }> = {};
 
     // Helper to extract clean YYYY-MM
     const addEntries = (
       entries: typeof shillerPeData.history, 
-      key: 'shillerPe' | 'peRatio' | 'sp500Price' | 'sp500Dividend' | 'sp500Earnings' | 'cpi' | 'rateGs10' | 'excessCapeYield'
+      key: 'shillerPe' | 'peRatio' | 'sp500Price'
     ) => {
       for (const entry of entries) {
         const dateObj = new Date(entry.date);
@@ -115,39 +96,12 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
     addEntries(sp500PriceData.history, 'sp500Price');
     addEntries(peRatioData.history, 'peRatio');
     addEntries(shillerPeData.history, 'shillerPe');
-    addEntries(sp500DividendData.history, 'sp500Dividend');
-    addEntries(sp500EarningsData.history, 'sp500Earnings');
-    addEntries(cpiData.history, 'cpi');
-    addEntries(rateGs10Data.history, 'rateGs10');
-    addEntries(excessCapeYieldData.history, 'excessCapeYield');
 
     // Convert to sorted array
     const sorted = Object.values(map).sort((a, b) => a.date.localeCompare(b.date));
 
-    // Forward fill (carry forward) missing sp500Dividend and sp500Earnings
-    let lastDividend: number | undefined = undefined;
-    let lastEarnings: number | undefined = undefined;
-
-    for (const item of sorted) {
-      if (item.sp500Dividend !== undefined) {
-        lastDividend = item.sp500Dividend;
-      } else if (lastDividend !== undefined) {
-        item.sp500Dividend = lastDividend;
-      }
-
-      if (item.sp500Earnings !== undefined) {
-        lastEarnings = item.sp500Earnings;
-      } else if (lastEarnings !== undefined) {
-        item.sp500Earnings = lastEarnings;
-      }
-    }
-
     return sorted;
-  }, [
-    shillerPeData, peRatioData, sp500PriceData, 
-    sp500DividendData, sp500EarningsData, cpiData, 
-    rateGs10Data, excessCapeYieldData
-  ]);
+  }, [shillerPeData, peRatioData, sp500PriceData]);
 
   // Serie diaria desde 1990 (S&P 500, P/E registrado, CAPE): se pide después de pintar la mensual y la
   // reemplaza en cuanto llega. Si falla, la gráfica se queda con la serie mensual.
@@ -560,30 +514,6 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
     locale,
   ]);
 
-  // Data for the table (sorted newest first)
-  const tableData = useMemo(() => {
-    return [...mergedData]
-      .filter(item => 
-        item.sp500Price !== undefined || 
-        item.peRatio !== undefined || 
-        item.shillerPe !== undefined ||
-        item.sp500Dividend !== undefined ||
-        item.sp500Earnings !== undefined ||
-        item.cpi !== undefined ||
-        item.rateGs10 !== undefined ||
-        item.excessCapeYield !== undefined
-      )
-      .reverse();
-  }, [mergedData]);
-
-  // Paginated table items
-  const paginatedTableData = useMemo(() => {
-    const startIndex = (currentPage - 1) * itemsPerPage;
-    return tableData.slice(startIndex, startIndex + itemsPerPage);
-  }, [tableData, currentPage]);
-
-  const totalPages = Math.ceil(tableData.length / itemsPerPage);
-
   // Formatting helpers
   const formatDateLabel = (dateKey: any) => {
     if (typeof dateKey !== 'string') return '';
@@ -609,7 +539,7 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
             {locale === 'es' ? 'VALOR S&P 500' : 'S&P 500 PRICE'}
           </p>
           <p className="text-3xl font-extrabold mt-2 text-accent-400">
-            {sp500PriceData.indicator.currentValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            {Number.isFinite(sp500PriceData.indicator.currentValue) ? sp500PriceData.indicator.currentValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—'}
           </p>
           <p className="text-xs text-slate-400 mt-2">
             {locale === 'es' ? 'Último cierre del índice' : 'Latest index close'}
@@ -624,7 +554,7 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
             {locale === 'es' ? 'P/E RATIO REGULAR' : 'REGULAR P/E RATIO'}
           </p>
           <p className="text-3xl font-extrabold mt-2 text-caution-400">
-            {peRatioData.indicator.currentValue.toFixed(2)}x
+            {Number.isFinite(peRatioData.indicator.currentValue) ? `${peRatioData.indicator.currentValue.toFixed(2)}x` : '—'}
           </p>
           <p className="text-xs text-slate-400 mt-2">
             {locale === 'es' ? 'Múltiplo de ganancias tradicional' : 'Traditional price-to-earnings multiple'}
@@ -639,7 +569,7 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
             {locale === 'es' ? 'SHILLER PE (CAPE)' : 'SHILLER PE (CAPE)'}
           </p>
           <p className="text-3xl font-extrabold mt-2 text-risk-400">
-            {shillerPeData.indicator.currentValue.toFixed(2)}x
+            {Number.isFinite(shillerPeData.indicator.currentValue) ? `${shillerPeData.indicator.currentValue.toFixed(2)}x` : '—'}
           </p>
           <p className="text-xs text-slate-400 mt-2">
             {locale === 'es' ? 'Ajustado por inflación (promedio 10 años)' : 'Inflation-adjusted 10-year earnings multiple'}
@@ -837,95 +767,6 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
             />
           )}
         </div>
-      </div>
-
-      {/* Table Section */}
-      <div className="p-6 rounded-2xl border border-slate-900 bg-slate-900/10 backdrop-blur-sm flex flex-col gap-6">
-        <div className="flex items-center gap-2">
-          <Table className="text-accent-400" size={20} />
-          <h2 className="text-lg font-bold text-white">
-            {locale === 'es' ? 'Historial de Valuación del Mercado' : 'Market Valuation Historical Table'}
-          </h2>
-        </div>
-
-        <div className="overflow-x-auto rounded-xl border border-slate-900">
-          <table className="w-full text-left border-collapse text-[11px] sm:text-xs">
-            <thead>
-              <tr className="bg-slate-900/60 border-b border-slate-900 text-slate-400 font-bold whitespace-nowrap">
-                <th className="p-3">{locale === 'es' ? 'Fecha' : 'Date'}</th>
-                <th className="p-3">{locale === 'es' ? 'S&P 500' : 'S&P 500 Price'}</th>
-                <th className="p-3">{locale === 'es' ? 'P/E Regular' : 'Regular PE'}</th>
-                <th className="p-3">{locale === 'es' ? 'Shiller PE (CAPE)' : 'Shiller PE'}</th>
-                <th className="p-3">{locale === 'es' ? 'Dividendo Anual' : 'Dividend'}</th>
-                <th className="p-3">{locale === 'es' ? 'Ganancia Anual' : 'Earnings'}</th>
-                <th className="p-3">CPI</th>
-                <th className="p-3">{locale === 'es' ? 'Bono 10A (GS10)' : 'GS10 Yield'}</th>
-                <th className="p-3">{locale === 'es' ? 'Excess CAPE Yield' : 'Excess CAPE Yield'}</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-900 bg-slate-950/20 whitespace-nowrap">
-              {paginatedTableData.map((item, index) => (
-                <tr key={index} className="hover:bg-slate-900/20 transition-colors">
-                  <td className="p-3 font-medium text-slate-300 flex items-center gap-1">
-                    <Calendar size={13} className="text-slate-500" />
-                    {formatDateLabel(item.date)}
-                  </td>
-                  <td className="p-3 text-accent-400 font-semibold">
-                    {item.sp500Price !== undefined 
-                      ? `$${item.sp500Price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                      : '-'}
-                  </td>
-                  <td className="p-3 text-caution-500 font-semibold">
-                    {item.peRatio !== undefined ? `${item.peRatio.toFixed(2)}x` : '-'}
-                  </td>
-                  <td className="p-3 text-risk-500 font-semibold">
-                    {item.shillerPe !== undefined ? `${item.shillerPe.toFixed(2)}x` : '-'}
-                  </td>
-                  <td className="p-3 text-slate-300">
-                    {item.sp500Dividend !== undefined ? `$${item.sp500Dividend.toFixed(2)}` : '-'}
-                  </td>
-                  <td className="p-3 text-slate-300">
-                    {item.sp500Earnings !== undefined ? `$${item.sp500Earnings.toFixed(2)}` : '-'}
-                  </td>
-                  <td className="p-3 text-slate-400">
-                    {item.cpi !== undefined ? item.cpi.toFixed(2) : '-'}
-                  </td>
-                  <td className="p-3 text-accent-500 font-medium">
-                    {item.rateGs10 !== undefined ? `${item.rateGs10.toFixed(2)}%` : '-'}
-                  </td>
-                  <td className="p-3 text-favorable-500 font-semibold">
-                    {item.excessCapeYield !== undefined ? `${item.excessCapeYield.toFixed(3)}%` : '-'}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Pagination Controls */}
-        {totalPages > 1 && (
-          <div className="flex justify-between items-center gap-4 text-xs font-semibold mt-2">
-            <button
-              onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-              disabled={currentPage === 1}
-              className="px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-400 hover:text-slate-200 disabled:opacity-40 disabled:hover:text-slate-400 transition"
-            >
-              {locale === 'es' ? 'Anterior' : 'Previous'}
-            </button>
-            <span className="text-slate-400">
-              {locale === 'es' 
-                ? `Página ${currentPage} de ${totalPages}`
-                : `Page ${currentPage} of ${totalPages}`}
-            </span>
-            <button
-              onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-              disabled={currentPage === totalPages}
-              className="px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-400 hover:text-slate-200 disabled:opacity-40 disabled:hover:text-slate-400 transition"
-            >
-              {locale === 'es' ? 'Siguiente' : 'Next'}
-            </button>
-          </div>
-        )}
       </div>
 
     </div>

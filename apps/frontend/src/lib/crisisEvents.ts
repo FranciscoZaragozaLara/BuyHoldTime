@@ -1,6 +1,6 @@
 import { TOKENS } from './designTokens';
 // Grandes crisis 1990→hoy calculadas de nuestra serie ^GSPC (cierres, caídas >20%).
-// Pico/suelo verificados contra btMarketData el 2026-09-09. No editar a mano:
+// Pico/suelo verificados contra btMarketData el 2026-09-09; los del Nasdaq (cada uno con su propia fecha) el 2026-11-24. No editar a mano:
 // si se recalculan, regenerar con el script de drawdowns sobre ^GSPC + ^IXIC.
 export interface CrisisEvent {
   id: string;
@@ -10,9 +10,12 @@ export interface CrisisEvent {
   peakDate: string;
   peakSpx: number;
   peakNdx: number;
+  /** Pico y suelo propios del Nasdaq Composite (^IXIC): no coinciden con los del S&P 500. */
+  peakNdxDate: string;
   bottomDate: string;
   bottomSpx: number;
   bottomNdx: number;
+  bottomNdxDate: string;
   dropPct: number;
   text: string;
 }
@@ -25,12 +28,14 @@ export const CRISIS_EVENTS: CrisisEvent[] = [
     color: '#ec4899',
     peakDate: '2000-03-24',
     peakSpx: 1527.46,
-    peakNdx: 4963,
+    peakNdx: 5049,
+    peakNdxDate: '2000-03-10',
     bottomDate: '2002-10-09',
     bottomSpx: 776.76,
     bottomNdx: 1114,
+    bottomNdxDate: '2002-10-09',
     dropPct: -49.1,
-    text: 'Euforia tecnológica + fraudes (Enron/WorldCom); Fed subió a 6.5%. Nasdaq -77%.',
+    text: 'Euforia tecnológica + fraudes (Enron/WorldCom); Fed subió a 6.5%. Nasdaq -78%.',
   },
   {
     id: 'gfc',
@@ -39,10 +44,12 @@ export const CRISIS_EVENTS: CrisisEvent[] = [
     color: TOKENS.risk,
     peakDate: '2007-10-09',
     peakSpx: 1565.15,
-    peakNdx: 2804,
+    peakNdx: 2859,
+    peakNdxDate: '2007-10-31',
     bottomDate: '2009-03-09',
     bottomSpx: 676.53,
     bottomNdx: 1269,
+    bottomNdxDate: '2009-03-09',
     dropPct: -56.8,
     text: 'Hipotecas subprime y quiebra de Lehman; rescates y Fed a 0%.',
   },
@@ -54,9 +61,11 @@ export const CRISIS_EVENTS: CrisisEvent[] = [
     peakDate: '2020-02-19',
     peakSpx: 3386.15,
     peakNdx: 9817,
+    peakNdxDate: '2020-02-19',
     bottomDate: '2020-03-23',
     bottomSpx: 2237.40,
     bottomNdx: 6861,
+    bottomNdxDate: '2020-03-23',
     dropPct: -33.9,
     text: 'Pandemia y confinamientos; rebote récord por estímulo fiscal + Fed 0%.',
   },
@@ -67,10 +76,12 @@ export const CRISIS_EVENTS: CrisisEvent[] = [
     color: '#8b5cf6',
     peakDate: '2022-01-03',
     peakSpx: 4796.56,
-    peakNdx: 15833,
+    peakNdx: 16057,
+    peakNdxDate: '2021-11-19',
     bottomDate: '2022-10-12',
     bottomSpx: 3577.03,
-    bottomNdx: 10417,
+    bottomNdx: 10213,
+    bottomNdxDate: '2022-12-28',
     dropPct: -25.4,
     text: 'Inflación 9% y Fed 0→4.5%; castigo a duración larga y tecnología.',
   },
