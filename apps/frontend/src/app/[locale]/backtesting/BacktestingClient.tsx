@@ -16,7 +16,6 @@ const PerformanceTable = dynamic(() => import('@/components/backtesting/Performa
 const MallikDetails = dynamic(() => import('@/components/backtesting/MallikDetails').then(m => ({ default: m.MallikDetails })), { loading: () => <div className="h-[200px] bg-slate-900 border border-slate-800 rounded-xl animate-pulse" />, ssr: false });
 const QQQStrategyChart = dynamic(() => import('@/components/backtesting/QQQStrategyChart').then(m => ({ default: m.QQQStrategyChart })), { loading: () => <div className="h-[300px] bg-slate-900 border border-slate-800 rounded-xl animate-pulse" />, ssr: false });
 const StrategyExplorer = dynamic(() => import('@/components/backtesting/StrategyExplorer').then(m => ({ default: m.StrategyExplorer })), { loading: () => <div className="h-[400px] bg-slate-900 border border-slate-800 rounded-xl animate-pulse" />, ssr: false });
-const IndicatorsPanel = dynamic(() => import('@/components/backtesting/IndicatorsPanel').then(m => ({ default: m.IndicatorsPanel })), { loading: () => <div className="h-[400px] bg-slate-900 border border-slate-800 rounded-xl animate-pulse" />, ssr: false });
 const CalculatorPanel = dynamic(() => import('@/components/backtesting/CalculatorPanel').then(m => ({ default: m.CalculatorPanel })), { loading: () => <div className="h-[400px] bg-slate-900 border border-slate-800 rounded-xl animate-pulse" />, ssr: false });
 const RegimesPanel = dynamic(() => import('@/components/backtesting/RegimesPanel').then(m => ({ default: m.RegimesPanel })), { loading: () => <div className="h-[300px] bg-slate-900 border border-slate-800 rounded-xl animate-pulse" />, ssr: false });
 
@@ -356,6 +355,8 @@ export function BacktestingClient({ initialStrategies, initialRuns }: { initialS
   // Suspense con useSearchParams.
   useEffect(() => {
     const tab = new URLSearchParams(window.location.search).get('tab');
+    // El historial diario (antes pestaña "Indicadores") vive ahora en la página de indicadores.
+    if (tab === 'indicadores') { window.location.replace(`${window.location.pathname.replace(/\/backtesting.*$/, '')}/indicators#historial`); return; }
     // eslint-disable-next-line react-hooks/set-state-in-effect
     if (tab === 'estrategias' || tab === 'indicadores' || tab === 'calculadora' || tab === 'regimes') setActiveTab(tab);
   }, []);
@@ -610,7 +611,6 @@ export function BacktestingClient({ initialStrategies, initialRuns }: { initialS
       </div>
       <div className="flex gap-1 p-1 bg-slate-900 border border-slate-800 rounded-xl w-fit">
         <button onClick={()=>setActiveTab('estrategias')} className={`px-5 py-2 rounded-lg text-sm font-medium transition ${activeTab==='estrategias' ? 'bg-slate-800 text-accent-400 border border-slate-700' : 'text-slate-400 hover:text-slate-200'}`}>{t('tabs.estrategias')}</button>
-        <button onClick={()=>setActiveTab('indicadores')} className={`px-5 py-2 rounded-lg text-sm font-medium transition ${activeTab==='indicadores' ? 'bg-slate-800 text-accent-400 border border-slate-700' : 'text-slate-400 hover:text-slate-200'}`}>{t('tabs.indicadores')}</button>
         <button onClick={()=>setActiveTab('regimes')} className={`px-5 py-2 rounded-lg text-sm font-medium transition ${activeTab==='regimes' ? 'bg-slate-800 text-accent-400 border border-slate-700' : 'text-slate-400 hover:text-slate-200'}`}>{t('tabs.regimes')}</button>
         <button onClick={()=>setActiveTab('calculadora')} className={`px-5 py-2 rounded-lg text-sm font-medium transition ${activeTab==='calculadora' ? 'bg-slate-800 text-accent-400 border border-slate-700' : 'text-slate-400 hover:text-slate-200'}`}>{t('tabs.calculadora')}</button>
       </div>
@@ -635,7 +635,6 @@ export function BacktestingClient({ initialStrategies, initialRuns }: { initialS
       <MallikDetails runId={explorerRunId} strategyCode={historicoCode} strategyName={initialStrategies.find(s=>s.code===historicoCode)?.name || historicoCode} run={explorerRun} startDates={startDates} />
         </>
       )}
-      {activeTab==='indicadores' && <Suspense fallback={<div className="h-[400px] bg-slate-900 border border-slate-800 rounded-xl animate-pulse" />}><IndicatorsPanel /></Suspense>}
       {activeTab==='calculadora' && <Suspense fallback={<div className="h-[400px] bg-slate-900 border border-slate-800 rounded-xl animate-pulse" />}><CalculatorPanel /></Suspense>}
       {activeTab==='regimes' && <Suspense fallback={<div className="h-[300px] bg-slate-900 border border-slate-800 rounded-xl animate-pulse" />}><RegimesPanel /></Suspense>}
       <div className="text-xs text-slate-500 border-t border-slate-800 pt-3">

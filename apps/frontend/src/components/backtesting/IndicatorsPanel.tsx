@@ -1,6 +1,6 @@
 'use client';
-// Pestaña "Indicadores" de Backtesting: solo el historial diario (CAPE/BHT por día, desde 1990) y la actualización
-// manual para admin. El BHT de hoy, sus componentes, apalancamiento, crisis y BHT Forward están en /indicators.
+// Historial diario de la página de indicadores (CAPE de Shiller — S&P 500 / Nasdaq / TQQQ, por día desde 1990) con la
+// actualización manual para admin. Carga ~25 series largas, por eso la página lo monta solo al acercarse.
 import { getApiBase } from '@/lib/apiBase';
 import { useCallback, useEffect, useState, useRef, useMemo } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
@@ -137,7 +137,8 @@ export function IndicatorsPanel() {
 
   return (
     <div className="space-y-6">
-      <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
+      {/* Barra de actualización manual: solo admin (el resto ve directo la tabla). */}
+      {isAdmin && <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
         <div className="flex flex-wrap items-center justify-between gap-3 mb-2">
           <h3 className="font-semibold text-slate-100">{ti('dailyTitle')}</h3>
           {isAdmin && (
@@ -153,12 +154,7 @@ export function IndicatorsPanel() {
           {isAdmin && <span className="ml-2 text-[11px] text-slate-500">· Precios/Bonos live vía API con caché (mercado 5 min / FRED 1h), CAPE diario desde DB</span>}
 
         </p>
-      </div>
-      {/* El BHT de hoy, sus componentes, apalancamiento, grandes crisis y BHT Forward viven en /indicators (página única). */}
-      <a href={`/${loc}/indicators`} className="block bg-slate-900 border border-accent-500/30 rounded-xl p-4 hover:border-accent-400 transition">
-        <div className="font-semibold text-accent-300">{loc === 'es' ? 'El BHT Index de hoy y todos sus componentes están en Indicadores →' : 'Today’s BHT Index and all its components are on Indicators →'}</div>
-        <div className="text-xs text-slate-400 mt-1">{loc === 'es' ? 'Termómetro, gráfica con señales, componentes con su dato, apalancamiento (Margen/PIB), grandes crisis y retornos posteriores. Aquí queda el historial diario completo.' : 'Thermometer, chart with signals, components with their data, leverage (margin/GDP), major crises and subsequent returns. The full daily history stays here.'}</div>
-      </a>
+      </div>}
       <MarketSyncModal open={marketSync.open} logs={marketSync.logs} refreshing={marketSync.refreshing} error={marketSync.error} onClose={marketSync.close} />
 
       <CapeHistoryTable cape={cape} capeRows={capeRows} marketHistory={marketHistory} volHistory={volHistory} thermoHist={thermoHist} regEps={regEps}

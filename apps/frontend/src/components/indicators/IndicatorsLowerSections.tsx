@@ -9,6 +9,10 @@ import { MarginGdpChart } from '@/components/backtesting/MarginGdpChart';
 import { CrisisEventsTable } from '@/components/backtesting/CrisisEventsTable';
 import { BhtForwardTable } from '@/components/backtesting/BhtForwardTable';
 import { type ThermoLive, useThermoLive } from '@/components/backtesting/useThermoLive';
+import dynamic from 'next/dynamic';
+
+// Historial diario (tabla CAPE/BHT por día): su código y sus datos solo se piden al llegar a la sección.
+const DailyHistory = dynamic(() => import('@/components/backtesting/IndicatorsPanel').then((m) => ({ default: m.IndicatorsPanel })), { ssr: false, loading: () => <div className="h-[480px] rounded-xl bg-slate-900 border border-slate-800 animate-pulse" /> });
 
 function WhenVisible({ id, minH, children }: { id: string; minH: number; children: ReactNode }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -79,6 +83,13 @@ export function IndicatorsLowerSections({ initial }: { initial?: ThermoLive | nu
           <p className="text-xs text-slate-400">{es ? 'Para cada día: el BHT de ese día y lo que hicieron el S&P 500, el Nasdaq-100 y TQQQ a 1, 2, 3 y 5 años.' : 'For each day: that day’s BHT and what the S&P 500, Nasdaq-100 and TQQQ did over 1, 2, 3 and 5 years.'}</p>
         </div>
         <WhenVisible id="bht-forward" minH={480}><ForwardTable initial={initial} /></WhenVisible>
+      </section>
+      <section className="flex flex-col gap-2">
+        <div>
+          <h2 className="text-lg font-bold text-white">{es ? 'Historial diario: CAPE, BHT y precios' : 'Daily history: CAPE, BHT and prices'}</h2>
+          <p className="text-xs text-slate-400">{es ? 'Cada día desde 1990: S&P 500, Nasdaq y TQQQ, CAPE de Shiller y sus medias, P/E, BHT Index con su tendencia y rendimientos. Descargable en Excel.' : 'Every day since 1990: S&P 500, Nasdaq and TQQQ, Shiller CAPE and its averages, P/E, BHT Index with its trend and returns. Downloadable to Excel.'}</p>
+        </div>
+        <WhenVisible id="historial" minH={480}><DailyHistory /></WhenVisible>
       </section>
     </>
   );
