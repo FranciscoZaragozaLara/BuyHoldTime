@@ -41,3 +41,21 @@ describe('bandReturns por CAPE', () => {
     expect(r[2].range).toBe('25–30');
   });
 });
+
+describe('robustez: periodo de 5 años más denso', () => {
+  it('ventana de 5 años con más días, promedio sin ella y aviso si concentra ≥ 45%', () => {
+    const many: FwdRow[] = [
+      ...Array.from({ length: 6 }, (_, k) => ({ date: `199${5 + (k % 3)}-0${k + 1}-02`, bhtValue: 65, spx1y: 20 })),
+      { date: '2005-03-01', bhtValue: 65, spx1y: 5 }, { date: '2018-03-01', bhtValue: 65, spx1y: 2 }, { date: '2024-03-01', bhtValue: 65, spx1y: 8 },
+      { date: '2001-01-02', bhtValue: 30, spx1y: 1 }, { date: '2008-01-02', bhtValue: 30, spx1y: 2 }, { date: '2015-01-02', bhtValue: 30, spx1y: 3 }, { date: '2022-01-02', bhtValue: 30, spx1y: 4 },
+    ];
+    const r = bandReturns(many, { asset: 'spx', window: 'all', today: '2026-11-24', by: 'bht' });
+    const b62 = r[4];
+    expect(b62.dense).toEqual({ from: '1995', to: '1997', share: 6 / 9 });
+    expect(b62.y1Without).toBeCloseTo(5, 9);
+    expect(b62.thin).toBe(true);
+    expect(r[0].dense!.share).toBeCloseTo(0.25, 9); // cada 7 años: una sola fecha por ventana
+    expect(r[0].thin).toBe(false);
+    expect(r[2].dense).toBeNull(); // banda vacía
+  });
+});

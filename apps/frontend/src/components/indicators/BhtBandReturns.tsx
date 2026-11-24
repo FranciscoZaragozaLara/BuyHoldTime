@@ -15,18 +15,18 @@ const T = {
   es: {
     byBht: 'Por banda del BHT', byCape: 'Por nivel del CAPE', w5: '5 años', w10: '10 años', wAll: 'Toda la historia',
     band: 'BHT', cape: 'CAPE', days: 'Días', time: '% tiempo', y1: 'A 1 año', y3: 'A 3 años', avg: 'Prom.', med: 'Mediana', pos: '% pos.', cagr: 'CAGR 3a',
-    here: 'hoy', loading: 'Calculando retornos por banda…',
+    here: 'hoy', loading: 'Calculando retornos por banda…', dense: 'Periodo más denso', without: '1A sin él', denseTip: 'Ventana de 5 años con más días en la banda y su % del total. Los días seguidos de un mismo rally no son casos independientes.', withoutTip: 'Promedio a 1 año quitando ese periodo: si cambia mucho, el resultado depende de un solo episodio.',
     noteBht: 'Días comprados en cada banda del BHT y lo que hizo el activo después. Si el BHT funciona, las bandas bajas (miedo) deben rendir más y con más % positivos que las altas (euforia).',
     noteCape: 'Mismo cálculo agrupando por el CAPE de Shiller del día: compara qué tanto separa el CAPE solo contra el BHT.',
-    foot: 'Promedios de días históricos (se traslapan). CAGR 3a = anual equivalente al promedio a 3 años. Solo días con el plazo ya cumplido. No es una recomendación de inversión.',
+    foot: 'Promedios de días históricos (se traslapan). CAGR 3a = anual equivalente al promedio a 3 años. Solo días con el plazo ya cumplido. ⚠ = un solo periodo de 5 años concentra 45% o más de los días de la banda: el resultado depende de ese episodio (compara con «1A sin él»). No es una recomendación de inversión.',
   },
   en: {
     byBht: 'By BHT band', byCape: 'By CAPE level', w5: '5 years', w10: '10 years', wAll: 'All history',
     band: 'BHT', cape: 'CAPE', days: 'Days', time: '% time', y1: '1 year later', y3: '3 years later', avg: 'Avg', med: 'Median', pos: '% pos.', cagr: '3y CAGR',
-    here: 'today', loading: 'Computing returns by band…',
+    here: 'today', loading: 'Computing returns by band…', dense: 'Densest period', without: '1y without it', denseTip: '5-year window with the most days in the band and its % of the total. Consecutive days of the same rally are not independent cases.', withoutTip: '1-year average excluding that period: if it changes a lot, the result depends on a single episode.',
     noteBht: 'Days bought in each BHT band and what the asset did afterwards. If the BHT works, low bands (fear) should return more and be positive more often than high bands (euphoria).',
     noteCape: 'Same calculation grouped by that day’s Shiller CAPE: compares how well CAPE alone separates outcomes versus the BHT.',
-    foot: 'Averages of historical days (overlapping). 3y CAGR = annual rate equivalent to the 3-year average. Only days whose horizon is complete. Not investment advice.',
+    foot: 'Averages of historical days (overlapping). 3y CAGR = annual rate equivalent to the 3-year average. Only days whose horizon is complete. ⚠ = a single 5-year period holds 45% or more of the band’s days: the result depends on that episode (compare with “1y without it”). Not investment advice.',
   },
 };
 const ASSETS: Array<{ k: Asset; label: string }> = [{ k: 'spx', label: 'S&P 500' }, { k: 'ndx', label: 'Nasdaq' }, { k: 'tqqq', label: 'TQQQ' }];
@@ -83,6 +83,8 @@ export function BhtBandReturns({ bhtToday, capeToday }: { bhtToday?: number | nu
                 <th className="text-left font-normal" rowSpan={2}>{by === 'bht' ? t.band : t.cape}</th>
                 <th className="text-right font-normal" rowSpan={2}>{t.days}</th>
                 <th className="text-right font-normal" rowSpan={2}>{t.time}</th>
+                <th className="text-right font-normal" rowSpan={2} title={t.denseTip}>{t.dense}</th>
+                <th className="text-right font-normal" rowSpan={2} title={t.withoutTip}>{t.without}</th>
                 <th className="text-center font-normal border-l border-slate-800" colSpan={3}>{t.y1}</th>
                 <th className="text-center font-normal border-l border-slate-800" colSpan={4}>{t.y3}</th>
               </tr>
@@ -100,6 +102,10 @@ export function BhtBandReturns({ bhtToday, capeToday }: { bhtToday?: number | nu
                     <td className="py-1 whitespace-nowrap"><span className="inline-block w-2 h-2 rounded-full mr-1.5 align-middle" style={{ background: color }} /><b style={{ color }}>{b.range}</b>{here && <span className="ml-1.5 text-[9px] px-1 rounded bg-accent-500 text-white font-bold">{t.here}</span>}</td>
                     <td className="text-right text-slate-400">{b.days.toLocaleString('en-US')}</td>
                     <td className="text-right text-slate-400">{b.days ? `${b.pctTime.toFixed(1)}%` : '—'}</td>
+                    <td className={`text-right whitespace-nowrap ${b.thin ? 'text-caution-300' : 'text-slate-500'}`} title={t.denseTip}>
+                      {b.dense ? <>{b.thin && <span className="mr-1">⚠</span>}{b.dense.from === b.dense.to ? b.dense.from : `${b.dense.from}–${b.dense.to.slice(2)}`} <span className="text-[9px]">{Math.round(b.dense.share * 100)}%</span></> : '—'}
+                    </td>
+                    <td className={`text-right ${cls(b.y1Without)} ${b.thin ? 'font-bold' : ''}`} title={t.withoutTip}>{pct(b.y1Without)}</td>
                     {statCells(b.y1)}
                     {statCells(b.y3)}
                     <td className={`text-right font-bold ${cls(b.cagr3)}`}>{pct(b.cagr3)}</td>

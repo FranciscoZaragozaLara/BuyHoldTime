@@ -20,7 +20,25 @@ export type BandRow = {
   y1: Stat; y3: Stat;
   /** CAGR equivalente al promedio a 3 años (igual que la vista Estrategia). */
   cagr3: number | null;
+  /**
+   * Robustez: los días seguidos de un mismo rally no son casos independientes. `dense` = la ventana de 5 años con más
+   * días de la banda (años y % de los días); `y1Without` = promedio a 1 año sin esa ventana; `thin` = la ventana
+   * concentra ≥ 45% de los días (el resultado depende de un solo periodo).
+   */
+  dense: { from: string; to: string; share: number } | null; y1Without: number | null; thin: boolean;
 };
+
+/** Ventana de 5 años con más días (fechas ordenadas): índices [j, i] y número de días. */
+function densestWindow(dates: string[]): { j: number; i: number; n: number } | null {
+  if (!dates.length) return null;
+  let best = { j: 0, i: 0, n: 1 }, j = 0;
+  for (let i = 0; i < dates.length; i++) {
+    const lim = `${Number(dates[i].slice(0, 4)) - 5}${dates[i].slice(4, 10)}`;
+    while (dates[j] < lim) j++;
+    if (i - j + 1 > best.n) best = { j, i, n: i - j + 1 };
+  }
+  return best;
+}
 
 const stat = (v: number[]): Stat => {
   if (!v.length) return null;
@@ -53,6 +71,7 @@ export function bandReturns(rows: FwdRow[], o: { asset: Asset; window: Window; t
   const bands = o.by === 'bht' ? MATRIX_BANDS.map((b) => ({ lo: b.lo as number, range: b.range as string })) : CAPE_LEVELS.map((b) => ({ lo: b.lo as number, range: b.range as string }));
   const los = bands.map((b) => b.lo);
   const y1: number[][] = bands.map(() => []), y3: number[][] = bands.map(() => []);
+  const dts: string[][] = bands.map(() => []);
   let total = 0;
   for (const r of rows) {
     const d = r.date.slice(0, 10);
@@ -63,13 +82,21 @@ export function bandReturns(rows: FwdRow[], o: { asset: Asset; window: Window; t
     if (x == null) continue;
     const k = levelOf(los, x);
     y1[k].push(r1);
+    dts[k].push(d);
     const r3 = r[`${o.asset}3y`];
     if (r3 != null) y3[k].push(r3);
     total++;
   }
   return bands.map((b, k) => {
     const s3 = stat(y3[k]);
+    const days = y1[k].length;
+    const w = densestWindow(dts[k]);
+    const rest = w ? y1[k].filter((_, q) => q < w.j || q > w.i) : [];
+    const share = w && days ? w.n / days : 0;
     return {
+      dense: w ? { from: dts[k][w.j].slice(0, 4), to: dts[k][w.i].slice(0, 4), share } : null,
+      y1Without: rest.length ? rest.reduce((m, x) => m + x, 0) / rest.length : null,
+      thin: share >= 0.45,
       key: k, range: b.range, days: y1[k].length, pctTime: total ? (y1[k].length / total) * 100 : 0,
       y1: stat(y1[k]), y3: s3,
       cagr3: s3 ? (Math.pow(Math.max(0, 1 + s3.avg / 100), 1 / 3) - 1) * 100 : null,
