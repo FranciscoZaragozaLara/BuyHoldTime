@@ -241,7 +241,7 @@ export const FundamentalTablesTab: React.FC<FundamentalTablesTabProps> = ({ snap
             <thead className="bg-slate-900/90 text-slate-400 font-bold border-b border-slate-900">
               <tr>
                 <th className="p-3.5 pl-4 min-w-[200px]">{locale === 'es' ? 'Indicador' : 'Indicator'}</th>
-                <th className="p-3.5 text-right w-32">{locale === 'es' ? 'Valor Extraído' : 'Extracted Value'}</th>
+                <th className="p-3.5 text-right w-32">{locale === 'es' ? 'Valor' : 'Value'}</th>
                 {!isKeyMetrics && (
                   <>
                     <th className="p-3.5 w-48">{locale === 'es' ? 'Comparación Industria' : 'Industry Rank'}</th>
