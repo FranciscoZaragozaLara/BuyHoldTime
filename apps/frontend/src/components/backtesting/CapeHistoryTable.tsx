@@ -505,8 +505,11 @@ export function CapeHistoryTable({ cape, capeRows, marketHistory: marketHistoryR
                 const spxDisp = (spxLive!=null && liveGspc.data?.source!=='db-fallback') ? spxLive : spx;
                 const ndxDisp = (ndxLive!=null && liveIxic.data?.source!=='db-fallback') ? ndxLive : ndx;
                 const tqqqDisp = (tqqqLive!=null && liveTqqq.data?.source!=='db-fallback') ? tqqqLive : tqqq;
-                const cpiDisp = (cpiLive!=null) ? (getCpiYoY(marketHistory['CPIAUCSL'], liveCpi.data?.date || d) ?? cpi) : cpi;
-                const coreDisp = (coreLive!=null) ? (getCpiYoY(marketHistory['CPILFESL'], liveCore.data?.date || d) ?? core) : core;
+                // CPI de la fila de hoy: misma serie corrida a su fecha de publicación que el resto de la tabla, a la fecha de hoy.
+                // (Antes se buscaba con la fecha del mes del dato en vivo, p. ej. 1-oct, y en la serie corrida eso
+                // encontraba el CPI de agosto: 3.35% en vez del de octubre.)
+                const cpiDisp = (cpiLive!=null) ? (getCpiYoY(marketHistory['CPIAUCSL'], d) ?? cpi) : cpi;
+                const coreDisp = (coreLive!=null) ? (getCpiYoY(marketHistory['CPILFESL'], d) ?? core) : core;
                 const gdpDisp = (gdpLive!=null) ? gdpLive : gdpVal;
                 const fedDisp = (fedLive!=null) ? fedLive : fed;
                 const dgs2Disp = (y2Live!=null) ? y2Live : dgs2;
