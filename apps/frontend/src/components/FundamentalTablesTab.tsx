@@ -110,7 +110,7 @@ export const FundamentalTablesTab: React.FC<FundamentalTablesTabProps> = ({ snap
       keys: ['valuation'],
     },
     growth: {
-      title: locale === 'es' ? 'Crecimiento (Growth Rank)' : 'Growth Rank',
+      title: locale === 'es' ? 'Crecimiento' : 'Growth',
       keys: ['growth'],
     },
     profitability: {

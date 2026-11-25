@@ -36,7 +36,20 @@ describe('sectionRows (valuación)', () => {
     const rows = [{ name: 'ROE %' }, { name: 'Moat Score' }];
     expect(sectionRows('profitability', rows)).toBe(rows);
     expect(isCuratedSection('valuation')).toBe(true);
-    expect(isCuratedSection('growth')).toBe(false);
+    expect(isCuratedSection('profitability')).toBe(false);
+  });
+});
+
+describe('sectionRows (crecimiento)', () => {
+  it('historial de 3 años y luego lo esperado; quita EBITDA y valor en libros', () => {
+    const names = ['3-Year Book Growth Rate', 'Future 3-5Y EPS without NRI Growth Rate Estimate Industry Rank', '3-Year EBITDA Growth Rate',
+      '3-Year FCF Growth Rate', 'Future 3-5Y Total Revenue Growth Rate Estimate', '3-Year EPS without NRI Growth Rate', '3-Year Revenue Growth Rate'];
+    expect(sectionRows('growth', names.map((name) => ({ name }))).map((r) => r.name)).toEqual([
+      '3-Year Revenue Growth Rate', '3-Year EPS without NRI Growth Rate', '3-Year FCF Growth Rate',
+      'Future 3-5Y Total Revenue Growth Rate Estimate', 'Future 3-5Y EPS without NRI Growth Rate Estimate Industry Rank',
+    ]);
+    expect(metricLabel('Future 3-5Y EPS without NRI Growth Rate Estimate Industry Rank', 'en')).toBe('Expected EPS Growth (3–5Y)');
+    expect(formatMetricValue('3-Year Revenue Growth Rate', '-8.6', 'es')).toBe('-8.6%');
   });
 });
 

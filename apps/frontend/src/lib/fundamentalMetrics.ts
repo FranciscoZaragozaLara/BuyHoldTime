@@ -1,7 +1,7 @@
 // Métricas publicadas en las tablas de fundamentos (/prices/[symbol]): qué se muestra de cada bloque, en qué orden,
 // con qué nombre y explicación en español e inglés, y cómo se formatea el valor. La clave es el nombre que trae el
 // snapshot (GuruFocus Scrapper); lo que no está aquí sigue con el comportamiento anterior del componente.
-// Se migra bloque por bloque (1: Métricas clave · 2: Valuación).
+// Se migra bloque por bloque (1: Métricas clave · 2: Valuación · 3: Crecimiento).
 
 export type MetricFormat = 'usdMillions' | 'usd' | 'ratio' | 'multiple' | 'percent' | 'usdRange';
 
@@ -191,10 +191,62 @@ export const VALUATION_METRICS: Record<string, MetricDef> = {
   },
 };
 
+/** Bloque 3 · Crecimiento. Crecimiento anual de los últimos 3 años (ingresos, utilidad por acción, flujo libre) y el
+ *  esperado por los analistas a 3–5 años. Se quitan EBITDA (repite a la utilidad) y valor en libros (de nicho). */
+export const GROWTH_METRICS: Record<string, MetricDef> = {
+  '3-Year Revenue Growth Rate': {
+    es: 'Crecimiento de ingresos (3 años)', en: 'Revenue Growth (3Y)', format: 'percent',
+    descEs: 'Crecimiento anual promedio de las ventas en los últimos 3 años.',
+    descEn: 'Average annual sales growth over the last 3 years.',
+    positiveEs: '🟢 Más de 10% al año: el negocio se expande con fuerza.',
+    positiveEn: '🟢 Above 10% a year: the business is expanding strongly.',
+    negativeEs: '🔴 Negativo: las ventas se están reduciendo.',
+    negativeEn: '🔴 Negative: sales are shrinking.',
+  },
+  '3-Year EPS without NRI Growth Rate': {
+    es: 'Crecimiento de utilidad por acción (3 años)', en: 'EPS Growth (3Y)', format: 'percent',
+    descEs: 'Crecimiento anual promedio de la utilidad por acción en los últimos 3 años, sin partidas extraordinarias.',
+    descEn: 'Average annual growth in earnings per share over the last 3 years, excluding one-off items.',
+    positiveEs: '🟢 Más de 10% al año y por encima del crecimiento de ingresos: mejoran los márgenes o se recompran acciones.',
+    positiveEn: '🟢 Above 10% a year and faster than revenue: margins are improving or shares are being bought back.',
+    negativeEs: '🔴 Negativo: la utilidad por acción va a la baja.',
+    negativeEn: '🔴 Negative: earnings per share are declining.',
+  },
+  '3-Year FCF Growth Rate': {
+    es: 'Crecimiento del flujo libre (3 años)', en: 'Free Cash Flow Growth (3Y)', format: 'percent',
+    descEs: 'Crecimiento anual promedio del flujo de efectivo libre en los últimos 3 años. Suele ser más irregular que la utilidad.',
+    descEn: 'Average annual growth in free cash flow over the last 3 years. It is usually lumpier than earnings.',
+    positiveEs: '🟢 Positivo y parecido al de la utilidad: las ganancias se convierten en efectivo.',
+    positiveEn: '🟢 Positive and close to earnings growth: profits are turning into cash.',
+    negativeEs: '🔴 Negativo mientras la utilidad crece: la utilidad no se está convirtiendo en efectivo.',
+    negativeEn: '🔴 Negative while earnings grow: profits are not turning into cash.',
+  },
+  'Future 3-5Y Total Revenue Growth Rate Estimate': {
+    es: 'Crecimiento esperado de ingresos (3–5 años)', en: 'Expected Revenue Growth (3–5Y)', format: 'percent',
+    descEs: 'Crecimiento anual de las ventas que esperan los analistas para los próximos 3 a 5 años.',
+    descEn: 'Annual sales growth analysts expect over the next 3 to 5 years.',
+    positiveEs: '🟢 Mayor que el de los últimos 3 años: se espera que el negocio acelere.',
+    positiveEn: '🟢 Higher than the last 3 years: the business is expected to accelerate.',
+    negativeEs: '🔴 Muy alto (más de 25%): expectativas exigentes; si no se cumplen, el precio suele castigarse.',
+    negativeEn: '🔴 Very high (above 25%): demanding expectations; if they are missed, the price usually suffers.',
+  },
+  // El scraper le agrega «Industry Rank» al nombre, pero el valor es la estimación de crecimiento (p. ej. 12.5%).
+  'Future 3-5Y EPS without NRI Growth Rate Estimate Industry Rank': {
+    es: 'Crecimiento esperado de utilidad por acción (3–5 años)', en: 'Expected EPS Growth (3–5Y)', format: 'percent',
+    descEs: 'Crecimiento anual de la utilidad por acción que esperan los analistas para los próximos 3 a 5 años.',
+    descEn: 'Annual earnings-per-share growth analysts expect over the next 3 to 5 years.',
+    positiveEs: '🟢 Entre 10% y 20%: crecimiento sólido y alcanzable.',
+    positiveEn: '🟢 Between 10% and 20%: solid, achievable growth.',
+    negativeEs: '🔴 Mucho mayor que su historial: expectativas difíciles de cumplir.',
+    negativeEn: '🔴 Far above its track record: expectations that are hard to meet.',
+  },
+};
+
 /** Métricas publicadas por bloque (sección del snapshot), en su orden; lo que no está en la lista no se publica. */
 export const SECTION_METRICS: Record<string, Record<string, MetricDef>> = {
   keyMetrics: KEY_METRICS,
   valuation: VALUATION_METRICS,
+  growth: GROWTH_METRICS,
 };
 const ALL_METRICS: Record<string, MetricDef> = Object.assign({}, ...Object.values(SECTION_METRICS));
 
