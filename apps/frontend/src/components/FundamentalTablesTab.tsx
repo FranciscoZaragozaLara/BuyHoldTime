@@ -123,7 +123,7 @@ export const FundamentalTablesTab: React.FC<FundamentalTablesTabProps> = ({ snap
       keys: ['financialStrength'],
     },
     momentum: {
-      title: locale === 'es' ? 'Momento Técnico (Momentum)' : 'Technical Momentum',
+      title: locale === 'es' ? 'Momento' : 'Momentum',
       keys: ['momentum'],
     },
     dividends: {
@@ -721,7 +721,7 @@ export const FundamentalTablesTab: React.FC<FundamentalTablesTabProps> = ({ snap
         if (key === 'financialStrength') {
           rows = [...rows, ...(tablesObj.liquidity || [])];
         }
-        // Bloques ya migrados (Métricas clave, Valuación, Crecimiento, Rentabilidad, Fuerza financiera): solo las métricas publicadas y en su orden
+        // Bloques ya migrados (Métricas clave, Valuación, Crecimiento, Rentabilidad, Fuerza financiera, Momento): solo las métricas publicadas y en su orden
         // (src/lib/fundamentalMetrics)
         if (isCuratedSection(key)) {
           rows = sectionRows(key, rows);

@@ -1,9 +1,9 @@
 // Métricas publicadas en las tablas de fundamentos (/prices/[symbol]): qué se muestra de cada bloque, en qué orden,
 // con qué nombre y explicación en español e inglés, y cómo se formatea el valor. La clave es el nombre que trae el
 // snapshot (GuruFocus Scrapper); lo que no está aquí sigue con el comportamiento anterior del componente.
-// Se migra bloque por bloque (1: Métricas clave · 2: Valuación · 3: Crecimiento · 4: Rentabilidad · 5: Fuerza financiera).
+// Se migra bloque por bloque (1: Métricas clave · 2: Valuación · 3: Crecimiento · 4: Rentabilidad · 5: Fuerza financiera · 6: Momento).
 
-export type MetricFormat = 'usdMillions' | 'usd' | 'ratio' | 'multiple' | 'percent' | 'usdRange' | 'outOf10';
+export type MetricFormat = 'usdMillions' | 'usd' | 'ratio' | 'multiple' | 'percent' | 'usdRange' | 'outOf10' | 'index';
 
 export interface MetricDef {
   es: string;
@@ -381,6 +381,39 @@ export const FINANCIAL_STRENGTH_METRICS: Record<string, MetricDef> = {
   },
 };
 
+/** Bloque 6 · Momento. Rendimiento de 12 y 6 meses sin el último mes (la medida de momento usada en investigación,
+ *  porque el último mes suele revertirse) y el RSI de 14 días. Se quitan el RSI de 5 y 9 días y el rendimiento de
+ *  3 meses: son de trading de corto plazo. */
+export const MOMENTUM_METRICS: Record<string, MetricDef> = {
+  '12-1 Month Momentum %': {
+    es: 'Rendimiento 12 meses (sin el último mes)', en: '12-Month Return (ex last month)', format: 'percent',
+    descEs: 'Cuánto subió o bajó la acción en los últimos 12 meses, sin contar el mes más reciente. Es la medida clásica de momento: las acciones que más subieron tienden a seguir haciéndolo por un tiempo.',
+    descEn: 'How much the stock rose or fell over the last 12 months, excluding the most recent month. The classic momentum measure: recent winners tend to keep outperforming for a while.',
+    positiveEs: '🟢 Positivo y por encima del mercado: tendencia de fondo alcista.',
+    positiveEn: '🟢 Positive and above the market: an underlying uptrend.',
+    negativeEs: '🔴 Muy negativo: tendencia bajista; la caída puede seguir aunque la acción parezca barata.',
+    negativeEn: '🔴 Deeply negative: a downtrend; the decline may continue even if the stock looks cheap.',
+  },
+  '6-1 Month Momentum %': {
+    es: 'Rendimiento 6 meses (sin el último mes)', en: '6-Month Return (ex last month)', format: 'percent',
+    descEs: 'Cuánto subió o bajó la acción en los últimos 6 meses, sin contar el mes más reciente. Muestra la tendencia de mediano plazo.',
+    descEn: 'How much the stock rose or fell over the last 6 months, excluding the most recent month. Shows the medium-term trend.',
+    positiveEs: '🟢 Positivo: la tendencia de mediano plazo acompaña.',
+    positiveEn: '🟢 Positive: the medium-term trend is supportive.',
+    negativeEs: '🔴 Negativo mientras el de 12 meses es positivo: la tendencia se está debilitando.',
+    negativeEn: '🔴 Negative while the 12-month figure is positive: the trend is weakening.',
+  },
+  '14-Day RSI': {
+    es: 'RSI (14 días)', en: 'RSI (14-Day)', format: 'index',
+    descEs: 'Índice de fuerza relativa, de 0 a 100: compara las subidas con las bajadas de las últimas 14 sesiones. Indica si el precio se movió demasiado rápido en el corto plazo.',
+    descEn: 'Relative Strength Index, from 0 to 100: compares gains with losses over the last 14 sessions. Shows whether the price moved too fast in the short term.',
+    positiveEs: '🟢 Menor a 30: sobrevendida; las caídas recientes fueron muy fuertes y es común un rebote.',
+    positiveEn: '🟢 Below 30: oversold; recent declines were steep and a bounce is common.',
+    negativeEs: '🔴 Mayor a 70: sobrecomprada; subió muy rápido y es común una pausa o corrección.',
+    negativeEn: '🔴 Above 70: overbought; it rose very fast and a pause or pullback is common.',
+  },
+};
+
 /** Métricas publicadas por bloque (sección del snapshot), en su orden; lo que no está en la lista no se publica. */
 export const SECTION_METRICS: Record<string, Record<string, MetricDef>> = {
   keyMetrics: KEY_METRICS,
@@ -388,6 +421,7 @@ export const SECTION_METRICS: Record<string, Record<string, MetricDef>> = {
   growth: GROWTH_METRICS,
   profitability: PROFITABILITY_METRICS,
   financialStrength: FINANCIAL_STRENGTH_METRICS,
+  momentum: MOMENTUM_METRICS,
 };
 const ALL_METRICS: Record<string, MetricDef> = Object.assign({}, ...Object.values(SECTION_METRICS));
 
@@ -471,6 +505,8 @@ export function formatMetricValue(name: string, raw: string | number | null | un
       return `${sign}${fixed(a, 1)}x`;
     case 'outOf10':
       return `${fixed(a, 0)}/10`;
+    case 'index':
+      return `${sign}${fixed(a, 1)}`;
     case 'ratio':
     default:
       return `${sign}${fixed(a, 2)}`;

@@ -85,6 +85,16 @@ describe('sectionRows (fuerza financiera y liquidez)', () => {
   });
 });
 
+describe('sectionRows (momento)', () => {
+  it('rendimiento 12 y 6 meses sin el último mes y RSI de 14 días; quita lo de corto plazo', () => {
+    const names = ['6-1 Month Momentum %', '5-Day RSI', '12-1 Month Momentum %', '14-Day RSI', '9-Day RSI', '3-1 Month Momentum %'];
+    expect(sectionRows('momentum', names.map((name) => ({ name }))).map((r) => r.name))
+      .toEqual(['12-1 Month Momentum %', '6-1 Month Momentum %', '14-Day RSI']);
+    expect(formatMetricValue('14-Day RSI', '56.71', 'es')).toBe('56.7');
+    expect(formatMetricValue('12-1 Month Momentum %', '26.02', 'en')).toBe('26.0%');
+  });
+});
+
 describe('metricLabel', () => {
   it('traduce y deja igual lo que no está en el diccionario', () => {
     expect(metricLabel('Revenue (TTM) (Mil $)', 'es')).toBe('Ingresos (12 meses)');
