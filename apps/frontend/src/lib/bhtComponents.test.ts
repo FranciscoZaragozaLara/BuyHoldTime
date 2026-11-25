@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { bhtComposition, groupComponents, stampLabel } from './bhtComponents';
+import { bhtComposition, groupComponents, hyAdjustmentLabel, stampLabel } from './bhtComponents';
 
 const parts = [
   { key: 'CAPE', score: 60, weight: 20, value: 37.955 },
@@ -47,5 +47,22 @@ describe('bhtComposition', () => {
     expect(c.adj).toBe(-1);
     expect(c.total).toBeCloseTo(c.base - 1, 9);
     expect(bhtComposition([{ key: 'CAPE', score: 2, weight: 1, value: 0 }], [-10]).total).toBe(0);
+  });
+});
+
+describe('hyAdjustmentLabel', () => {
+  it('traduce los estados del ajuste de crédito', () => {
+    expect(hyAdjustmentLabel('armado', 'en')).toBe('Complacency: spread in the lowest 20% of the last 3 years');
+    expect(hyAdjustmentLabel('armado', 'es')).toBe('Complacencia: spread en el 20% más bajo de 3 años');
+    expect(hyAdjustmentLabel('sostenido 5.91', 'es')).toBe('Estrés sostenido: promedio de 5.91% en 3 meses');
+    expect(hyAdjustmentLabel('G2 Δ1M +1.32', 'en')).toBe('Sharp stress: +1.32 pts in one month');
+    expect(hyAdjustmentLabel('G1 z 1.84', 'es')).toBe('Tensión: subida de 3 meses de 1.84 desviaciones');
+    expect(hyAdjustmentLabel('crítico HY>10 Δ3M +2.10', 'en')).toBe('Critical: spread above 10% and rising (+2.10 in 3 months)');
+    expect(hyAdjustmentLabel('—', 'es')).toBe('Sin ajuste');
+    expect(hyAdjustmentLabel('sin dato', 'en')).toBe('No data');
+  });
+  it('agrega el tope por rescate de la Fed y deja igual lo desconocido', () => {
+    expect(hyAdjustmentLabel('G2 Δ1M +1.05 · tope Fed', 'es')).toBe('Tensión fuerte: +1.05 pts en un mes (tope por rescate de la Fed)');
+    expect(hyAdjustmentLabel('otro', 'en')).toBe('otro');
   });
 });

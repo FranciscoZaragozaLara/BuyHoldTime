@@ -745,13 +745,19 @@ export class BacktestingService {
     const spxNow = live['^GSPC']?.value ?? spxCloses[spxCloses.length - 1]?.close;
     const spxDay = live['^GSPC']?.date ?? spxCloses[spxCloses.length - 1]?.date ?? iso;
     const trend = spxNow != null ? liveTrend(spxCloses, spxDay, spxNow) : null;
+    // HY OAS real de ICE, solo informativo junto a la serie del modelo (1.913 × BAA10Y): último dato publicado.
+    let hyReal: { value: number; date: string } | null = null;
+    try {
+      const r = await this.prisma.btMarketData.findFirst({ where: { ticker: 'BAMLH0A0HYM2', source: 'fred', date: { lte: new Date(iso) } }, orderBy: { date: 'desc' }, select: { close: true, date: true } });
+      if (r) hyReal = { value: Number(r.close), date: r.date.toISOString().slice(0, 10) };
+    } catch { /* sin dato: la tarjeta solo muestra el modelo */ }
     const out = {
       date: iso,
       value: day?.value ?? null,
       numerator: day?.numerator ?? null,
       denominator: day?.denominator ?? null,
       parts: day?.parts ?? [],
-      hy: { bonus: hy.bonus, label: hy.label, hy: hy.hy, z: hy.z, d1: hy.d1 },
+      hy: { bonus: hy.bonus, label: hy.label, hy: hy.hy, z: hy.z, d1: hy.d1, real: hyReal },
       liq: { bonus: liq.bonus, label: liq.label, yoy: liq.yoy, m0d3: liq.m0d3, drop: liq.drop },
       oil: { bonus: oil.bonus, label: oil.label, ratio: oil.ratio, price: oil.price },
       trend,

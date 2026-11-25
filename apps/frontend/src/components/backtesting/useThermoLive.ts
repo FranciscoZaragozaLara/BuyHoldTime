@@ -10,7 +10,8 @@ import { getLiveStaleTime, isMarketOpen } from '@/lib/queryClient';
 export type ThermoLive = {
   date: string; value: number | null;
   parts: { key: string; score: number; weight: number; value: number }[];
-  hy: { bonus: number; label: string; hy: number | null; z: number | null; d1: number | null };
+  /** hy = serie de crédito del modelo (1.913 × BAA10Y); real = HY OAS de ICE, solo informativo. */
+  hy: { bonus: number; label: string; hy: number | null; z: number | null; d1: number | null; real?: { value: number; date: string } | null };
   liq: { bonus: number; label: string; yoy: number | null; m0d3: number | null; drop: number | null };
   oil: { bonus: number; label: string; ratio: number | null; price: number | null };
   /** Régimen tendencial del S&P 500 de hoy (cierre en vivo vs SMA 50/200). */

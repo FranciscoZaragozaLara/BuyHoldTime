@@ -156,3 +156,25 @@ export function bhtComposition(parts: ThermoPart[], bonuses: number[]): { base: 
   const adj = bonuses.reduce((m, b) => m + b, 0);
   return { base, adj, total: Math.max(0, Math.min(100, base + adj)) };
 }
+
+/** Estado del ajuste de crédito (getHyBonus en el backend devuelve una etiqueta interna en español) en palabras para
+ *  el usuario, en ES o EN. Las etiquetas desconocidas se devuelven tal cual. */
+export function hyAdjustmentLabel(label: string, loc: Loc): string {
+  const es = loc === 'es';
+  const capped = label.endsWith(' · tope Fed');
+  const base = capped ? label.slice(0, -' · tope Fed'.length) : label;
+  const n = (x: string) => Number(x).toFixed(2);
+  let m: RegExpMatchArray | null;
+  let out: string;
+  if (base === 'armado') out = es ? 'Complacencia: spread en el 20% más bajo de 3 años' : 'Complacency: spread in the lowest 20% of the last 3 years';
+  else if ((m = base.match(/^sostenido ([\d.]+)/))) out = es ? `Estrés sostenido: promedio de ${n(m[1])}% en 3 meses` : `Sustained stress: ${n(m[1])}% average over 3 months`;
+  else if ((m = base.match(/^G1 z (-?[\d.]+)/))) out = es ? `Tensión: subida de 3 meses de ${m[1]} desviaciones` : `Stress: 3-month rise of ${m[1]} standard deviations`;
+  else if ((m = base.match(/^G2 Δ1M \+([\d.]+)/))) out = es ? `Tensión fuerte: +${m[1]} pts en un mes` : `Sharp stress: +${m[1]} pts in one month`;
+  else if ((m = base.match(/^alto HY>8 Δ1M \+([\d.]+)/))) out = es ? `Alto: spread arriba de 8% y subiendo (+${m[1]} en 1 mes)` : `High: spread above 8% and rising (+${m[1]} in 1 month)`;
+  else if ((m = base.match(/^severo HY>9 Δ3M \+([\d.]+)/))) out = es ? `Severo: spread arriba de 9% y subiendo (+${m[1]} en 3 meses)` : `Severe: spread above 9% and rising (+${m[1]} in 3 months)`;
+  else if ((m = base.match(/^crítico HY>10 Δ3M \+([\d.]+)/))) out = es ? `Crítico: spread arriba de 10% y subiendo (+${m[1]} en 3 meses)` : `Critical: spread above 10% and rising (+${m[1]} in 3 months)`;
+  else if (base === 'sin dato') out = es ? 'Sin dato' : 'No data';
+  else if (base === '—') out = es ? 'Sin ajuste' : 'No adjustment';
+  else out = base;
+  return capped ? `${out} ${es ? '(tope por rescate de la Fed)' : '(capped by Fed rescue)'}` : out;
+}
