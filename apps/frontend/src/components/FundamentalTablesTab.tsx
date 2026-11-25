@@ -5,7 +5,7 @@ import { useLocale } from 'next-intl';
 import { BarChart2, Activity, TrendingUp, ShieldCheck, PieChart, Users, ChevronRight, Zap, Crown, LogIn, Layers, Percent, HelpCircle, Info } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { AuthModal } from '@/components/AuthModal';
-import { formatMetricValue, keyMetricRows, metricDef, metricLabel } from '@/lib/fundamentalMetrics';
+import { formatMetricValue, isCuratedSection, metricDef, metricLabel, sectionRows } from '@/lib/fundamentalMetrics';
 
 /** Fila de una tabla de fundamentos (snapshot del GuruFocus Scrapper). */
 interface IndicatorRow {
@@ -61,7 +61,7 @@ export const FundamentalTablesTab: React.FC<FundamentalTablesTabProps> = ({ snap
     },
     {
       id: 'valuation',
-      label: locale === 'es' ? 'Valuation' : 'Valuation',
+      label: locale === 'es' ? 'Valuación' : 'Valuation',
       icon: PieChart,
       score: scoresObj.valuation ?? null,
     },
@@ -131,24 +131,6 @@ export const FundamentalTablesTab: React.FC<FundamentalTablesTabProps> = ({ snap
     },
   };
 
-  // Filas permitidas en la tabla Valuation (las demás se ocultan)
-  const VALUATION_ALLOWED_ROWS = new Set([
-    'PE Ratio',
-    'Forward PE Ratio',
-    'PE Ratio without NRI',
-    'Shiller PE Ratio',
-    'PEG Ratio',
-    'PS Ratio',
-    'PB Ratio',
-    'Price-to-Tangible-Book',
-    'Price-to-Free-Cash-Flow',
-    'Price-to-Operating-Cash-Flow',
-    'EV-to-EBIT',
-    'EV-to-EBITDA',
-    'EV-to-Revenue',
-    'EV-to-FCF',
-    'Price-to-Projected-FCF',
-  ]);
 
   const parsePercent = (val: string | undefined): number | null => {
     if (!val) return null;
@@ -734,13 +716,10 @@ export const FundamentalTablesTab: React.FC<FundamentalTablesTabProps> = ({ snap
     const sectionsToDisplay = keysToRender
       .map((key) => {
         let rows: any[] = tablesObj[key] || [];
-        // Métricas clave: solo las publicadas y en su orden (src/lib/fundamentalMetrics)
-        if (key === 'keyMetrics') {
-          rows = keyMetricRows(rows);
-        }
-        // Filtrar valuation para mostrar solo las filas autorizadas
-        if (key === 'valuation') {
-          rows = rows.filter((r: any) => VALUATION_ALLOWED_ROWS.has(r.name));
+        // Bloques ya migrados (Métricas clave, Valuación): solo las métricas publicadas y en su orden
+        // (src/lib/fundamentalMetrics)
+        if (isCuratedSection(key)) {
+          rows = sectionRows(key, rows);
         }
         // Filtrar profitability para ocultar "ROC (Joel Greenblatt) %"
         if (key === 'profitability') {
