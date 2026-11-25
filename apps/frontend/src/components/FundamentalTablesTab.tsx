@@ -6,6 +6,14 @@ import { BarChart2, Activity, TrendingUp, ShieldCheck, PieChart, Users, ChevronR
 import { useAuth } from '@/context/AuthContext';
 import { AuthModal } from '@/components/AuthModal';
 
+/** Fila de una tabla de fundamentos (snapshot del GuruFocus Scrapper). */
+interface IndicatorRow {
+  name: string;
+  current?: string | number | null;
+  vsIndustry?: string;
+  vsHistory?: string;
+}
+
 interface FundamentalTablesTabProps {
   snapshot: any;
 }
@@ -18,14 +26,17 @@ export const FundamentalTablesTab: React.FC<FundamentalTablesTabProps> = ({ snap
   // Access Control: Se requiere rol PRO_USER o ADMIN para interactuar
   const hasAccess = role === 'PRO_USER' || role === 'ADMIN';
   const isAdmin = role === 'ADMIN';
+  const [activeTab, setActiveTab] = useState<string>('all');
+  // Rangos frente a la industria y a su historia (barras): solo administradores, que pueden cambiar a la vista
+  // simplificada que ven los demás usuarios.
+  const [adminBars, setAdminBars] = useState(true);
+  const showRanks = isAdmin && adminBars;
 
   if (!snapshot) return null;
 
   const tablesObj = snapshot.tables && typeof snapshot.tables === 'object' ? snapshot.tables : {};
   const estimatesObj = snapshot.analystEstimates && typeof snapshot.analystEstimates === 'object' ? snapshot.analystEstimates : null;
   const scoresObj = snapshot.scores && typeof snapshot.scores === 'object' ? snapshot.scores : {};
-
-  const [activeTab, setActiveTab] = useState<string>('all');
 
   // Orden exacto de tabs solicitado
   const tabs = [
@@ -493,10 +504,72 @@ export const FundamentalTablesTab: React.FC<FundamentalTablesTabProps> = ({ snap
     };
   };
 
+  // Explicación del indicador al pasar sobre la (i). En la vista compacta se ancla a la tarjeta (arriba, a su ancho: abajo la taparía la sección siguiente)
+  // para no salirse de la pantalla en la columna derecha.
+  const renderTooltip = (row: IndicatorRow, compact: boolean) => {
+    const exp = getIndicatorExplanation(row.name);
+    const desc = locale === 'es' ? exp.descEs : exp.descEn;
+    const pos = locale === 'es' ? exp.positiveEs : exp.positiveEn;
+    const neg = locale === 'es' ? exp.negativeEs : exp.negativeEn;
+    return (
+      <div className={`group/tooltip inline-block ml-1 ${compact ? '' : 'relative'}`}>
+        <Info size={14} className="text-slate-500 hover:text-accent-400 cursor-pointer transition-colors shrink-0" />
+        <div className={`pointer-events-none absolute hidden group-hover/tooltip:block z-[999] rounded-xl border border-slate-700 bg-slate-950 p-3.5 shadow-2xl backdrop-blur-2xl transition-all ${
+          compact ? 'left-0 right-0 bottom-full mb-1 min-w-[16rem]' : 'left-6 top-1/2 -translate-y-1/2 w-72 sm:w-80'
+        }`}>
+          <div className="flex items-center gap-2 border-b border-slate-800 pb-2 mb-2">
+            <HelpCircle size={14} className="text-accent-400 shrink-0" />
+            <span className="font-bold text-xs text-white uppercase tracking-wider">{row.name}</span>
+          </div>
+          <p className="text-[11px] text-slate-300 leading-relaxed mb-2.5 whitespace-normal">
+            {desc}
+          </p>
+          <div className="flex flex-col gap-1.5 text-[10px] bg-slate-900/90 p-2.5 rounded-lg border border-slate-800 font-sans whitespace-normal">
+            <div className="text-favorable-300 leading-snug">{pos}</div>
+            <div className="text-risk-300 leading-snug">{neg}</div>
+          </div>
+          {row.current && (
+            <div className="mt-2 pt-2 border-t border-slate-800 flex justify-between items-center text-[10px]">
+              <span className="text-slate-400">{locale === 'es' ? 'Valor Actual del Stock:' : 'Stock Current Value:'}</span>
+              <span className="font-mono font-bold text-accent-300">{formatNumberWithCommas(row.current)}</span>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  // Vista simplificada (usuarios no admin, o admin con el switch): solo indicador y valor, en una cuadrícula de
+  // 1–3 columnas que ocupa mucho menos alto que la tabla de ancho completo.
+  const renderCompactGrid = (title: string, rows: IndicatorRow[]) => (
+    <div key={title} className="flex flex-col gap-3">
+      <h4 className="text-sm font-black uppercase tracking-wider text-favorable-400 flex items-center gap-2 border-l-4 border-favorable-400 pl-2.5 py-0.5">
+        {title}
+      </h4>
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
+        {rows.map((row, idx) => (
+          <div
+            key={row.name ? `cell-${row.name}-${idx}` : `cell-${idx}`}
+            className="relative flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-lg border border-slate-900 bg-slate-950/40 hover:bg-slate-900/30 transition-colors"
+          >
+            <div className="flex items-center gap-1 min-w-0 text-xs font-semibold text-slate-200">
+              <span className="truncate" title={row.name}>{row.name}</span>
+              {renderTooltip(row, true)}
+            </div>
+            <span className="font-mono font-black text-white text-sm whitespace-nowrap">
+              {formatNumberWithCommas(row.current)}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
   const renderIndicatorTable = (title: string, rows: any[], sectionKey?: string) => {
     if (!rows || rows.length === 0) return null;
 
     const isKeyMetrics = sectionKey === 'keyMetrics';
+    if (!showRanks) return renderCompactGrid(title, rows);
 
     return (
       <div key={title} className="flex flex-col gap-3">
@@ -524,40 +597,13 @@ export const FundamentalTablesTab: React.FC<FundamentalTablesTabProps> = ({ snap
                 const vsHistNum = parsePercent(row.vsHistory);
                 const rowKey = row.name ? `row-${row.name}-${idx}` : `row-${idx}`;
 
-                const exp = getIndicatorExplanation(row.name);
-                const desc = locale === 'es' ? exp.descEs : exp.descEn;
-                const pos = locale === 'es' ? exp.positiveEs : exp.positiveEn;
-                const neg = locale === 'es' ? exp.negativeEs : exp.negativeEn;
-
                 return (
                   <tr key={rowKey} className="hover:bg-slate-900/30 transition-colors group">
                     <td className="p-3.5 pl-4 font-semibold text-slate-200 flex items-center gap-1.5">
                       <ChevronRight size={12} className="text-slate-600 group-hover:text-favorable-400 transition-colors shrink-0" />
                       <span>{row.name}</span>
                       
-                      {/* Tooltip interactivo con explicación para inversores novatos */}
-                      <div className="relative group/tooltip inline-block ml-1">
-                        <Info size={14} className="text-slate-500 hover:text-accent-400 cursor-pointer transition-colors shrink-0" />
-                        <div className="pointer-events-none absolute left-6 top-1/2 -translate-y-1/2 hidden w-72 sm:w-80 group-hover/tooltip:block z-[999] rounded-xl border border-slate-700 bg-slate-950 p-3.5 shadow-2xl backdrop-blur-2xl transition-all">
-                          <div className="flex items-center gap-2 border-b border-slate-800 pb-2 mb-2">
-                            <HelpCircle size={14} className="text-accent-400 shrink-0" />
-                            <span className="font-bold text-xs text-white uppercase tracking-wider">{row.name}</span>
-                          </div>
-                          <p className="text-[11px] text-slate-300 leading-relaxed mb-2.5 whitespace-normal">
-                            {desc}
-                          </p>
-                          <div className="flex flex-col gap-1.5 text-[10px] bg-slate-900/90 p-2.5 rounded-lg border border-slate-800 font-sans whitespace-normal">
-                            <div className="text-favorable-300 leading-snug">{pos}</div>
-                            <div className="text-risk-300 leading-snug">{neg}</div>
-                          </div>
-                          {row.current && (
-                            <div className="mt-2 pt-2 border-t border-slate-800 flex justify-between items-center text-[10px]">
-                              <span className="text-slate-400">{locale === 'es' ? 'Valor Actual del Stock:' : 'Stock Current Value:'}</span>
-                              <span className="font-mono font-bold text-accent-300">{formatNumberWithCommas(row.current)}</span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
+                      {renderTooltip(row, false)}
                     </td>
                     <td className="p-3.5 text-right font-mono font-black text-white text-sm">
                       {formatNumberWithCommas(row.current)}
@@ -699,10 +745,36 @@ export const FundamentalTablesTab: React.FC<FundamentalTablesTabProps> = ({ snap
       })
       .filter((s) => s.rows.length > 0);
 
+    // Switch solo para administradores: vista con barras de rango o la simplificada que ven los demás usuarios.
+    const viewSwitch = isAdmin ? (
+      <div className="flex items-center justify-end gap-2 -mb-4 text-[11px]">
+        <span className="text-slate-500 font-bold uppercase tracking-wider">{locale === 'es' ? 'Vista (solo admin)' : 'View (admin only)'}</span>
+        <div className="inline-flex rounded-lg border border-slate-800 bg-slate-900/60 p-0.5">
+          {[
+            { on: true, label: locale === 'es' ? 'Con barras' : 'With bars' },
+            { on: false, label: locale === 'es' ? 'Simplificada' : 'Simplified' },
+          ].map((o) => (
+            <button
+              key={String(o.on)}
+              type="button"
+              onClick={() => setAdminBars(o.on)}
+              aria-pressed={adminBars === o.on}
+              className={`px-2.5 py-1 rounded-md font-bold transition-colors cursor-pointer ${
+                adminBars === o.on ? 'bg-favorable-500/15 text-favorable-300' : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              {o.label}
+            </button>
+          ))}
+        </div>
+      </div>
+    ) : null;
+
     if (activeTab === 'all') {
       const analystTable = renderAnalystEstimatesTable();
       return (
         <div className="flex flex-col gap-8">
+          {viewSwitch}
           {sectionsToDisplay.map((sec) => (
             <React.Fragment key={sec.key}>
               {renderIndicatorTable(sec.title, sec.rows, sec.key)}
@@ -715,6 +787,7 @@ export const FundamentalTablesTab: React.FC<FundamentalTablesTabProps> = ({ snap
 
     return (
       <div className="flex flex-col gap-8">
+        {viewSwitch}
         {sectionsToDisplay.map((sec) => renderIndicatorTable(sec.title, sec.rows, sec.key))}
       </div>
     );
