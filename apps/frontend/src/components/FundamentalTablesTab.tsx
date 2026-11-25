@@ -5,6 +5,7 @@ import { useLocale } from 'next-intl';
 import { BarChart2, Activity, TrendingUp, ShieldCheck, PieChart, Users, ChevronRight, Zap, Crown, LogIn, Layers, Percent, HelpCircle, Info } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { AuthModal } from '@/components/AuthModal';
+import { formatMetricValue, keyMetricRows, metricDef, metricLabel } from '@/lib/fundamentalMetrics';
 
 /** Fila de una tabla de fundamentos (snapshot del GuruFocus Scrapper). */
 interface IndicatorRow {
@@ -344,7 +345,16 @@ export const FundamentalTablesTab: React.FC<FundamentalTablesTabProps> = ({ snap
     },
   };
 
+  // Nombre y valor de cada fila: del diccionario de métricas publicadas (src/lib/fundamentalMetrics) si existe; si no,
+  // el nombre del snapshot y el formato genérico.
+  const rowLabel = (row: IndicatorRow) => metricLabel(row.name, locale);
+  const rowValue = (row: IndicatorRow) => formatMetricValue(row.name, row.current, locale) ?? formatNumberWithCommas(row.current);
+
   const getIndicatorExplanation = (name: string) => {
+    // 0. Métricas ya migradas al diccionario (explicación revisada en ES y EN)
+    const def = metricDef(name);
+    if (def) return def;
+
     // 1. Coincidencia exacta
     if (INDICATOR_EXPLANATIONS[name]) {
       return INDICATOR_EXPLANATIONS[name];
@@ -519,7 +529,7 @@ export const FundamentalTablesTab: React.FC<FundamentalTablesTabProps> = ({ snap
         }`}>
           <div className="flex items-center gap-2 border-b border-slate-800 pb-2 mb-2">
             <HelpCircle size={14} className="text-accent-400 shrink-0" />
-            <span className="font-bold text-xs text-white uppercase tracking-wider">{row.name}</span>
+            <span className="font-bold text-xs text-white uppercase tracking-wider">{rowLabel(row)}</span>
           </div>
           <p className="text-[11px] text-slate-300 leading-relaxed mb-2.5 whitespace-normal">
             {desc}
@@ -530,8 +540,8 @@ export const FundamentalTablesTab: React.FC<FundamentalTablesTabProps> = ({ snap
           </div>
           {row.current && (
             <div className="mt-2 pt-2 border-t border-slate-800 flex justify-between items-center text-[10px]">
-              <span className="text-slate-400">{locale === 'es' ? 'Valor Actual del Stock:' : 'Stock Current Value:'}</span>
-              <span className="font-mono font-bold text-accent-300">{formatNumberWithCommas(row.current)}</span>
+              <span className="text-slate-400">{locale === 'es' ? 'Valor actual:' : 'Current value:'}</span>
+              <span className="font-mono font-bold text-accent-300">{rowValue(row)}</span>
             </div>
           )}
         </div>
@@ -553,11 +563,11 @@ export const FundamentalTablesTab: React.FC<FundamentalTablesTabProps> = ({ snap
             className="relative flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-lg border border-slate-900 bg-slate-950/40 hover:bg-slate-900/30 transition-colors"
           >
             <div className="flex items-center gap-1 min-w-0 text-xs font-semibold text-slate-200">
-              <span className="truncate" title={row.name}>{row.name}</span>
+              <span className="truncate" title={rowLabel(row)}>{rowLabel(row)}</span>
               {renderTooltip(row, true)}
             </div>
             <span className="font-mono font-black text-white text-sm whitespace-nowrap">
-              {formatNumberWithCommas(row.current)}
+              {rowValue(row)}
             </span>
           </div>
         ))}
@@ -601,12 +611,12 @@ export const FundamentalTablesTab: React.FC<FundamentalTablesTabProps> = ({ snap
                   <tr key={rowKey} className="hover:bg-slate-900/30 transition-colors group">
                     <td className="p-3.5 pl-4 font-semibold text-slate-200 flex items-center gap-1.5">
                       <ChevronRight size={12} className="text-slate-600 group-hover:text-favorable-400 transition-colors shrink-0" />
-                      <span>{row.name}</span>
+                      <span>{rowLabel(row)}</span>
                       
                       {renderTooltip(row, false)}
                     </td>
-                    <td className="p-3.5 text-right font-mono font-black text-white text-sm">
-                      {formatNumberWithCommas(row.current)}
+                    <td className="p-3.5 text-right font-mono font-black text-white text-sm whitespace-nowrap">
+                      {rowValue(row)}
                     </td>
                     {!isKeyMetrics && (
                       <>
@@ -724,6 +734,10 @@ export const FundamentalTablesTab: React.FC<FundamentalTablesTabProps> = ({ snap
     const sectionsToDisplay = keysToRender
       .map((key) => {
         let rows: any[] = tablesObj[key] || [];
+        // Métricas clave: solo las publicadas y en su orden (src/lib/fundamentalMetrics)
+        if (key === 'keyMetrics') {
+          rows = keyMetricRows(rows);
+        }
         // Filtrar valuation para mostrar solo las filas autorizadas
         if (key === 'valuation') {
           rows = rows.filter((r: any) => VALUATION_ALLOWED_ROWS.has(r.name));
