@@ -178,3 +178,39 @@ export function hyAdjustmentLabel(label: string, loc: Loc): string {
   else out = base;
   return capped ? `${out} ${es ? '(tope por rescate de la Fed)' : '(capped by Fed rescue)'}` : out;
 }
+
+/** Estado del ajuste de liquidez M2/M0 (etiqueta interna en español de getLiqBonus*) en palabras, en ES o EN. */
+export function liqAdjustmentLabel(label: string, loc: Loc): string {
+  const es = loc === 'es';
+  let m: RegExpMatchArray | null;
+  if ((m = label.match(/^(mega)?bazuca M0 Δ3M \+([\d.]+)% M2 \+([\d.]+)%/))) {
+    const big = !!m[1];
+    return es ? `${big ? 'Megabazuca' : 'Bazuca'} de la Fed: M0 +${m[2]}% en 3 meses, M2 +${m[3]}% anual`
+      : `Fed ${big ? 'mega-bazooka' : 'bazooka'}: M0 +${m[2]}% in 3 months, M2 +${m[3]}% a year`;
+  }
+  if ((m = label.match(/^viento (a favor|en contra) prom\. 3M \(([^)]*)\)/))) {
+    const tail = m[1] === 'a favor';
+    return es ? `Viento ${m[1]} (promedio de 3 meses: ${m[2]})` : `${tail ? 'Tailwind' : 'Headwind'} (3-month average: ${m[2]})`;
+  }
+  if ((m = label.match(/^viento en contra M2 −([\d.]+)% del pico/))) {
+    return es ? `Viento en contra: el crecimiento de M2 está ${m[1]}% debajo de su pico` : `Headwind: M2 growth is ${m[1]}% below its peak`;
+  }
+  if ((m = label.match(/^viento a favor M2 \+([\d.]+)%/))) return es ? `Viento a favor: M2 crece ${m[1]}% anual` : `Tailwind: M2 growing ${m[1]}% a year`;
+  if (label === 'sin dato') return es ? 'Sin dato' : 'No data';
+  if (label === '—') return es ? 'Sin ajuste' : 'No adjustment';
+  return label;
+}
+
+/** Estado del ajuste de petróleo (etiqueta interna en español de getOilBonus) en palabras, en ES o EN. */
+export function oilAdjustmentLabel(label: string, loc: Loc): string {
+  const es = loc === 'es';
+  const m = label.match(/^(caro|shock|barato|alivio) WTI ([\d.]+)( \(sin persistencia\))?/);
+  if (m) {
+    const word = { caro: ['Caro', 'Expensive'], shock: ['Choque de precio', 'Price shock'], barato: ['Barato', 'Cheap'], alivio: ['Alivio', 'Relief'] }[m[1] as 'caro'][es ? 0 : 1];
+    const tail = m[3] ? (es ? ' (sin persistencia)' : ' (not persistent)') : '';
+    return es ? `${word}: WTI ${m[2]}× su media de 36 meses${tail}` : `${word}: WTI ${m[2]}× its 36-month mean${tail}`;
+  }
+  if (label === 'sin dato') return es ? 'Sin dato' : 'No data';
+  if (label === '—') return es ? 'Sin ajuste' : 'No adjustment';
+  return label;
+}

@@ -6,7 +6,7 @@ import { useLocale } from 'next-intl';
 import { ScoreOrb } from '@/components/backtesting/ThermoOrbs';
 import { capeScoreColor } from '@/components/backtesting/bhtBands';
 import { type ThermoLive, useThermoLive } from '@/components/backtesting/useThermoLive';
-import { groupComponents, hyAdjustmentLabel, stampLabel, type LiveStamp } from '@/lib/bhtComponents';
+import { groupComponents, hyAdjustmentLabel, liqAdjustmentLabel, oilAdjustmentLabel, stampLabel, type LiveStamp } from '@/lib/bhtComponents';
 import { PART_ORB_NAME } from '@/lib/orbHistory';
 import { PART_BANDS, PART_DEC } from '@/lib/thermoScoring';
 
@@ -17,7 +17,7 @@ const T = {
     hy: 'Crédito (modelo Baa)', hyMean: 'Spread Baa − Tesoro 10 años × 1.913, la serie con la que se calibró el BHT. Suma puntos con crédito muy barato (complacencia) o cuando el crédito se tensa.',
     liq: 'Liquidez M2 / M0', liqMean: 'Resta puntos cuando la Fed inyecta dinero y suma cuando lo retira.',
     oil: 'Petróleo WTI', oilMean: 'Contra su media de 36 meses: suma puntos con choques de precio.',
-    real: 'HY real (ICE)', loading: 'Cargando componentes…',
+    real: 'HY real (ICE)', vsMean: 'vs media 36M', loading: 'Cargando componentes…',
   },
   en: {
     title: 'BHT Index components', sub: 'Each indicator gets a 0–100 risk score from its bands; the BHT is the weighted average plus adjustments. Tap an orb to see its bands and history.',
@@ -25,7 +25,7 @@ const T = {
     hy: 'Credit (Baa model)', hyMean: 'Baa − 10-year Treasury spread × 1.913, the series the BHT was calibrated on. Adds points when credit is very cheap (complacency) or when credit comes under stress.',
     liq: 'M2 / M0 liquidity', liqMean: 'Subtracts points when the Fed adds money and adds them when it drains it.',
     oil: 'WTI oil', oilMean: 'Versus its 36-month mean: adds points on price shocks.',
-    real: 'Real HY (ICE)', loading: 'Loading components…',
+    real: 'Real HY (ICE)', vsMean: 'vs 36M mean', loading: 'Loading components…',
   },
 };
 const sgn = (v: number) => `${v > 0 ? '+' : v < 0 ? '−' : '±'}${Math.abs(v)}`;
@@ -45,8 +45,8 @@ export function BhtComponents({ initial }: { initial?: ThermoLive | null }) {
     { key: 'hy', name: t.hy, bonus: th.hy.bonus, mean: t.hyMean, value: th.hy.hy != null ? `${th.hy.hy.toFixed(2)}%` : '—',
       sub: th.hy.real ? `${t.real}: ${th.hy.real.value.toFixed(2)}% · ${stampLabel(th.hy.real.date, 'daily', loc)}` : null,
       extra: hyAdjustmentLabel(th.hy.label, loc), stamp: live.BAA10Y },
-    { key: 'liq', name: t.liq, bonus: th.liq.bonus, mean: t.liqMean, value: th.liq.yoy != null ? `M2 ${th.liq.yoy >= 0 ? '+' : ''}${th.liq.yoy.toFixed(1)}%` : '—', extra: th.liq.m0d3 != null ? `M0 Δ3M ${th.liq.m0d3 >= 0 ? '+' : ''}${th.liq.m0d3.toFixed(1)}% · ${th.liq.label}` : th.liq.label, stamp: undefined },
-    { key: 'oil', name: t.oil, bonus: th.oil.bonus, mean: t.oilMean, value: th.oil.price != null ? `$${th.oil.price.toFixed(2)}` : '—', extra: th.oil.ratio != null ? `×${th.oil.ratio.toFixed(2)} SMA36M${th.oil.label && th.oil.label !== '—' ? ` · ${th.oil.label}` : ''}` : '', stamp: live.DCOILWTICO },
+    { key: 'liq', name: t.liq, bonus: th.liq.bonus, mean: t.liqMean, value: th.liq.yoy != null ? `M2 ${th.liq.yoy >= 0 ? '+' : ''}${th.liq.yoy.toFixed(1)}%` : '—', extra: th.liq.m0d3 != null ? `M0 Δ3M ${th.liq.m0d3 >= 0 ? '+' : ''}${th.liq.m0d3.toFixed(1)}% · ${liqAdjustmentLabel(th.liq.label, loc)}` : liqAdjustmentLabel(th.liq.label, loc), stamp: undefined },
+    { key: 'oil', name: t.oil, bonus: th.oil.bonus, mean: t.oilMean, value: th.oil.price != null ? `$${th.oil.price.toFixed(2)}` : '—', extra: th.oil.label && th.oil.label !== '—' ? oilAdjustmentLabel(th.oil.label, loc) : th.oil.ratio != null ? `×${th.oil.ratio.toFixed(2)} ${t.vsMean}` : '', stamp: live.DCOILWTICO },
   ];
 
   return (
