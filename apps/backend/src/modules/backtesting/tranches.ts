@@ -50,6 +50,11 @@ export const TRANCHE_CFG = {
    *  2022 T1 4-nov a +2–5% del piso (antes 23-nov, +11–13%); en 2001 (CAPE 1.9×) no aplica. Sistema 1993–2026:
    *  VOO 9.98% → 10.01%, QQQ 15.47% → 15.55%, mismas caídas. Sin el candado, 52–55 compraba en ene-2001. */
   lvlMaxBhtCheap: 55 as number | undefined, lvlCheapCape: 1.25,
+  /** Voto de desaceleración: la curvatura sigue valiendo 10 sesiones después de que la pendiente de la EMA50 cruza a
+   *  positiva (estudio nov-2026, prisma/decel-grace-study.ts). Sin la gracia, el cruce bloqueaba T2 (y T3, que depende
+   *  de T2) cuando el voto de volatilidad llegaba tarde: VOO 1990 (T2 +12.4% → +7.3% sobre el mínimo) y 2022 (T2 de
+   *  mar-2023 a nov-2022, promedio +12.0% → +10.3%). Sistema 1993–2026: VOO 10.12% → 10.13%, QQQ igual. */
+  decelGrace: 10 as number | undefined,
   decelSmin: -0.015, decelRecover: 0.5, minGapT2: 5, minGapT3: 10, t4OasOff: 0.15, t4BackupDays: 252,
 };
 
@@ -143,6 +148,8 @@ export type TranchesResult = {
     /** Qué activó el voto: el ratio del doc o la caída del VIX desde su máximo de 20 días (modo híbrido). */
     volSignal: 'ratio' | 'level' | null; vix: number | null; vixMax20: number | null; bht: number | null;
     decelVote: boolean; slope: number | null; curv: number | null; slopeMin: number | null; recover: number | null; boll: boolean;
+    /** Sesiones que le quedan al voto de desaceleración por la gracia tras el cruce de la pendiente (null = no aplica). */
+    decelGraceLeft: number | null;
     votes: number; cape: number | null; capeMedian20: number | null;
     credit: CreditState;
   };
@@ -214,8 +221,9 @@ export type TrancheOpts = { volArm?: number; volMode?: 'ratio' | 'hybrid'; /** B
   lvlDrop?: number;
   /** Voto B: umbral de BHT más alto (lvlMaxBhtCheap, por defecto 55; undefined = sin él) con el CAPE ≤ lvlCheapCape × su mediana de 20 años. */
   lvlMaxBhtCheap?: number; lvlCheapCape?: number;
-  /** Voto de desaceleración, estudio: decelGrace = sesiones que sigue valiendo la curvatura después de que la pendiente
-   *  cruza a positiva (A); decelLatch = una vez cumplida en el episodio cuenta hasta que el episodio cierra (B). */
+  /** Voto de desaceleración: decelGrace = sesiones que sigue valiendo la curvatura después de que la pendiente cruza a
+   *  positiva (por defecto TRANCHE_CFG.decelGrace; undefined = sin gracia, la regla v1.3 original); decelLatch (estudio)
+   *  = una vez cumplida en el episodio cuenta hasta que el episodio cierra. */
   decelGrace?: number; decelLatch?: boolean;
   /** Cada compra histórica (para marcarla en la gráfica). */ onFire?: (e: BuyEvent) => void };
 /** Compra histórica de la escalera: tranche, fecha, precio de referencia, tamaño (0.5 = medio tranche) y si fue el respaldo de T4. */
@@ -233,6 +241,7 @@ export function computeTranches(P: PreparedTranches, date: string, sectorRule: S
   const lvlMaxBht = 'lvlMaxBht' in opts ? opts.lvlMaxBht : C.lvlMaxBht;
   const lvlCheap = 'lvlMaxBhtCheap' in opts ? opts.lvlMaxBhtCheap : C.lvlMaxBhtCheap;
   const useCredit = opts.creditGate !== false;
+  const decelGrace = 'decelGrace' in opts ? opts.decelGrace : C.decelGrace;
   const summarize = (end: string | null): EpisodeSummary => {
     let dep = 0, lev = 0, cost = 0;
     const ids = (Object.keys(fired) as TrancheId[]).sort();
@@ -251,7 +260,7 @@ export function computeTranches(P: PreparedTranches, date: string, sectorRule: S
   const fired: Partial<Record<TrancheId, { k: number; size: number; backup?: boolean }>> = {};
 
   const ratioAt = (k: number) => (P.vix[k] != null && P.vix3m[k] != null ? (P.vix[k] as number) / (P.vix3m[k] as number) : null);
-  let snap: { veto: boolean; volVote: boolean; decelVote: boolean; votes: number; spDd: Num; ndxDd: Num; ratio: Num; boll: boolean; recover: Num } | null = null;
+  let snap: { veto: boolean; volVote: boolean; decelVote: boolean; votes: number; spDd: Num; ndxDd: Num; ratio: Num; boll: boolean; recover: Num; graceLeft: number | null } | null = null;
   const checksAt: Partial<Record<TrancheId, Check[]>> = {};
 
   for (let k = 0; k <= D; k++) {
@@ -339,8 +348,9 @@ export function computeTranches(P: PreparedTranches, date: string, sectorRule: S
     const recover = open && S != null && slopeMin < 0 ? (S - slopeMin) / -slopeMin : null;
     const curvNow = S != null && curvRun >= 3 && slopeMin <= C.decelSmin && (recover ?? 0) >= C.decelRecover && S < 0;
     if (curvNow) curvAt = k;
-    const curvVote = curvNow || (curvAt >= 0 && open && (opts.decelLatch
-      || (opts.decelGrace != null && S != null && S >= 0 && k - curvAt <= opts.decelGrace)));
+    // Gracia: tras el cruce de la pendiente a positiva el voto sigue unas sesiones (si no, bloquearía T2 y T3).
+    const inGrace = !curvNow && curvAt >= 0 && open && decelGrace != null && S != null && S >= 0 && k - curvAt <= decelGrace;
+    const curvVote = curvNow || inGrace || (curvAt >= 0 && open && !!opts.decelLatch);
     const lo = P.lower[k], loPrev = k > 0 ? P.lower[k - 1] : null, pPrev = k > 0 ? px[k - 1] : null;
     if (lo != null && loPrev != null && pPrev != null && pPrev < loPrev && p > lo) bollAt = k;
     // Se anula si el precio vuelve a cerrar debajo de la banda (como la corrección 1 con el ratio de volatilidad).
@@ -408,7 +418,7 @@ export function computeTranches(P: PreparedTranches, date: string, sectorRule: S
       else if (!fired.T4 && k - start >= C.t4BackupDays && P.e200[k] != null && p > (P.e200[k] as number)) fire('T4', { k, size: 1, backup: true });
       if (k === D) Object.assign(checksAt, { T0: t0, T1: t1, T2: t2, T3: t3, T4: t4 });
     }
-    if (k === D) snap = { veto, volVote, decelVote, votes, spDd, ndxDd, ratio, boll, recover };
+    if (k === D) snap = { veto, volVote, decelVote, votes, spDd, ndxDd, ratio, boll, recover, graceLeft: inGrace && decelGrace != null ? decelGrace - (k - curvAt) : null };
   }
 
   if (open) opts.onEpisodeEnd?.(summarize(null));
@@ -456,7 +466,7 @@ export function computeTranches(P: PreparedTranches, date: string, sectorRule: S
       ratio: sn.ratio, volSource: sn.ratio != null ? 'ratio' : 'fallback', volVote: sn.volVote, volArmedAt: open && armedAt >= start ? s.dates[armedAt] : null, // solo si se armó en este episodio
       volSignal, vix: P.vix[D], vixMax20: P.vixMax20[D], bht: s.bht?.[D] ?? null,
       decelVote: sn.decelVote, slope: P.slope[D] != null ? (P.slope[D] as number) * 100 : null, curv: P.curv[D] != null ? (P.curv[D] as number) * 100 : null,
-      slopeMin: open ? slopeMin * 100 : null, recover: sn.recover != null ? sn.recover * 100 : null, boll: sn.boll,
+      slopeMin: open ? slopeMin * 100 : null, recover: sn.recover != null ? sn.recover * 100 : null, boll: sn.boll, decelGraceLeft: sn.graceLeft,
       votes: sn.votes, cape: s.cape[D], capeMedian20: s.capeMedian20[D], credit: creditAt(P, D),
     },
     ath: { spx: athAt(s.dates, P.spx, D), qqq: dual ? athAt(s.dates, P.qqq, D) : null, tqqq: dual && s.tqqq ? athAt(s.dates, s.tqqq, D) : null },

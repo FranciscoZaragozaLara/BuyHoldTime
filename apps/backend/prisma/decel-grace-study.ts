@@ -1,6 +1,6 @@
-// Estudio: el voto de desaceleración (curvatura de la EMA50) exige pendiente negativa; si cruza a positiva antes de que
+// Estudio (adoptado: TRANCHE_CFG.decelGrace = 10): el voto de desaceleración (curvatura de la EMA50) exigía pendiente negativa; si cruza a positiva antes de que
 // T2 junte sus dos votos, T2 (y T3, que depende de T2) se bloquea. Visto en VOO 1990 y 2022. Variantes:
-//   base · A = la curvatura sigue valiendo N sesiones después del cruce (decelGrace) · B = una vez cumplida, vale
+//   base (sin gracia) · A = la curvatura sigue valiendo N sesiones después del cruce (decelGrace) · B = una vez cumplida, vale
 //   hasta que cierra el episodio (decelLatch).
 //   npx ts-node prisma/decel-grace-study.ts   [GRACE=10]
 // Por episodio: compras (tranche@fecha) y precio promedio frente al mínimo del episodio; sistema real 1× (escaleras de
@@ -12,7 +12,7 @@ import { systemSince } from '../src/modules/backtesting/reentry';
 
 const GRACE = Number(process.env.GRACE ?? 10);
 const VARIANTS: Array<{ key: string; name: string; opts: TrancheOpts }> = [
-  { key: 'base', name: 'Actual', opts: {} },
+  { key: 'base', name: 'Sin gracia (v1.3)', opts: { decelGrace: undefined } },
   { key: 'A', name: `A: gracia ${GRACE} sesiones`, opts: { decelGrace: GRACE } },
   { key: 'B', name: 'B: se queda prendido', opts: { decelLatch: true } },
 ];

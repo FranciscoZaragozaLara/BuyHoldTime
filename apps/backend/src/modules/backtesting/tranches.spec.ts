@@ -53,6 +53,23 @@ describe('módulo de reentrada por tranches', () => {
     expect(med[1]).toBe(20); // 120 meses en 10 y 120 en 30
     expect(med[2]).toBe(30); // la ventana avanza un mes
   });
+  test('voto de desaceleración: sigue valiendo 10 sesiones después de que la pendiente de la EMA50 cruza a positiva', () => {
+    // Subida lenta, caída de −25% en 30 sesiones y rebote sostenido: la pendiente toca fondo, se aplana y cruza a positiva.
+    const n = 420;
+    const dates = Array.from({ length: n }, (_, k) => new Date(Date.UTC(2020, 0, 1) + k * 86400000).toISOString().slice(0, 10));
+    const spx = dates.map((_, k) => (k < 300 ? 100 + k * 0.05 : k < 330 ? 115 * (1 - 0.25 * (k - 299) / 30) : 86.25 * (1 + 0.004 * (k - 329))));
+    const s: TrancheSeries = { dates, spx, qqq: spx, vix: dates.map(() => 20), vix3m: dates.map(() => 21), oas: dates.map(() => 4), cape: dates.map(() => 30), capeMedian20: dates.map(() => 25) };
+    const P = prepareTranches(s, 'voo');
+    const day = (k: number, o = {}) => computeTranches(P, dates[k], 'half', o)!.today;
+    let cross = -1;
+    for (let k = 331; k < n && cross < 0; k++) if ((day(k - 1).slope ?? -1) < 0 && (day(k).slope ?? -1) >= 0 && day(k - 1).decelVote) cross = k;
+    expect(cross).toBeGreaterThan(0);
+    expect(day(cross).decelVote).toBe(true);
+    expect(day(cross).decelGraceLeft).toBeGreaterThan(0);
+    expect(day(cross, { decelGrace: undefined }).decelVote).toBe(false); // regla v1.3 original: se apagaba en el cruce
+    expect(day(cross + 11).decelVote).toBe(false); // la gracia se acaba
+    expect(day(cross - 1).decelGraceLeft).toBeNull(); // antes del cruce vota por la curvatura, no por la gracia
+  });
   test('el reingreso a la banda de Bollinger se anula si el precio vuelve a cerrar debajo', () => {
     // Caída fuerte (cierra bajo la banda), rebote que reingresa y nueva caída bajo la banda.
     const n = 120;

@@ -95,6 +95,7 @@ En plena caída, **cualquier día verde vuelve positiva la curvatura**. Por eso 
   - el mínimo reciente de S fue ≤ −1.5% (hubo un cuchillo real)
   - S ya recuperó al menos 50% desde su mínimo (filtro de magnitud; probar también 30%)
   - S sigue negativa (fase de aplanamiento, antes del cruce)
+  - **Ajuste de la app (nov-2026):** cuando S cruza a positiva, el voto sigue valiendo **10 sesiones** más. Sin esa gracia, si el voto de volatilidad llegaba después del cruce, T2 quedaba bloqueado (y T3, que exige T2): pasó en VOO 1990 (T2 a +12.4% del mínimo en vez de +7.3%) y 2022 (T2 en mar-2023 en vez de nov-2022). Estudio: `apps/backend/prisma/decel-grace-study.ts`.
 
 **Regla práctica:** S ≈ 0.39 × (distancia promedio del precio a la EMA en los últimos 10 días). Si el precio se estabiliza, esa distancia se reduce a la mitad cada ~17 días hábiles. Por eso el voto tarda 4–6 semanas con precio plano y 2–3 semanas con un rebote moderado.
 
