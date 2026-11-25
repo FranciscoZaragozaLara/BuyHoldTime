@@ -214,6 +214,9 @@ export type TrancheOpts = { volArm?: number; volMode?: 'ratio' | 'hybrid'; /** B
   lvlDrop?: number;
   /** Voto B: umbral de BHT más alto (lvlMaxBhtCheap, por defecto 55; undefined = sin él) con el CAPE ≤ lvlCheapCape × su mediana de 20 años. */
   lvlMaxBhtCheap?: number; lvlCheapCape?: number;
+  /** Voto de desaceleración, estudio: decelGrace = sesiones que sigue valiendo la curvatura después de que la pendiente
+   *  cruza a positiva (A); decelLatch = una vez cumplida en el episodio cuenta hasta que el episodio cierra (B). */
+  decelGrace?: number; decelLatch?: boolean;
   /** Cada compra histórica (para marcarla en la gráfica). */ onFire?: (e: BuyEvent) => void };
 /** Compra histórica de la escalera: tranche, fecha, precio de referencia, tamaño (0.5 = medio tranche) y si fue el respaldo de T4. */
 export type BuyEvent = { date: string; id: TrancheId; price: number; size: number; backup: boolean };
@@ -244,7 +247,7 @@ export function computeTranches(P: PreparedTranches, date: string, sectorRule: S
   let armed = false, volOnAt = -1, armedAt = -1, lvlOnAt = -1, armPeak = 0;
   const volRelease = opts.volRelease ?? 1, volCancel = opts.volCancel ?? 1, volPeakDrop = opts.volPeakDrop;
   let volSignal: 'ratio' | 'level' | null = null;
-  let bollAt = -1, curvRun = 0, slopeMin = 0;
+  let bollAt = -1, curvRun = 0, slopeMin = 0, curvAt = -1;
   const fired: Partial<Record<TrancheId, { k: number; size: number; backup?: boolean }>> = {};
 
   const ratioAt = (k: number) => (P.vix[k] != null && P.vix3m[k] != null ? (P.vix[k] as number) / (P.vix3m[k] as number) : null);
@@ -266,14 +269,14 @@ export function computeTranches(P: PreparedTranches, date: string, sectorRule: S
       if (p >= peak || atHighs) {
         lastEp = { start: s.dates[start], end: s.dates[k], ddMax };
         opts.onEpisodeEnd?.(summarize(s.dates[k]));
-        open = false; slopeMin = 0; for (const id of Object.keys(fired)) delete fired[id as TrancheId];
+        open = false; slopeMin = 0; curvAt = -1; for (const id of Object.keys(fired)) delete fired[id as TrancheId];
       }
     }
     if (!open && permit) {
       open = true; start = k;
       peak = (route === 'voo' ? P.spMax[k] : P.qMax[k]) ?? p;
       peakIdx = k; for (let j = k; j >= Math.max(0, k - W12); j--) if (px[j] === peak) { peakIdx = j; break; }
-      minP = Infinity; ddMax = 0; spDdMax = 0; ndxDdMax = 0; slopeMin = 0;
+      minP = Infinity; ddMax = 0; spDdMax = 0; ndxDdMax = 0; slopeMin = 0; curvAt = -1;
     }
     if (open) {
       if (p < minP) { minP = p; minIdx = k; }
@@ -334,7 +337,10 @@ export function computeTranches(P: PreparedTranches, date: string, sectorRule: S
     if (S != null && open) slopeMin = Math.min(slopeMin, S);
     // Recuperación de la pendiente solo dentro de un episodio (su mínimo se reinicia al abrir y al cerrar).
     const recover = open && S != null && slopeMin < 0 ? (S - slopeMin) / -slopeMin : null;
-    const curvVote = S != null && curvRun >= 3 && slopeMin <= C.decelSmin && (recover ?? 0) >= C.decelRecover && S < 0;
+    const curvNow = S != null && curvRun >= 3 && slopeMin <= C.decelSmin && (recover ?? 0) >= C.decelRecover && S < 0;
+    if (curvNow) curvAt = k;
+    const curvVote = curvNow || (curvAt >= 0 && open && (opts.decelLatch
+      || (opts.decelGrace != null && S != null && S >= 0 && k - curvAt <= opts.decelGrace)));
     const lo = P.lower[k], loPrev = k > 0 ? P.lower[k - 1] : null, pPrev = k > 0 ? px[k - 1] : null;
     if (lo != null && loPrev != null && pPrev != null && pPrev < loPrev && p > lo) bollAt = k;
     // Se anula si el precio vuelve a cerrar debajo de la banda (como la corrección 1 con el ratio de volatilidad).

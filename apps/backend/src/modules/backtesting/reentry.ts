@@ -249,13 +249,13 @@ export type SystemSince = {
  * fechas y por la misma fracción, se aplican a ese instrumento: cada venta vende la misma fracción de lo invertido y
  * cada compra usa la misma fracción del efectivo que en la simulación de la ruta.
  */
-export function systemSince(P: PreparedTranches, date: string, onPx?: (number | null)[], instrument?: string): SystemSince | null {
+export function systemSince(P: PreparedTranches, date: string, onPx?: (number | null)[], instrument?: string, opts?: TrancheOpts): SystemSince | null {
   let i = -1;
   for (let k = P.s.dates.length - 1; k >= 0; k--) if (P.s.dates[k] <= date) { i = k; break; }
   if (i < 0 || P.px[i] == null) return null;
   const ap = onPx ?? P.px; // precios a los que se aplica
   if (ap[i] == null) return null;
-  const sim = simulateReentry(P, NET_RULE, undefined, undefined, i);
+  const sim = simulateReentry(P, NET_RULE, undefined, opts, i);
   if (sim.k0 < 0) return null;
   const dates = P.s.dates, p0 = ap[i] as number;
   const dd = (vals: Array<[string, number]>) => {
