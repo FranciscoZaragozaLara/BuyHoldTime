@@ -98,7 +98,8 @@ export const FundamentalTablesTab: React.FC<FundamentalTablesTabProps> = ({ snap
   ];
 
   // Orden de claves para el tab "Todos" y mapa por tab individual
-  const ALLOWED_KEYS_ORDERED = ['keyMetrics', 'valuation', 'growth', 'profitability', 'financialStrength', 'liquidity', 'momentum', 'dividends'];
+  // (la liquidez del snapshot se publica dentro de Fuerza financiera)
+  const ALLOWED_KEYS_ORDERED = ['keyMetrics', 'valuation', 'growth', 'profitability', 'financialStrength', 'momentum', 'dividends'];
 
   const sectionMapping: Record<string, { title: string; keys: string[] }> = {
     keyMetrics: {
@@ -119,7 +120,7 @@ export const FundamentalTablesTab: React.FC<FundamentalTablesTabProps> = ({ snap
     },
     financialStrength: {
       title: locale === 'es' ? 'Fuerza Financiera & Liquidez' : 'Financial Strength & Liquidity',
-      keys: ['financialStrength', 'liquidity'],
+      keys: ['financialStrength'],
     },
     momentum: {
       title: locale === 'es' ? 'Momento Técnico (Momentum)' : 'Technical Momentum',
@@ -716,15 +717,14 @@ export const FundamentalTablesTab: React.FC<FundamentalTablesTabProps> = ({ snap
     const sectionsToDisplay = keysToRender
       .map((key) => {
         let rows: any[] = tablesObj[key] || [];
-        // Bloques ya migrados (Métricas clave, Valuación, Crecimiento, Rentabilidad): solo las métricas publicadas y en su orden
+        // Fuerza financiera incluye las filas de liquidez (en el snapshot vienen en otra sección)
+        if (key === 'financialStrength') {
+          rows = [...rows, ...(tablesObj.liquidity || [])];
+        }
+        // Bloques ya migrados (Métricas clave, Valuación, Crecimiento, Rentabilidad, Fuerza financiera): solo las métricas publicadas y en su orden
         // (src/lib/fundamentalMetrics)
         if (isCuratedSection(key)) {
           rows = sectionRows(key, rows);
-        }
-        // Filtrar fuerza financiera (financialStrength / liquidity) para ocultar scores y WACC vs ROIC
-        if (key === 'financialStrength' || key === 'liquidity') {
-          const hiddenItems = ['Piotroski F-Score', 'Altman Z-Score', 'Beneish M-Score', 'WACC vs ROIC', 'WACC', 'ROIC'];
-          rows = rows.filter((r: any) => !hiddenItems.some(item => r.name.includes(item)));
         }
         const title =
           activeTab === 'all'

@@ -69,6 +69,22 @@ describe('sectionRows (rentabilidad)', () => {
   });
 });
 
+describe('sectionRows (fuerza financiera y liquidez)', () => {
+  it('deuda, cobertura y liquidez juntas; quita repetidos, capital de trabajo y puntuaciones', () => {
+    const names = ['Piotroski F-Score', 'WACC vs ROIC', 'Cash-To-Debt', 'Equity-to-Asset', 'Interest Coverage', 'Debt-to-EBITDA',
+      'Debt-to-Equity', 'Altman Z-Score', 'Beneish M-Score', 'Current Ratio', 'Quick Ratio', 'Cash Ratio', 'Days Payable',
+      'Days Sales Outstanding', 'Days Inventory'];
+    expect(sectionRows('financialStrength', names.map((name) => ({ name }))).map((r) => r.name)).toEqual([
+      'Debt-to-Equity', 'Debt-to-EBITDA', 'Interest Coverage', 'Cash-To-Debt', 'Current Ratio', 'Quick Ratio',
+    ]);
+  });
+  it('textos del snapshot', () => {
+    expect(formatMetricValue('Cash-To-Debt', 'No Debt', 'es')).toBe('Sin deuda');
+    expect(formatMetricValue('Interest Coverage', 'N/A', 'es')).toBe('Sin dato');
+    expect(formatMetricValue('Interest Coverage', '31.24', 'en')).toBe('31.2x');
+  });
+});
+
 describe('metricLabel', () => {
   it('traduce y deja igual lo que no está en el diccionario', () => {
     expect(metricLabel('Revenue (TTM) (Mil $)', 'es')).toBe('Ingresos (12 meses)');
@@ -99,7 +115,8 @@ describe('formatMetricValue', () => {
   });
   it('sin definición o sin valor legible → null (formato genérico)', () => {
     expect(formatMetricValue('Cash Ratio', '0.33', 'es')).toBeNull();
-    expect(formatMetricValue('Beta', 'N/A', 'es')).toBeNull();
+    expect(formatMetricValue('Beta', 'n.d.', 'es')).toBeNull();
+    expect(formatMetricValue('Beta', 'N/A', 'es')).toBe('Sin dato');
     expect(formatMetricValue('52-Week Range ($)', '555.6', 'es')).toBeNull();
   });
 });

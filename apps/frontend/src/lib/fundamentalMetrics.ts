@@ -1,7 +1,7 @@
 // Métricas publicadas en las tablas de fundamentos (/prices/[symbol]): qué se muestra de cada bloque, en qué orden,
 // con qué nombre y explicación en español e inglés, y cómo se formatea el valor. La clave es el nombre que trae el
 // snapshot (GuruFocus Scrapper); lo que no está aquí sigue con el comportamiento anterior del componente.
-// Se migra bloque por bloque (1: Métricas clave · 2: Valuación · 3: Crecimiento · 4: Rentabilidad).
+// Se migra bloque por bloque (1: Métricas clave · 2: Valuación · 3: Crecimiento · 4: Rentabilidad · 5: Fuerza financiera).
 
 export type MetricFormat = 'usdMillions' | 'usd' | 'ratio' | 'multiple' | 'percent' | 'usdRange' | 'outOf10';
 
@@ -320,12 +320,74 @@ export const PROFITABILITY_METRICS: Record<string, MetricDef> = {
   },
 };
 
+/** Bloque 5 · Fuerza financiera y liquidez (en el snapshot vienen en dos secciones, financialStrength y liquidity; se
+ *  publican juntas). Deuda frente al capital, a la utilidad y al efectivo, cobertura de intereses y liquidez de corto
+ *  plazo. Se quitan los repetidos (capital/activos, razón de efectivo) y el detalle de capital de trabajo (días de
+ *  inventario, de cobro y de pago). Piotroski, Altman, Beneish y WACC vs ROIC siguen ocultos. */
+export const FINANCIAL_STRENGTH_METRICS: Record<string, MetricDef> = {
+  'Debt-to-Equity': {
+    es: 'Deuda / Capital', en: 'Debt / Equity', format: 'ratio',
+    descEs: 'Deuda total entre el capital de los accionistas. Mide cuánto se apoya la empresa en dinero prestado.',
+    descEn: 'Total debt divided by shareholders’ equity. Measures how much the company relies on borrowed money.',
+    positiveEs: '🟢 Menor a 1.0: balance conservador, poco riesgo si suben las tasas.',
+    positiveEn: '🟢 Below 1.0: a conservative balance sheet, little risk if rates rise.',
+    negativeEs: '🔴 Mayor a 2.0 (o negativo, cuando el capital es negativo): mucha deuda; revisa si el negocio la puede pagar con holgura.',
+    negativeEn: '🔴 Above 2.0 (or negative, when equity is negative): heavy debt; check that the business can comfortably service it.',
+  },
+  'Debt-to-EBITDA': {
+    es: 'Deuda / EBITDA', en: 'Debt / EBITDA', format: 'multiple',
+    descEs: 'Deuda total entre la utilidad operativa antes de depreciación. Indica cuántos años de utilidad harían falta para pagar la deuda.',
+    descEn: 'Total debt divided by operating profit before depreciation. Indicates how many years of earnings it would take to repay the debt.',
+    positiveEs: '🟢 Menor a 2x: deuda cómoda para lo que gana la empresa.',
+    positiveEn: '🟢 Below 2x: comfortable debt for what the company earns.',
+    negativeEs: '🔴 Mayor a 4x: deuda pesada; vulnerable si bajan las utilidades.',
+    negativeEn: '🔴 Above 4x: heavy debt; vulnerable if earnings fall.',
+  },
+  'Interest Coverage': {
+    es: 'Cobertura de intereses', en: 'Interest Coverage', format: 'multiple',
+    descEs: 'Utilidad operativa entre los intereses que paga la deuda. Mide cuántas veces alcanza la utilidad para pagar los intereses.',
+    descEn: 'Operating profit divided by interest expense. Measures how many times earnings cover interest payments.',
+    positiveEs: '🟢 Mayor a 8x: paga sus intereses con mucha holgura.',
+    positiveEn: '🟢 Above 8x: interest is paid with plenty of room.',
+    negativeEs: '🔴 Menor a 3x: la deuda consume buena parte de la utilidad; riesgo si el negocio se debilita.',
+    negativeEn: '🔴 Below 3x: debt eats up much of the profit; risky if the business weakens.',
+  },
+  'Cash-To-Debt': {
+    es: 'Efectivo / Deuda', en: 'Cash / Debt', format: 'ratio',
+    descEs: 'Efectivo e inversiones de corto plazo entre la deuda total. Mide qué parte de la deuda podría pagarse hoy con lo que tiene en caja.',
+    descEn: 'Cash and short-term investments divided by total debt. Measures how much of the debt could be repaid today with cash on hand.',
+    positiveEs: '🟢 Mayor a 1.0: tiene más efectivo que deuda.',
+    positiveEn: '🟢 Above 1.0: it holds more cash than debt.',
+    negativeEs: '🔴 Menor a 0.2: depende de su flujo futuro o de refinanciar para pagar la deuda.',
+    negativeEn: '🔴 Below 0.2: it depends on future cash flow or refinancing to repay its debt.',
+  },
+  'Current Ratio': {
+    es: 'Liquidez corriente', en: 'Current Ratio', format: 'ratio',
+    descEs: 'Activos de corto plazo entre deudas de corto plazo (menos de un año). Mide si puede cubrir lo que vence pronto.',
+    descEn: 'Current assets divided by current liabilities (due within a year). Measures whether it can cover what comes due soon.',
+    positiveEs: '🟢 Entre 1.2 y 3.0: cubre sus pagos de corto plazo con holgura.',
+    positiveEn: '🟢 Between 1.2 and 3.0: short-term obligations are comfortably covered.',
+    negativeEs: '🔴 Menor a 1.0: debe más a corto plazo de lo que tiene disponible (normal en algunos negocios como supermercados).',
+    negativeEn: '🔴 Below 1.0: it owes more short-term than it has available (normal for some businesses, like grocers).',
+  },
+  'Quick Ratio': {
+    es: 'Prueba ácida', en: 'Quick Ratio', format: 'ratio',
+    descEs: 'Como la liquidez corriente, pero sin contar el inventario, que tarda en convertirse en efectivo.',
+    descEn: 'Like the current ratio, but excluding inventory, which takes time to turn into cash.',
+    positiveEs: '🟢 Mayor a 1.0: puede pagar lo que vence pronto sin vender inventario.',
+    positiveEn: '🟢 Above 1.0: it can pay what comes due soon without selling inventory.',
+    negativeEs: '🔴 Menor a 0.5: depende de vender inventario o de nuevo financiamiento para sus pagos inmediatos.',
+    negativeEn: '🔴 Below 0.5: it relies on selling inventory or new financing for immediate payments.',
+  },
+};
+
 /** Métricas publicadas por bloque (sección del snapshot), en su orden; lo que no está en la lista no se publica. */
 export const SECTION_METRICS: Record<string, Record<string, MetricDef>> = {
   keyMetrics: KEY_METRICS,
   valuation: VALUATION_METRICS,
   growth: GROWTH_METRICS,
   profitability: PROFITABILITY_METRICS,
+  financialStrength: FINANCIAL_STRENGTH_METRICS,
 };
 const ALL_METRICS: Record<string, MetricDef> = Object.assign({}, ...Object.values(SECTION_METRICS));
 
@@ -373,6 +435,8 @@ const num = (v: string | number | null | undefined): number | null => {
 const TEXT_VALUES: Record<string, { es: string; en: string }> = {
   'Neg. Equity': { es: 'Capital negativo', en: 'Negative equity' },
   'At Loss': { es: 'Con pérdidas', en: 'At a loss' },
+  'No Debt': { es: 'Sin deuda', en: 'No debt' },
+  'N/A': { es: 'Sin dato', en: 'N/A' },
 };
 
 const fixed = (n: number, d: number) => n.toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d });
