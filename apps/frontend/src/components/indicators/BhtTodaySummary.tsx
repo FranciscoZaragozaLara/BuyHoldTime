@@ -12,6 +12,9 @@ import { BHT_BANDS, bhtBand } from '@/components/backtesting/bhtBands';
 import { TrendBadge } from '@/components/backtesting/TrendBadge';
 import { type ThermoLive, useThermoLive } from '@/components/backtesting/useThermoLive';
 import { bhtComposition, stampLabel } from '@/lib/bhtComponents';
+import { BhtDetailPopover } from '@/components/backtesting/BhtDetail';
+import { useBhtTablePin } from '@/components/backtesting/useBhtTablePin';
+import { BhtCalcDetail } from './BhtCalcDetail';
 
 const T = {
   es: {
@@ -19,14 +22,16 @@ const T = {
     spx: 'S&P 500', cape: 'CAPE de Shiller', capeNote: (r: string) => `${r} su media de 3 años`, fwd: 'P/E estimado', fwdNote: 'Precio ÷ EPS a 12 meses (WSJ / Birinyi)',
     pe: 'P/E', peNote: 'Precio ÷ utilidades de 12 meses', close: 'cierre',
     base: (n: number) => `Base ${n} componentes`, hy: 'crédito HY', liq: 'liquidez M2/M0', oil: 'petróleo',
-    asOf: 'Datos al', bands: 'Ver todas las bandas', hideBands: 'Ocultar bandas', loading: 'Cargando el termómetro…', error: 'No se pudo leer el termómetro en este momento.',
+    asOf: 'Datos al', bands: 'Ver todas las bandas', hideBands: 'Ocultar bandas', strategy: 'Estrategia a implementar',
+    strategyTip: 'Abre el detalle del BHT de hoy en la pestaña Tranches: compras T0–T4, ventas V1–V5 y qué toca hacer.', loading: 'Cargando el termómetro…', error: 'No se pudo leer el termómetro en este momento.',
   },
   en: {
     title: 'BHT Index today', sub: 'Market risk thermometer (0 = extreme fear / opportunity, 100 = euphoria / risk).',
     spx: 'S&P 500', cape: 'Shiller CAPE', capeNote: (r: string) => `${r} its 3-year mean`, fwd: 'Forward P/E', fwdNote: 'Price ÷ 12-month EPS (WSJ / Birinyi)',
     pe: 'P/E', peNote: 'Price ÷ trailing 12-month earnings', close: 'close',
     base: (n: number) => `Base ${n} components`, hy: 'HY credit', liq: 'M2/M0 liquidity', oil: 'oil',
-    asOf: 'Data as of', bands: 'Show all bands', hideBands: 'Hide bands', loading: 'Loading the thermometer…', error: 'Could not read the thermometer right now.',
+    asOf: 'Data as of', bands: 'Show all bands', hideBands: 'Hide bands', strategy: 'Strategy to implement',
+    strategyTip: "Opens today's BHT detail on the Tranches tab: T0–T4 buys, V1–V5 sells and what to do now.", loading: 'Loading the thermometer…', error: 'Could not read the thermometer right now.',
   },
 };
 // Distancia del cierre a sus SMA 50 y 200 (la regla del régimen, en texto que sí se ajusta al ancho).
@@ -42,6 +47,9 @@ export function BhtTodaySummary({ initial, pe }: { initial?: ThermoLive | null; 
   const ti = useTranslations('Backtesting.indicators');
   const q = useThermoLive(initial);
   const [showBands, setShowBands] = useState(false);
+  const [showCalc, setShowCalc] = useState(false);
+  // «Estrategia a implementar»: el popover del BHT de hoy, fijado y abierto en Tranches (navegable por fecha).
+  const pinT = useBhtTablePin();
   const th = q.data;
   if (!th) return <section className="rounded-2xl border border-slate-800 bg-slate-900/40 p-6 text-sm text-slate-500">{q.isError ? t.error : t.loading}</section>;
 
@@ -96,7 +104,13 @@ export function BhtTodaySummary({ initial, pe }: { initial?: ThermoLive | null; 
           <div className="rounded-lg bg-slate-800/50 px-3 py-2 text-xs text-slate-300">
             <span className={`font-semibold ${band.textClass}`}>{ti(`bht.b${bi}.label`)} ({band.range}): </span>{ti(`bht.b${bi}.advice`)}
           </div>
-          <button type="button" onClick={() => setShowBands((v) => !v)} className="self-start text-[11px] text-accent-400 hover:text-accent-300">{showBands ? t.hideBands : t.bands}</button>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+            <button type="button" title={t.strategyTip}
+              onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); pinT.pinAt(th.date, r.left + r.width / 2, r.top + r.height / 2); }}
+              className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-purple-500/80 text-white hover:bg-purple-500 transition">{t.strategy}</button>
+            <button type="button" onClick={() => setShowBands((v) => !v)} className="text-[11px] text-accent-400 hover:text-accent-300">{showBands ? t.hideBands : t.bands}</button>
+            <button type="button" onClick={() => setShowCalc((v) => !v)} className="text-[11px] text-accent-400 hover:text-accent-300">{showCalc ? ti('hideDetail') : ti('showDetail')}</button>
+          </div>
           {showBands && (
             <ul className="space-y-1">
               {BHT_BANDS.map((b, i) => (
@@ -113,7 +127,10 @@ export function BhtTodaySummary({ initial, pe }: { initial?: ThermoLive | null; 
           )}
         </div>
       </div>
+      {showCalc && <div className="mt-4"><BhtCalcDetail th={th} /></div>}
       {th.trend?.regime && <BhtReturnsTable locale={loc} date={th.date} score={score} regime={th.trend.regime} />}
+      {pinT.pin && <BhtDetailPopover hover={pinT.pin} detail={pinT.det.cache[pinT.pin.d]} onClose={pinT.close} nav={pinT.pinnedNav}
+        liveValue={pinT.pin.d === th.date ? score : null} initialView="tranches" />}
       <RiskDisclaimer variant="signal" className="mt-3" />
     </section>
   );

@@ -23,7 +23,7 @@ const BhtStrategyView = dynamic(() => import('./BhtStrategyView'), { ssr: false,
 const BhtDrawdownsView = dynamic(() => import('./BhtDrawdownsView'), { ssr: false, loading: () => <div className="mt-2 font-mono text-slate-500">…</div> });
 // Vista Tranches (Módulo de Reentrada por Tranches): lazy y bajo demanda.
 const BhtTranchesView = dynamic(() => import('./BhtTranchesView'), { ssr: false, loading: () => <div className="mt-2 font-mono text-slate-500">…</div> });
-type PopView = 'history' | 'strategy' | 'drawdowns' | 'tranches';
+export type PopView = 'history' | 'strategy' | 'drawdowns' | 'tranches';
 
 // Hover compartido del BHT Index: detalle por indicador igual al termómetro.
 // El cierre es diferido (gracia de 350ms) para poder mover el mouse al popup
@@ -170,7 +170,7 @@ function PulseBadge({ color, title, children }: { color: string; title?: string;
 /** Fecha del encabezado del popover: día de la semana, día, mes y año (p. ej. «jue 21 abr 2022»). */
 const fmtDay = (d: string, loc: string) => new Date(`${d}T12:00:00Z`).toLocaleDateString(loc === 'es' ? 'es-MX' : 'en-US', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
 
-export function BhtDetailPopover({ hover, detail: detailIn, onLeave, onHold, liveValue, onClose, nav, trancheRoute }: { hover: { d: string; x: number; y: number }; detail: any; forward?: any; onLeave?: () => void; onHold?: () => void; liveValue?: number | null; onClose?: () => void; nav?: BhtPinNav | null; trancheRoute?: 'voo' | 'qqq' }) {
+export function BhtDetailPopover({ hover, detail: detailIn, onLeave, onHold, liveValue, onClose, nav, trancheRoute, initialView = 'strategy' }: { hover: { d: string; x: number; y: number }; detail: any; forward?: any; onLeave?: () => void; onHold?: () => void; liveValue?: number | null; onClose?: () => void; nav?: BhtPinNav | null; trancheRoute?: 'voo' | 'qqq'; /** vista con la que abre (por defecto Estrategia) */ initialView?: PopView }) {
   const ti = useTranslations('Backtesting.indicators');
   const loc = useLocale();
   const missing = !!detailIn?.missing;
@@ -180,8 +180,8 @@ export function BhtDetailPopover({ hover, detail: detailIn, onLeave, onHold, liv
   // La vista va atada a la fecha: cada fecha nueva abre en Estrategia (vista por defecto); Historia y Drawdowns se
   // calculan solo si se piden.
   // Fijado (con ✕), la vista elegida se conserva al cambiar de fecha con clic o con ← →.
-  const [viewFor, setViewFor] = useState<{ d: string; v: PopView }>({ d: hover.d, v: 'strategy' });
-  const view = onClose || viewFor.d === hover.d ? viewFor.v : 'strategy';
+  const [viewFor, setViewFor] = useState<{ d: string; v: PopView }>({ d: hover.d, v: initialView });
+  const view = onClose || viewFor.d === hover.d ? viewFor.v : initialView;
   const setView = (v: PopView) => setViewFor({ d: hover.d, v });
   const hist = useThermoPartsMonthly(view === 'history', hover.d);
   // Posición fija a un lado del cursor (no tapa el crosshair), medida con el tamaño real y dentro de la pantalla.
