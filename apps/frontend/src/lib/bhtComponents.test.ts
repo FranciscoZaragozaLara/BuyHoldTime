@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { bhtComposition, groupComponents, hyAdjustmentLabel, liqAdjustmentLabel, oilAdjustmentLabel, stampLabel } from './bhtComponents';
+import { bhtComposition, groupComponents, hyAdjustmentLabel, liqAdjustmentLabel, oilAdjustmentLabel, PART_EXPLAIN, PART_META, stampLabel } from './bhtComponents';
 
 const parts = [
   { key: 'CAPE', score: 60, weight: 20, value: 37.955 },
@@ -83,5 +83,14 @@ describe('liqAdjustmentLabel / oilAdjustmentLabel', () => {
     expect(oilAdjustmentLabel('shock WTI 1.42', 'es')).toBe('Choque de precio: WTI 1.42× su media de 36 meses');
     expect(oilAdjustmentLabel('alivio WTI 0.65', 'en')).toBe('Relief: WTI 0.65× its 36-month mean');
     expect(oilAdjustmentLabel('sin dato', 'es')).toBe('Sin dato');
+  });
+});
+
+describe('PART_EXPLAIN', () => {
+  it('cada indicador del BHT y cada ajuste tiene explicación en español e inglés', () => {
+    for (const k of [...Object.keys(PART_META), 'HY', 'LIQ', 'OIL']) {
+      expect(PART_EXPLAIN[k]?.es?.length, `${k}.es`).toBeGreaterThan(60);
+      expect(PART_EXPLAIN[k]?.en?.length, `${k}.en`).toBeGreaterThan(60);
+    }
   });
 });

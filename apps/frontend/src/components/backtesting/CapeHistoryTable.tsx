@@ -4,7 +4,8 @@ import { toTrendRegime, TREND_META, TREND_ORDER, type TrendRegime } from '@/lib/
 import type React from 'react';
 import { getApiBase } from '@/lib/apiBase';
 import { useEffect, useState, useRef, useMemo } from 'react';
-import { useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
+import { hyAdjustmentLabel, liqAdjustmentLabel, oilAdjustmentLabel } from '@/lib/bhtComponents';
 import { capeScoreColor } from './bhtBands';
 import { Download } from 'lucide-react';
 import { lagSeries, PUB_LAG_DAYS, withPubLag, breadthValues, buildObvForce, buildObvMap, cagr, getClosestPrice, getCpiYoY, getRecentPrice, isPerf1YMature, marginGdpRatio, monthlyPctLive, oilRatioLive, perf1Y, perf1YElapsedMonths, perfTotal, periodChange, price1YLater } from '@/lib/seriesLookup';
@@ -33,6 +34,7 @@ export function CapeHistoryTable({ cape, capeRows, marketHistory: marketHistoryR
   liveBhtRef: React.MutableRefObject<{ v: number | null; d: string | null; trend?: { regime: string; close: number | null; sma50: number | null; sma200: number | null } | null }>;
 }) {
   const ti = useTranslations('Backtesting.indicators');
+  const adjLoc = useLocale() === 'es' ? 'es' : 'en';
   // Punto en el tiempo: las series mensuales/trimestrales (FINRA, CPI, M2, M0, PIB, MSACSR) cuentan desde que se
   // publican, igual que en el BHT (PUB_LAG_DAYS); sin esto la fila del 30-oct mostraba el FINRA publicado el 20-nov.
   const marketHistory = useMemo(() => withPubLag(marketHistoryRaw), [marketHistoryRaw]);
@@ -475,11 +477,11 @@ export function CapeHistoryTable({ cape, capeRows, marketHistory: marketHistoryR
                 const liqBO = isLiveRow ? liqBonusNow : null;
                 const oilBO = isLiveRow ? oilBonusNow : null;
                 const hyBv = isLiveRow ? (hyBO?.bonus ?? null) : (thR?.bonus ?? null);
-                const hyBLbl = isLiveRow ? (hyBO?.label ?? '') : (thR?.bonusLabel ?? '');
+                const hyBLbl = hyAdjustmentLabel(isLiveRow ? (hyBO?.label ?? '') : (thR?.bonusLabel ?? ''), adjLoc);
                 const liqBv = isLiveRow ? (liqBO?.bonus ?? null) : (thR?.liqBonus ?? null);
-                const liqBLbl = isLiveRow ? (liqBO?.label ?? '') : (thR?.liqBonusLabel ?? '');
+                const liqBLbl = liqAdjustmentLabel(isLiveRow ? (liqBO?.label ?? '') : (thR?.liqBonusLabel ?? ''), adjLoc);
                 const oilBv = isLiveRow ? (oilBO?.bonus ?? null) : (thR?.oilBonus ?? null);
-                const oilBLbl = isLiveRow ? (oilBO?.label ?? '') : (thR?.oilBonusLabel ?? '');
+                const oilBLbl = oilAdjustmentLabel(isLiveRow ? (oilBO?.label ?? '') : (thR?.oilBonusLabel ?? ''), adjLoc);
                 const oilRt = isLiveRow ? (oilBO?.ratio ?? null) : oilRatioLive(marketHistory['DCOILWTICO'], d).ratio;
                 const oilPx = isLiveRow ? (oilBO?.price ?? null) : getRecentPrice(marketHistory['DCOILWTICO'], d, 10);
                 const msacsr = getRecentPrice(marketHistory['MSACSR'], d, 35);
@@ -557,9 +559,9 @@ export function CapeHistoryTable({ cape, capeRows, marketHistory: marketHistoryR
                   <td className="p-2 text-right font-mono text-elevated-300 whitespace-nowrap" title="BAMLH0A0HYM2 OAS">{hyOasDisp!=null?`${Number(hyOasDisp).toFixed(2)}%`:'—'}</td>
                   <td className="p-2 text-right font-mono text-elevated-300 whitespace-nowrap" title="BAMLH0A0HYM2EY Effective Yield">{hyEyDisp!=null?`${Number(hyEyDisp).toFixed(2)}%`:'—'}</td>
                   <td className="p-2 text-right font-mono text-elevated-300 whitespace-nowrap" title="DGS10 + OAS">{hy10yDisp!=null?`${Number(hy10yDisp).toFixed(2)}%`:'—'}</td>
-                  {(()=>{ if(hyBv==null) return <td className="p-2 text-right font-mono text-slate-500 whitespace-nowrap">—</td>; const cls=hyBv>0?'text-elevated-300 bg-elevated-500/10 font-semibold':'text-slate-400'; return <td className={`p-2 text-right font-mono whitespace-nowrap rounded ${cls}`} title={`Bonus HY Spread ${d}${hyBLbl?` — ${hyBLbl}`:''}`}>{hyBv>0?`+${hyBv}`:'0'}</td>; })()}
-                  {(()=>{ if(liqBv==null) return <td className="p-2 text-right font-mono text-slate-500 whitespace-nowrap">—</td>; const cls=liqBv>0?'text-elevated-300 bg-elevated-500/10 font-semibold':liqBv<0?'text-favorable-300 bg-favorable-500/10 font-semibold':'text-slate-400'; return <td className={`p-2 text-right font-mono whitespace-nowrap rounded ${cls}`} title={`Bonus liquidez M2/M0 ${d}${liqBLbl?` — ${liqBLbl}`:''}`}>{liqBv!==0?`${liqBv>0?'+':''}${liqBv}`:'0'}</td>; })()}
-                  {(()=>{ if(oilBv==null) return <td className="p-2 text-right font-mono text-slate-500 whitespace-nowrap">—</td>; const cls=oilBv>0?'text-elevated-300 bg-elevated-500/10 font-semibold':oilBv<0?'text-favorable-300 bg-favorable-500/10 font-semibold':'text-slate-400'; return <td className={`p-2 text-right font-mono whitespace-nowrap rounded ${cls}`} title={`Bonus petróleo WTI ${d}${oilBLbl?` — ${oilBLbl}`:''}`}>{oilBv!==0?`${oilBv>0?'+':''}${oilBv}`:'0'}</td>; })()}
+                  {(()=>{ if(hyBv==null) return <td className="p-2 text-right font-mono text-slate-500 whitespace-nowrap">—</td>; const cls=hyBv>0?'text-elevated-300 bg-elevated-500/10 font-semibold':'text-slate-400'; return <td className={`p-2 text-right font-mono whitespace-nowrap rounded ${cls}`} title={`${adjLoc === 'es' ? 'Ajuste de crédito' : 'Credit adjustment'} ${d}${hyBLbl?` — ${hyBLbl}`:''}`}>{hyBv>0?`+${hyBv}`:'0'}</td>; })()}
+                  {(()=>{ if(liqBv==null) return <td className="p-2 text-right font-mono text-slate-500 whitespace-nowrap">—</td>; const cls=liqBv>0?'text-elevated-300 bg-elevated-500/10 font-semibold':liqBv<0?'text-favorable-300 bg-favorable-500/10 font-semibold':'text-slate-400'; return <td className={`p-2 text-right font-mono whitespace-nowrap rounded ${cls}`} title={`${adjLoc === 'es' ? 'Ajuste de liquidez M2/M0' : 'M2/M0 liquidity adjustment'} ${d}${liqBLbl?` — ${liqBLbl}`:''}`}>{liqBv!==0?`${liqBv>0?'+':''}${liqBv}`:'0'}</td>; })()}
+                  {(()=>{ if(oilBv==null) return <td className="p-2 text-right font-mono text-slate-500 whitespace-nowrap">—</td>; const cls=oilBv>0?'text-elevated-300 bg-elevated-500/10 font-semibold':oilBv<0?'text-favorable-300 bg-favorable-500/10 font-semibold':'text-slate-400'; return <td className={`p-2 text-right font-mono whitespace-nowrap rounded ${cls}`} title={`${adjLoc === 'es' ? 'Ajuste de petróleo WTI' : 'WTI oil adjustment'} ${d}${oilBLbl?` — ${oilBLbl}`:''}`}>{oilBv!==0?`${oilBv>0?'+':''}${oilBv}`:'0'}</td>; })()}
                   {(()=>{ if(oilPx==null) return <td className="p-2 text-right font-mono text-slate-500 whitespace-nowrap">—</td>; return <td className="p-2 text-right font-mono text-caution-300 whitespace-nowrap" title={`WTI ${d} ($/barril). FRED DCOILWTICO (spot EIA, llega con días de retraso); los días que FRED aún no publica usan el futuro CL=F como dato provisional.`}>${oilPx.toFixed(2)}</td>; })()}
                   {(()=>{ if(oilRt==null) return <td className="p-2 text-right font-mono text-slate-500 whitespace-nowrap">—</td>; return <td className="p-2 text-right font-mono text-slate-200 whitespace-nowrap" title={`WTI / SMA36M ${d} — shock ≥1.45, caro ≥1.20, barato <0.90, alivio <0.70`}>{oilRt.toFixed(2)}×</td>; })()}
                   <td className="p-2 text-right font-mono text-accent-300 whitespace-nowrap" title={`M2 oferta monetaria ${d} (FRED M2SL, billones $)`}>{m2v!=null?`$${(m2v/1000).toFixed(2)}T`:'—'}</td>

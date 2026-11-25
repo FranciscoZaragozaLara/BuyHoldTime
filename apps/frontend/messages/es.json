@@ -422,9 +422,9 @@
       "bonusOil": "bonus petróleo",
       "thermoFootB": "{n} indicadores + bonus de crédito, liquidez y petróleo.",
       "finalScore": "Puntaje final",
-      "hyBonusRow": "Bonus HY - (Régimen 3 {label})",
-      "liqBonusRow": "Bonus liquidez M2/M0 ({label})",
-      "oilBonusRow": "Bonus petróleo WTI ({label})",
+      "hyBonusRow": "Ajuste de crédito ({label})",
+      "liqBonusRow": "Ajuste de liquidez M2/M0 ({label})",
+      "oilBonusRow": "Ajuste de petróleo WTI ({label})",
       "bht": {
         "b0": {
           "label": "Miedo Extremo (Alta Oportunidad)",
@@ -468,7 +468,7 @@
       "capeFootA": "Desplázate para cargar más · {n} días (1990→hoy, sin fines de semana)",
       "capeNoSeries": "sin serie CAPE: columnas CAPE vacías",
       "capeFootB": "S&P 500/Nasdaq/TQQQ cierre diario · SMA/EMA 3/5/10 sobre CAPE diario · Ratio con semáforo",
-      "hyBonusDetail": "Bonus HY - (Régimen 3 {label}): +{n} (fuera del promedio)",
+      "hyBonusDetail": "Ajuste de crédito ({label}): +{n} (se suma aparte del promedio)",
       "fwdFoot": "BHT Index al cierre + retornos forward solo con horizonte cumplido · '—' = aún no madura · {shown} de {total} en vista ({days} días)",
       "fwdMore": " — desplázate para ver más",
       "orbTitle": "Riesgo {name} {score}/100",

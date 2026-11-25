@@ -214,3 +214,68 @@ export function oilAdjustmentLabel(label: string, loc: Loc): string {
   if (label === '—') return es ? 'Sin ajuste' : 'No adjustment';
   return label;
 }
+
+/** Explicación sencilla de cada indicador del BHT y de sus ajustes (la (i) de la tabla del cálculo): qué es y por qué
+ *  sube o baja el riesgo, en palabras para cualquier inversionista. */
+export const PART_EXPLAIN: Record<string, Record<Loc, string>> = {
+  CAPE: {
+    es: 'Compara el precio del S&P 500 con lo que las empresas ganaron en promedio en los últimos 10 años, ajustado por inflación. Es como preguntar cuántos años de utilidades estás pagando: mientras más alto, más caro está el mercado y menores suelen ser los rendimientos de los años siguientes.',
+    en: 'Compares the S&P 500 price with what companies earned on average over the last 10 years, adjusted for inflation. It is like asking how many years of profits you are paying for: the higher it is, the more expensive the market and the lower returns tend to be in the following years.',
+  },
+  RATIO: {
+    es: 'Mide si el CAPE de hoy está arriba o abajo de su promedio de los últimos 3 años. Si el mercado se encareció muy rápido respecto a su nivel reciente, aumenta el riesgo de una corrección.',
+    en: "Measures whether today's CAPE is above or below its average of the last 3 years. If the market got expensive very quickly compared with its recent level, the risk of a correction goes up.",
+  },
+  FWD: {
+    es: 'El precio del S&P 500 entre las utilidades que los analistas esperan para los próximos 12 meses. Si es alto, el mercado ya da por hecho mucho crecimiento y cualquier decepción pega más fuerte.',
+    en: 'The S&P 500 price divided by the earnings analysts expect over the next 12 months. When it is high, the market already assumes a lot of growth, so any disappointment hits harder.',
+  },
+  CPI: {
+    es: 'Cuánto subieron los precios al consumidor en el último año. Con inflación alta, la Fed tiende a subir o mantener altas las tasas, y eso suele frenar a la bolsa.',
+    en: 'How much consumer prices rose over the last year. With high inflation, the Fed tends to raise rates or keep them high, which usually holds the stock market back.',
+  },
+  CORE: {
+    es: 'La misma inflación pero sin alimentos ni energía, que suben y bajan mucho. Muestra la tendencia de fondo de los precios, que es la que más vigila la Fed.',
+    en: 'The same inflation without food and energy, which swing a lot. It shows the underlying price trend, which is the one the Fed watches most closely.',
+  },
+  Y2M: {
+    es: 'La tasa del bono del Tesoro a 2 años refleja lo que el mercado espera que haga la Fed. Si sube rápido frente a su promedio de 6 meses, el dinero se encarece y eso presiona a las acciones.',
+    en: 'The 2-year Treasury yield reflects what the market expects the Fed to do. If it rises fast compared with its 6-month average, money gets more expensive and that weighs on stocks.',
+  },
+  '30Y': {
+    es: 'La tasa del bono a 30 años es el costo del dinero a largo plazo. Cuando sube, las acciones compiten con un bono que paga más y sus valuaciones tienden a bajar.',
+    en: 'The 30-year bond yield is the long-term cost of money. When it rises, stocks compete with a bond that pays more, and their valuations tend to fall.',
+  },
+  MG: {
+    es: 'Cuánto dinero piden prestado los inversionistas para comprar acciones (deuda de margen, FINRA) comparado con el tamaño de la economía. Mucho apalancamiento es señal de euforia y hace que las caídas sean más violentas cuando se fuerzan ventas.',
+    en: 'How much money investors borrow to buy stocks (margin debt, FINRA) compared with the size of the economy. Heavy leverage signals euphoria and makes declines more violent when forced selling kicks in.',
+  },
+  VIX: {
+    es: 'El "índice del miedo": mide cuánta volatilidad espera el mercado para el próximo mes. Funciona al revés: con el VIX muy alto hay pánico, y históricamente esos han sido buenos momentos para comprar, por eso baja el riesgo.',
+    en: 'The "fear index": it measures how much volatility the market expects over the next month. It works in reverse: a very high VIX means panic, and historically those have been good times to buy, so it lowers the risk.',
+  },
+  FG: {
+    es: 'El índice de Miedo y Avaricia de CNN, de 0 a 100, que combina varias señales del ánimo de los inversionistas. También funciona al revés: con miedo extremo suele haber oportunidades; con avaricia extrema, más riesgo.',
+    en: "CNN's Fear & Greed index, from 0 to 100, which combines several signals of investor mood. It also works in reverse: extreme fear tends to bring opportunities; extreme greed, more risk.",
+  },
+  PIB: {
+    es: 'Cuánto creció la economía de EE. UU. en el último año, descontando la inflación. Un crecimiento muy fuerte suele darse en la parte final del ciclo, cuando ya hay presión de inflación y de tasas.',
+    en: 'How much the US economy grew over the last year, after inflation. Very strong growth tends to happen late in the cycle, when inflation and rate pressures are already building.',
+  },
+  MS: {
+    es: 'Cuántos meses tardaría en venderse el inventario de casas nuevas al ritmo actual. Cuando se acumulan casas sin vender, suele anticipar una desaceleración de la economía.',
+    en: 'How many months it would take to sell the inventory of new homes at the current pace. When unsold homes pile up, it often signals an economic slowdown ahead.',
+  },
+  HY: {
+    es: 'La diferencia de tasa que pagan las empresas con más riesgo de crédito frente al gobierno (aquí, la serie del modelo con bonos Baa). Si se dispara, el crédito se está tensando; si está muy baja, hay complacencia. En los dos casos suma riesgo.',
+    en: 'The extra yield riskier companies pay compared with the government (here, the model series built on Baa bonds). If it spikes, credit is under stress; if it is very low, there is complacency. Both add risk.',
+  },
+  LIQ: {
+    es: 'Cuánto dinero circula en la economía (M2) y cuánto está creando la Fed (M0). Cuando la Fed inyecta dinero, resta riesgo; cuando lo retira con fuerza, lo suma.',
+    en: 'How much money circulates in the economy (M2) and how much the Fed is creating (M0). When the Fed adds money it lowers risk; when it drains money hard, it adds risk.',
+  },
+  OIL: {
+    es: 'El precio del petróleo comparado con su promedio de 3 años. Un choque de precio encarece casi todo y suele golpear a la economía; un petróleo barato la ayuda.',
+    en: 'The oil price compared with its 3-year average. A price shock makes almost everything more expensive and usually hurts the economy; cheap oil helps it.',
+  },
+};

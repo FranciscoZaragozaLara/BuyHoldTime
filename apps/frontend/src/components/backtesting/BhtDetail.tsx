@@ -7,6 +7,7 @@ import { BHT_BANDS, bhtBand, capeScoreColor } from './bhtBands';
 import { partLabel } from '@/lib/thermoScoring';
 import { useThermoPartsMonthly } from './useThermoLive';
 import { OrbHistoryTable } from './ThermoOrbs';
+import { hyAdjustmentLabel, liqAdjustmentLabel, oilAdjustmentLabel } from '@/lib/bhtComponents';
 import { createPortal } from 'react-dom';
 import dynamic from 'next/dynamic';
 import { placePinned, placePopover } from '@/lib/popoverPlacement';
@@ -359,7 +360,7 @@ export function BhtDetailPopover({ hover, detail: detailIn, onLeave, onHold, liv
           </div>
           <div className="mt-1.5 font-mono text-[10px] text-slate-400 space-y-0.5">
             {(detail.bonus ?? 0) > 0 && (
-              <div><span className="text-elevated-300">{ti('hyBonusDetail', { label: detail.bonusLabel ?? '', n: Number(detail.bonus).toFixed(0) })}</span>
+              <div><span className="text-elevated-300">{ti('hyBonusDetail', { label: hyAdjustmentLabel(detail.bonusLabel ?? '', loc === 'es' ? 'es' : 'en'), n: Number(detail.bonus).toFixed(0) })}</span>
                 {detail.bonusHy != null && <> · <span title={loc === 'es' ? 'Serie de crédito del modelo: 1.913 × spread Baa − Tesoro 10A (FRED BAA10Y), la misma con la que se calibró la historia. El HY OAS real de ICE solo tiene 3 años en FRED y se muestra como referencia.' : 'Model credit series: 1.913 × Baa − 10Y Treasury spread (FRED BAA10Y), the same one the history was calibrated on. The real ICE HY OAS has only 3 years on FRED and is shown for reference.'}>HY {Number(detail.bonusHy).toFixed(2)} <span className="text-slate-500">(Baa×1.91)</span></span>{detail.hyReal != null && <span className="text-slate-500"> · {loc === 'es' ? 'HY real' : 'real HY'} {Number(detail.hyReal).toFixed(2)}</span>}{detail.bonusD1 != null && <> · Δ1M {Number(detail.bonusD1) >= 0 ? '+' : ''}{Number(detail.bonusD1).toFixed(2)} ({ti('triggerShort')} ≥ +1.00)</>}{detail.bonusZ != null && <> · z {Number(detail.bonusZ) >= 0 ? '+' : ''}{Number(detail.bonusZ).toFixed(1)}σ ({ti('triggerShort')} z&gt;1.5, HY&gt;5)</>}</>}
               </div>
             )}
@@ -383,14 +384,14 @@ export function BhtDetailPopover({ hover, detail: detailIn, onLeave, onHold, liv
                     {' · '}<span className={tone(lb)}>M0 Δ3M {detail.liqM0d3 != null ? p1(Number(detail.liqM0d3)) : '—'}</span>
                     {detail.liqDrop != null && Number(detail.liqDrop) > 0 && <span className="text-slate-500"> · M2 {es ? 'vs pico' : 'vs peak'} −{Number(detail.liqDrop).toFixed(0)}%</span>}
                     {' → '}<span className={`font-bold ${tone(lb)}`}>{lb !== 0 ? sign(lb) : '0'}</span>
-                    {lb !== 0 && detail.liqBonusLabel && <span className={tone(lb)}> ({detail.liqBonusLabel})</span>}
+                    {lb !== 0 && detail.liqBonusLabel && <span className={tone(lb)}> ({liqAdjustmentLabel(detail.liqBonusLabel, es ? 'es' : 'en')})</span>}
                   </div>
                   <div title={oilTip}>
                     <span className={ob !== 0 ? tone(ob) : undefined}>{es ? 'Petróleo WTI' : 'WTI oil'}</span>:{' '}
                     <span className={tone(ob)}>{detail.oilPrice != null ? `$${Number(detail.oilPrice).toFixed(2)}` : '—'}</span>
                     {' · '}<span className={tone(ob)}>×{detail.oilRatio != null ? Number(detail.oilRatio).toFixed(2) : '—'} SMA36M</span>
                     {' → '}<span className={`font-bold ${tone(ob)}`}>{ob !== 0 ? sign(ob) : '0'}</span>
-                    {ob !== 0 && detail.oilBonusLabel && <span className={tone(ob)}> ({detail.oilBonusLabel})</span>}
+                    {ob !== 0 && detail.oilBonusLabel && <span className={tone(ob)}> ({oilAdjustmentLabel(detail.oilBonusLabel, es ? 'es' : 'en')})</span>}
                   </div>
                 </>
               );
