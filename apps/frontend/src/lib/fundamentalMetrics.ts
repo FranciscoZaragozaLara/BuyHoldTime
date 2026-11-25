@@ -1,9 +1,9 @@
 // Métricas publicadas en las tablas de fundamentos (/prices/[symbol]): qué se muestra de cada bloque, en qué orden,
 // con qué nombre y explicación en español e inglés, y cómo se formatea el valor. La clave es el nombre que trae el
 // snapshot (GuruFocus Scrapper); lo que no está aquí sigue con el comportamiento anterior del componente.
-// Se migra bloque por bloque (1: Métricas clave · 2: Valuación · 3: Crecimiento · 4: Rentabilidad · 5: Fuerza financiera · 6: Momento).
+// Se migra bloque por bloque (1: Métricas clave · 2: Valuación · 3: Crecimiento · 4: Rentabilidad · 5: Fuerza financiera · 6: Momento · 7: Dividendos).
 
-export type MetricFormat = 'usdMillions' | 'usd' | 'ratio' | 'multiple' | 'percent' | 'usdRange' | 'outOf10' | 'index';
+export type MetricFormat = 'usdMillions' | 'usd' | 'ratio' | 'multiple' | 'percent' | 'fractionPercent' | 'usdRange' | 'outOf10' | 'index' | 'text';
 
 export interface MetricDef {
   es: string;
@@ -414,6 +414,94 @@ export const MOMENTUM_METRICS: Record<string, MetricDef> = {
   },
 };
 
+/** Bloque 7 · Dividendos. Rendimiento actual y estimado, porcentaje de la utilidad que se reparte, crecimiento del
+ *  dividendo y retorno total al accionista (dividendos + recompras). ETFs: además dividendo por acción, mediana de 10
+ *  años y frecuencia. Se quitan el rendimiento sobre costo a 5 años (hipotético), el rango de 10 años (repite la
+ *  mediana) y la próxima fecha de pago (el snapshot la trae vacía). */
+export const DIVIDEND_METRICS: Record<string, MetricDef> = {
+  'Dividend Yield %': {
+    es: 'Rendimiento por dividendo', en: 'Dividend Yield', format: 'percent',
+    descEs: 'Dividendos pagados en los últimos 12 meses entre el precio actual.',
+    descEn: 'Dividends paid over the last 12 months divided by the current price.',
+    positiveEs: '🟢 Entre 2% y 5% con un porcentaje repartido sostenible: ingreso atractivo y seguro.',
+    positiveEn: '🟢 Between 2% and 5% with a sustainable payout: attractive, safe income.',
+    negativeEs: '🔴 Muy alto (más de 7%): puede ser señal de que el mercado espera un recorte del dividendo.',
+    negativeEn: '🔴 Very high (above 7%): it may signal the market expects a dividend cut.',
+  },
+  'Forward Dividend Yield %': {
+    es: 'Rendimiento por dividendo estimado', en: 'Forward Dividend Yield', format: 'percent',
+    descEs: 'Dividendo anual esperado (el último pago anualizado) entre el precio actual.',
+    descEn: 'Expected annual dividend (the latest payment annualized) divided by the current price.',
+    positiveEs: '🟢 Mayor que el rendimiento de los últimos 12 meses: el dividendo acaba de subir.',
+    positiveEn: '🟢 Higher than the trailing yield: the dividend was just raised.',
+    negativeEs: '🔴 Menor que el de los últimos 12 meses: el dividendo se redujo.',
+    negativeEn: '🔴 Lower than the trailing yield: the dividend was cut.',
+  },
+  'Dividends per Share (TTM) ($)': {
+    es: 'Dividendo por acción (12 meses)', en: 'Dividends per Share (TTM)', format: 'usd',
+    descEs: 'Dólares pagados por cada acción en los últimos 12 meses.',
+    descEn: 'Dollars paid per share over the last 12 months.',
+    positiveEs: '🟢 Estable o creciente año con año: ingreso confiable.',
+    positiveEn: '🟢 Stable or rising year after year: dependable income.',
+    negativeEs: '🔴 Irregular o a la baja: el ingreso por dividendos no es predecible.',
+    negativeEn: '🔴 Irregular or falling: dividend income is not predictable.',
+  },
+  'Dividend Payout Ratio': {
+    es: 'Porcentaje de utilidad repartido', en: 'Payout Ratio', format: 'fractionPercent',
+    descEs: 'Parte de la utilidad que se paga como dividendo. Lo que no se reparte se reinvierte o se usa para recompras y deuda.',
+    descEn: 'Share of earnings paid out as dividends. What is not paid out is reinvested or used for buybacks and debt.',
+    positiveEs: '🟢 Entre 30% y 60%: dividendo sostenible con espacio para crecer.',
+    positiveEn: '🟢 Between 30% and 60%: a sustainable dividend with room to grow.',
+    negativeEs: '🔴 Mayor a 80%: reparte casi todo lo que gana; poco margen si bajan las utilidades.',
+    negativeEn: '🔴 Above 80%: it pays out nearly everything it earns; little room if earnings fall.',
+  },
+  '3-Year Dividend Growth Rate': {
+    es: 'Crecimiento del dividendo (3 años)', en: 'Dividend Growth (3Y)', format: 'percent',
+    descEs: 'Crecimiento anual promedio del dividendo por acción en los últimos 3 años.',
+    descEn: 'Average annual growth in dividends per share over the last 3 years.',
+    positiveEs: '🟢 Mayor que la inflación (más de 5%): el ingreso crece en términos reales.',
+    positiveEn: '🟢 Above inflation (over 5%): income grows in real terms.',
+    negativeEs: '🔴 Negativo: el dividendo se ha recortado.',
+    negativeEn: '🔴 Negative: the dividend has been cut.',
+  },
+  'Dividend Yield % (10y Median)': {
+    es: 'Rendimiento por dividendo (mediana 10 años)', en: 'Dividend Yield (10Y Median)', format: 'percent',
+    descEs: 'Rendimiento por dividendo típico de los últimos 10 años. Sirve para comparar con el actual.',
+    descEn: 'Typical dividend yield over the last 10 years. Useful to compare with today’s yield.',
+    positiveEs: '🟢 El actual es mayor que la mediana: más barato que su promedio histórico.',
+    positiveEn: '🟢 Today’s yield is above the median: cheaper than its historical norm.',
+    negativeEs: '🔴 El actual es menor que la mediana: más caro que su promedio histórico.',
+    negativeEn: '🔴 Today’s yield is below the median: pricier than its historical norm.',
+  },
+  'Shareholder Yield %': {
+    es: 'Retorno al accionista (dividendos + recompras)', en: 'Shareholder Yield (Dividends + Buybacks)', format: 'percent',
+    descEs: 'Dividendos más recompras netas de acciones (y pago de deuda) entre el valor de mercado. Mide todo lo que la empresa devuelve a sus accionistas.',
+    descEn: 'Dividends plus net share buybacks (and debt paydown) divided by market value. Measures everything the company returns to shareholders.',
+    positiveEs: '🟢 Mayor a 4%: devuelve mucho efectivo, aunque el dividendo sea bajo.',
+    positiveEn: '🟢 Above 4%: it returns a lot of cash, even if the dividend is small.',
+    negativeEs: '🔴 Negativo: emite más acciones o deuda de las que recompra o paga.',
+    negativeEn: '🔴 Negative: it issues more shares or debt than it buys back or repays.',
+  },
+  '3-Year Average Share Buyback Ratio': {
+    es: 'Recompra de acciones (promedio 3 años)', en: 'Share Buyback (3Y Avg)', format: 'percent',
+    descEs: 'Cuánto se redujo al año, en promedio, el número de acciones en los últimos 3 años. Positivo = la empresa recompra; negativo = emite acciones.',
+    descEn: 'Average yearly reduction in shares outstanding over the last 3 years. Positive = the company buys back; negative = it issues shares.',
+    positiveEs: '🟢 Positivo: cada acción representa una parte mayor del negocio.',
+    positiveEn: '🟢 Positive: each share owns a bigger slice of the business.',
+    negativeEs: '🔴 Negativo: dilución; cada acción representa una parte menor.',
+    negativeEn: '🔴 Negative: dilution; each share owns a smaller slice.',
+  },
+  'Dividend Frequency': {
+    es: 'Frecuencia del dividendo', en: 'Dividend Frequency', format: 'text',
+    descEs: 'Cada cuánto se paga el dividendo.',
+    descEn: 'How often the dividend is paid.',
+    positiveEs: '🟢 Trimestral o mensual: ingreso más parejo a lo largo del año.',
+    positiveEn: '🟢 Quarterly or monthly: smoother income through the year.',
+    negativeEs: '🔴 Anual o semestral: el ingreso llega en pocos pagos grandes.',
+    negativeEn: '🔴 Annual or semi-annual: income arrives in a few large payments.',
+  },
+};
+
 /** Métricas publicadas por bloque (sección del snapshot), en su orden; lo que no está en la lista no se publica. */
 export const SECTION_METRICS: Record<string, Record<string, MetricDef>> = {
   keyMetrics: KEY_METRICS,
@@ -422,6 +510,7 @@ export const SECTION_METRICS: Record<string, Record<string, MetricDef>> = {
   profitability: PROFITABILITY_METRICS,
   financialStrength: FINANCIAL_STRENGTH_METRICS,
   momentum: MOMENTUM_METRICS,
+  dividends: DIVIDEND_METRICS,
 };
 const ALL_METRICS: Record<string, MetricDef> = Object.assign({}, ...Object.values(SECTION_METRICS));
 
@@ -471,6 +560,10 @@ const TEXT_VALUES: Record<string, { es: string; en: string }> = {
   'At Loss': { es: 'Con pérdidas', en: 'At a loss' },
   'No Debt': { es: 'Sin deuda', en: 'No debt' },
   'N/A': { es: 'Sin dato', en: 'N/A' },
+  Monthly: { es: 'Mensual', en: 'Monthly' },
+  Quarterly: { es: 'Trimestral', en: 'Quarterly' },
+  'Semi-annually': { es: 'Semestral', en: 'Semi-annual' },
+  Annually: { es: 'Anual', en: 'Annual' },
 };
 
 const fixed = (n: number, d: number) => n.toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d });
@@ -483,6 +576,7 @@ export function formatMetricValue(name: string, raw: string | number | null | un
   const es = locale === 'es';
   const text = TEXT_VALUES[String(raw ?? '').trim()];
   if (text) return es ? text.es : text.en;
+  if (d.format === 'text') return raw ? String(raw) : null;
   if (d.format === 'usdRange') {
     const parts = String(raw ?? '').split(/\s+-\s+/).map(num);
     if (parts.length !== 2 || parts.some((p) => p === null)) return null;
@@ -501,6 +595,8 @@ export function formatMetricValue(name: string, raw: string | number | null | un
       return `${sign}$${fixed(a, 2)}`;
     case 'percent':
       return `${sign}${fixed(a, 1)}%`;
+    case 'fractionPercent':
+      return `${sign}${fixed(a * 100, 0)}%`;
     case 'multiple':
       return `${sign}${fixed(a, 1)}x`;
     case 'outOf10':

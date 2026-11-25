@@ -95,6 +95,26 @@ describe('sectionRows (momento)', () => {
   });
 });
 
+describe('sectionRows (dividendos)', () => {
+  it('acciones y ETFs; quita rendimiento sobre costo, rango de 10 años y la fecha de pago vacía', () => {
+    const names = ['Dividend Yield %', 'Dividend Payout Ratio', '3-Year Dividend Growth Rate', 'Forward Dividend Yield %',
+      '5-Year Yield-on-Cost %', '3-Year Average Share Buyback Ratio', 'Shareholder Yield %', 'Dividend Frequency',
+      'Dividends per Share (TTM) ($)', 'Dividend Yield % (10y Range)', 'Next Dividend Payment Date', 'Dividend Yield % (10y Median)'];
+    expect(sectionRows('dividends', names.map((name) => ({ name }))).map((r) => r.name)).toEqual([
+      'Dividend Yield %', 'Forward Dividend Yield %', 'Dividends per Share (TTM) ($)', 'Dividend Payout Ratio',
+      '3-Year Dividend Growth Rate', 'Dividend Yield % (10y Median)', 'Shareholder Yield %', '3-Year Average Share Buyback Ratio',
+      'Dividend Frequency',
+    ]);
+  });
+  it('payout como porcentaje y frecuencia traducida', () => {
+    expect(formatMetricValue('Dividend Payout Ratio', '0.12', 'es')).toBe('12%');
+    expect(formatMetricValue('Dividend Payout Ratio', '1.13', 'en')).toBe('113%');
+    expect(formatMetricValue('Dividend Frequency', 'Quarterly', 'es')).toBe('Trimestral');
+    expect(formatMetricValue('Dividend Frequency', 'Semi-annually', 'en')).toBe('Semi-annual');
+    expect(formatMetricValue('Dividends per Share (TTM) ($)', '3.006', 'en')).toBe('$3.01');
+  });
+});
+
 describe('metricLabel', () => {
   it('traduce y deja igual lo que no está en el diccionario', () => {
     expect(metricLabel('Revenue (TTM) (Mil $)', 'es')).toBe('Ingresos (12 meses)');
