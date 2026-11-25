@@ -1,9 +1,9 @@
 // Métricas publicadas en las tablas de fundamentos (/prices/[symbol]): qué se muestra de cada bloque, en qué orden,
 // con qué nombre y explicación en español e inglés, y cómo se formatea el valor. La clave es el nombre que trae el
 // snapshot (GuruFocus Scrapper); lo que no está aquí sigue con el comportamiento anterior del componente.
-// Se migra bloque por bloque (1: Métricas clave · 2: Valuación · 3: Crecimiento).
+// Se migra bloque por bloque (1: Métricas clave · 2: Valuación · 3: Crecimiento · 4: Rentabilidad).
 
-export type MetricFormat = 'usdMillions' | 'usd' | 'ratio' | 'multiple' | 'percent' | 'usdRange';
+export type MetricFormat = 'usdMillions' | 'usd' | 'ratio' | 'multiple' | 'percent' | 'usdRange' | 'outOf10';
 
 export interface MetricDef {
   es: string;
@@ -242,11 +242,90 @@ export const GROWTH_METRICS: Record<string, MetricDef> = {
   },
 };
 
+/** Bloque 4 · Rentabilidad. Márgenes (bruto, operativo, neto, flujo libre), rendimientos sobre el capital (ROE, ROA,
+ *  ROIC) y años con utilidades. Se quitan los repetidos (margen EBITDA, margen de flujo operativo, ROCE), el avanzado
+ *  (ROIIC a 3 años) y dos puntuaciones propietarias de GuruFocus (Moat Score, Tariff Resilience Score). */
+export const PROFITABILITY_METRICS: Record<string, MetricDef> = {
+  'Gross Margin %': {
+    es: 'Margen bruto', en: 'Gross Margin', format: 'percent',
+    descEs: 'Porcentaje de las ventas que queda después de restar el costo directo de producir o dar el servicio.',
+    descEn: 'Share of sales left after subtracting the direct cost of making the product or delivering the service.',
+    positiveEs: '🟢 Más de 50%: mucho margen para invertir en innovación, marca y crecimiento; suele indicar poder de precio.',
+    positiveEn: '🟢 Above 50%: plenty of room to invest in innovation, brand and growth; often a sign of pricing power.',
+    negativeEs: '🔴 Menos de 20%: negocio de márgenes delgados, muy sensible a costos y a la competencia.',
+    negativeEn: '🔴 Below 20%: a thin-margin business, very sensitive to costs and competition.',
+  },
+  'Operating Margin %': {
+    es: 'Margen operativo', en: 'Operating Margin', format: 'percent',
+    descEs: 'Porcentaje de las ventas que queda como utilidad del negocio principal, después de todos los gastos de operación.',
+    descEn: 'Share of sales left as profit from the core business, after all operating expenses.',
+    positiveEs: '🟢 Más de 20%: negocio muy rentable y con poder de precio.',
+    positiveEn: '🟢 Above 20%: a highly profitable business with pricing power.',
+    negativeEs: '🔴 Menos de 5%: poco colchón si suben los costos o bajan las ventas.',
+    negativeEn: '🔴 Below 5%: little cushion if costs rise or sales fall.',
+  },
+  'Net Margin %': {
+    es: 'Margen neto', en: 'Net Margin', format: 'percent',
+    descEs: 'Porcentaje de las ventas que queda como utilidad final, después de intereses e impuestos.',
+    descEn: 'Share of sales left as bottom-line profit, after interest and taxes.',
+    positiveEs: '🟢 Estable o en aumento: disciplina de costos y buena salud financiera.',
+    positiveEn: '🟢 Stable or rising: cost discipline and sound financial health.',
+    negativeEs: '🔴 Negativo o a la baja: pérdidas o márgenes en deterioro.',
+    negativeEn: '🔴 Negative or falling: losses or deteriorating margins.',
+  },
+  'FCF Margin %': {
+    es: 'Margen de flujo libre', en: 'Free Cash Flow Margin', format: 'percent',
+    descEs: 'Porcentaje de las ventas que se convierte en efectivo libre, después de las inversiones en el negocio.',
+    descEn: 'Share of sales that turns into free cash, after investment in the business.',
+    positiveEs: '🟢 Más de 15%: el negocio convierte sus ventas en mucho efectivo.',
+    positiveEn: '🟢 Above 15%: the business turns its sales into plenty of cash.',
+    negativeEs: '🔴 Negativo: consume más efectivo del que genera.',
+    negativeEn: '🔴 Negative: it consumes more cash than it generates.',
+  },
+  'ROE %': {
+    es: 'ROE (rendimiento sobre el capital)', en: 'ROE (Return on Equity)', format: 'percent',
+    descEs: 'Utilidad neta entre el capital de los accionistas. Mide cuánto gana la empresa con el dinero de sus dueños.',
+    descEn: 'Net income divided by shareholders’ equity. Measures how much the company earns on its owners’ money.',
+    positiveEs: '🟢 Más de 15%: uso eficiente del capital. Ojo: un ROE muy alto puede deberse a mucha deuda o a recompras.',
+    positiveEn: '🟢 Above 15%: efficient use of capital. Note: a very high ROE can come from heavy debt or buybacks.',
+    negativeEs: '🔴 Menos de 5% o negativo: el capital rinde poco o se está destruyendo valor.',
+    negativeEn: '🔴 Below 5% or negative: capital earns little, or value is being destroyed.',
+  },
+  'ROA %': {
+    es: 'ROA (rendimiento sobre activos)', en: 'ROA (Return on Assets)', format: 'percent',
+    descEs: 'Utilidad neta entre los activos totales. Mide cuánto gana la empresa por cada dólar de activos, sin importar cómo se financió.',
+    descEn: 'Net income divided by total assets. Measures profit per dollar of assets, regardless of how they were financed.',
+    positiveEs: '🟢 Más de 8%: los activos del negocio son muy productivos.',
+    positiveEn: '🟢 Above 8%: the business’s assets are highly productive.',
+    negativeEs: '🔴 Menos de 2%: activos poco productivos (normal en bancos, preocupante en el resto).',
+    negativeEn: '🔴 Below 2%: unproductive assets (normal for banks, worrying elsewhere).',
+  },
+  'ROIC %': {
+    es: 'ROIC (rendimiento sobre el capital invertido)', en: 'ROIC (Return on Invested Capital)', format: 'percent',
+    descEs: 'Utilidad operativa después de impuestos entre todo el capital invertido (deuda y acciones). Es la mejor medida de la calidad del negocio.',
+    descEn: 'After-tax operating profit divided by all invested capital (debt and equity). The best single gauge of business quality.',
+    positiveEs: '🟢 Más de 15% de forma sostenida: ventaja competitiva; cada dólar reinvertido crea valor.',
+    positiveEn: '🟢 Consistently above 15%: a competitive advantage; each reinvested dollar creates value.',
+    negativeEs: '🔴 Menos de 8%: probablemente por debajo de su costo de capital; crecer no crea valor.',
+    negativeEn: '🔴 Below 8%: likely under its cost of capital; growth does not create value.',
+  },
+  'Years of Profitability over Past 10-Year': {
+    es: 'Años con utilidades (últimos 10)', en: 'Profitable Years (Last 10)', format: 'outOf10',
+    descEs: 'En cuántos de los últimos 10 años la empresa tuvo utilidad neta positiva. Mide la consistencia del negocio.',
+    descEn: 'How many of the last 10 years the company had positive net income. Measures business consistency.',
+    positiveEs: '🟢 9 o 10 de 10: negocio consistente que gana dinero en casi cualquier entorno.',
+    positiveEn: '🟢 9 or 10 out of 10: a consistent business that makes money in almost any environment.',
+    negativeEs: '🔴 Menos de 6 de 10: utilidades irregulares o empresa todavía en etapa de pérdidas.',
+    negativeEn: '🔴 Fewer than 6 out of 10: irregular profits, or a company still in its loss-making stage.',
+  },
+};
+
 /** Métricas publicadas por bloque (sección del snapshot), en su orden; lo que no está en la lista no se publica. */
 export const SECTION_METRICS: Record<string, Record<string, MetricDef>> = {
   keyMetrics: KEY_METRICS,
   valuation: VALUATION_METRICS,
   growth: GROWTH_METRICS,
+  profitability: PROFITABILITY_METRICS,
 };
 const ALL_METRICS: Record<string, MetricDef> = Object.assign({}, ...Object.values(SECTION_METRICS));
 
@@ -290,6 +369,12 @@ const num = (v: string | number | null | undefined): number | null => {
   return Number.isFinite(n) ? n : null;
 };
 
+/** Textos que el snapshot trae en lugar de un número. */
+const TEXT_VALUES: Record<string, { es: string; en: string }> = {
+  'Neg. Equity': { es: 'Capital negativo', en: 'Negative equity' },
+  'At Loss': { es: 'Con pérdidas', en: 'At a loss' },
+};
+
 const fixed = (n: number, d: number) => n.toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d });
 
 /** Valor formateado según la métrica; null si no hay definición o el valor no se puede leer (el componente usa su
@@ -298,6 +383,8 @@ export function formatMetricValue(name: string, raw: string | number | null | un
   const d = metricDef(name);
   if (!d) return null;
   const es = locale === 'es';
+  const text = TEXT_VALUES[String(raw ?? '').trim()];
+  if (text) return es ? text.es : text.en;
   if (d.format === 'usdRange') {
     const parts = String(raw ?? '').split(/\s+-\s+/).map(num);
     if (parts.length !== 2 || parts.some((p) => p === null)) return null;
@@ -318,6 +405,8 @@ export function formatMetricValue(name: string, raw: string | number | null | un
       return `${sign}${fixed(a, 1)}%`;
     case 'multiple':
       return `${sign}${fixed(a, 1)}x`;
+    case 'outOf10':
+      return `${fixed(a, 0)}/10`;
     case 'ratio':
     default:
       return `${sign}${fixed(a, 2)}`;

@@ -716,14 +716,10 @@ export const FundamentalTablesTab: React.FC<FundamentalTablesTabProps> = ({ snap
     const sectionsToDisplay = keysToRender
       .map((key) => {
         let rows: any[] = tablesObj[key] || [];
-        // Bloques ya migrados (Métricas clave, Valuación): solo las métricas publicadas y en su orden
+        // Bloques ya migrados (Métricas clave, Valuación, Crecimiento, Rentabilidad): solo las métricas publicadas y en su orden
         // (src/lib/fundamentalMetrics)
         if (isCuratedSection(key)) {
           rows = sectionRows(key, rows);
-        }
-        // Filtrar profitability para ocultar "ROC (Joel Greenblatt) %"
-        if (key === 'profitability') {
-          rows = rows.filter((r: any) => !r.name.includes('ROC (Joel Greenblatt)'));
         }
         // Filtrar fuerza financiera (financialStrength / liquidity) para ocultar scores y WACC vs ROIC
         if (key === 'financialStrength' || key === 'liquidity') {

@@ -34,9 +34,9 @@ describe('sectionRows (valuación)', () => {
   });
   it('bloques no migrados quedan igual', () => {
     const rows = [{ name: 'ROE %' }, { name: 'Moat Score' }];
-    expect(sectionRows('profitability', rows)).toBe(rows);
+    expect(sectionRows('liquidity', rows)).toBe(rows);
     expect(isCuratedSection('valuation')).toBe(true);
-    expect(isCuratedSection('profitability')).toBe(false);
+    expect(isCuratedSection('liquidity')).toBe(false);
   });
 });
 
@@ -53,6 +53,22 @@ describe('sectionRows (crecimiento)', () => {
   });
 });
 
+describe('sectionRows (rentabilidad)', () => {
+  it('márgenes, rendimientos y años con utilidades; quita repetidos y puntuaciones de GuruFocus', () => {
+    const names = ['Tariff Resilience Score', 'Years of Profitability over Past 10-Year', 'ROA %', 'Moat Score', 'ROE %', 'OCF Margin %',
+      'EBITDA Margin %', 'Net Margin %', 'FCF Margin %', 'Operating Margin %', 'ROIC %', '3-Year ROIIC %', 'ROC (Joel Greenblatt) %', 'ROCE %', 'Gross Margin %'];
+    expect(sectionRows('profitability', names.map((name) => ({ name }))).map((r) => r.name)).toEqual([
+      'Gross Margin %', 'Operating Margin %', 'Net Margin %', 'FCF Margin %', 'ROE %', 'ROA %', 'ROIC %', 'Years of Profitability over Past 10-Year',
+    ]);
+  });
+  it('valores en texto y años de 10', () => {
+    expect(formatMetricValue('ROE %', 'Neg. Equity', 'es')).toBe('Capital negativo');
+    expect(formatMetricValue('ROE %', 'Neg. Equity', 'en')).toBe('Negative equity');
+    expect(formatMetricValue('Years of Profitability over Past 10-Year', '10', 'es')).toBe('10/10');
+    expect(formatMetricValue('ROIC %', '42.97', 'en')).toBe('43.0%');
+  });
+});
+
 describe('metricLabel', () => {
   it('traduce y deja igual lo que no está en el diccionario', () => {
     expect(metricLabel('Revenue (TTM) (Mil $)', 'es')).toBe('Ingresos (12 meses)');
@@ -60,7 +76,7 @@ describe('metricLabel', () => {
     expect(metricLabel('Volatility', 'es')).toBe('Volatilidad anual');
     expect(metricLabel('PE Ratio without NRI', 'es')).toBe('P/E ajustado (sin extraordinarios)');
     expect(metricLabel('EV-to-Revenue', 'en')).toBe('EV / Revenue');
-    expect(metricLabel('Moat Score', 'es')).toBe('Moat Score');
+    expect(metricLabel('Cash Ratio', 'es')).toBe('Cash Ratio');
   });
 });
 
@@ -82,7 +98,7 @@ describe('formatMetricValue', () => {
     expect(formatMetricValue('FCF Yield %', '-1.7', 'es')).toBe('-1.7%');
   });
   it('sin definición o sin valor legible → null (formato genérico)', () => {
-    expect(formatMetricValue('ROE %', '20', 'es')).toBeNull();
+    expect(formatMetricValue('Cash Ratio', '0.33', 'es')).toBeNull();
     expect(formatMetricValue('Beta', 'N/A', 'es')).toBeNull();
     expect(formatMetricValue('52-Week Range ($)', '555.6', 'es')).toBeNull();
   });
