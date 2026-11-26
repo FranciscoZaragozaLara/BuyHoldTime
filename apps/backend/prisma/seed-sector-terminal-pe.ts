@@ -14,6 +14,8 @@ const SECTOR_BENCHMARKS: Record<string, { name: string; terminalPe: number }> = 
   'Communication Services': { name: 'Servicios de Comunicación', terminalPe: 19.0 },
   Industrials: { name: 'Industrial & Infraestructura', terminalPe: 19.0 },
   Energy: { name: 'Energía', terminalPe: 13.0 },
+  Utilities: { name: 'Servicios Públicos', terminalPe: 17.0 }, // regulados: crecimiento bajo y estable
+  'Basic Materials': { name: 'Materiales Básicos', terminalPe: 15.0 },
   'Real Estate': { name: 'Bienes Raíces / REITs', terminalPe: 16.0 },
   Index: { name: 'Índice de Mercado (S&P 500)', terminalPe: 22.0 },
   ETF: { name: 'Fondo / ETF', terminalPe: 22.0 },

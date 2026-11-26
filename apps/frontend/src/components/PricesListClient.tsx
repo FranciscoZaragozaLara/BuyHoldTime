@@ -48,6 +48,8 @@ export const PricesListClient: React.FC<PricesListClientProps> = ({ initialTicke
       if (sectorKey.includes('cyclical')) return tHeatmap('consumer');
       if (sectorKey.includes('defensive')) return tHeatmap('defensive');
       if (sectorKey.includes('communication')) return tHeatmap('communication');
+      if (sectorKey.includes('industrial')) return locale === 'es' ? 'Industrial' : 'Industrials';
+      if (sectorKey.includes('utilit')) return locale === 'es' ? 'Servicios Públicos' : 'Utilities';
     } catch (e) {
       // Fallback
     }
