@@ -138,7 +138,9 @@ export type TranchesResult = {
   date: string; route: TrancheRoute; sectorRule: SectorRule;
   light: 'gray' | 'purple' | 'red' | 'amber' | 'green';
   episode: null | {
-    start: string; peakDate: string; peak: number; price: number; dd: number; ddMax: number; minDate: string; min: number; days: number;
+    start: string; peakDate: string; peak: number; price: number; dd: number; ddMax: number; minDate: string; min: number;
+    /** Sesiones desde que abrió el episodio (primer día con permiso) y desde el pico. */
+    days: number; peakDays: number;
     sectorOnly: boolean; spDd: number | null; ndxDd: number | null; spDdMax: number | null; ndxDdMax: number | null;
   };
   lastEpisode: null | { start: string; end: string; ddMax: number };
@@ -457,7 +459,7 @@ export function computeTranches(P: PreparedTranches, date: string, sectorRule: S
     date: s.dates[D], route, sectorRule, light,
     episode: open ? {
       start: s.dates[start], peakDate: s.dates[peakIdx], peak, price: px[D] as number, dd: ((px[D] as number) / peak - 1) * 100, ddMax,
-      minDate: s.dates[minIdx], min: minP, days: D - start, sectorOnly,
+      minDate: s.dates[minIdx], min: minP, days: D - start, peakDays: D - peakIdx, sectorOnly,
       spDd: sn.spDd, ndxDd: sn.ndxDd, spDdMax, ndxDdMax: dual ? ndxDdMax : null,
     } : null,
     lastEpisode: open ? null : lastEp,
