@@ -70,6 +70,18 @@ describe('módulo de reentrada por tranches', () => {
     expect(day(cross + 11).decelVote).toBe(false); // la gracia se acaba
     expect(day(cross - 1).decelGraceLeft).toBeNull(); // antes del cruce vota por la curvatura, no por la gracia
   });
+  test('crisis de crédito: no se abre con el HY ya bajando desde su pico (rebote post-COVID 2020)', () => {
+    // HY en 3 por 300 sesiones, salta a 8 y baja a ~6 en 40 sesiones; la bolsa ya está cerca de su máximo.
+    const n = 345;
+    const dates = Array.from({ length: n }, (_, k) => new Date(Date.UTC(2019, 0, 1) + k * 86400000).toISOString().slice(0, 10));
+    const spx = dates.map((_, k) => 100 + k * 0.05);
+    const oas = dates.map((_, k) => (k < 300 ? 3 : 8 - (k - 300) * 0.05));
+    const s: TrancheSeries = { dates, spx, qqq: spx, vix: dates.map(() => 20), vix3m: dates.map(() => 21), oas, cape: dates.map(() => 30), capeMedian20: dates.map(() => 25) };
+    const k = 340; // HY 6.0 = 2× su mínimo, +3 en 3 meses, 25% bajo su máximo de 63 días
+    expect(prepareTranches(s, 'qqq', { maxOff: null }).credDiv[k]).toBe(true); // regla anterior
+    expect(prepareTranches(s, 'qqq').credDiv[k]).toBe(false);
+    expect(prepareTranches(s, 'qqq').credDiv[301]).toBe(true); // recién en el pico sí cuenta
+  });
   test('el reingreso a la banda de Bollinger se anula si el precio vuelve a cerrar debajo', () => {
     // Caída fuerte (cierra bajo la banda), rebote que reingresa y nueva caída bajo la banda.
     const n = 120;

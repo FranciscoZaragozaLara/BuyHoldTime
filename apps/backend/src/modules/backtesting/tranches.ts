@@ -67,7 +67,13 @@ export const TRANCHE_CFG = {
  *  · Compra: con divergencia en las últimas 252 sesiones y OAS aún ≥ 1.5× su mínimo, T1–T3 esperan alivio del
  *    crédito (OAS ≥ 10% bajo su máximo de 63 días) o BHT ≤ 40. 2007-09: VOO capturado 67% → 80%, QQQ 43% → 85%;
  *    los demás episodios sin cambio. Validado con un solo evento (2007-08). */
-export const CREDIT_CFG = { ratio: 1.5, d3: 0.5, dd: -7, ease: 0.10, bhtMax: 40, prior: 252 };
+export const CREDIT_CFG = { ratio: 1.5, d3: 0.5, dd: -7, ease: 0.10, bhtMax: 40, prior: 252,
+  /** La divergencia exige que el HY siga cerca de su máximo de 63 días: a menos de 10% (el mismo umbral que «alivio»),
+   *  es decir, no se abre una crisis con el crédito ya aliviándose. Sin él se activaba en QQQ del 7-may al 5-jun-2020 con
+   *  el HY 20–30% bajo su pico de marzo y el BHT en 0–5 (rebote post-COVID). 1997–2026: quita solo ese caso; 2007 igual,
+   *  mismas ventas, capturas y CAGR (prisma/credit-div-study.ts). null = sin filtro. */
+  maxOff: 0.10 as number | null };
+export type CreditCfg = typeof CREDIT_CFG;
 
 const W12 = 252;
 
@@ -164,7 +170,8 @@ export type TranchesResult = {
 };
 
 /** Precálculo por ruta (independiente de la fecha): se reutiliza entre peticiones. */
-export function prepareTranches(s: TrancheSeries, route: TrancheRoute) {
+export function prepareTranches(s: TrancheSeries, route: TrancheRoute, credit: Partial<CreditCfg> = {}) {
+  const CC = { ...CREDIT_CFG, ...credit };
   const spx = ffill(s.spx), qqq = ffill(s.qqq), vix = ffill(s.vix), vix3m = s.vix3m, oas = ffill(s.oas);
   const px = route === 'voo' ? spx : qqq;
   const spMax = rollingMax(spx, W12), qMax = rollingMax(qqq, W12);
@@ -182,7 +189,9 @@ export function prepareTranches(s: TrancheSeries, route: TrancheRoute) {
   let ld = -1;
   for (let k = 0; k < px.length; k++) {
     const o = oas[k], o63 = k >= 63 ? oas[k - 63] : null, m = oasMin252[k], p = px[k], hi = pxMax[k];
-    const div = o != null && o63 != null && m != null && p != null && hi != null && o >= CREDIT_CFG.ratio * m && o - o63 >= CREDIT_CFG.d3 && (p / hi - 1) * 100 >= CREDIT_CFG.dd;
+    const mx = oasMax63[k];
+    const div = o != null && o63 != null && m != null && p != null && hi != null && o >= CC.ratio * m && o - o63 >= CC.d3 && (p / hi - 1) * 100 >= CC.dd
+      && (CC.maxOff == null || (mx != null && o >= (1 - CC.maxOff) * mx));
     if (div) ld = k;
     credDiv.push(div); lastDiv.push(ld);
   }
