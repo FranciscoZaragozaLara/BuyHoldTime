@@ -96,6 +96,18 @@ export class SyncTickersUseCase {
   }
 
   /** Sincroniza y registra la corrida en data_source_runs (fuente stock_prices). */
+  /**
+   * Velas diarias de Yahoo con chart(). historical() rechaza la respuesta completa si una fila trae algunos valores
+   * vacíos, y Yahoo devuelve así el día en curso (25-nov-2026: cierre vacío horas después del cierre), así que el sync
+   * fallaba para todos los tickers. Aquí las filas incompletas simplemente se descartan.
+   */
+  private async dailyBars(symbol: string, period1: string, period2: string) {
+    const c: any = await this.yahooFinance.chart(symbol, { period1, period2, interval: '1d' });
+    return ((c?.quotes ?? []) as any[])
+      .filter((q) => q.open != null && q.close != null && q.high != null && q.low != null)
+      .map((q) => ({ date: q.date, open: q.open, high: q.high, low: q.low, close: q.close, adjClose: q.adjclose ?? q.close, volume: q.volume ?? 0 }));
+  }
+
   async execute(): Promise<{ success: boolean; updatedCount: number; errors: string[] }> {
     const startedAt = new Date();
     try {
@@ -175,10 +187,7 @@ export class SyncTickersUseCase {
             const nextDayStr = nextDay.toISOString().split('T')[0];
 
             try {
-              const yHist = await this.yahooFinance.historical(symbol, {
-                period1: dateStr,
-                period2: nextDayStr,
-              });
+              const yHist = await this.dailyBars(symbol, dateStr, nextDayStr);
 
               if (yHist && yHist.length > 0) {
                 const yahooClose = yHist[0].close;
@@ -221,10 +230,7 @@ export class SyncTickersUseCase {
         }
 
         // Fetch history from Yahoo Finance
-        const history = await this.yahooFinance.historical(symbol, {
-          period1: startDateStr,
-          period2: todayStr,
-        });
+        const history = await this.dailyBars(symbol, startDateStr, todayStr);
 
         if (history && history.length > 0) {
           const pricesToSave = history
