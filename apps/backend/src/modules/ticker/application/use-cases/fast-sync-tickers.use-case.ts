@@ -3,11 +3,16 @@ import { ITickerRepositorySymbol } from '../ports/ticker-repository.interface';
 import type { ITickerRepository } from '../ports/ticker-repository.interface';
 import { Ticker } from '../../domain/ticker.entity';
 import YahooFinance from 'yahoo-finance2';
+import { notifyFrontendRevalidate } from '../../../market-data/frontend-revalidate';
+
+/** Cotizaciones guardadas con más de 15 minutos se refrescan al pedir la lista o un detalle. */
+export const LIVE_QUOTE_MAX_AGE_MS = 15 * 60 * 1000;
 
 @Injectable()
 export class FastSyncTickersUseCase {
   private readonly logger = new Logger(FastSyncTickersUseCase.name);
   private readonly yahooFinance: any;
+  private refreshing: Promise<unknown> | null = null;
 
   constructor(
     @Inject(ITickerRepositorySymbol)
@@ -90,7 +95,7 @@ export class FastSyncTickersUseCase {
         if (t) targetTickers.push(t);
       }
     } else {
-      targetTickers = await this.tickerRepository.findAll();
+      targetTickers = await this.tickerRepository.findAllSummary(); // solo se usa el símbolo (findAll trae las series)
     }
 
     this.logger.log(`Starting fast live sync for ${targetTickers.length} tickers...`);
@@ -116,5 +121,19 @@ export class FastSyncTickersUseCase {
 
     this.logger.log(`Fast live sync completed: ${updatedCount} tickers updated`);
     return { updatedCount, errors };
+  }
+
+  /**
+   * Refresca todas las cotizaciones en segundo plano (una sola corrida a la vez) y al terminar invalida la caché de
+   * datos de mercado del frontend, para que la siguiente visita a la lista de precios ya vea el dato nuevo.
+   * Devuelve false si ya había una corrida en curso.
+   */
+  refreshAllInBackground(): boolean {
+    if (this.refreshing) return false;
+    this.refreshing = this.executeAll()
+      .then(() => notifyFrontendRevalidate())
+      .catch((e) => this.logger.warn(`Refresh en segundo plano falló: ${String(e?.message ?? e).slice(0, 200)}`))
+      .finally(() => { this.refreshing = null; });
+    return true;
   }
 }

@@ -3,15 +3,13 @@ import { ITickerRepositorySymbol } from '../ports/ticker-repository.interface';
 import type { ITickerRepository } from '../ports/ticker-repository.interface';
 import { Ticker } from '../../domain/ticker.entity';
 import { HistoricalPrice } from '../../domain/historical-price.entity';
-import { FastSyncTickersUseCase } from './fast-sync-tickers.use-case';
+import { FastSyncTickersUseCase, LIVE_QUOTE_MAX_AGE_MS } from './fast-sync-tickers.use-case';
 
 export interface TickerDetailsDto {
   ticker: Ticker;
   historicalPrices: HistoricalPrice[];
   snapshot?: any;
 }
-
-const FIFTEEN_MINUTES_MS = 15 * 60 * 1000;
 
 @Injectable()
 export class GetTickerDetailsUseCase {
@@ -30,13 +28,13 @@ export class GetTickerDetailsUseCase {
 
     // Auto-refresh live price if stored updatedAt is older than 15 minutes
     const ageMs = Date.now() - new Date(ticker.updatedAt).getTime();
-    if (ageMs > FIFTEEN_MINUTES_MS) {
+    if (ageMs > LIVE_QUOTE_MAX_AGE_MS) {
       const refreshed = await this.fastSyncTickersUseCase.executeSingle(cleanSymbol);
       if (refreshed) {
         ticker = refreshed;
       }
-      // Asynchronously trigger fast sync for ALL 67 tickers in background (~3.5s total)
-      this.fastSyncTickersUseCase.executeAll().catch(() => {});
+      // El resto de las cotizaciones en segundo plano (~3.5 s), e invalida la caché de la lista del frontend.
+      this.fastSyncTickersUseCase.refreshAllInBackground();
     }
 
     const historicalPrices = await this.tickerRepository.findHistoricalPrices(ticker.id, limit);
