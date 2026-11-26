@@ -133,3 +133,23 @@ export function revenueFacts(usGaap: any): any[] {
     REVENUE_CONCEPTS.map((tag) => (usGaap?.[tag]?.units?.USD as any[]) || []),
   );
 }
+
+/**
+ * Utilidad operativa (EBIT ≈ OperatingIncomeLoss). Bancos y aseguradoras no la reportan (su estado de resultados no
+ * separa lo operativo): quedan sin dato en vez de usar otro concepto que no es comparable.
+ */
+export const OPERATING_INCOME_CONCEPTS = ['OperatingIncomeLoss'];
+
+/** Hechos de utilidad operativa (USD). */
+export function operatingIncomeFacts(usGaap: any): any[] {
+  return mergeFactsByPriority(
+    OPERATING_INCOME_CONCEPTS.map((tag) => (usGaap?.[tag]?.units?.USD as any[]) || []),
+  );
+}
+
+/** Q4 = anual − (Q1+Q2+Q3), o null si falta el anual o algún trimestre (a diferencia de deriveQ4Amount, no inventa 0:
+ *  la utilidad operativa puede ser negativa o cero de verdad). */
+export function deriveQ4OrNull(annual: number | null | undefined, q1q2q3: Array<number | null | undefined>): number | null {
+  if (annual == null || Number.isNaN(annual) || q1q2q3.length !== 3 || q1q2q3.some((v) => v == null)) return null;
+  return Math.round(annual - (q1q2q3 as number[]).reduce((a, b) => a + b, 0));
+}

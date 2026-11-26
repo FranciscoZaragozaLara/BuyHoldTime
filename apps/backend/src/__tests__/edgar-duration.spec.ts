@@ -9,6 +9,8 @@ import {
   mergeIfNewer,
   netIncomeFacts,
   revenueFacts,
+  operatingIncomeFacts,
+  deriveQ4OrNull,
 } from '../../prisma/edgar-duration';
 
 describe('edgar-duration', () => {
@@ -144,6 +146,19 @@ describe('edgar-duration', () => {
     });
     it('tolera bloques sin ingresos', () => {
       expect(revenueFacts(undefined)).toEqual([]);
+    });
+  });
+
+  describe('utilidad operativa (EBIT)', () => {
+    it('lee OperatingIncomeLoss y tolera bloques sin él (bancos)', () => {
+      const f = operatingIncomeFacts({ OperatingIncomeLoss: { units: { USD: [{ start: '2026-07-01', end: '2026-09-30', val: -5 }] } } });
+      expect(f.map((x) => x.val)).toEqual([-5]);
+      expect(operatingIncomeFacts({ NetIncomeLoss: { units: { USD: [] } } })).toEqual([]);
+    });
+    it('Q4 = anual − (Q1+Q2+Q3); null si falta el anual o un trimestre (no inventa 0)', () => {
+      expect(deriveQ4OrNull(100, [20, -10, 30])).toBe(60);
+      expect(deriveQ4OrNull(undefined, [1, 2, 3])).toBeNull();
+      expect(deriveQ4OrNull(100, [1, null, 3])).toBeNull();
     });
   });
 });

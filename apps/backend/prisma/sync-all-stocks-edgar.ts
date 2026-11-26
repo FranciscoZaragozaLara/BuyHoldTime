@@ -3,7 +3,7 @@ import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
 import YahooFinance from 'yahoo-finance2';
-import { deriveQ4Amount, epsFacts, isFiscalYearFact, isQuarterFact, netIncomeFacts, revenueFacts } from './edgar-duration';
+import { deriveQ4Amount, deriveQ4OrNull, epsFacts, isFiscalYearFact, isQuarterFact, netIncomeFacts, operatingIncomeFacts, revenueFacts } from './edgar-duration';
 import { missingFilingFacts } from './edgar-xbrl-instance';
 
 const yahooFinance = new YahooFinance({ suppressNotices: ['ripHistorical', 'yahooSurvey'] });
@@ -155,6 +155,7 @@ async function main() {
     let edgarUnits: any[] = [];
     let revUnits: any[] = [];
     let netUnits: any[] = [];
+    let opUnits: any[] = [];
     let sharesUnits: any[] = [];
 
     for (const cik of targetCiks) {
@@ -170,6 +171,7 @@ async function main() {
           edgarUnits.push(...epsFacts(usGaap));
           revUnits.push(...revenueFacts(usGaap));
           netUnits.push(...netIncomeFacts(usGaap));
+          opUnits.push(...operatingIncomeFacts(usGaap));
           sharesUnits.push(...(usGaap?.['WeightedAverageNumberOfDilutedSharesOutstanding']?.units?.['shares'] || usGaap?.['WeightedAverageNumberOfSharesOutstandingBasic']?.units?.['shares'] || []));
         }
       } catch (err: any) {}
@@ -185,6 +187,7 @@ async function main() {
           edgarUnits.push(...epsFacts(g));
           revUnits.push(...revenueFacts(g));
           netUnits.push(...netIncomeFacts(g));
+          opUnits.push(...operatingIncomeFacts(g));
           sharesUnits.push(...(g['WeightedAverageNumberOfDilutedSharesOutstanding']?.units?.['shares'] || g['WeightedAverageNumberOfSharesOutstandingBasic']?.units?.['shares'] || []));
         }
         if (extra.length) console.log(`${symbol}: ${extra.length} reporte(s) leído(s) del XBRL (companyfacts aún no los incorpora)`);
@@ -233,6 +236,15 @@ async function main() {
               netMap.set(u.end, u.val);
             }
           }
+        }
+
+        // Utilidad operativa (EBIT) trimestral y anual; null si no la reporta (bancos), 0 y negativos son válidos.
+        const opMap = new Map<string, number>();
+        const annualOpMap = new Map<string, number>();
+        for (const u of opUnits) {
+          if (u.val === undefined || u.val === null) continue;
+          if (isQuarterFact(u)) opMap.set(u.end, u.val);
+          else if (isFiscalYearFact(u)) annualOpMap.set(u.end, u.val);
         }
 
         // Año fiscal completo (10-K): necesario para derivar el Q4 = anual - (Q1+Q2+Q3)
@@ -308,6 +320,7 @@ async function main() {
             fiscalYear: String(fyNum),
             revenue: qRev,
             netIncome: qNet,
+            operatingIncome: opMap.get(u.end) ?? null,
             eps: adjustedEps,
             epsDiluted: adjustedEps,
             sharesOutstanding: qShares,
@@ -337,6 +350,7 @@ async function main() {
             );
             const q4NetIncome = deriveQ4Amount(annualNetMap.get(fyEndDate), q123.map((q) => q.netIncome));
             const q4Revenue = deriveQ4Amount(annualRevMap.get(fyEndDate), q123.map((q) => q.revenue));
+            const q4Operating = opMap.get(fyEndDate) ?? deriveQ4OrNull(annualOpMap.get(fyEndDate), q123.map((q) => q.operatingIncome));
 
             quartersMap.set(fyEndDate, {
               date: fyEndDate,
@@ -348,6 +362,7 @@ async function main() {
               fiscalYear: String(fyNum),
               revenue: q4Revenue,
               netIncome: q4NetIncome,
+              operatingIncome: q4Operating,
               eps: q4Derived,
               epsDiluted: q4Derived,
               sharesOutstanding: sharesMap.get(fyEndDate) || 0,
@@ -427,6 +442,7 @@ async function main() {
         // 2. Fetch NetIncomeLoss facts from SEC EDGAR across target CIKs
         const netUnits: any[] = [];
         const revUnits: any[] = [];
+        const opUnits: any[] = [];
         for (const cik of targetCiks) {
           try {
             const edgarUrl = `https://data.sec.gov/api/xbrl/companyfacts/CIK${cik}.json`;
@@ -436,6 +452,7 @@ async function main() {
               const usGaap = edgarJson?.facts?.["us-gaap"];
               netUnits.push(...netIncomeFacts(usGaap));
               revUnits.push(...revenueFacts(usGaap));
+              opUnits.push(...operatingIncomeFacts(usGaap));
             }
           } catch {}
         }
@@ -450,6 +467,13 @@ async function main() {
         }
         for (const u of netUnits) {
           if (u.val && isFiscalYearFact(u)) fbAnnualNetMap.set(u.end, u.val);
+        }
+        const fbOpMap = new Map<string, number>();
+        const fbAnnualOpMap = new Map<string, number>();
+        for (const u of opUnits) {
+          if (u.val === undefined || u.val === null) continue;
+          if (isQuarterFact(u)) fbOpMap.set(u.end, u.val);
+          else if (isFiscalYearFact(u)) fbAnnualOpMap.set(u.end, u.val);
         }
 
         const pure3MNet = netUnits.filter((u: any) => {
@@ -497,6 +521,7 @@ async function main() {
             fiscalYear: String(fyNum),
             revenue: fbRevMap.get(end) || 0,
             netIncome: netFact.val,
+            operatingIncome: fbOpMap.get(end) ?? null,
             eps: epsVal,
             epsDiluted: epsVal,
             sharesOutstanding: 0,
@@ -544,6 +569,7 @@ async function main() {
             );
             const fbQ4Net = deriveQ4Amount(fbAnnualNetMap.get(fyEndDate), fbQ123.map((q) => q.netIncome));
             const fbQ4Rev = deriveQ4Amount(fbAnnualRevMap.get(fyEndDate), fbQ123.map((q) => q.revenue));
+            const fbQ4Op = fbOpMap.get(fyEndDate) ?? deriveQ4OrNull(fbAnnualOpMap.get(fyEndDate), fbQ123.map((q) => q.operatingIncome));
 
             fallbackQuartersMap.set(fyEndDate, {
               date: fyEndDate,
@@ -551,6 +577,7 @@ async function main() {
               fiscalYear: String(fyNum),
               revenue: fbQ4Rev,
               netIncome: fbQ4Net,
+              operatingIncome: fbQ4Op,
               eps: q4Derived,
               epsDiluted: q4Derived,
               sharesOutstanding: 0,
