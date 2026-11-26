@@ -371,6 +371,17 @@ async function main() {
           }
         }
 
+        // EBIT del Q4 cuando el trimestre ya existía (el 10-K traía el EPS de 3 meses) pero la utilidad operativa solo
+        // viene anual (ABBV, HON): anual − (Q1+Q2+Q3).
+        for (const [fyEndDate, annualOp] of annualOpMap.entries()) {
+          const q4 = quartersMap.get(fyEndDate);
+          if (!q4 || q4.operatingIncome != null) continue;
+          const q123 = Array.from(quartersMap.values()).filter(
+            (q) => q.fiscalYear === q4.fiscalYear && ['Q1', 'Q2', 'Q3'].includes(q.period),
+          );
+          q4.operatingIncome = deriveQ4OrNull(annualOp, q123.map((q) => q.operatingIncome));
+        }
+
         // Populate Net Income & Shares
         const quarterlyNet = netUnits.filter(isQuarterFact);
         for (const n of quarterlyNet) {
