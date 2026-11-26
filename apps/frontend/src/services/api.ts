@@ -34,6 +34,9 @@ export interface Ticker {
     bottom: number | null; bottomDate: string | null; fromBottom: number | null;
     perf1M: number | null; perfYTD: number | null; perf1Y: number | null; perf5Y: number | null;
   } | null;
+  /** Lista (/tickers): ingresos de los últimos 12 meses (suma de los 4 trimestres más recientes de EDGAR) y su
+   *  crecimiento contra los 12 meses previos; null en ETFs o si faltan trimestres. */
+  revenue?: { ttm: number; lastQuarter: string; yoy: number | null } | null;
   historicalEps?: Record<string, { value: number; source: 'real' | 'estimated' }> | null;
   historicalDividends?: Record<string, number> | null;
   historicalEpsQuarterly?: Array<{

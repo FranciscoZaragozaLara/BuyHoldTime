@@ -4,6 +4,7 @@ import { ITickerRepository } from '../../application/ports/ticker-repository.int
 import { Ticker } from '../../domain/ticker.entity';
 import { HistoricalPrice } from '../../domain/historical-price.entity';
 import type { Close } from '../../domain/price-levels';
+import type { QuarterRevenue } from '../../domain/revenue-ttm';
 
 @Injectable()
 export class TickerRepositoryImpl implements ITickerRepository {
@@ -226,6 +227,21 @@ export class TickerRepositoryImpl implements ITickerRepository {
       let a = out.get(r.symbol);
       if (!a) out.set(r.symbol, (a = []));
       a.push({ date: r.date, close: Number(r.close) });
+    }
+    return out;
+  }
+
+  async findAllQuarterlyRevenue(): Promise<Map<string, QuarterRevenue[]>> {
+    const rows = await this.prisma.$queryRaw<Array<{ symbol: string; date: string | null; revenue: number | null }>>`
+      SELECT t.symbol, q->>'date' AS date, (q->>'revenue')::float8 AS revenue
+      FROM tickers t, jsonb_array_elements(CASE WHEN jsonb_typeof(t.historical_eps_quarterly::jsonb) = 'array'
+        THEN t.historical_eps_quarterly::jsonb ELSE '[]'::jsonb END) q`;
+    const out = new Map<string, QuarterRevenue[]>();
+    for (const r of rows) {
+      if (!r.date) continue;
+      let a = out.get(r.symbol);
+      if (!a) out.set(r.symbol, (a = []));
+      a.push({ date: r.date, revenue: r.revenue == null ? null : Number(r.revenue) });
     }
     return out;
   }

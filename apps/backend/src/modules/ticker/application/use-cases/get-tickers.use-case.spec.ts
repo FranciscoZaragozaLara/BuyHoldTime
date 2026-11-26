@@ -40,6 +40,9 @@ describe('GetTickersUseCase', () => {
       findAllSummary: jest.fn(async () => [{ symbol: 'SPY', price: 108, updatedAt: new Date(now - 60e3) }, { symbol: 'NEW', price: 5, updatedAt: new Date(now) }]),
       latestCloseDate: jest.fn(async () => '2025-06-02'),
       findAllCloses: jest.fn(async () => closes),
+      findAllQuarterlyRevenue: jest.fn(async () => new Map([['SPY', []], ['NEW', [
+        { date: '2025-03-31', revenue: 40 }, { date: '2024-12-31', revenue: 30 }, { date: '2024-09-30', revenue: 20 }, { date: '2024-06-30', revenue: 10 },
+      ]]])),
     };
     const uc = new GetTickersUseCase(repo);
     const [spy, nw] = await uc.execute(now);
@@ -48,7 +51,10 @@ describe('GetTickersUseCase', () => {
     expect(spy.levels!.fromBottom).toBeCloseTo(12.5, 6);
     expect(spy.levels!.perfYTD).toBeCloseTo(8, 6);
     expect(nw.levels).toBeNull(); // sin historia
+    expect(spy.revenue).toBeNull(); // ETF: sin trimestres
+    expect(nw.revenue).toEqual({ ttm: 100, lastQuarter: '2025-03-31', yoy: null });
     await uc.execute(now + 60e3);
     expect(repo.findAllCloses).toHaveBeenCalledTimes(1); // mismo último cierre y mismo día: usa la caché
+    expect(repo.findAllQuarterlyRevenue).toHaveBeenCalledTimes(1);
   });
 });

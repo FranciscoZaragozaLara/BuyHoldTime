@@ -199,6 +199,42 @@ export const PricesListClient: React.FC<PricesListClientProps> = ({ initialTicke
     );
   };
 
+  // Ingresos TTM (EDGAR): monto arriba, crecimiento anual abajo; al pasar el mouse, el último trimestre incluido.
+  const RV = locale === 'es'
+    ? { title: 'Ingresos (12 meses)', last: 'Último trimestre', yoy: 'vs. 12 meses previos', none: 'Sin 4 trimestres consecutivos recientes en EDGAR',
+        note: 'Suma de los 4 trimestres más recientes reportados a la SEC (EDGAR).' }
+    : { title: 'Revenue (TTM)', last: 'Latest quarter', yoy: 'vs. prior 12 months', none: 'No 4 recent consecutive quarters in EDGAR',
+        note: 'Sum of the 4 most recent quarters reported to the SEC (EDGAR).' };
+  const fmtMoney = (v: number) => {
+    const a = Math.abs(v);
+    const [d, u] = a >= 1e12 ? [1e12, 'T'] : a >= 1e9 ? [1e9, 'B'] : a >= 1e6 ? [1e6, 'M'] : [1e3, 'K'];
+    const x = a / (d as number);
+    return `${v < 0 ? '−' : ''}$${x.toFixed(x >= 100 ? 0 : x >= 10 ? 1 : 2)}${u}`;
+  };
+  const fmtYoy = (y: number | null) => (y == null ? '-' : `${y > 0 ? '+' : ''}${y.toFixed(1)}%`);
+  const renderRevenueCell = (stock: Ticker, index: number, total: number) => {
+    const r = stock.revenue;
+    if (!r) return <td className="p-4 text-right text-slate-500 font-mono" title={RV.none}>-</td>;
+    const yc = r.yoy == null ? 'text-slate-500' : r.yoy >= 0 ? 'text-favorable-400' : 'text-risk-400';
+    const isNearBottom = total > 2 && index >= total - 2;
+    return (
+      <td className="p-4 text-right font-mono relative group/rv hover:z-30 cursor-help">
+        <div className="font-bold text-slate-200">{fmtMoney(r.ttm)}</div>
+        <div className={`text-[10px] ${yc}`}>{fmtYoy(r.yoy)}</div>
+        <div className={`pointer-events-none absolute right-2 ${isNearBottom ? 'bottom-full mb-2' : 'top-full mt-2'} hidden group-hover/rv:flex flex-col gap-1.5 w-60 p-3 rounded-xl bg-slate-950 border border-slate-800 shadow-2xl text-left z-50`}>
+          <div className="flex items-center justify-between border-b border-slate-900 pb-1.5 font-extrabold text-accent-400 text-[11px]">
+            <span>{RV.title}</span>
+            <span className="text-[10px] font-bold text-slate-400 bg-slate-900 px-1.5 py-0.5 rounded border border-slate-800">{stock.symbol}</span>
+          </div>
+          <div className="flex justify-between text-[11px]"><span className="text-slate-400">{RV.title}:</span><strong className="text-slate-100">{fmtMoney(r.ttm)}</strong></div>
+          <div className="flex justify-between text-[11px]"><span className="text-slate-400">{RV.last}:</span><strong className="text-accent-300">{fmtDate(r.lastQuarter)}</strong></div>
+          <div className="flex justify-between text-[11px] pt-1 border-t border-slate-900"><span className="text-slate-400">{RV.yoy}:</span><strong className={yc}>{fmtYoy(r.yoy)}</strong></div>
+          <div className="text-[10px] text-slate-500 font-sans leading-snug">{RV.note}</div>
+        </div>
+      </td>
+    );
+  };
+
   const getLocalizedRecommendation = (rec: string) => {
     const norm = rec.toLowerCase();
     if (norm.includes('strong buy')) return locale === 'es' ? 'Compra Fuerte' : 'Strong Buy';
@@ -606,6 +642,7 @@ export const PricesListClient: React.FC<PricesListClientProps> = ({ initialTicke
                       <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap" title={LV.athNote}>{locale === 'es' ? 'Desde ATH' : 'From ATH'}</th>
                       <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap" title={LV.bottomNote}>{locale === 'es' ? 'Desde último piso' : 'From Last Bottom'}</th>
                       <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap">{tPrices('cap')}</th>
+                      <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap" title={RV.note}>{RV.title}</th>
                       <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap">{tPrices('pe')}</th>
                       <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap">{tt('forwardPe')}</th>
                       <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap">{tt('epsTtm')}</th>
@@ -649,6 +686,7 @@ export const PricesListClient: React.FC<PricesListClientProps> = ({ initialTicke
                           {renderLevelCell(stock, 'ath', index, filteredCompanies.length)}
                           {renderLevelCell(stock, 'bottom', index, filteredCompanies.length)}
                           <td className="p-4 text-right text-slate-300 font-mono">{stock.cap || 'N/A'}</td>
+                          {renderRevenueCell(stock, index, filteredCompanies.length)}
                           <td className="p-4 text-right text-slate-300 font-bold font-mono">{stock.pe ? `${stock.pe.toFixed(2)}x` : 'N/A'}</td>
                           <td className="p-4 text-right text-slate-400 font-mono">{stock.forwardPe ? `${stock.forwardPe.toFixed(2)}x` : 'N/A'}</td>
                           <td className="p-4 text-right text-slate-300 font-mono">{stock.eps ? `$${stock.eps.toFixed(2)}` : 'N/A'}</td>
