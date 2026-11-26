@@ -1,5 +1,6 @@
 import { Ticker } from '../../domain/ticker.entity';
 import { HistoricalPrice } from '../../domain/historical-price.entity';
+import type { Close } from '../../domain/price-levels';
 
 export interface ITickerRepository {
   findAll(): Promise<Ticker[]>;
@@ -11,6 +12,10 @@ export interface ITickerRepository {
   saveHistoricalPrices(tickerId: string, prices: { date: Date; open: number; high: number; low: number; close: number; adjClose: number; volume: bigint }[]): Promise<void>;
   clearHistoricalPrices(tickerId: string): Promise<void>;
   findLatestSnapshot(symbol: string): Promise<any | null>;
+  /** Fecha del cierre diario más reciente de historical_prices (clave de la caché de niveles de la lista). */
+  latestCloseDate(): Promise<string | null>;
+  /** Cierres diarios de todos los tickers, por símbolo y ordenados por fecha. */
+  findAllCloses(): Promise<Map<string, Close[]>>;
 }
 
 export const ITickerRepositorySymbol = Symbol('ITickerRepository');

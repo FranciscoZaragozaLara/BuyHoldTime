@@ -3,6 +3,7 @@ import { PrismaService } from '../../../../prisma/prisma.service';
 import { ITickerRepository } from '../../application/ports/ticker-repository.interface';
 import { Ticker } from '../../domain/ticker.entity';
 import { HistoricalPrice } from '../../domain/historical-price.entity';
+import type { Close } from '../../domain/price-levels';
 
 @Injectable()
 export class TickerRepositoryImpl implements ITickerRepository {
@@ -209,5 +210,23 @@ export class TickerRepositoryImpl implements ITickerRepository {
       earningsYield: snapshot.earningsYield ? Number(snapshot.earningsYield) : null,
       evToEbitda: snapshot.evToEbitda ? Number(snapshot.evToEbitda) : null,
     };
+  }
+
+  async latestCloseDate(): Promise<string | null> {
+    const r = await this.prisma.$queryRaw<Array<{ d: string | null }>>`SELECT max(date)::text AS d FROM historical_prices`;
+    return r[0]?.d ?? null;
+  }
+
+  async findAllCloses(): Promise<Map<string, Close[]>> {
+    const rows = await this.prisma.$queryRaw<Array<{ symbol: string; date: string; close: number }>>`
+      SELECT t.symbol, hp.date::text AS date, hp.close FROM historical_prices hp JOIN tickers t ON t.id = hp.ticker_id
+      ORDER BY t.symbol, hp.date`;
+    const out = new Map<string, Close[]>();
+    for (const r of rows) {
+      let a = out.get(r.symbol);
+      if (!a) out.set(r.symbol, (a = []));
+      a.push({ date: r.date, close: Number(r.close) });
+    }
+    return out;
   }
 }

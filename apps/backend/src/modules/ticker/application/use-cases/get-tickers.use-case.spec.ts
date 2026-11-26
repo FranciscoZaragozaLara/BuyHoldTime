@@ -10,7 +10,7 @@ describe('GetTickersUseCase', () => {
       findAllSummary: jest.fn(async () => summary),
     };
     const out = await new GetTickersUseCase(repo).execute();
-    expect(out).toBe(summary);
+    expect(out.map((t) => t.symbol)).toEqual(['AAPL']);
     expect(repo.findAllSummary).toHaveBeenCalledTimes(1);
     expect(repo.findAll).not.toHaveBeenCalled();
   });
@@ -20,7 +20,7 @@ describe('GetTickersUseCase', () => {
     const list = [{ symbol: 'SPY', updatedAt: new Date(now - 16 * 60e3) }, { symbol: 'QQQ', updatedAt: new Date(now - 20 * 60e3) }] as any;
     const repo: any = { findAllSummary: jest.fn(async () => list) };
     const fast: any = { refreshAllInBackground: jest.fn(() => true) };
-    expect(await new GetTickersUseCase(repo, fast).execute(now)).toBe(list);
+    expect((await new GetTickersUseCase(repo, fast).execute(now)).length).toBe(2);
     expect(fast.refreshAllInBackground).toHaveBeenCalledTimes(1);
   });
   test('si la cotización más reciente tiene menos de 15 minutos no refresca', async () => {
@@ -29,5 +29,26 @@ describe('GetTickersUseCase', () => {
     const fast: any = { refreshAllInBackground: jest.fn() };
     await new GetTickersUseCase(repo, fast).execute(now);
     expect(fast.refreshAllInBackground).not.toHaveBeenCalled();
+  });
+
+  test('agrega los niveles (ATH, último piso, rendimientos) con los cierres y el precio en vivo; caché por día', async () => {
+    const now = Date.parse('2025-06-03T20:00:00Z');
+    const closes = new Map([['SPY', [
+      { date: '2024-12-31', close: 100 }, { date: '2025-02-03', close: 120 }, { date: '2025-04-01', close: 96 }, { date: '2025-06-02', close: 110 },
+    ]]]);
+    const repo: any = {
+      findAllSummary: jest.fn(async () => [{ symbol: 'SPY', price: 108, updatedAt: new Date(now - 60e3) }, { symbol: 'NEW', price: 5, updatedAt: new Date(now) }]),
+      latestCloseDate: jest.fn(async () => '2025-06-02'),
+      findAllCloses: jest.fn(async () => closes),
+    };
+    const uc = new GetTickersUseCase(repo);
+    const [spy, nw] = await uc.execute(now);
+    expect(spy.levels).toMatchObject({ ath: 120, athDate: '2025-02-03', bottom: 96, bottomDate: '2025-04-01' });
+    expect(spy.levels!.fromAth).toBeCloseTo(-10, 6);
+    expect(spy.levels!.fromBottom).toBeCloseTo(12.5, 6);
+    expect(spy.levels!.perfYTD).toBeCloseTo(8, 6);
+    expect(nw.levels).toBeNull(); // sin historia
+    await uc.execute(now + 60e3);
+    expect(repo.findAllCloses).toHaveBeenCalledTimes(1); // mismo último cierre y mismo día: usa la caché
   });
 });

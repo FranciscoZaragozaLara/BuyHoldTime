@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { useLocale, useTranslations } from 'next-intl';
 import { Search, ArrowUpDown, SlidersHorizontal, Star, Activity, Sparkles, Filter, LayoutGrid, List } from 'lucide-react';
 import { Ticker } from '@/services/api';
-import precalculatedPerformance from '../data/precalculated_performance.json';
 import { TOKENS } from '@/lib/designTokens';
 
 interface PricesListClientProps {
@@ -145,9 +144,10 @@ export const PricesListClient: React.FC<PricesListClientProps> = ({ initialTicke
     }
   };
 
-  const renderPerfCell = (symbol: string, key: 'perf1M' | 'perfYTD' | 'perf1Y' | 'perf5Y') => {
-    const data = (precalculatedPerformance as any)[symbol];
-    const val = data ? data[key] : null;
+  // Rendimientos, máximo histórico y último piso: los calcula el backend con los cierres diarios y el precio en vivo
+  // (antes salían de precalculated_performance.json, congelado en jul-2026).
+  const renderPerfCell = (stock: Ticker, key: 'perf1M' | 'perfYTD' | 'perf1Y' | 'perf5Y') => {
+    const val = stock.levels?.[key];
     if (val === null || val === undefined) return <td className="p-4 text-right text-slate-500 font-mono">-</td>;
     const color = val >= 0 ? 'text-favorable-400 font-bold' : 'text-risk-400 font-bold';
     return (
@@ -157,89 +157,41 @@ export const PricesListClient: React.FC<PricesListClientProps> = ({ initialTicke
     );
   };
 
-  const renderFromHighCell = (stock: Ticker, index: number = 0, total: number = 10) => {
-    const data = (precalculatedPerformance as any)[stock.symbol];
-    const storedHighestPrice = data?.highestPrice ?? 0;
-    const storedHighestDate = data?.highestDate ?? '';
-    const currentPrice = stock.price;
+  const fmtDate = (iso: string) => new Date(`${iso}T00:00:00`).toLocaleDateString(locale === 'es' ? 'es-ES' : 'en-US', { day: '2-digit', month: 'short', year: 'numeric' });
+  const LV = locale === 'es'
+    ? { ath: 'Máximo histórico', bottom: 'Último piso', price: 'Precio actual', date: 'Fecha', from: 'Distancia',
+        athNote: 'Cierre más alto de la historia (ajustado por splits).', bottomNote: 'Mínimo de la corrección más reciente (caída de 10% o más desde un máximo; se cierra al marcar un máximo nuevo).',
+        atAth: 'En máximo histórico', noBottom: 'Sin correcciones de 10% en la historia disponible' }
+    : { ath: 'All-time high', bottom: 'Last bottom', price: 'Current price', date: 'Date', from: 'Distance',
+        athNote: 'Highest close on record (split-adjusted).', bottomNote: 'Low of the most recent correction (a 10%+ drop from a high; it ends when a new high is set).',
+        atAth: 'At all-time high', noBottom: 'No 10% correction in the available history' };
 
-    let highestPrice = Math.max(storedHighestPrice, currentPrice);
-    let highestDate = storedHighestDate;
-
-    // If current live price equals or exceeds stored historical high, today is the ATH!
-    const todayISO = new Date().toISOString().split('T')[0];
-    if (currentPrice >= storedHighestPrice || !storedHighestPrice) {
-      highestPrice = currentPrice;
-      if (!highestDate || storedHighestDate < todayISO) {
-        highestDate = todayISO;
-      }
+  // Celda de distancia al máximo histórico o al último piso: % arriba, nivel en $ abajo; al pasar el mouse, la fecha.
+  const renderLevelCell = (stock: Ticker, kind: 'ath' | 'bottom', index: number = 0, total: number = 10) => {
+    const lv = stock.levels;
+    const level = kind === 'ath' ? lv?.ath : lv?.bottom;
+    const date = kind === 'ath' ? lv?.athDate : lv?.bottomDate;
+    const pct = kind === 'ath' ? lv?.fromAth : lv?.fromBottom;
+    if (!lv || level == null || pct == null || !date) {
+      return <td className="p-4 text-right text-slate-500 font-mono" title={kind === 'bottom' && lv ? LV.noBottom : undefined}>-</td>;
     }
-
-    const fromHighVal = highestPrice > 0 ? Math.min(0, ((currentPrice - highestPrice) / highestPrice) * 100) : 0;
-
-    if (highestPrice <= 0) {
-      return <td className="p-4 text-right text-slate-500 font-mono">-</td>;
-    }
-
-    const isAtHigh = Math.abs(fromHighVal) < 0.01;
-    const textColor = isAtHigh ? 'text-accent-400 font-bold' : 'text-risk-400 font-bold';
-
-    const formattedDate = highestDate
-      ? new Date(highestDate + 'T00:00:00').toLocaleDateString(locale === 'es' ? 'es-ES' : 'en-US', {
-          day: '2-digit',
-          month: 'short',
-          year: 'numeric',
-        })
-      : 'N/A';
-
+    const atAth = kind === 'ath' && Math.abs(pct) < 0.01;
+    const color = atAth ? 'text-accent-400' : pct >= 0 ? 'text-favorable-400' : 'text-risk-400';
     const isNearBottom = total > 2 && index >= total - 2;
-
     return (
-      <td className="p-4 text-right font-mono relative group/ath hover:z-30 cursor-help">
-        <div className="inline-flex items-center gap-1 justify-end">
-          <span className={textColor}>
-            {fromHighVal > 0 ? '+' : ''}{fromHighVal.toFixed(2)}%
-          </span>
-          <span className="text-[10px] text-slate-500 group-hover/ath:text-accent-400 transition-colors ml-0.5">ℹ</span>
-        </div>
-
-        {/* Hover Popover Tooltip (Smart positioning: opens UP if near bottom, DOWN if near top) */}
-        <div className={`pointer-events-none absolute right-2 ${isNearBottom ? 'bottom-full mb-2.5' : 'top-full mt-2.5'} hidden group-hover/ath:flex flex-col gap-2 w-64 p-3.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-200 text-xs shadow-[0_10px_25px_-5px_rgba(0,0,0,0.8)] z-50 text-left font-sans animate-in fade-in zoom-in-95 duration-150`}>
-          <div className={`absolute ${isNearBottom ? '-bottom-1.5 border-b border-r' : '-top-1.5 border-t border-l'} right-4 w-3 h-3 bg-slate-950 border-slate-800 rotate-45`}></div>
-          
-          <div className="flex items-center justify-between border-b border-slate-900 pb-2 font-extrabold text-accent-400 relative z-10">
-            <span>{locale === 'es' ? 'Caída desde Máximo' : 'From High Calculation'}</span>
+      <td className="p-4 text-right font-mono relative group/lv hover:z-30 cursor-help">
+        <div className={`font-bold ${color}`}>{atAth ? LV.atAth : `${pct > 0 ? '+' : ''}${pct.toFixed(2)}%`}</div>
+        <div className="text-[10px] text-slate-500">${level.toFixed(2)}</div>
+        <div className={`pointer-events-none absolute right-2 ${isNearBottom ? 'bottom-full mb-2' : 'top-full mt-2'} hidden group-hover/lv:flex flex-col gap-1.5 w-60 p-3 rounded-xl bg-slate-950 border border-slate-800 shadow-2xl text-left z-50`}>
+          <div className="flex items-center justify-between border-b border-slate-900 pb-1.5 font-extrabold text-accent-400 text-[11px]">
+            <span>{kind === 'ath' ? LV.ath : LV.bottom}</span>
             <span className="text-[10px] font-bold text-slate-400 bg-slate-900 px-1.5 py-0.5 rounded border border-slate-800">{stock.symbol}</span>
           </div>
-          
-          <div className="flex flex-col gap-1 text-[11px] font-mono text-slate-300 relative z-10">
-            <div className="flex justify-between">
-              <span className="text-slate-400">{locale === 'es' ? 'Máx. Histórico' : 'Highest Price'}:</span>
-              <strong className="text-favorable-400">${highestPrice ? highestPrice.toFixed(2) : 'N/A'}</strong>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-slate-400">{locale === 'es' ? 'Precio Actual' : 'Actual Price'}:</span>
-              <strong className="text-slate-100">${currentPrice.toFixed(2)}</strong>
-            </div>
-            <div className="flex justify-between pt-1 border-t border-slate-900">
-              <span className="text-slate-400">{tt('fromHighColon')}</span>
-              <strong className={textColor}>
-                {fromHighVal > 0 ? '+' : ''}{fromHighVal.toFixed(2)}%
-              </strong>
-            </div>
-          </div>
-
-          <div className="text-[10px] text-slate-400 bg-slate-900/60 rounded px-2 py-1 border border-slate-800/80 flex flex-col gap-0.5 mt-0.5 relative z-10">
-            <span className="font-semibold text-slate-300">{locale === 'es' ? 'Cálculo de la caída desde máximo:' : 'Calculation:'}</span>
-            <span className="font-mono text-[9.5px] text-slate-400">
-              {tt('fromHighFormula')}
-            </span>
-          </div>
-
-          <div className="text-[10px] pt-1 border-t border-slate-900 flex items-center justify-between relative z-10">
-            <span className="text-slate-400">{locale === 'es' ? 'Fecha del Máximo' : 'Reached On'}:</span>
-            <strong className="font-bold text-accent-300">{formattedDate}</strong>
-          </div>
+          <div className="flex justify-between text-[11px]"><span className="text-slate-400">{LV.date}:</span><strong className="text-accent-300">{fmtDate(date)}</strong></div>
+          <div className="flex justify-between text-[11px]"><span className="text-slate-400">{kind === 'ath' ? LV.ath : LV.bottom}:</span><strong className="text-slate-100">${level.toFixed(2)}</strong></div>
+          <div className="flex justify-between text-[11px]"><span className="text-slate-400">{LV.price}:</span><strong className="text-slate-100">${stock.price.toFixed(2)}</strong></div>
+          <div className="flex justify-between text-[11px] pt-1 border-t border-slate-900"><span className="text-slate-400">{LV.from}:</span><strong className={color}>{pct > 0 ? '+' : ''}{pct.toFixed(2)}%</strong></div>
+          <div className="text-[10px] text-slate-500 font-sans leading-snug">{kind === 'ath' ? LV.athNote : LV.bottomNote}</div>
         </div>
       </td>
     );
@@ -558,7 +510,8 @@ export const PricesListClient: React.FC<PricesListClientProps> = ({ initialTicke
                       <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap">{tt('perfYtd')}</th>
                       <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap">{tt('perf1y')}</th>
                       <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap">{tt('perf5y')}</th>
-                      <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap">{tt('fromHigh')}</th>
+                      <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap" title={LV.athNote}>{locale === 'es' ? 'Desde ATH' : 'From ATH'}</th>
+                      <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap" title={LV.bottomNote}>{locale === 'es' ? 'Desde último piso' : 'From Last Bottom'}</th>
                       <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap">{tPrices('cap')}</th>
                       <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap">{tPrices('pe')}</th>
                       <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap">{tt('forwardPe')}</th>
@@ -596,11 +549,12 @@ export const PricesListClient: React.FC<PricesListClientProps> = ({ initialTicke
                             {stock.changePercent >= 0 ? '+' : ''}
                             {stock.changePercent.toFixed(2)}%
                           </td>
-                          {renderPerfCell(stock.symbol, 'perf1M')}
-                          {renderPerfCell(stock.symbol, 'perfYTD')}
-                          {renderPerfCell(stock.symbol, 'perf1Y')}
-                          {renderPerfCell(stock.symbol, 'perf5Y')}
-                          {renderFromHighCell(stock, index, filteredEtfs.length)}
+                          {renderPerfCell(stock, 'perf1M')}
+                          {renderPerfCell(stock, 'perfYTD')}
+                          {renderPerfCell(stock, 'perf1Y')}
+                          {renderPerfCell(stock, 'perf5Y')}
+                          {renderLevelCell(stock, 'ath', index, filteredEtfs.length)}
+                          {renderLevelCell(stock, 'bottom', index, filteredEtfs.length)}
                           <td className="p-4 text-right text-slate-300 font-mono">{stock.cap || 'N/A'}</td>
                           <td className="p-4 text-right text-slate-300 font-bold font-mono">{stock.pe ? `${stock.pe.toFixed(2)}x` : 'N/A'}</td>
                           <td className="p-4 text-right text-slate-400 font-mono">{stock.forwardPe ? `${stock.forwardPe.toFixed(2)}x` : 'N/A'}</td>
@@ -647,7 +601,8 @@ export const PricesListClient: React.FC<PricesListClientProps> = ({ initialTicke
                       <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap">{tt('perfYtd')}</th>
                       <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap">{tt('perf1y')}</th>
                       <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap">{tt('perf5y')}</th>
-                      <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap">{tt('fromHigh')}</th>
+                      <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap" title={LV.athNote}>{locale === 'es' ? 'Desde ATH' : 'From ATH'}</th>
+                      <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap" title={LV.bottomNote}>{locale === 'es' ? 'Desde último piso' : 'From Last Bottom'}</th>
                       <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap">{tPrices('cap')}</th>
                       <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap">{tPrices('pe')}</th>
                       <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap">{tt('forwardPe')}</th>
@@ -685,11 +640,12 @@ export const PricesListClient: React.FC<PricesListClientProps> = ({ initialTicke
                             {stock.changePercent >= 0 ? '+' : ''}
                             {stock.changePercent.toFixed(2)}%
                           </td>
-                          {renderPerfCell(stock.symbol, 'perf1M')}
-                          {renderPerfCell(stock.symbol, 'perfYTD')}
-                          {renderPerfCell(stock.symbol, 'perf1Y')}
-                          {renderPerfCell(stock.symbol, 'perf5Y')}
-                          {renderFromHighCell(stock, index, filteredCompanies.length)}
+                          {renderPerfCell(stock, 'perf1M')}
+                          {renderPerfCell(stock, 'perfYTD')}
+                          {renderPerfCell(stock, 'perf1Y')}
+                          {renderPerfCell(stock, 'perf5Y')}
+                          {renderLevelCell(stock, 'ath', index, filteredCompanies.length)}
+                          {renderLevelCell(stock, 'bottom', index, filteredCompanies.length)}
                           <td className="p-4 text-right text-slate-300 font-mono">{stock.cap || 'N/A'}</td>
                           <td className="p-4 text-right text-slate-300 font-bold font-mono">{stock.pe ? `${stock.pe.toFixed(2)}x` : 'N/A'}</td>
                           <td className="p-4 text-right text-slate-400 font-mono">{stock.forwardPe ? `${stock.forwardPe.toFixed(2)}x` : 'N/A'}</td>

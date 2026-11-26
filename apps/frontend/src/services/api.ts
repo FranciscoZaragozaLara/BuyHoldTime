@@ -27,6 +27,13 @@ export interface Ticker {
   fiftyTwoWeekLow?: number | null;
   dividendRate?: number | null;
   bookValue?: number | null;
+  /** Lista (/tickers): máximo histórico, último piso (mínimo de la corrección ≥ 10% más reciente) y rendimientos,
+   *  con los cierres diarios y el precio en vivo. */
+  levels?: {
+    ath: number; athDate: string; fromAth: number;
+    bottom: number | null; bottomDate: string | null; fromBottom: number | null;
+    perf1M: number | null; perfYTD: number | null; perf1Y: number | null; perf5Y: number | null;
+  } | null;
   historicalEps?: Record<string, { value: number; source: 'real' | 'estimated' }> | null;
   historicalDividends?: Record<string, number> | null;
   historicalEpsQuarterly?: Array<{
