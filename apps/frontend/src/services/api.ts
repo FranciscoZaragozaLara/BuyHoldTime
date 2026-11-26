@@ -1,6 +1,8 @@
 import { getApiBase } from '@/lib/apiBase';
 import { MARKET_DATA_TAG } from '@/lib/revalidation';
 import { fetchMatrixCells, MATRIX_INSTRUMENTS, type MatrixCell, type MatrixInstrument } from '@/lib/bhtMatrix';
+export interface FundamentalTtm { ttm: number; prev: number | null; yoy: number | null; lastQuarter: string }
+
 export interface Ticker {
   id: string;
   symbol: string;
@@ -34,9 +36,15 @@ export interface Ticker {
     bottom: number | null; bottomDate: string | null; fromBottom: number | null;
     perf1M: number | null; perfYTD: number | null; perf1Y: number | null; perf5Y: number | null;
   } | null;
-  /** Lista (/tickers): ingresos de los últimos 12 meses (suma de los 4 trimestres más recientes de EDGAR) y su
-   *  crecimiento contra los 12 meses previos; null en ETFs o si faltan trimestres. */
-  revenue?: { ttm: number; lastQuarter: string; yoy: number | null } | null;
+  /** Lista (/tickers): fundamentales de los últimos 12 meses (suma de los 4 trimestres más recientes de EDGAR) con su
+   *  cambio contra los 12 meses previos; null en ETFs. Cada métrica es null si le faltan trimestres. */
+  fundamentals?: {
+    revenue: FundamentalTtm | null;
+    eps: FundamentalTtm | null;
+    ebit: FundamentalTtm | null;
+    margin: { now: number; prev: number | null } | null;
+    pe: { now: number; prev: number; yoy: number } | null;
+  } | null;
   historicalEps?: Record<string, { value: number; source: 'real' | 'estimated' }> | null;
   historicalDividends?: Record<string, number> | null;
   historicalEpsQuarterly?: Array<{

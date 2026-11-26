@@ -4,7 +4,7 @@ import React, { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { useLocale, useTranslations } from 'next-intl';
 import { Search, ArrowUpDown, SlidersHorizontal, Star, Activity, Sparkles, Filter, LayoutGrid, List } from 'lucide-react';
-import { Ticker } from '@/services/api';
+import type { FundamentalTtm, Ticker } from '@/services/api';
 import { TOKENS } from '@/lib/designTokens';
 
 interface PricesListClientProps {
@@ -199,40 +199,94 @@ export const PricesListClient: React.FC<PricesListClientProps> = ({ initialTicke
     );
   };
 
-  // Ingresos TTM (EDGAR): monto arriba, crecimiento anual abajo; al pasar el mouse, el último trimestre incluido.
-  const RV = locale === 'es'
-    ? { title: 'Ingresos (12 meses)', last: 'Último trimestre', yoy: 'vs. 12 meses previos', none: 'Sin 4 trimestres consecutivos recientes en EDGAR',
-        note: 'Suma de los 4 trimestres más recientes reportados a la SEC (EDGAR).' }
-    : { title: 'Revenue (TTM)', last: 'Latest quarter', yoy: 'vs. prior 12 months', none: 'No 4 recent consecutive quarters in EDGAR',
-        note: 'Sum of the 4 most recent quarters reported to the SEC (EDGAR).' };
+  // Fundamentales TTM (EDGAR): valor arriba, cambio contra los 12 meses previos abajo; al pasar el mouse, el detalle.
+  const FT = locale === 'es'
+    ? { revenue: 'Ingresos (12 meses)', ebit: 'EBIT (12 meses)', margin: 'Margen operativo', pe: 'P/E', eps: 'EPS (12 meses)',
+        now: 'Últimos 12 meses', prev: '12 meses previos', change: 'Cambio', last: 'Último trimestre', peNow: 'P/E hoy', pePrev: 'P/E hace 1 año',
+        none: 'Sin 4 trimestres consecutivos recientes en EDGAR', noEbit: 'Sin dato en EDGAR (bancos y aseguradoras no reportan utilidad operativa) o faltan trimestres',
+        revenueNote: 'Suma de los 4 trimestres más recientes reportados a la SEC (EDGAR).',
+        ebitNote: 'Utilidad operativa (EBIT): ingresos menos costos y gastos de operación, antes de intereses e impuestos. Suma de 4 trimestres (EDGAR).',
+        marginNote: 'EBIT ÷ ingresos de los últimos 12 meses; abajo, el cambio en puntos porcentuales contra los 12 meses previos.',
+        peNote: 'Precio ÷ EPS diluido de los últimos 12 meses (EDGAR). Hace un año: el cierre de hace 12 meses ÷ el EPS de los 12 meses previos. Si baja, la acción está más barata respecto a sus utilidades.',
+        epsNote: 'Utilidad por acción diluida, suma de los 4 trimestres más recientes (EDGAR), ajustada por splits.',
+        noBase: 'Sin % (la base de hace un año era ≤ 0)' }
+    : { revenue: 'Revenue (TTM)', ebit: 'EBIT (TTM)', margin: 'Operating margin', pe: 'P/E', eps: 'EPS (TTM)',
+        now: 'Last 12 months', prev: 'Prior 12 months', change: 'Change', last: 'Latest quarter', peNow: 'P/E today', pePrev: 'P/E 1 year ago',
+        none: 'No 4 recent consecutive quarters in EDGAR', noEbit: 'Not in EDGAR (banks and insurers do not report operating income) or missing quarters',
+        revenueNote: 'Sum of the 4 most recent quarters reported to the SEC (EDGAR).',
+        ebitNote: 'Operating income (EBIT): revenue minus operating costs and expenses, before interest and taxes. Sum of 4 quarters (EDGAR).',
+        marginNote: 'EBIT ÷ revenue over the last 12 months; below, the change in percentage points vs the prior 12 months.',
+        peNote: 'Price ÷ diluted EPS over the last 12 months (EDGAR). A year ago: the close 12 months ago ÷ EPS of the prior 12 months. A drop means the stock is cheaper relative to its earnings.',
+        epsNote: 'Diluted earnings per share, sum of the 4 most recent quarters (EDGAR), split-adjusted.',
+        noBase: 'No % (the base a year ago was ≤ 0)' };
   const fmtMoney = (v: number) => {
     const a = Math.abs(v);
     const [d, u] = a >= 1e12 ? [1e12, 'T'] : a >= 1e9 ? [1e9, 'B'] : a >= 1e6 ? [1e6, 'M'] : [1e3, 'K'];
     const x = a / (d as number);
     return `${v < 0 ? '−' : ''}$${x.toFixed(x >= 100 ? 0 : x >= 10 ? 1 : 2)}${u}`;
   };
-  const fmtYoy = (y: number | null) => (y == null ? '-' : `${y > 0 ? '+' : ''}${y.toFixed(1)}%`);
-  const renderRevenueCell = (stock: Ticker, index: number, total: number) => {
-    const r = stock.revenue;
-    if (!r) return <td className="p-4 text-right text-slate-500 font-mono" title={RV.none}>-</td>;
-    const yc = r.yoy == null ? 'text-slate-500' : r.yoy >= 0 ? 'text-favorable-400' : 'text-risk-400';
+  const fmtChg = (y: number | null | undefined, unit = '%') => (y == null ? '-' : `${y > 0 ? '+' : y < 0 ? '−' : ''}${Math.abs(y).toFixed(1)}${unit}`);
+  const chgCls = (y: number | null | undefined) => (y == null ? 'text-slate-500' : y >= 0 ? 'text-favorable-400' : 'text-risk-400');
+
+  type MetricRow = [label: string, value: string, cls?: string];
+  const renderMetricCell = (
+    stock: Ticker, index: number, total: number,
+    m: { main: string; sub: string; subCls: string; title: string; rows: MetricRow[]; note: string } | null, none: string,
+  ) => {
+    if (!m) return <td className="p-4 text-right text-slate-500 font-mono" title={none}>-</td>;
     const isNearBottom = total > 2 && index >= total - 2;
     return (
-      <td className="p-4 text-right font-mono relative group/rv hover:z-30 cursor-help">
-        <div className="font-bold text-slate-200">{fmtMoney(r.ttm)}</div>
-        <div className={`text-[10px] ${yc}`}>{fmtYoy(r.yoy)}</div>
-        <div className={`pointer-events-none absolute right-2 ${isNearBottom ? 'bottom-full mb-2' : 'top-full mt-2'} hidden group-hover/rv:flex flex-col gap-1.5 w-60 p-3 rounded-xl bg-slate-950 border border-slate-800 shadow-2xl text-left z-50`}>
+      <td className="p-4 text-right font-mono relative group/ft hover:z-30 cursor-help">
+        <div className="font-bold text-slate-200">{m.main}</div>
+        <div className={`text-[10px] ${m.subCls}`}>{m.sub}</div>
+        <div className={`pointer-events-none absolute right-2 ${isNearBottom ? 'bottom-full mb-2' : 'top-full mt-2'} hidden group-hover/ft:flex flex-col gap-1.5 w-64 p-3 rounded-xl bg-slate-950 border border-slate-800 shadow-2xl text-left z-50`}>
           <div className="flex items-center justify-between border-b border-slate-900 pb-1.5 font-extrabold text-accent-400 text-[11px]">
-            <span>{RV.title}</span>
+            <span>{m.title}</span>
             <span className="text-[10px] font-bold text-slate-400 bg-slate-900 px-1.5 py-0.5 rounded border border-slate-800">{stock.symbol}</span>
           </div>
-          <div className="flex justify-between text-[11px]"><span className="text-slate-400">{RV.title}:</span><strong className="text-slate-100">{fmtMoney(r.ttm)}</strong></div>
-          <div className="flex justify-between text-[11px]"><span className="text-slate-400">{RV.last}:</span><strong className="text-accent-300">{fmtDate(r.lastQuarter)}</strong></div>
-          <div className="flex justify-between text-[11px] pt-1 border-t border-slate-900"><span className="text-slate-400">{RV.yoy}:</span><strong className={yc}>{fmtYoy(r.yoy)}</strong></div>
-          <div className="text-[10px] text-slate-500 font-sans leading-snug">{RV.note}</div>
+          {m.rows.map(([label, value, cls]) => (
+            <div key={label} className="flex justify-between text-[11px]"><span className="text-slate-400">{label}:</span><strong className={cls ?? 'text-slate-100'}>{value}</strong></div>
+          ))}
+          <div className="text-[10px] text-slate-500 font-sans leading-snug">{m.note}</div>
         </div>
       </td>
     );
+  };
+
+  // Ingresos, EBIT y EPS: misma forma (TTM, 12 meses previos, cambio, último trimestre).
+  const ttmMetric = (t: FundamentalTtm | null | undefined, title: string, note: string, fmt: (v: number) => string) => t ? {
+    main: fmt(t.ttm), sub: fmtChg(t.yoy), subCls: chgCls(t.yoy), title, note,
+    rows: [
+      [FT.now, fmt(t.ttm)],
+      [FT.prev, t.prev != null ? fmt(t.prev) : '-'],
+      [FT.change, t.yoy != null ? fmtChg(t.yoy) : t.prev != null ? FT.noBase : '-', chgCls(t.yoy)],
+      [FT.last, fmtDate(t.lastQuarter), 'text-accent-300'],
+    ] as MetricRow[],
+  } : null;
+  const fmtEps = (v: number) => `${v < 0 ? '−' : ''}$${Math.abs(v).toFixed(2)}`;
+  const renderRevenueCell = (s: Ticker, i: number, n: number) => renderMetricCell(s, i, n, ttmMetric(s.fundamentals?.revenue, FT.revenue, FT.revenueNote, fmtMoney), FT.none);
+  const renderEbitCell = (s: Ticker, i: number, n: number) => renderMetricCell(s, i, n, ttmMetric(s.fundamentals?.ebit, FT.ebit, FT.ebitNote, fmtMoney), FT.noEbit);
+  const renderMarginCell = (s: Ticker, i: number, n: number) => {
+    const mg = s.fundamentals?.margin;
+    const pp = mg && mg.prev != null ? mg.now - mg.prev : null;
+    return renderMetricCell(s, i, n, mg ? {
+      main: `${mg.now.toFixed(1)}%`, sub: fmtChg(pp, ' pp'), subCls: chgCls(pp), title: FT.margin, note: FT.marginNote,
+      rows: [[FT.now, `${mg.now.toFixed(1)}%`], [FT.prev, mg.prev != null ? `${mg.prev.toFixed(1)}%` : '-'], [FT.change, fmtChg(pp, ' pp'), chgCls(pp)]],
+    } : null, FT.noEbit);
+  };
+  // P/E y EPS: con EDGAR si hay trimestres suficientes; si no, el dato de Yahoo como antes (sin cambio anual).
+  const renderPeCell = (s: Ticker, i: number, n: number) => {
+    const pe = s.fundamentals?.pe;
+    if (!pe) return <td className="p-4 text-right text-slate-300 font-bold font-mono">{s.pe ? `${s.pe.toFixed(2)}x` : 'N/A'}</td>;
+    return renderMetricCell(s, i, n, {
+      main: `${pe.now.toFixed(2)}x`, sub: fmtChg(pe.yoy), subCls: 'text-slate-400', title: FT.pe, note: FT.peNote,
+      rows: [[FT.peNow, `${pe.now.toFixed(2)}x`], [FT.pePrev, `${pe.prev.toFixed(2)}x`], [FT.change, fmtChg(pe.yoy), 'text-slate-200']],
+    }, FT.none);
+  };
+  const renderEpsCell = (s: Ticker, i: number, n: number) => {
+    const m = ttmMetric(s.fundamentals?.eps, FT.eps, FT.epsNote, fmtEps);
+    if (!m) return <td className="p-4 text-right text-slate-300 font-mono">{s.eps ? `$${s.eps.toFixed(2)}` : 'N/A'}</td>;
+    return renderMetricCell(s, i, n, m, FT.none);
   };
 
   const getLocalizedRecommendation = (rec: string) => {
@@ -642,7 +696,9 @@ export const PricesListClient: React.FC<PricesListClientProps> = ({ initialTicke
                       <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap" title={LV.athNote}>{locale === 'es' ? 'Desde ATH' : 'From ATH'}</th>
                       <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap" title={LV.bottomNote}>{locale === 'es' ? 'Desde último piso' : 'From Last Bottom'}</th>
                       <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap">{tPrices('cap')}</th>
-                      <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap" title={RV.note}>{RV.title}</th>
+                      <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap" title={FT.revenueNote}>{FT.revenue}</th>
+                      <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap" title={FT.ebitNote}>{FT.ebit}</th>
+                      <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap" title={FT.marginNote}>{FT.margin}</th>
                       <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap">{tPrices('pe')}</th>
                       <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap">{tt('forwardPe')}</th>
                       <th className="p-3.5 px-4 text-right bg-slate-950 whitespace-nowrap">{tt('epsTtm')}</th>
@@ -687,9 +743,11 @@ export const PricesListClient: React.FC<PricesListClientProps> = ({ initialTicke
                           {renderLevelCell(stock, 'bottom', index, filteredCompanies.length)}
                           <td className="p-4 text-right text-slate-300 font-mono">{stock.cap || 'N/A'}</td>
                           {renderRevenueCell(stock, index, filteredCompanies.length)}
-                          <td className="p-4 text-right text-slate-300 font-bold font-mono">{stock.pe ? `${stock.pe.toFixed(2)}x` : 'N/A'}</td>
+                          {renderEbitCell(stock, index, filteredCompanies.length)}
+                          {renderMarginCell(stock, index, filteredCompanies.length)}
+                          {renderPeCell(stock, index, filteredCompanies.length)}
                           <td className="p-4 text-right text-slate-400 font-mono">{stock.forwardPe ? `${stock.forwardPe.toFixed(2)}x` : 'N/A'}</td>
-                          <td className="p-4 text-right text-slate-300 font-mono">{stock.eps ? `$${stock.eps.toFixed(2)}` : 'N/A'}</td>
+                          {renderEpsCell(stock, index, filteredCompanies.length)}
                           <td className="p-4 text-right text-slate-400 font-mono">{stock.dividendRate ? `$${stock.dividendRate.toFixed(2)}` : '$0.00'}</td>
                           <td className="p-4 text-right text-favorable-400/90 font-bold font-mono">{stock.dy ? `${stock.dy.toFixed(2)}%` : '0.00%'}</td>
                           <td className="p-4 text-center font-extrabold text-sm">

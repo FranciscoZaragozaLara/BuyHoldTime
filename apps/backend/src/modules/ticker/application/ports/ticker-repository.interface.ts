@@ -1,7 +1,7 @@
 import { Ticker } from '../../domain/ticker.entity';
 import { HistoricalPrice } from '../../domain/historical-price.entity';
 import type { Close } from '../../domain/price-levels';
-import type { QuarterRevenue } from '../../domain/revenue-ttm';
+import type { QuarterFundamentals } from '../../domain/fundamentals-ttm';
 
 export interface ITickerRepository {
   findAll(): Promise<Ticker[]>;
@@ -17,8 +17,8 @@ export interface ITickerRepository {
   latestCloseDate(): Promise<string | null>;
   /** Cierres diarios de todos los tickers, por símbolo y ordenados por fecha. */
   findAllCloses(): Promise<Map<string, Close[]>>;
-  /** Ingresos trimestrales de EDGAR (historical_eps_quarterly) de todos los tickers, por símbolo. */
-  findAllQuarterlyRevenue(): Promise<Map<string, QuarterRevenue[]>>;
+  /** Ingresos, EPS y utilidad operativa trimestrales de EDGAR (historical_eps_quarterly) de todos los tickers, por símbolo. */
+  findAllQuarterlyFundamentals(): Promise<Map<string, QuarterFundamentals[]>>;
 }
 
 export const ITickerRepositorySymbol = Symbol('ITickerRepository');

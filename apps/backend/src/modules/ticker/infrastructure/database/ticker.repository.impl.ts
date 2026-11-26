@@ -4,7 +4,7 @@ import { ITickerRepository } from '../../application/ports/ticker-repository.int
 import { Ticker } from '../../domain/ticker.entity';
 import { HistoricalPrice } from '../../domain/historical-price.entity';
 import type { Close } from '../../domain/price-levels';
-import type { QuarterRevenue } from '../../domain/revenue-ttm';
+import type { QuarterFundamentals } from '../../domain/fundamentals-ttm';
 
 @Injectable()
 export class TickerRepositoryImpl implements ITickerRepository {
@@ -231,17 +231,19 @@ export class TickerRepositoryImpl implements ITickerRepository {
     return out;
   }
 
-  async findAllQuarterlyRevenue(): Promise<Map<string, QuarterRevenue[]>> {
-    const rows = await this.prisma.$queryRaw<Array<{ symbol: string; date: string | null; revenue: number | null }>>`
-      SELECT t.symbol, q->>'date' AS date, (q->>'revenue')::float8 AS revenue
+  async findAllQuarterlyFundamentals(): Promise<Map<string, QuarterFundamentals[]>> {
+    const rows = await this.prisma.$queryRaw<Array<{ symbol: string; date: string | null; revenue: number | null; eps: number | null; op: number | null }>>`
+      SELECT t.symbol, q->>'date' AS date, (q->>'revenue')::float8 AS revenue,
+        (coalesce(q->>'epsDiluted', q->>'eps'))::float8 AS eps, (q->>'operatingIncome')::float8 AS op
       FROM tickers t, jsonb_array_elements(CASE WHEN jsonb_typeof(t.historical_eps_quarterly::jsonb) = 'array'
         THEN t.historical_eps_quarterly::jsonb ELSE '[]'::jsonb END) q`;
-    const out = new Map<string, QuarterRevenue[]>();
+    const out = new Map<string, QuarterFundamentals[]>();
+    const num = (v: number | null) => (v == null ? null : Number(v));
     for (const r of rows) {
       if (!r.date) continue;
       let a = out.get(r.symbol);
       if (!a) out.set(r.symbol, (a = []));
-      a.push({ date: r.date, revenue: r.revenue == null ? null : Number(r.revenue) });
+      a.push({ date: r.date, revenue: num(r.revenue), eps: num(r.eps), operatingIncome: num(r.op) });
     }
     return out;
   }
