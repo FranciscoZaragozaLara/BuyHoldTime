@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { marketDate } from './market-date';
 import { BACKTEST_DIR } from '../../config/backtest-dir';
 import { PYTHON_BIN } from '../../config/python-bin';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -716,7 +717,7 @@ export class BacktestingService {
   async getThermoLive() {
     const cached = this.liveCache.get('thermo-live') as any;
     if (cached) return cached;
-    const iso = new Date().toISOString().slice(0, 10);
+    const iso = marketDate(); // día de mercado en Nueva York (la fecha UTC ya es mañana desde las 19:00 ET)
     const from = new Date(); from.setFullYear(from.getFullYear() - 8);
     const provTickers = THERMO_TICKERS.map((t) => PROVISIONAL_OF[t]).filter(Boolean);
     const rows = await this.prisma.btMarketData.findMany({
