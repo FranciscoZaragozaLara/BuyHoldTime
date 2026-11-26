@@ -4,6 +4,7 @@
 // CAPE usa las bandas anuales de packages/bht-bands/bands.json según el año del dato; el resto de
 // componentes, packages/bht-bands/thermo-segs.json (mismo archivo que usa el frontend).
 import { capeSegsForDate, defaultCapeSegs, thermoSegs } from './bht-bands';
+import { lastOpenDay } from './market-calendar';
 export type Seg = [number, number, number, number];
 
 export const CAPE_SEGS: Seg[] = defaultCapeSegs();
@@ -495,6 +496,9 @@ export function computeThermoDay(
   s: Series,
   cape: { cape: number | null; ratio: number | null },
 ): ThermoDay | null {
+  // Sin mercado (fin de semana o feriado de la NYSE): el BHT es el del último día hábil, sin las cotizaciones que algunas
+  // fuentes publican ese día (^VIX de Yahoo, Fear & Greed de CNN, futuros del petróleo). Ver market-calendar.ts.
+  isoDate = lastOpenDay(isoDate, s['^GSPC']);
   s = withPubLag(s); // punto en el tiempo: cada dato mensual/trimestral cuenta desde que se publicó
   const parts: ThermoPart[] = [];
   const push = (key: string, score: number | null, weight: number, value: number | null) => {
@@ -560,6 +564,7 @@ export function computeThermoLive(
     series[t] = m;
   }
   const day = computeThermoDay(isoDate, series, cape);
+  isoDate = lastOpenDay(isoDate, series['^GSPC']); // bonus del mismo día hábil que el BHT
   const hy = getHyBonus(creditFromBaa(series[CREDIT_BASE]), isoDate, series['DFEDTARU']);
   const L = withPubLag(series);
   const liq = getLiqBonusSmoothed(L['M2SL'], L['BOGMBASE'], isoDate, L['CPIAUCSL']);

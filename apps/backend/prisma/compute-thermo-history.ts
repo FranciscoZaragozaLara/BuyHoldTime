@@ -3,6 +3,7 @@ import { Pool } from 'pg';
 import { computeThermoDay, PriceMap, THERMO_TICKERS } from '../src/modules/backtesting/thermo-history';
 import { trendAt, trendRegimeSeries } from '../src/modules/backtesting/trend-regime';
 import { PROVISIONAL_OF, withProvisional } from '../src/modules/backtesting/provisional-series';
+import { lastOpenDay } from '../src/modules/backtesting/market-calendar';
 
 // Historifica el Termómetro BuyHoldTime al cierre en bt_thermo_history.
 // Idempotente (upsert por fecha): reejecutable a diario tras el sync.
@@ -69,8 +70,12 @@ async function main() {
     n += batch.length; batch.length = 0;
   };
   const samples: Record<string, string> = {};
+  // Días sin mercado: el BHT repite el último día hábil, también su CAPE (Shiller publica el E10 nuevo el día 3 aunque
+  // sea feriado: se toma desde el siguiente día hábil).
+  const capeByDate = new Map(capeRows.map((r) => [r.date, r]));
   for (const row of capeRows) {
-    const r = computeThermoDay(row.date, series, { cape: row.cape, ratio: row.ratio });
+    const c = capeByDate.get(lastOpenDay(row.date, series['^GSPC'])) ?? row;
+    const r = computeThermoDay(row.date, series, { cape: c.cape, ratio: c.ratio });
     if (!r) continue;
     batch.push({ date: row.date, ...r, trend: trendAt(trend, trendDates, row.date) });
     if (['1993-01-04', '1997-01-02', '2021-02-01'].includes(row.date)) samples[row.date] = `${r.value} num=${r.numerator.toFixed(0)} den=${r.denominator} cov=${r.coverage} bonus=${r.bonus}${r.bonusLabel ? `(${r.bonusLabel})` : ''}`;

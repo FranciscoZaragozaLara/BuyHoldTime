@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { marketDate } from './market-date';
+import { lastOpenDay } from './market-calendar';
 import { BACKTEST_DIR } from '../../config/backtest-dir';
 import { PYTHON_BIN } from '../../config/python-bin';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -738,7 +739,9 @@ export class BacktestingService {
         liveMeta[t] = { date: String(q.date).slice(0, 10), source: String(q.source) };
       } catch { /* sin dato en vivo: se usa la BD */ }
     }));
-    const capeRow = await this.prisma.btShillerDaily.findFirst({ where: { date: { lte: new Date(iso) } }, orderBy: { date: 'desc' } });
+    // Sin mercado (fin de semana o feriado): CAPE del último día hábil, igual que el resto del BHT (computeThermoLive).
+    const capeDay = lastOpenDay(iso, live['^GSPC'] ? new Map([...s['^GSPC'], [live['^GSPC'].date, live['^GSPC'].value]]) : s['^GSPC']);
+    const capeRow = await this.prisma.btShillerDaily.findFirst({ where: { date: { lte: new Date(capeDay) } }, orderBy: { date: 'desc' } });
     const cape = { cape: capeRow?.cape ?? null, ratio: capeRow?.cape != null && capeRow.mean3y ? capeRow.cape / capeRow.mean3y : null };
     const { day, hy, liq, oil } = computeThermoLive(iso, s, cape, live);
     // Régimen tendencial de hoy con el precio en vivo del S&P 500 (o el último cierre si no hay dato en vivo).

@@ -363,3 +363,25 @@ describe('computeThermoLive', () => {
     expect(r.day).toEqual(base.day);
   });
 });
+
+describe('BHT en días sin mercado', () => {
+  // Thanksgiving 2026: Yahoo publicó un ^VIX fechado el 26-nov y CNN su Fear & Greed; el BHT subía 0.5 sin que abriera
+  // la bolsa. Ahora el día cerrado repite el último día hábil.
+  const s = () => ({
+    '^GSPC': new Map([['2026-11-24', 6800], ['2026-11-25', 6790]]),
+    VIXCLS: new Map([['2026-11-24', 26.36], ['2026-11-25', 28.29], ['2026-11-26', 26.8]]),
+    FEAR_GREED: new Map([['2026-11-25', 15.6], ['2026-11-26', 15.0]]),
+  });
+  const cape = { cape: 38, ratio: 1.03 };
+  test('feriado (Thanksgiving) = último día hábil', () => {
+    expect(computeThermoDay('2026-11-26', s(), cape)).toEqual(computeThermoDay('2026-11-25', s(), cape));
+    expect(computeThermoDay('2026-11-26', s(), cape)!.parts.find((p) => p.key === 'VIX')!.value).toBe(28.29);
+  });
+  test('fin de semana y en vivo: el dato de un día cerrado no cuenta', () => {
+    const fri = s();
+    fri['^GSPC'].set('2026-11-27', 6850); fri.VIXCLS.set('2026-11-27', 24); fri.FEAR_GREED.set('2026-11-27', 20); fri.FEAR_GREED.set('2026-11-28', 60);
+    expect(computeThermoDay('2026-11-28', fri, cape)).toEqual(computeThermoDay('2026-11-27', fri, cape));
+    const live = computeThermoLive('2026-11-26', s(), cape, { FEAR_GREED: { date: '2026-11-26', value: 90 } });
+    expect(live.day).toEqual(computeThermoDay('2026-11-25', s(), cape));
+  });
+});
