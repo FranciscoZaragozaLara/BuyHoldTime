@@ -8,13 +8,12 @@ describe('valuación propia', () => {
     expect(trailingPe(100, null, 2)).toBeNull();
     expect(trailingPe(1, 5, null)).toBeNull(); // 0.2x: dato roto
   });
-  test('valor estimado = EPS 12m × (1 + crecimiento) × P/E del sector', () => {
-    const f = fairValue(5, 0.1, 20, 132)!;
-    expect(f.epsNext12m).toBeCloseTo(5.5, 6);
+  test('valor estimado = EPS de los próximos 12 meses × P/E del sector', () => {
+    const f = fairValue(5.5, 20, 132)!;
     expect(f.value).toBeCloseTo(110, 6);
     expect(f.diffPct).toBeCloseTo(20, 6);
-    expect(fairValue(-1, 0.1, 20)).toBeNull();
-    expect(fairValue(5, 0.1, null)).toBeNull();
+    expect(fairValue(-1, 20)).toBeNull();
+    expect(fairValue(5, null)).toBeNull();
   });
   test('etiqueta', () => {
     expect(valuationLabel(20.5)).toBe('overvalued');

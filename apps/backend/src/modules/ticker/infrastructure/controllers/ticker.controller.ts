@@ -47,6 +47,7 @@ export class TickerController {
       })),
       snapshot: details.snapshot || null,
       fundamentals: details.fundamentals ?? null,
+      projection: details.projection ?? null,
     };
   }
 

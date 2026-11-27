@@ -8,7 +8,8 @@ import { isFundTicker } from '@/lib/isFund';
 import { TOKENS } from '@/lib/designTokens';
 import { EpsHoverCard } from './EpsHoverCard';
 import { ownProjections } from '@/lib/ownProjections';
-import type { TickerFundamentals } from '@/services/api';
+import type { EpsProjection, TickerFundamentals } from '@/services/api';
+import { projectionNote } from '@/lib/projectionLabel';
 
 interface HistoricalPrice {
   id?: string;
@@ -27,6 +28,8 @@ interface EpsHistoryChartProps {
   quarters: QuarterData[] | null | undefined;
   /** Fundamentales propios (EDGAR) de la ficha: P/E de 12 meses. */
   fundamentals?: TickerFundamentals | null;
+  /** EPS proyectado (modelo propio + consenso de analistas), del backend. */
+  projection?: EpsProjection | null;
   historicalPrices?: HistoricalPrice[];
 }
 
@@ -34,6 +37,7 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
   ticker,
   quarters,
   fundamentals,
+  projection,
   historicalPrices = [],
 }) => {
   const locale = useLocale();
@@ -46,9 +50,11 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
   const [columnCenterX, setColumnCenterX] = useState<number[]>([]);
   const [svgTotalWidth, setSvgTotalWidth] = useState<number>(0);
 
-  // Datos de la gráfica (lib/epsChartData): proyección propia de EPS (tendencia de EDGAR, lib/ownProjections),
-  // Escenario Mix y series anual/trimestral.
-  const projections = useMemo(() => ownProjections(quarters, new Date().toISOString().slice(0, 10), ticker?.eps).projections, [quarters, ticker]);
+  // Datos de la gráfica (lib/epsChartData): EPS proyectado del backend (modelo propio + consenso de analistas; sin él,
+  // la tendencia simple de EDGAR), Escenario Mix y series anual/trimestral.
+  const projections = useMemo(() => projection?.years.length
+    ? projection.years.map((y) => ({ calendarYear: y.calendarYear, label: y.label, epsBaseTtm: y.eps, epsBaseFwd: y.epsNext }))
+    : ownProjections([], new Date().toISOString().slice(0, 10), ticker?.eps).projections, [projection, ticker]);
   const mix = useMemo<MixParams>(() => ({ ...mixPe(ticker, fundamentals), currentYear: new Date().getFullYear(), horizonYears: Math.max(4, projections.length) }), [ticker, fundamentals, projections]);
   const annualData = useMemo(() => buildAnnualEpsSeries(quarters, historicalPrices, projections, mix, locale), [quarters, historicalPrices, projections, mix, locale]);
   const quarterlyData = useMemo(() => buildQuarterlyEpsSeries(quarters, historicalPrices, projections, mix, locale), [quarters, historicalPrices, projections, mix, locale]);
@@ -234,6 +240,7 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
                 ? 'Líneas con rango dinámico amplificado para observar los valles y picos reales de cotización ($) y múltiple P/E.'
                 : 'Amplified dynamic range lines to visualize true peaks and valleys of price ($) and P/E ratio.'}
             </p>
+            {projections.length > 0 && <p className="text-[11px] text-slate-500 mt-0.5">{projectionNote(projection, locale === 'es')}</p>}
           </div>
         </div>
 

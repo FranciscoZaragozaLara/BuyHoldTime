@@ -3,8 +3,7 @@
 import React from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import { Sparkles, DollarSign, Award, TrendingUp, BarChart2 } from 'lucide-react';
-import { Ticker, type TickerFundamentals } from '@/services/api';
-import { ownGrowth } from '@/lib/ownProjections';
+import { Ticker, type EpsProjection, type TickerFundamentals } from '@/services/api';
 import { fairValue, trailingPe, valuationLabel } from '@/lib/ownValuation';
 
 import precalculatedPerformance from '../data/precalculated_performance.json';
@@ -14,6 +13,8 @@ import precalculatedPerformance from '../data/precalculated_performance.json';
 interface FundamentalAnalysisCardProps {
   ticker: Ticker;
   fundamentals?: TickerFundamentals | null;
+  /** EPS proyectado (modelo propio + consenso de analistas), del backend. */
+  projection?: EpsProjection | null;
 }
 
 // Formatting helpers
@@ -35,7 +36,7 @@ function formatVolumeValue(val: number | null | undefined): string {
 const pct = (v: number | null | undefined, d = 1) => (v == null ? '—' : `${v >= 0 ? '+' : ''}${v.toFixed(d)}%`);
 const chgCls = (v: number | null | undefined) => (v == null ? 'text-slate-500' : v >= 0 ? 'text-favorable-400' : 'text-risk-400');
 
-export const FundamentalAnalysisCard: React.FC<FundamentalAnalysisCardProps> = ({ ticker, fundamentals }) => {
+export const FundamentalAnalysisCard: React.FC<FundamentalAnalysisCardProps> = ({ ticker, fundamentals, projection }) => {
   const locale = useLocale();
   const es = locale === 'es';
   const tm = useTranslations('Ticker.metrics');
@@ -43,8 +44,12 @@ export const FundamentalAnalysisCard: React.FC<FundamentalAnalysisCardProps> = (
   const f = fundamentals ?? null;
 
   const epsTtm = f?.eps?.ttm ?? null;
-  const growth = ownGrowth(ticker.historicalEpsQuarterly);
-  const fv = fairValue(epsTtm, growth.rate, ticker.sectorTerminalPe, currentPrice);
+  // EPS de los próximos 12 meses: la proyección de la ficha (sin ella no hay valor estimado).
+  const epsNext12m = projection?.epsNext12m ?? null;
+  const fv = fairValue(epsNext12m, ticker.sectorTerminalPe, currentPrice);
+  const basisTxt = projection?.basis === 'blend'
+    ? (es ? 'modelo propio y consenso de analistas' : 'own model and analyst consensus')
+    : (es ? 'modelo propio de datos históricos' : 'own model on historical data');
   const label = valuationLabel(fv?.diffPct ?? null);
   const labelText = label === 'overvalued' ? (es ? 'Cara' : 'Overvalued') : label === 'undervalued' ? (es ? 'Barata' : 'Undervalued') : label === 'fair' ? (es ? 'Valor justo' : 'Fairly valued') : null;
   const labelCls = label === 'overvalued' ? 'bg-risk-500/10 text-risk-400 border-risk-500/30' : label === 'undervalued' ? 'bg-favorable-500/10 text-favorable-400 border-favorable-500/30' : 'bg-caution-500/10 text-caution-400 border-caution-500/30';
@@ -141,8 +146,8 @@ export const FundamentalAnalysisCard: React.FC<FundamentalAnalysisCardProps> = (
             <span className="text-[10px] text-slate-500 mt-1">
               {fv
                 ? (es
-                  ? `EPS de los próximos 12 meses $${fv.epsNext12m.toFixed(2)} (tendencia propia ${(fv.growth * 100).toFixed(1)}% anual) × P/E de salida del sector ${fv.terminalPe.toFixed(1)}x. Referencia, no precio objetivo.`
-                  : `Next-12-month EPS $${fv.epsNext12m.toFixed(2)} (own trend ${(fv.growth * 100).toFixed(1)}% a year) × sector exit P/E ${fv.terminalPe.toFixed(1)}x. A reference, not a price target.`)
+                  ? `EPS de los próximos 12 meses $${fv.epsNext12m.toFixed(2)} (${basisTxt}) × P/E de salida del sector ${fv.terminalPe.toFixed(1)}x. Referencia, no precio objetivo.`
+                  : `Next-12-month EPS $${fv.epsNext12m.toFixed(2)} (${basisTxt}) × sector exit P/E ${fv.terminalPe.toFixed(1)}x. A reference, not a price target.`)
                 : (es ? 'Sin utilidades positivas en los últimos 12 meses o sin P/E del sector.' : 'No positive earnings over the last 12 months or no sector P/E.')}
             </span>
           </div>

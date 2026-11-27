@@ -6,6 +6,7 @@ import { HistoricalPrice } from '../../domain/historical-price.entity';
 import { FastSyncTickersUseCase, LIVE_QUOTE_MAX_AGE_MS } from './fast-sync-tickers.use-case';
 import { fundamentals, type Fundamentals, type QuarterFundamentals } from '../../domain/fundamentals-ttm';
 import { publicSnapshot } from '../../domain/public-snapshot';
+import { epsProjection, type EpsProjection } from '../../domain/eps-projection';
 
 export interface TickerDetailsDto {
   ticker: Ticker;
@@ -14,7 +15,12 @@ export interface TickerDetailsDto {
   snapshot?: any;
   /** Fundamentales propios desde los trimestres de EDGAR (ingresos, EPS, EBIT, margen, P/E, P/S). */
   fundamentals?: Fundamentals | null;
+  /** EPS proyectado: 40 % modelo propio (EDGAR) + 60 % consenso de analistas (domain/eps-projection.ts). */
+  projection?: EpsProjection | null;
 }
+
+/** ANALYST_BLEND=off → la proyección usa solo el modelo propio. */
+export const analystBlendOn = () => (process.env.ANALYST_BLEND ?? 'on').trim().toLowerCase() !== 'off';
 
 const isoDay = (d: Date) => d.toISOString().slice(0, 10);
 
@@ -62,19 +68,19 @@ export class GetTickerDetailsUseCase {
     }
 
     const historicalPrices = await this.tickerRepository.findHistoricalPrices(ticker.id, limit);
-    const snapshot = await this.tickerRepository.findLatestSnapshot(cleanSymbol);
+    const snapshot: any = await this.tickerRepository.findLatestSnapshot(cleanSymbol);
     const today = isoDay(new Date());
+    const quarters = quartersOf(ticker.historicalEpsQuarterly);
+    const f = fundamentals(quarters, today, ticker.price > 0 ? ticker.price : null, closeOneYearAgo(historicalPrices, today));
+    const scrape = snapshot?.scrapeDate ? isoDay(new Date(snapshot.scrapeDate)) : null;
 
     return {
       ticker,
       historicalPrices,
       snapshot: publicSnapshot(snapshot),
-      fundamentals: fundamentals(
-        quartersOf(ticker.historicalEpsQuarterly),
-        today,
-        ticker.price > 0 ? ticker.price : null,
-        closeOneYearAgo(historicalPrices, today),
-      ),
+      fundamentals: f,
+      // Sin fundamentales (unidades distintas al precio o sin trimestres) tampoco hay proyección.
+      projection: f ? epsProjection(quarters, today, snapshot?.analystEstimates ?? null, scrape, analystBlendOn()) : null,
     };
   }
 

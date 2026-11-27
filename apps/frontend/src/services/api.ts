@@ -84,6 +84,16 @@ export interface TickerDetails {
   /** Solo lo público del snapshot de GuruFocus: perfil y posiciones de un ETF (N-PORT). */
   snapshot?: any;
   fundamentals?: TickerFundamentals | null;
+  /** EPS proyectado por el backend: modelo propio (EDGAR) mezclado con el consenso de analistas (60 %) si lo hay. */
+  projection?: EpsProjection | null;
+}
+
+export interface EpsProjection {
+  basis: 'blend' | 'model';
+  analystWeight: number;
+  modelStartGrowth: number;
+  epsNext12m: number;
+  years: Array<{ calendarYear: number; label: string; eps: number; epsNext: number }>;
 }
 
 export interface Indicator {

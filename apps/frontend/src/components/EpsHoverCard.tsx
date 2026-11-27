@@ -98,7 +98,7 @@ export function EpsHoverCard({ hoveredItem, viewMode }: { hoveredItem: ChartItem
             </div>
             <div className="flex items-center gap-2">
               <span className="h-3 w-3 rounded bg-purple-500 border border-dashed border-purple-300" />
-              <span>{locale === 'es' ? 'Proyección propia (tendencia histórica + Escenario Mix)' : 'Own projection (historical trend + Mix)'}</span>
+              <span>{locale === 'es' ? 'Proyección de EPS + Escenario Mix' : 'EPS projection + Mix scenario'}</span>
             </div>
             <div className="flex items-center gap-1.5 text-cyan-300 font-mono font-bold">
               <span className="h-0.5 w-4 bg-cyan-400 inline-block shadow-[0_0_8px_#06b6d4]" />

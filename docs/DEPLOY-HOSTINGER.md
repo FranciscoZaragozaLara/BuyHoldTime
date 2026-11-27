@@ -110,3 +110,6 @@ Para desactivar el cron define `EDGAR_SYNC_CRON=off` en el servicio `backend`.
   scripts dentro del VPS) y las peticiones con `x-api-key` válida no se limitan. Si se pone Cloudflare u otro CDN
   delante, todas las visitas llegarían con IPs del CDN: habría que leer `CF-Connecting-IP` (o fijar sus rangos como
   proxies de confianza) antes de activarlo. Respuesta al pasar el límite: 429 con `Retry-After-short`/`-long`/`-global`.
+- **Proyección de EPS de la ficha** (`apps/backend/src/modules/ticker/domain/eps-projection.ts`): por defecto mezcla
+  60 % consenso de analistas (snapshot de GuruFocus) con 40 % modelo propio. `ANALYST_BLEND=off` en el entorno del
+  backend la deja solo con el modelo propio (por ejemplo, si GuruFocus lo pide o al cambiar a una fuente licenciada).

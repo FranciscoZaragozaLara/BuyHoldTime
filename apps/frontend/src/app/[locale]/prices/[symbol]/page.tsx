@@ -534,6 +534,7 @@ export default async function TickerDetailsPage({
         <FundamentalAnalysisCard 
           ticker={ticker}
           fundamentals={details.fundamentals}
+          projection={details.projection}
         />
 
         {/* Full-width section below for long wide tables */}
@@ -562,6 +563,7 @@ export default async function TickerDetailsPage({
           <StockValuationCalculator 
             ticker={ticker}
             fundamentals={details.fundamentals}
+            projection={details.projection}
           />
 
           {/* EPS Historical Bar Chart with Period-over-Period Growth and Wall St Forecasts */}
@@ -569,6 +571,7 @@ export default async function TickerDetailsPage({
             ticker={ticker}
             quarters={ticker.historicalEpsQuarterly}
             fundamentals={details.fundamentals}
+            projection={details.projection}
             historicalPrices={updatedPrices}
           />
 

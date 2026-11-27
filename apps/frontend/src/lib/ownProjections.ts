@@ -1,7 +1,6 @@
-// Proyección propia de EPS a partir de los trimestres de EDGAR, en lugar de estimados de analistas de terceros
-// (licenciados). Crecimiento = promedio de las tasas anuales compuestas de EPS y de ingresos de los últimos 12 meses
-// contra los de hace hasta 3 años, acotado a 0–20 %; sin historia suficiente, 6 %. Base = EPS de los últimos 12 meses.
-// Es una tendencia histórica, no un pronóstico: la UI lo dice así.
+// Respaldo de la proyección de EPS cuando el backend no manda una (GET /tickers/:symbol → projection, ver
+// domain/eps-projection.ts): la ficha lo usa con el EPS de la cotización y 6 % anual. Con trimestres calcula una
+// tendencia simple (promedio de CAGR de EPS e ingresos a 3 años, 0–20 %).
 import type { AnalystProjection } from './epsChartData';
 
 type Quarter = { date: string; eps?: number | null; epsDiluted?: number | null; revenue?: number | null };
