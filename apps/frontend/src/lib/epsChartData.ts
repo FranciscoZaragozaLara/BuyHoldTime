@@ -2,6 +2,7 @@
 // precios de cierre, P/E y proyecciones del Escenario Mix (mismas reglas que StockValuationCalculator).
 // Funciones puras (antes dentro del componente).
 import { solarYearEps } from './solarYearEps';
+import { trailingPe } from './ownValuation';
 
 export interface QuarterData {
   date: string;
@@ -37,6 +38,7 @@ export interface ChartItem {
   peRatio: number | null;
 }
 
+/** EPS proyectado por año calendario (proyección propia, lib/ownProjections). */
 export interface AnalystProjection { calendarYear: number; label: string; epsBaseTtm: number; epsBaseFwd: number }
 
 /** Parámetros del Escenario Mix: P/E actual, P/E de salida del sector y horizonte. */
@@ -64,40 +66,14 @@ export function priceAtYearEnd(prices: PricePoint[] | undefined, calYear: number
   return inYear[0].adjClose || inYear[0].close;
 }
 
-/** P/E Mix (promedio TTM y Fwd) y P/E terminal del sector, con los mismos respaldos que la calculadora. */
+/** P/E Mix (promedio TTM y Fwd) y P/E terminal del sector, con los mismos respaldos que la calculadora.
+ *  P/E TTM = precio ÷ EPS de 12 meses de EDGAR (ownValuation.trailingPe); Fwd = el de la cotización. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function mixPe(ticker: any, snapshot: any): { peMix: number; terminalPe: number } {
-  const rawSnapshotPe = snapshot?.pe ? Number(snapshot.pe) : null;
-  const peTtm = rawSnapshotPe && rawSnapshotPe >= 3 ? rawSnapshotPe : (ticker?.pe && ticker.pe > 0 ? ticker.pe : 25);
-  const peFwd = snapshot?.forwardPe ? Number(snapshot.forwardPe) : (ticker?.forwardPe && ticker.forwardPe > 0 ? ticker.forwardPe : peTtm * 0.9);
+export function mixPe(ticker: any, fundamentals?: { eps?: { ttm: number } | null } | null): { peMix: number; terminalPe: number } {
+  const peTtm = trailingPe(ticker?.price, fundamentals?.eps?.ttm, ticker?.pe) ?? 25;
+  const peFwd = ticker?.forwardPe && ticker.forwardPe > 0 ? ticker.forwardPe : peTtm * 0.9;
   const terminalPe = ticker?.sectorTerminalPe && ticker.sectorTerminalPe > 0 ? ticker.sectorTerminalPe : 22.0;
   return { peMix: (peTtm + peFwd) / 2, terminalPe };
-}
-
-/** Estimaciones anuales de EPS de analistas (fila EPS del snapshot) con su EPS del año siguiente (Fwd). */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function analystProjections(snapshot: any): AnalystProjection[] {
-  const estimatesObj = snapshot?.analystEstimates;
-  if (!estimatesObj || !estimatesObj.years || !estimatesObj.estimates) return [];
-  const years: string[] = estimatesObj.years;
-  const estimatesList: Array<{ metric: string; values: string[] }> = estimatesObj.estimates;
-  const epsRow = estimatesList.find((e) =>
-    e.metric.trim() === 'EPS ($)' || e.metric.trim() === 'EPS without NRI ($)' || e.metric.toLowerCase().includes('eps'));
-  if (!epsRow || !epsRow.values) return [];
-  const results: AnalystProjection[] = [];
-  years.forEach((yStr, idx) => {
-    const match = yStr.match(/\d{4}/);
-    if (!match) return;
-    const calYear = parseInt(match[0], 10);
-    const valStr = epsRow.values[idx];
-    const epsTtmVal = parseFloat(valStr);
-    if (isNaN(epsTtmVal) || valStr === '—') return;
-    const nextValStr = epsRow.values[idx + 1];
-    const nextEpsVal = parseFloat(nextValStr);
-    const epsFwdVal = !isNaN(nextEpsVal) && nextValStr !== '—' ? nextEpsVal : (epsTtmVal > 0 ? epsTtmVal * 1.1 : epsTtmVal);
-    results.push({ calendarYear: calYear, label: yStr, epsBaseTtm: epsTtmVal, epsBaseFwd: epsFwdVal });
-  });
-  return results;
 }
 
 /** Precio del Escenario Mix: EPS promedio (base y siguiente) × P/E que converge al terminal en el horizonte. */

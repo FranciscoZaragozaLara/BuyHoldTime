@@ -37,7 +37,7 @@ describe('GetTickersUseCase', () => {
       { date: '2024-12-31', close: 100 }, { date: '2025-02-03', close: 120 }, { date: '2025-04-01', close: 96 }, { date: '2025-06-02', close: 110 },
     ]]]);
     const repo: any = {
-      findAllSummary: jest.fn(async () => [{ symbol: 'SPY', price: 108, updatedAt: new Date(now - 60e3) }, { symbol: 'NEW', price: 5, updatedAt: new Date(now) }]),
+      findAllSummary: jest.fn(async () => [{ symbol: 'SPY', price: 108, updatedAt: new Date(now - 60e3) }, { symbol: 'NEW', price: 50, updatedAt: new Date(now) }]),
       latestCloseDate: jest.fn(async () => '2025-06-02'),
       findAllCloses: jest.fn(async () => closes),
       findAllQuarterlyFundamentals: jest.fn(async () => new Map([['SPY', []], ['NEW', [

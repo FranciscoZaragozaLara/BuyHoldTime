@@ -75,10 +75,15 @@ export interface HistoricalPrice {
   volume: number;
 }
 
+/** Fundamentales propios de la ficha (EDGAR): los de la lista más P/S y rendimiento de utilidades. */
+export type TickerFundamentals = NonNullable<Ticker['fundamentals']> & { ps: number | null; earningsYield: number | null };
+
 export interface TickerDetails {
   ticker: Ticker;
   historicalPrices: HistoricalPrice[];
+  /** Solo lo público del snapshot de GuruFocus: perfil y posiciones de un ETF (N-PORT). */
   snapshot?: any;
+  fundamentals?: TickerFundamentals | null;
 }
 
 export interface Indicator {

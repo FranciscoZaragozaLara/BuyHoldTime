@@ -3,10 +3,12 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Sparkles, Calendar, Layers, ArrowUpRight, ArrowDownRight, ChevronLeft, ChevronRight, Activity, Sun } from 'lucide-react';
 import { useLocale, useTranslations } from 'next-intl';
-import { analystProjections, buildAnnualEpsSeries, buildQuarterlyEpsSeries, mixPe, type ChartItem, type MixParams, type QuarterData } from '@/lib/epsChartData';
+import { buildAnnualEpsSeries, buildQuarterlyEpsSeries, mixPe, type ChartItem, type MixParams, type QuarterData } from '@/lib/epsChartData';
 import { isFundTicker } from '@/lib/isFund';
 import { TOKENS } from '@/lib/designTokens';
 import { EpsHoverCard } from './EpsHoverCard';
+import { ownProjections } from '@/lib/ownProjections';
+import type { TickerFundamentals } from '@/services/api';
 
 interface HistoricalPrice {
   id?: string;
@@ -23,14 +25,15 @@ interface HistoricalPrice {
 interface EpsHistoryChartProps {
   ticker: any;
   quarters: QuarterData[] | null | undefined;
-  snapshot?: any;
+  /** Fundamentales propios (EDGAR) de la ficha: P/E de 12 meses. */
+  fundamentals?: TickerFundamentals | null;
   historicalPrices?: HistoricalPrice[];
 }
 
 export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
   ticker,
   quarters,
-  snapshot,
+  fundamentals,
   historicalPrices = [],
 }) => {
   const locale = useLocale();
@@ -43,9 +46,10 @@ export const EpsHistoryChart: React.FC<EpsHistoryChartProps> = ({
   const [columnCenterX, setColumnCenterX] = useState<number[]>([]);
   const [svgTotalWidth, setSvgTotalWidth] = useState<number>(0);
 
-  // Datos de la gráfica (lib/epsChartData): proyecciones de analistas, Escenario Mix y series anual/trimestral.
-  const projections = useMemo(() => analystProjections(snapshot), [snapshot]);
-  const mix = useMemo<MixParams>(() => ({ ...mixPe(ticker, snapshot), currentYear: new Date().getFullYear(), horizonYears: Math.max(4, projections.length) }), [ticker, snapshot, projections]);
+  // Datos de la gráfica (lib/epsChartData): proyección propia de EPS (tendencia de EDGAR, lib/ownProjections),
+  // Escenario Mix y series anual/trimestral.
+  const projections = useMemo(() => ownProjections(quarters, new Date().toISOString().slice(0, 10), ticker?.eps).projections, [quarters, ticker]);
+  const mix = useMemo<MixParams>(() => ({ ...mixPe(ticker, fundamentals), currentYear: new Date().getFullYear(), horizonYears: Math.max(4, projections.length) }), [ticker, fundamentals, projections]);
   const annualData = useMemo(() => buildAnnualEpsSeries(quarters, historicalPrices, projections, mix, locale), [quarters, historicalPrices, projections, mix, locale]);
   const quarterlyData = useMemo(() => buildQuarterlyEpsSeries(quarters, historicalPrices, projections, mix, locale), [quarters, historicalPrices, projections, mix, locale]);
   const activeSeries = viewMode === 'annual' ? annualData : quarterlyData;

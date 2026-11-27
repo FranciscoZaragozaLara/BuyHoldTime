@@ -52,6 +52,18 @@ describe('fundamentales de la lista', () => {
     const f = fundamentals(quarters([1, 1, 1, 1, 1, 1, 1, 1], [-1, 1, 1, 1, 1, 1, 1, 1].map((x) => x * -1), []), '2026-11-26', 10, 10)!;
     expect(f.pe).toBeNull();
   });
+  test('P/S con acciones implícitas (utilidad neta ÷ EPS) y rendimiento de utilidades', () => {
+    // 10 acciones: utilidad neta 20/trimestre, EPS 2/trimestre; ingresos 100/trimestre → ventas/acción = 40
+    const qn = q.map((x, i) => ({ ...x, netIncome: i < 4 ? 20 : 10 }));
+    const f = fundamentals(qn, '2026-11-26', 160, 100)!;
+    expect(f.ps).toBeCloseTo(4, 6);
+    expect(f.earningsYield).toBeCloseTo(5, 6); // 8 / 160
+    expect(fundamentals(q, '2026-11-26', 160, 100)!.ps).toBeNull(); // sin utilidad neta
+  });
+  test('utilidades en otra moneda que el precio (P/E < 3): sin fundamentales', () => {
+    expect(fundamentals(q, '2026-11-26', 20, 10)).toBeNull(); // EPS 8 con precio 20 → P/E 2.5
+    expect(fundamentals(q, '2026-11-26', null, null)).not.toBeNull(); // sin precio no se puede saber
+  });
   test('sin trimestres → null', () => {
     expect(fundamentals([], '2026-11-26', 10, 10)).toBeNull();
   });

@@ -1,5 +1,6 @@
 import { isValidApiKey } from '../../../auth/api-key.util';
-import { Controller, Get, Post, Param, Query, Headers, HttpCode, HttpStatus, UnauthorizedException, Body } from '@nestjs/common';
+import { Controller, Get, Post, Param, Query, Headers, HttpCode, HttpStatus, UnauthorizedException, Body, UseGuards } from '@nestjs/common';
+import { AdminOrApiKeyGuard } from '../../../auth/guards/admin-or-api-key.guard';
 import { GetTickersUseCase } from '../../application/use-cases/get-tickers.use-case';
 import { GetTickerDetailsUseCase } from '../../application/use-cases/get-ticker-details.use-case';
 import { SyncTickersUseCase } from '../../application/use-cases/sync-tickers.use-case';
@@ -21,6 +22,13 @@ export class TickerController {
     return tickers;
   }
 
+  // Snapshot completo de GuruFocus (GF Score/Value, rankings, tablas, estimados): solo uso interno hasta tener licencia.
+  @Get(':symbol/snapshot')
+  @UseGuards(AdminOrApiKeyGuard)
+  async getFullSnapshot(@Param('symbol') symbol: string) {
+    return { snapshot: await this.getTickerDetailsUseCase.fullSnapshot(symbol) };
+  }
+
   @Get(':symbol')
   @HeavyThrottle()
   async getTickerDetails(
@@ -38,6 +46,7 @@ export class TickerController {
         volume: Number(price.volume),
       })),
       snapshot: details.snapshot || null,
+      fundamentals: details.fundamentals ?? null,
     };
   }
 

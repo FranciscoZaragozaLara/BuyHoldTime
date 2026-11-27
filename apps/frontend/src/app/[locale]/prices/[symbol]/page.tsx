@@ -10,7 +10,7 @@ import { StockHistoryTable } from '@/components/StockHistoryTable';
 import { QuarterlyDataTable } from '@/components/QuarterlyDataTable';
 import { EpsHistoryChart } from '@/components/EpsHistoryChart';
 import { FundamentalAnalysisCard } from '@/components/FundamentalAnalysisCard';
-import { FundamentalTablesTab } from '@/components/FundamentalTablesTab';
+import { AdminSnapshotTables } from '@/components/admin/AdminSnapshotTables';
 import { EtfProfileCard } from '@/components/EtfProfileCard';
 import { StockValuationCalculator } from '@/components/StockValuationCalculator';
 import { StockSeoSummary } from '@/components/StockSeoSummary';
@@ -533,7 +533,7 @@ export default async function TickerDetailsPage({
         {/* Unified BHT Fundamental Analysis & Valuation Statistics Card */}
         <FundamentalAnalysisCard 
           ticker={ticker}
-          snapshot={details.snapshot} 
+          fundamentals={details.fundamentals}
         />
 
         {/* Full-width section below for long wide tables */}
@@ -555,24 +555,20 @@ export default async function TickerDetailsPage({
             historicalPrices={updatedPrices}
           />
 
-          {/* Tabbed Fundamental Tables (BHT Scraped JSON Tables & Analyst Estimates) */}
-          {details.snapshot && (
-            <FundamentalTablesTab 
-              snapshot={details.snapshot} 
-            />
-          )}
+          {/* Tablas de GuruFocus (métricas, rankings, estimados): solo admin, referencia interna */}
+          <AdminSnapshotTables symbol={ticker.symbol} />
 
           {/* 3-Way Valuation Multi-Scenario Calculator */}
           <StockValuationCalculator 
             ticker={ticker}
-            snapshot={details.snapshot}
+            fundamentals={details.fundamentals}
           />
 
           {/* EPS Historical Bar Chart with Period-over-Period Growth and Wall St Forecasts */}
           <EpsHistoryChart 
             ticker={ticker}
             quarters={ticker.historicalEpsQuarterly}
-            snapshot={details.snapshot}
+            fundamentals={details.fundamentals}
             historicalPrices={updatedPrices}
           />
 

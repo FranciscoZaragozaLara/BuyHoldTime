@@ -3,16 +3,19 @@
 import React, { useState, useMemo } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import { Calculator, TrendingUp, TrendingDown, RefreshCw, ShieldAlert, Sliders, AlertTriangle, ArrowRightLeft, Lock, Crown, Sparkles, LogIn } from 'lucide-react';
-import { Ticker } from '@/services/api';
+import { Ticker, type TickerFundamentals } from '@/services/api';
+import { ownProjections, epsTtm } from '@/lib/ownProjections';
+import { trailingPe } from '@/lib/ownValuation';
 import { useAuth } from '@/context/AuthContext';
 import { AuthModal } from '@/components/AuthModal';
 
 interface StockValuationCalculatorProps {
   ticker: Ticker;
-  snapshot?: any;
+  /** Fundamentales propios (EDGAR) de la ficha. */
+  fundamentals?: TickerFundamentals | null;
 }
 
-export const StockValuationCalculator: React.FC<StockValuationCalculatorProps> = ({ ticker, snapshot }) => {
+export const StockValuationCalculator: React.FC<StockValuationCalculatorProps> = ({ ticker, fundamentals }) => {
   const locale = useLocale();
   const tt = useTranslations('Terms');
   const { user, role } = useAuth();
@@ -34,9 +37,9 @@ export const StockValuationCalculator: React.FC<StockValuationCalculatorProps> =
 
   // Extract base financial data with intelligent fallback chain
   const currentPrice = ticker.price || 1;
-  const rawSnapshotPe = snapshot?.pe ? Number(snapshot.pe) : null;
-  const peTtm = (rawSnapshotPe && rawSnapshotPe >= 3) ? rawSnapshotPe : (ticker.pe && ticker.pe > 0 ? ticker.pe : 25);
-  const peFwd = snapshot?.forwardPe ? Number(snapshot.forwardPe) : (ticker.forwardPe && ticker.forwardPe > 0 ? ticker.forwardPe : peTtm * 0.9);
+  // P/E de 12 meses con EDGAR (precio ÷ EPS TTM); si no, el de la cotización. Fwd: el de la cotización.
+  const peTtm = trailingPe(currentPrice, fundamentals?.eps?.ttm, ticker.pe) ?? 25;
+  const peFwd = ticker.forwardPe && ticker.forwardPe > 0 ? ticker.forwardPe : peTtm * 0.9;
 
   // Base Multiples
   const peMix = (peTtm + peFwd) / 2;
@@ -48,51 +51,25 @@ export const StockValuationCalculator: React.FC<StockValuationCalculatorProps> =
 
   const currentYearNum = new Date().getFullYear();
 
-  // Extract or build annual projections array
+  // Proyección propia de EPS por año (tendencia de EPS e ingresos de EDGAR, lib/ownProjections); sin estimados de
+  // analistas de terceros.
+  const today = new Date().toISOString().slice(0, 10);
+  const own = useMemo(() => ownProjections(ticker.historicalEpsQuarterly, today, ticker.eps), [ticker, today]);
   const rawProjections = useMemo(() => {
-    const estimatesObj = snapshot?.analystEstimates;
-    if (estimatesObj && estimatesObj.years && estimatesObj.estimates) {
-      const years: string[] = estimatesObj.years;
-      const epsEstimate = estimatesObj.estimates.find(
-        (e: any) => e.metric && (e.metric.includes('EPS') || e.metric.includes('Earnings'))
-      );
-
-      if (epsEstimate && epsEstimate.values && epsEstimate.values.length > 0) {
-        return years.map((year, idx) => {
-          const valStr = epsEstimate.values[idx];
-          const epsTtm = valStr && valStr !== '—' ? parseFloat(valStr) : 0;
-          const nextValStr = epsEstimate.values[idx + 1];
-          const epsFwd = nextValStr && nextValStr !== '—' ? parseFloat(nextValStr) : (epsTtm > 0 ? epsTtm * 1.1 : epsTtm);
-
-          return {
-            year,
-            epsBaseTtm: isNaN(epsTtm) ? 0 : epsTtm,
-            epsBaseFwd: isNaN(epsFwd) ? 0 : epsFwd,
-          };
-        }).filter((item) => item.epsBaseTtm > 0);
-      }
+    if (own.projections.length) {
+      return own.projections.map((p) => ({ year: `${p.calendarYear} (E)`, epsBaseTtm: p.epsBaseTtm, epsBaseFwd: p.epsBaseFwd }));
     }
-
-    // Fallback if snapshot estimates are not available
-    const baseEps = ticker.eps && ticker.eps > 0 ? ticker.eps : currentPrice / Math.max(10, peTtm);
-    const fallbackList = [];
-
-    for (let i = 1; i <= 4; i++) {
-      const yearStr = `${locale === 'es' ? 'Año' : 'Year'} ${currentYearNum + i}`;
-      const epsTtm = baseEps * Math.pow(1.12, i);
-      const epsFwd = baseEps * Math.pow(1.12, i + 1);
-      fallbackList.push({
-        year: yearStr,
-        epsBaseTtm: parseFloat(epsTtm.toFixed(2)),
-        epsBaseFwd: parseFloat(epsFwd.toFixed(2)),
-      });
-    }
-
-    return fallbackList;
-  }, [snapshot, ticker, currentPrice, peTtm, locale, currentYearNum]);
+    // Sin EPS positivo: base implícita en el P/E, con el crecimiento por omisión.
+    const baseEps = currentPrice / Math.max(10, peTtm);
+    return [1, 2, 3, 4].map((i) => ({
+      year: `${currentYearNum + i} (E)`,
+      epsBaseTtm: parseFloat((baseEps * Math.pow(1 + own.growth.rate, i)).toFixed(2)),
+      epsBaseFwd: parseFloat((baseEps * Math.pow(1 + own.growth.rate, i + 1)).toFixed(2)),
+    }));
+  }, [own, currentPrice, peTtm, currentYearNum]);
 
   // Baseline EPS
-  const currentEps = ticker.eps && ticker.eps > 0 ? ticker.eps : (currentPrice / Math.max(1, peTtm));
+  const currentEps = epsTtm(ticker.historicalEpsQuarterly, today)?.eps ?? (ticker.eps && ticker.eps > 0 ? ticker.eps : (currentPrice / Math.max(1, peTtm)));
 
   // Multi-Scenario Engine with Glide Path & CAGR Decomposition
   const scenarios = useMemo(() => {
@@ -451,6 +428,15 @@ export const StockValuationCalculator: React.FC<StockValuationCalculatorProps> =
               {locale === 'es' 
                 ? 'Simula precios futuros evaluando la contracción de múltiplos P/E y varianza en utilidades (EPS)' 
                 : 'Simulate future stock prices stress-testing P/E contraction and EPS variance'}
+            </p>
+            <p className="text-[11px] text-slate-500 mt-0.5">
+              {own.growth.basis === 'history'
+                ? (locale === 'es'
+                  ? `EPS proyectado con la tendencia propia: ${(own.growth.rate * 100).toFixed(1)}% anual (EPS e ingresos de los reportes a la SEC, últimos ${own.growth.years} años; tope 20%).`
+                  : `EPS projected with our own trend: ${(own.growth.rate * 100).toFixed(1)}% a year (EPS and revenue from SEC filings, last ${own.growth.years} years; capped at 20%).`)
+                : (locale === 'es'
+                  ? `Sin historia suficiente en los reportes a la SEC: EPS proyectado con ${(own.growth.rate * 100).toFixed(0)}% anual.`
+                  : `Not enough SEC filing history: EPS projected at ${(own.growth.rate * 100).toFixed(0)}% a year.`)}
             </p>
           </div>
         </div>

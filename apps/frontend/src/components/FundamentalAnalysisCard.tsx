@@ -3,14 +3,17 @@
 import React from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import { Sparkles, DollarSign, Award, TrendingUp, BarChart2 } from 'lucide-react';
-import { Ticker } from '@/services/api';
+import { Ticker, type TickerFundamentals } from '@/services/api';
+import { ownGrowth } from '@/lib/ownProjections';
+import { fairValue, trailingPe, valuationLabel } from '@/lib/ownValuation';
 
 import precalculatedPerformance from '../data/precalculated_performance.json';
-import { TOKENS } from '@/lib/designTokens';
 
+// Análisis fundamental de la ficha solo con datos propios: trimestres de EDGAR (fundamentals), la cotización y el P/E
+// terminal del sector. Sin GF Score/GF Value de GuruFocus (ver docs/plan/data-licensing-strategy.md).
 interface FundamentalAnalysisCardProps {
   ticker: Ticker;
-  snapshot?: any;
+  fundamentals?: TickerFundamentals | null;
 }
 
 // Formatting helpers
@@ -29,85 +32,35 @@ function formatVolumeValue(val: number | null | undefined): string {
   return val.toLocaleString();
 }
 
-export const FundamentalAnalysisCard: React.FC<FundamentalAnalysisCardProps> = ({ ticker, snapshot }) => {
+const pct = (v: number | null | undefined, d = 1) => (v == null ? '—' : `${v >= 0 ? '+' : ''}${v.toFixed(d)}%`);
+const chgCls = (v: number | null | undefined) => (v == null ? 'text-slate-500' : v >= 0 ? 'text-favorable-400' : 'text-risk-400');
+
+export const FundamentalAnalysisCard: React.FC<FundamentalAnalysisCardProps> = ({ ticker, fundamentals }) => {
   const locale = useLocale();
+  const es = locale === 'es';
   const tm = useTranslations('Ticker.metrics');
-
-  const bhtScore = snapshot?.gfScore ?? null;
-  const bhtValue = snapshot?.gfValue ? Number(snapshot.gfValue) : null;
-  const recommendation = snapshot?.recommendation || null;
   const currentPrice = ticker.price;
+  const f = fundamentals ?? null;
 
-  // Valuation comparison %
-  let diffPercent: number | null = null;
-  if (bhtValue && bhtValue > 0) {
-    diffPercent = ((currentPrice - bhtValue) / bhtValue) * 100;
-  }
-
-  // Localize valuation recommendation status
-  const getLocalizedValuationStatus = (rec: string | null, diff: number | null) => {
-    if (rec) {
-      const lower = rec.toLowerCase();
-      if (lower.includes('significantly overvalued')) return locale === 'es' ? 'Muy Sobrevalorada' : 'Significantly Overvalued';
-      if (lower.includes('modestly overvalued')) return locale === 'es' ? 'Ligeramente Sobrevalorada' : 'Modestly Overvalued';
-      if (lower.includes('fairly valued')) return locale === 'es' ? 'Valor Justo' : 'Fairly Valued';
-      if (lower.includes('modestly undervalued')) return locale === 'es' ? 'Ligeramente Infravalorada' : 'Modestly Undervalued';
-      if (lower.includes('significantly undervalued')) return locale === 'es' ? 'Muy Infravalorada' : 'Significantly Undervalued';
-      return rec;
-    }
-    if (diff !== null) {
-      if (diff > 20) return locale === 'es' ? 'Sobrevalorada' : 'Overvalued';
-      if (diff < -15) return locale === 'es' ? 'Infravalorada' : 'Undervalued';
-      return locale === 'es' ? 'Valor Justo' : 'Fairly Valued';
-    }
-    return 'N/A';
-  };
-
-  const valuationStatus = getLocalizedValuationStatus(recommendation, diffPercent);
-
-  const getStatusBadgeStyle = (rec: string | null, diff: number | null) => {
-    const text = (rec || '').toLowerCase();
-    if (text.includes('undervalued') || (diff !== null && diff < -10)) {
-      return 'bg-favorable-500/10 text-favorable-400 border-favorable-500/30';
-    }
-    if (text.includes('overvalued') || (diff !== null && diff > 15)) {
-      return 'bg-risk-500/10 text-risk-400 border-risk-500/30';
-    }
-    return 'bg-caution-500/10 text-caution-400 border-caution-500/30';
-  };
+  const epsTtm = f?.eps?.ttm ?? null;
+  const growth = ownGrowth(ticker.historicalEpsQuarterly);
+  const fv = fairValue(epsTtm, growth.rate, ticker.sectorTerminalPe, currentPrice);
+  const label = valuationLabel(fv?.diffPct ?? null);
+  const labelText = label === 'overvalued' ? (es ? 'Cara' : 'Overvalued') : label === 'undervalued' ? (es ? 'Barata' : 'Undervalued') : label === 'fair' ? (es ? 'Valor justo' : 'Fairly valued') : null;
+  const labelCls = label === 'overvalued' ? 'bg-risk-500/10 text-risk-400 border-risk-500/30' : label === 'undervalued' ? 'bg-favorable-500/10 text-favorable-400 border-favorable-500/30' : 'bg-caution-500/10 text-caution-400 border-caution-500/30';
+  const pe = trailingPe(currentPrice, epsTtm, ticker.pe);
+  const ebit = f?.ebit?.ttm ?? null;
 
   // Consolidated non-repeating metrics organized by Broker category
   const valuationMetrics = [
     { label: tm('marketCap'), value: ticker.cap || 'N/A' },
     { label: tm('enterpriseValue'), value: formatFinancialValue(ticker.enterpriseValue) },
-    { 
-      label: tm('peTrailing'), 
-      value: (snapshot?.pe && Number(snapshot.pe) >= 3) ? `${Number(snapshot.pe).toFixed(1)}x` : (ticker.pe ? `${ticker.pe.toFixed(1)}x` : 'N/A') 
-    },
-    { 
-      label: tm('forwardPe'), 
-      value: snapshot?.forwardPe ? `${Number(snapshot.forwardPe).toFixed(1)}x` : (ticker.forwardPe ? `${ticker.forwardPe.toFixed(1)}x` : 'N/A') 
-    },
-    { 
-      label: tm('pb'), 
-      value: snapshot?.pb ? `${Number(snapshot.pb).toFixed(2)}x` : (ticker.bookValue ? `${(currentPrice / ticker.bookValue).toFixed(2)}x` : 'N/A') 
-    },
-    { 
-      label: tm('ps'), 
-      value: snapshot?.psRatio ? `${Number(snapshot.psRatio).toFixed(2)}x` : 'N/A' 
-    },
-    { 
-      label: tm('evEbitda'), 
-      value: snapshot?.evToEbitda ? `${Number(snapshot.evToEbitda).toFixed(2)}x` : 'N/A' 
-    },
-    { 
-      label: tm('peg'), 
-      value: snapshot?.pegRatio ? `${Number(snapshot.pegRatio).toFixed(2)}x` : (ticker.pegRatio ? `${ticker.pegRatio.toFixed(2)}x` : 'N/A') 
-    },
-    { 
-      label: tm('shillerPe'), 
-      value: snapshot?.shillerPe ? `${Number(snapshot.shillerPe).toFixed(2)}x` : 'N/A' 
-    },
+    { label: tm('peTrailing'), value: pe ? `${pe.toFixed(1)}x` : 'N/A' },
+    { label: tm('forwardPe'), value: ticker.forwardPe ? `${ticker.forwardPe.toFixed(1)}x` : 'N/A' },
+    { label: tm('pb'), value: ticker.bookValue ? `${(currentPrice / ticker.bookValue).toFixed(2)}x` : 'N/A' },
+    { label: tm('ps'), value: f?.ps ? `${f.ps.toFixed(2)}x` : 'N/A' },
+    { label: 'EV/EBIT', value: ticker.enterpriseValue && ebit && ebit > 0 ? `${(ticker.enterpriseValue / ebit).toFixed(1)}x` : 'N/A' },
+    { label: tm('peg'), value: ticker.pegRatio ? `${ticker.pegRatio.toFixed(2)}x` : 'N/A' },
     { label: tm('sector'), value: ticker.sector || 'N/A' },
     { 
       label: tm('peTerminalSector'), 
@@ -115,12 +68,12 @@ export const FundamentalAnalysisCard: React.FC<FundamentalAnalysisCardProps> = (
     },
   ];
 
-  const earningsYieldVal = snapshot?.earningsYield 
-    ? `${(Number(snapshot.earningsYield) * 100).toFixed(2)}%` 
-    : (ticker.pe ? `${((1 / ticker.pe) * 100).toFixed(2)}%` : 'N/A');
+  const earningsYieldVal = f?.earningsYield != null
+    ? `${f.earningsYield.toFixed(2)}%`
+    : (pe ? `${((1 / pe) * 100).toFixed(2)}%` : 'N/A');
 
   const earningsMetrics = [
-    { label: tm('eps'), value: ticker.eps ? `$${ticker.eps.toFixed(2)}` : 'N/A' },
+    { label: tm('eps'), value: epsTtm != null ? `$${epsTtm.toFixed(2)}` : (ticker.eps ? `$${ticker.eps.toFixed(2)}` : 'N/A') },
     { label: tm('earningsYield'), value: earningsYieldVal },
     { label: tm('bookValue'), value: ticker.bookValue ? `$${ticker.bookValue.toFixed(2)}` : 'N/A' },
   ];
@@ -134,11 +87,7 @@ export const FundamentalAnalysisCard: React.FC<FundamentalAnalysisCardProps> = (
   const marketMetrics = [
     { label: tm('fromHigh'), value: fromHighFormattedCard, isCustomColor: true, colorClass: fromHighColorCard },
     { label: tm('divRate'), value: ticker.dividendRate ? `$${ticker.dividendRate.toFixed(2)}` : '$0.00' },
-    { 
-      label: tm('divYield'), 
-      // GuruFocus da el rendimiento ya en % ("Dividend Yield %": 1.03 = 1.03%).
-      value: snapshot?.dividendYield ? `${Number(snapshot.dividendYield).toFixed(2)}%` : (ticker.dy ? `${ticker.dy.toFixed(2)}%` : '0.00%') 
-    },
+    { label: tm('divYield'), value: ticker.dy ? `${ticker.dy.toFixed(2)}%` : '0.00%' },
     { label: tm('avgVolume'), value: formatVolumeValue(ticker.avgVolume) },
   ];
 
@@ -153,93 +102,67 @@ export const FundamentalAnalysisCard: React.FC<FundamentalAnalysisCardProps> = (
           </div>
           <div>
             <h3 className="text-sm font-extrabold text-white tracking-wide flex items-center gap-2">
-              {locale === 'es' ? 'Análisis Fundamental BHT' : 'BHT Fundamental Analysis'}
+              {es ? 'Análisis Fundamental BHT' : 'BHT Fundamental Analysis'}
             </h3>
             <p className="text-[11px] text-slate-400">
-              {locale === 'es' ? 'Valoración intrínseca, BHT Score y estadísticas fundamentales unificadas' : 'Intrinsic valuation, BHT Score, and unified fundamental statistics'}
+              {es ? 'Valor estimado, crecimiento y múltiplos con los reportes de la empresa a la SEC' : 'Estimated value, growth and multiples from the company\'s SEC filings'}
             </p>
           </div>
         </div>
-        
-        {/* Recommendation Status Badge */}
-        {snapshot && (
+
+        {labelText && (
           <div className="flex items-center gap-2 shrink-0">
-            <span className="text-[9px] uppercase font-bold text-slate-500">{locale === 'es' ? 'Estatus:' : 'Status:'}</span>
-            <span className={`px-2.5 py-0.5 rounded-md text-[11px] font-black uppercase tracking-wider border ${getStatusBadgeStyle(recommendation, diffPercent)}`}>
-              {valuationStatus}
-            </span>
+            <span className="text-[9px] uppercase font-bold text-slate-500">{es ? 'Estatus:' : 'Status:'}</span>
+            <span className={`px-2.5 py-0.5 rounded-md text-[11px] font-black uppercase tracking-wider border ${labelCls}`}>{labelText}</span>
           </div>
         )}
       </div>
 
-      {/* Unified Core Metrics Bar (BHT Score & BHT Value) */}
-      {snapshot && (
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
-          
-          {/* BHT Score (4 cols) */}
-          <div className="md:col-span-4 flex items-center justify-between p-3.5 rounded-xl border border-slate-900 bg-slate-900/30">
-            <div className="flex flex-col gap-0.5">
-              <span className="text-[9px] uppercase tracking-wider font-extrabold text-slate-400 flex items-center gap-1">
-                <Award size={12} className="text-accent-400" />
-                BHT Score
-              </span>
-              <div className="flex items-baseline gap-1 mt-0.5">
-                <span className="text-2xl font-black text-white">{bhtScore ?? 'N/A'}</span>
-                <span className="text-[10px] text-slate-500 font-bold">/ 100</span>
-              </div>
-              <span className="text-[10px] text-slate-400 font-medium">
-                {bhtScore && bhtScore >= 80 ? (locale === 'es' ? 'Excelente Desempeño' : 'Outstanding') : (locale === 'es' ? 'Desempeño Moderado' : 'Moderate')}
+      {(fv || f) && (
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-stretch">
+
+          {/* Valor estimado propio (7 cols) */}
+          <div className="md:col-span-7 flex flex-col gap-0.5 p-3.5 rounded-xl border border-slate-900 bg-slate-900/30">
+            <span className="text-[9px] uppercase tracking-wider font-extrabold text-slate-400 flex items-center gap-1">
+              <DollarSign size={12} className="text-favorable-400" />
+              {es ? 'Valor estimado BHT' : 'BHT estimated value'}
+            </span>
+            <div className="flex items-baseline gap-3 mt-0.5">
+              <span className="text-2xl font-black text-favorable-400">{fv ? `$${fv.value.toFixed(2)}` : 'N/A'}</span>
+              <span className="text-xs text-slate-400">
+                vs {es ? 'Precio Actual:' : 'Current Price:'} <strong className="text-white">${currentPrice.toFixed(2)}</strong>
               </span>
             </div>
-
-            {/* Mini gauge SVG */}
-            {bhtScore !== null && (
-              <div className="relative w-12 h-12 shrink-0 flex items-center justify-center">
-                <svg className="w-full h-full transform -rotate-90">
-                  <circle cx="24" cy="24" r="19" fill="transparent" stroke="#1e293b" strokeWidth="3.5" />
-                  <circle
-                    cx="24"
-                    cy="24"
-                    r="19"
-                    fill="transparent"
-                    stroke={bhtScore >= 80 ? TOKENS.accent : bhtScore >= 60 ? TOKENS.caution : '#f43f5e'}
-                    strokeWidth="3.5"
-                    strokeDasharray={2 * Math.PI * 19}
-                    strokeDashoffset={2 * Math.PI * 19 - (bhtScore / 100) * (2 * Math.PI * 19)}
-                    strokeLinecap="round"
-                  />
-                </svg>
-                <span className="absolute text-[10px] font-black text-white">{bhtScore}</span>
-              </div>
+            {fv?.diffPct != null && (
+              <span className={`text-[10px] font-bold ${fv.diffPct >= 0 ? 'text-risk-400' : 'text-favorable-400'}`}>
+                {pct(fv.diffPct)} {fv.diffPct >= 0 ? (es ? 'sobre el valor estimado' : 'above the estimated value') : (es ? 'bajo el valor estimado' : 'below the estimated value')}
+              </span>
             )}
+            <span className="text-[10px] text-slate-500 mt-1">
+              {fv
+                ? (es
+                  ? `EPS de los próximos 12 meses $${fv.epsNext12m.toFixed(2)} (tendencia propia ${(fv.growth * 100).toFixed(1)}% anual) × P/E de salida del sector ${fv.terminalPe.toFixed(1)}x. Referencia, no precio objetivo.`
+                  : `Next-12-month EPS $${fv.epsNext12m.toFixed(2)} (own trend ${(fv.growth * 100).toFixed(1)}% a year) × sector exit P/E ${fv.terminalPe.toFixed(1)}x. A reference, not a price target.`)
+                : (es ? 'Sin utilidades positivas en los últimos 12 meses o sin P/E del sector.' : 'No positive earnings over the last 12 months or no sector P/E.')}
+            </span>
           </div>
 
-          {/* BHT Value (8 cols) */}
-          <div className="md:col-span-8 flex items-center justify-between p-3.5 rounded-xl border border-slate-900 bg-slate-900/30">
-            <div className="flex flex-col gap-0.5">
-              <span className="text-[9px] uppercase tracking-wider font-extrabold text-slate-400 flex items-center gap-1">
-                <DollarSign size={12} className="text-favorable-400" />
-                BHT Value ({locale === 'es' ? 'Valor Intrínseco' : 'Intrinsic Value'})
-              </span>
-              <div className="flex items-baseline gap-3 mt-0.5">
-                <span className="text-2xl font-black text-favorable-400">
-                  {bhtValue ? `$${bhtValue.toFixed(2)}` : 'N/A'}
-                </span>
-                <span className="text-xs text-slate-400">
-                  vs {locale === 'es' ? 'Precio Actual:' : 'Current Price:'} <strong className="text-white">${currentPrice.toFixed(2)}</strong>
-                </span>
+          {/* Crecimiento y margen (5 cols) */}
+          <div className="md:col-span-5 flex flex-col gap-1.5 p-3.5 rounded-xl border border-slate-900 bg-slate-900/30">
+            <span className="text-[9px] uppercase tracking-wider font-extrabold text-slate-400 flex items-center gap-1">
+              <Award size={12} className="text-accent-400" />
+              {es ? 'Últimos 12 meses vs los 12 previos' : 'Last 12 months vs the prior 12'}
+            </span>
+            {[
+              { k: es ? 'Ingresos' : 'Revenue', v: f?.revenue ? formatFinancialValue(f.revenue.ttm) : '—', c: f?.revenue?.yoy ?? null, cTxt: pct(f?.revenue?.yoy) },
+              { k: 'EPS', v: f?.eps ? `$${f.eps.ttm.toFixed(2)}` : '—', c: f?.eps?.yoy ?? null, cTxt: pct(f?.eps?.yoy) },
+              { k: es ? 'Margen operativo' : 'Operating margin', v: f?.margin ? `${f.margin.now.toFixed(1)}%` : '—', c: f?.margin?.prev != null ? f.margin.now - f.margin.prev : null, cTxt: f?.margin?.prev != null ? `${f.margin.now - f.margin.prev >= 0 ? '+' : ''}${(f.margin.now - f.margin.prev).toFixed(1)} pp` : '—' },
+            ].map((r) => (
+              <div key={r.k} className="flex items-baseline justify-between text-xs">
+                <span className="text-slate-400">{r.k}</span>
+                <span className="font-mono text-slate-100">{r.v} <span className={`ml-1 text-[10px] font-bold ${chgCls(r.c)}`}>{r.cTxt}</span></span>
               </div>
-              {diffPercent !== null && (
-                <span className={`text-[10px] font-bold ${diffPercent >= 0 ? 'text-risk-400' : 'text-favorable-400'}`}>
-                  {diffPercent >= 0 ? `+${diffPercent.toFixed(1)}%` : `${diffPercent.toFixed(1)}%`} {diffPercent >= 0 ? (locale === 'es' ? 'sobre BHT Value' : 'above BHT Value') : (locale === 'es' ? 'bajo BHT Value' : 'below BHT Value')}
-                </span>
-              )}
-            </div>
-
-            <div className="hidden sm:flex flex-col items-end text-right">
-              <span className="text-[9px] uppercase font-bold text-slate-500">{locale === 'es' ? 'Modelo' : 'Model'}</span>
-              <span className="text-xs font-bold text-slate-300">BHT Valuation</span>
-            </div>
+            ))}
           </div>
 
         </div>
