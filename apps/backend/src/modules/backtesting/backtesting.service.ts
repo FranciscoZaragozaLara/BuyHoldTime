@@ -20,6 +20,8 @@ export const YAHOO_LIVE_ALIAS: Record<string, string> = { DCOILWTICO: 'CL=F', VI
 import { spliceSeries } from '../market-data/valuation-daily';
 import { computeThermoLive, LivePoints, THERMO_LIVE_TICKERS, THERMO_TICKERS, getHyBonus, getHySigma24, getLiqBonus, getOilBonus, lagSeries, CREDIT_BASE, creditFromBaa, PUB_LAG_DAYS, PriceMap } from './thermo-history';
 import { publicSource } from './public-source';
+import { HY_BAA_SCALE } from './thermo-history';
+import { HY_MODEL } from './licensed-series';
 
 // Día con mercado (lun–vie). Sáb/dom no operan y el BHT no se calcula.
 export function isTradingDayIso(isoDate: string): boolean {
@@ -74,6 +76,12 @@ export class BacktestingService {
   async getStrategies() { return this.prisma.btStrategy.findMany({ orderBy: { code: 'asc' } }); }
   async getMarketData(ticker: string, from?: string, to?: string) {
     const range = from || to ? { date: { gte: from ? new Date(from) : undefined, lte: to ? new Date(to) : undefined } } : {};
+    // HY_MODEL: serie de crédito del modelo (1.913477 × BAA10Y), la que mueve el BHT; sustituye en tablas y gráficas al
+    // HY OAS de ICE (con licencia), que coincide con ella hasta ago-2023 (proxy guardado).
+    if (ticker === HY_MODEL) {
+      const baa = await this.prisma.btMarketData.findMany({ where: { ticker: CREDIT_BASE, ...range }, orderBy: { date: 'asc' }, take: 20000 });
+      return baa.map((r: any) => ({ ...r, ticker: HY_MODEL, open: r.open * HY_BAA_SCALE, high: r.high * HY_BAA_SCALE, low: r.low * HY_BAA_SCALE, close: r.close * HY_BAA_SCALE, adjClose: r.adjClose != null ? r.adjClose * HY_BAA_SCALE : r.adjClose, source: 'model', volume: r.volume.toString() }));
+    }
     let rows: any[] = await this.prisma.btMarketData.findMany({ where: { ticker, ...range }, orderBy: { date: 'asc' }, take: 20000 });
     // Serie oficial con retraso (p. ej. WTI de FRED): se completa con el proxy provisional para las fechas aún no publicadas.
     const prov = PROVISIONAL_OF[ticker];
@@ -347,8 +355,12 @@ export class BacktestingService {
     return runs;
   }
 
-  async getLivePrice(ticker: string) {
+  async getLivePrice(ticker: string): Promise<any> {
     const t = ticker.trim();
+    if (t === HY_MODEL) {
+      const b: any = await this.getLivePrice(CREDIT_BASE);
+      return b?.close != null ? { ...b, ticker: HY_MODEL, close: Number(b.close) * HY_BAA_SCALE } : b;
+    }
     // VIX: FRED (VIXCLS) publica al día siguiente; en vivo se toma ^VIX de Yahoo (valor parcial del día).
     const isFred = ['DFEDTARU','DGS2','DGS10','DGS30','BAA10Y','BAMLH0A0HYM2','BAMLH0A0HYM2EY','CPIAUCSL','CPILFESL','GDP','GDPC1','MSACSR'].includes(t);
     const isCnn = t === 'FEAR_GREED';
@@ -750,19 +762,13 @@ export class BacktestingService {
     const spxNow = live['^GSPC']?.value ?? spxCloses[spxCloses.length - 1]?.close;
     const spxDay = live['^GSPC']?.date ?? spxCloses[spxCloses.length - 1]?.date ?? iso;
     const trend = spxNow != null ? liveTrend(spxCloses, spxDay, spxNow) : null;
-    // HY OAS real de ICE, solo informativo junto a la serie del modelo (1.913 × BAA10Y): último dato publicado.
-    let hyReal: { value: number; date: string } | null = null;
-    try {
-      const r = await this.prisma.btMarketData.findFirst({ where: { ticker: 'BAMLH0A0HYM2', source: 'fred', date: { lte: new Date(iso) } }, orderBy: { date: 'desc' }, select: { close: true, date: true } });
-      if (r) hyReal = { value: Number(r.close), date: r.date.toISOString().slice(0, 10) };
-    } catch { /* sin dato: la tarjeta solo muestra el modelo */ }
     const out = {
       date: iso,
       value: day?.value ?? null,
       numerator: day?.numerator ?? null,
       denominator: day?.denominator ?? null,
       parts: day?.parts ?? [],
-      hy: { bonus: hy.bonus, label: hy.label, hy: hy.hy, z: hy.z, d1: hy.d1, real: hyReal },
+      hy: { bonus: hy.bonus, label: hy.label, hy: hy.hy, z: hy.z, d1: hy.d1 },
       liq: { bonus: liq.bonus, label: liq.label, yoy: liq.yoy, m0d3: liq.m0d3, drop: liq.drop },
       oil: { bonus: oil.bonus, label: oil.label, ratio: oil.ratio, price: oil.price },
       trend,
@@ -857,11 +863,6 @@ export class BacktestingService {
     let net = this.strategyCache.get(nk);
     if (!net) { net = computeReentry(P, date); if (net) this.strategyCache.set(nk, net); }
     out.net = net ?? null;
-    // HY OAS real de ICE (solo informativo junto a la serie del modelo 1.913 × Baa): último dato ≤ la fecha.
-    try {
-      const real = await this.prisma.btMarketData.findFirst({ where: { ticker: 'BAMLH0A0HYM2', date: { lte: new Date(date) } }, orderBy: { date: 'desc' }, select: { close: true, source: true } });
-      out.hyReal = real && real.source === 'fred' ? Number(real.close) : null;
-    } catch { out.hyReal = null; }
     return out.half === null && out.extraVote === null ? { error: 'not found' } : out;
   }
 
@@ -931,7 +932,7 @@ export class BacktestingService {
     const denominator = parts.reduce((m, p) => m + Number(p.weight), 0);
     const th = await this.prisma.btThermoHistory.findUnique({ where: { date: r.date }, select: { bonus: true, bonusLabel: true, liqBonus: true, liqBonusLabel: true, oilBonus: true, oilBonusLabel: true, trendRegime: true, spxSma50: true, spxSma200: true } });
     // Insumos del trigger del bonus HY (valor, Δ1M, z y σ24) para transparentar el disparo en el hover.
-    let hyReal: number | null = null, bonusHy: number | null = null, bonusD1: number | null = null, bonusZ: number | null = null, bonusSigma: number | null = null, bonusFed: number | null = null;
+    let bonusHy: number | null = null, bonusD1: number | null = null, bonusZ: number | null = null, bonusSigma: number | null = null, bonusFed: number | null = null;
     try {
       const iso = r.date.toISOString().slice(0, 10);
       const hyRows = await this.prisma.btMarketData.findMany({ where: { ticker: { in: [CREDIT_BASE, 'DFEDTARU'] }, date: { lte: r.date } }, orderBy: { date: 'desc' }, take: 2200 });
@@ -940,9 +941,6 @@ export class BacktestingService {
       const hb = getHyBonus(hyMap, iso, fedMap);
       bonusHy = hb.hy; bonusD1 = hb.d1; bonusZ = hb.z; bonusFed = hb.fed;
       bonusSigma = getHySigma24(hyMap, iso);
-      // HY OAS real (ICE), solo informativo: el modelo usa 1.913 × BAA10Y.
-      const real = await this.prisma.btMarketData.findFirst({ where: { ticker: 'BAMLH0A0HYM2', date: { lte: r.date } }, orderBy: { date: 'desc' }, select: { close: true, source: true } });
-      if (real && real.source === 'fred') hyReal = Number(real.close);
     } catch {}
     // Insumos del bonus de liquidez M2/M0 para transparentar el disparo en el hover.
     let liqYoy: number | null = null, liqM0d3: number | null = null, liqDrop: number | null = null;
@@ -985,7 +983,7 @@ export class BacktestingService {
       quotes,
       // Régimen tendencial del S&P 500 ese día (cierre vs SMA 50/200).
       trend: th?.trendRegime ? { regime: th.trendRegime, sma50: th.spxSma50, sma200: th.spxSma200, close: r.spx ?? null } : null,
-      bonus: th?.bonus ?? 0, bonusLabel: th?.bonusLabel ?? null, bonusHy, hyReal, bonusD1, bonusZ, bonusSigma, bonusFed,
+      bonus: th?.bonus ?? 0, bonusLabel: th?.bonusLabel ?? null, bonusHy, bonusD1, bonusZ, bonusSigma, bonusFed,
       liqBonus: (th as any)?.liqBonus ?? 0, liqBonusLabel: (th as any)?.liqBonusLabel ?? null, liqYoy, liqM0d3, liqDrop,
       oilBonus: (th as any)?.oilBonus ?? 0, oilBonusLabel: (th as any)?.oilBonusLabel ?? null, oilPrice, oilRatio,
       parts: parts.map((p) => ({ key: p.key, value: p.value, score: p.score, weight: p.weight, aporte: denominator ? (p.score * p.weight) / denominator : null })),

@@ -1,6 +1,6 @@
-// Fuentes de datos que se pueden nombrar en el sitio: solo las públicas y gratuitas (agencias de EE. UU. y los datos de
-// Shiller en Yale). Las comerciales o con términos de uso restrictivos (proveedores de cotizaciones, prensa
-// financiera, índices de sentimiento propietarios, scrapers) no se mencionan mientras no haya licencia para ello.
+// Fuentes de datos que se pueden nombrar en el sitio: las públicas y gratuitas (agencias de EE. UU. y los datos de
+// Shiller en Yale) y las que se citan con atribución (índice Fear & Greed de CNN). Las comerciales o con términos de
+// uso restrictivos (proveedores de cotizaciones, prensa financiera, scrapers) no se mencionan sin licencia.
 
 const PUBLIC_SOURCES: Array<[RegExp, string]> = [
   [/^fred\b/i, 'FRED'],
@@ -9,6 +9,7 @@ const PUBLIC_SOURCES: Array<[RegExp, string]> = [
   [/^finra\b/i, 'FINRA'],
   [/^bls\b/i, 'BLS'],
   [/^bea\b/i, 'BEA'],
+  [/^cnn\b/i, 'CNN'],
 ];
 
 /** Nombre a mostrar de una fuente, o null si no es pública (no se muestra). */

@@ -63,9 +63,9 @@ Fecha: 26-nov-2026. No es opinión legal: antes de cobrar, revisión de un aboga
 | # | Acción | Esfuerzo | Reduce riesgo |
 |---|---|---|---|
 | 1 | GuruFocus fase 1 | Hecho | Alto |
-| 2 | Quitar HY OAS real (ICE) de la UI | Muy bajo | Medio |
-| 3 | P/E estimado: mostrar banda, no número | Bajo | Medio |
-| 4 | CNN: mostrar solo el puntaje del componente | Bajo | Bajo-medio |
+| 2 | Quitar HY OAS real (ICE) de la UI | Hecho (`fix/third-party-values-display`) | Medio |
+| 3 | P/E estimado: mostrar banda, no número | Hecho, salvo pendientes abajo | Medio |
+| 4 | CNN: decisión del usuario = mostrar el valor **citando a CNN** ("Fear & Greed (CNN)", "Fuente: CNN Business") | Hecho | Bajo-medio |
 | 5 | GuruFocus fase 2 (balance y flujo de EDGAR) | Medio | Recupera contenido |
 | 6 | GuruFocus fases 3–4 | Medio | Alto (independencia) |
 | 7 | Índice de sentimiento propio | Medio-alto | Bajo-medio |
@@ -75,3 +75,26 @@ Fecha: 26-nov-2026. No es opinión legal: antes de cobrar, revisión de un aboga
 
 Antes de mostrar un dato: ¿de dónde viene? Si no es de la lista de fuentes públicas (`src/lib/dataSources.ts`), se
 usa solo como insumo de un cálculo propio y la UI muestra el resultado propio, sin el nombre del proveedor.
+
+## Ajuste de visualización (26-nov-2026, `fix/third-party-values-display`)
+
+- **ICE:** fuera el "HY OAS real" (componentes, detalle del BHT, tranches; también del JSON de `thermo-live`,
+  `bht-tranches` y `bht-forward/detail`). Tablas y gráficas históricas (CAPE diario, evolución de regímenes, margen/PIB)
+  y el motor de regímenes heredado usan `HY_MODEL` = 1.913477 × BAA10Y (serie sintética del API, igual al proxy guardado
+  hasta 18-ago-2023); columnas "HY EY" (ICE) eliminadas. Efecto en la regla R3 heredada (HY < 3.5 %) desde ago-2023:
+  676 → 747 de 814 días. BHT, bonus y tranches no cambian (ya usaban la serie del modelo).
+- **WSJ/Birinyi:** el P/E estimado se muestra como banda (Barato/Justo/Caro/Elevado/Extremo, `src/lib/bandOnly.ts`) en
+  la home, el resumen del BHT, los componentes, el detalle del cálculo y el orbe (sin valor ni historia de valores);
+  columna "Fwd PE" de la tabla del CAPE eliminada; el panel de indicadores ya no baja SPX_FWD_EPS / NDX_PE / NDX_FWD_PE.
+- **API:** `GET /api/backtesting/market-data` y `/market-data/live` no sirven al público BAMLH0A0HYM2, BAMLH0A0HYM2EY,
+  SPX_FWD_EPS, NDX_PE ni NDX_FWD_PE (403); sí a la red interna (scripts de backtest, render de Next) o con x-api-key
+  (`licensed-series.ts`).
+- **CNN:** valor visible con atribución: "Fear & Greed (CNN)", "Fuente: CNN Business"; la marca de fecha del componente
+  dice "· CNN".
+
+**Pendiente:**
+- El valor del P/E estimado sigue en el JSON público de `thermo-live` / `thermo-parts-monthly` (parte `FWD.value`) y
+  en `/indicators` (`fwd_pe_ratio`): la UI ya no lo muestra; quitarlo del JSON exige derivar la banda en el backend.
+- Gráfica de valuación de `/indicators`: P/E mensual del Nasdaq 100 de GuruFocus (hasta oct-2026) y WSJ/Birinyi
+  (después). Necesita fuente propia (p. ej. P/E agregado del Nasdaq 100 con EDGAR de sus componentes, EXP-06).
+

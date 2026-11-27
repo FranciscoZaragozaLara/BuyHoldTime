@@ -11,6 +11,7 @@ import type { ThermoLive } from '@/components/backtesting/useThermoLive';
 import { hyAdjustmentLabel, liqAdjustmentLabel, oilAdjustmentLabel, PART_EXPLAIN, PART_META } from '@/lib/bhtComponents';
 import { PART_ORB_NAME } from '@/lib/orbHistory';
 import { PART_BANDS, PART_DEC, partLabel } from '@/lib/thermoScoring';
+import { BAND_ONLY_PARTS, bandOnlyText } from '@/lib/bandOnly';
 
 const sgn = (v: number, d = 0) => `${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(v).toFixed(d)}`;
 const adjCls = (b: number) => (b > 0 ? 'text-risk-300' : b < 0 ? 'text-favorable-300' : 'text-slate-500');
@@ -72,10 +73,10 @@ export function BhtCalcDetail({ th }: { th: ThermoLive }) {
                 <Fragment key={p.key}>
                 <tr className="border-b border-slate-800/60 text-slate-300">
                   <td className="px-3 py-1.5">{PART_META[p.key]?.name[loc] ?? partLabel(p.key, loc)}<InfoButton open={open.has(p.key)} onClick={() => toggle(p.key)} label={infoLabel} /></td>
-                  <td className="text-right px-3 py-1.5">{p.value.toFixed(dec)}</td>
+                  <td className="text-right px-3 py-1.5">{bandOnlyText(p.key, p.value, loc) ?? p.value.toFixed(dec)}</td>
                   <td className="text-right px-3 py-1" style={{ color: capeScoreColor(p.score) }}>
                     {PART_BANDS[p.key] && PART_ORB_NAME[p.key]
-                      ? <span className="inline-flex justify-end"><ScoreOrb name={PART_ORB_NAME[p.key]} value={p.value} dec={dec} weight={p.weight} score={Math.round(p.score)} bands={PART_BANDS[p.key]} small /></span>
+                      ? <span className="inline-flex justify-end"><ScoreOrb hideValue={BAND_ONLY_PARTS.has(p.key)} name={PART_ORB_NAME[p.key]} value={p.value} dec={dec} weight={p.weight} score={Math.round(p.score)} bands={PART_BANDS[p.key]} small /></span>
                       : p.score.toFixed(0)}
                   </td>
                   <td className="text-right px-3 py-1.5 text-slate-400">{p.weight}</td>

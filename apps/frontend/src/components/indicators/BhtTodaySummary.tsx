@@ -3,6 +3,7 @@
 // composición del BHT (base + ajustes) y rendimientos históricos de la combinación de hoy (BHT × tendencia).
 // Fuente única: /api/backtesting/thermo-live (el mismo cálculo que guarda el BHT); el servidor manda la primera
 // lectura para que la página no salga vacía.
+import { bandOnlyText } from '@/lib/bandOnly';
 import { useState } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import { BhtGauge } from '@/components/BhtGauge';
@@ -19,7 +20,7 @@ import { BhtCalcDetail } from './BhtCalcDetail';
 const T = {
   es: {
     title: 'BHT Index hoy', sub: 'Termómetro de riesgo del mercado (0 = miedo extremo / oportunidad, 100 = euforia / riesgo).',
-    spx: 'S&P 500', cape: 'CAPE de Shiller', capeNote: (r: string) => `${r} su media de 3 años`, fwd: 'P/E estimado', fwdNote: 'Precio ÷ EPS estimado a 12 meses',
+    spx: 'S&P 500', cape: 'CAPE de Shiller', capeNote: (r: string) => `${r} su media de 3 años`, fwd: 'P/E estimado', fwdNote: 'Banda de precio ÷ EPS estimado a 12 meses',
     pe: 'P/E', peNote: 'Precio ÷ utilidades de 12 meses', close: 'cierre',
     base: (n: number) => `Base ${n} componentes`, hy: 'crédito HY', liq: 'liquidez M2/M0', oil: 'petróleo',
     asOf: 'Datos al', bands: 'Ver todas las bandas', hideBands: 'Ocultar bandas', strategy: 'Estrategia a implementar',
@@ -27,7 +28,7 @@ const T = {
   },
   en: {
     title: 'BHT Index today', sub: 'Market risk thermometer (0 = extreme fear / opportunity, 100 = euphoria / risk).',
-    spx: 'S&P 500', cape: 'Shiller CAPE', capeNote: (r: string) => `${r} its 3-year mean`, fwd: 'Forward P/E', fwdNote: 'Price ÷ 12-month estimated EPS',
+    spx: 'S&P 500', cape: 'Shiller CAPE', capeNote: (r: string) => `${r} its 3-year mean`, fwd: 'Forward P/E', fwdNote: 'Band of price ÷ 12-month estimated EPS',
     pe: 'P/E', peNote: 'Price ÷ trailing 12-month earnings', close: 'close',
     base: (n: number) => `Base ${n} components`, hy: 'HY credit', liq: 'M2/M0 liquidity', oil: 'oil',
     asOf: 'Data as of', bands: 'Show all bands', hideBands: 'Hide bands', strategy: 'Strategy to implement',
@@ -64,7 +65,7 @@ export function BhtTodaySummary({ initial, pe }: { initial?: ThermoLive | null; 
     { label: t.spx, value: spx != null ? spx.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—', note: th.live?.['^GSPC']?.date ? `${t.close} ${stampLabel(th.live['^GSPC'].date, 'daily', loc)}` : '', cls: 'text-accent-400' },
     { label: t.cape, value: th.cape ? `${th.cape.cape.toFixed(2)}x` : '—', note: ratio != null ? t.capeNote(`${ratio.toFixed(3)}×`) : '', cls: 'text-risk-400' },
     { label: t.pe, value: pe != null && Number.isFinite(pe) ? `${pe.toFixed(2)}x` : '—', note: t.peNote, cls: 'text-caution-400' },
-    { label: t.fwd, value: fwd != null ? `${fwd.toFixed(2)}x` : '—', note: t.fwdNote, cls: 'text-favorable-400' },
+    { label: t.fwd, value: bandOnlyText('FWD', fwd, loc) ?? '—', note: t.fwdNote, cls: 'text-favorable-400' },
   ];
 
   return (

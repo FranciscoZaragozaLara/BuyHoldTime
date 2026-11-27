@@ -1,4 +1,5 @@
-import { Controller, Get, Post, Body, Query, Param, Res, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Query, Param, Res, UseGuards, Req, ForbiddenException } from '@nestjs/common';
+import { canServeSeries } from './licensed-series';
 import { AdminOrApiKeyGuard } from '../auth/guards/admin-or-api-key.guard';
 import { BacktestingService } from './backtesting.service';
 import { ExternalThrottle, HeavyThrottle } from '../../config/rate-limit';
@@ -12,7 +13,8 @@ export class BacktestingController {
   getStrategies() { return this.svc.getStrategies(); }
 
   @Get('market-data')
-  getMarketData(@Query('ticker') ticker: string, @Query('from') from?: string, @Query('to') to?: string) {
+  getMarketData(@Req() req: any, @Query('ticker') ticker: string, @Query('from') from?: string, @Query('to') to?: string) {
+    if (!canServeSeries(ticker, req)) throw new ForbiddenException('Serie no disponible públicamente');
     return this.svc.getMarketData(ticker, from, to);
   }
 
@@ -110,8 +112,9 @@ export class BacktestingController {
 
   @Get('market-data/live')
   @ExternalThrottle()
-  async getLive(@Query('ticker') ticker: string) {
+  async getLive(@Req() req: any, @Query('ticker') ticker: string) {
     if (!ticker) return { error: 'ticker required' };
+    if (!canServeSeries(ticker, req)) throw new ForbiddenException('Serie no disponible públicamente');
     const r: any = await this.svc.getLivePrice(ticker);
     return r ? { ...r, source: publicSource(r.source) } : r;
   }

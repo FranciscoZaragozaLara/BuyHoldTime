@@ -32,7 +32,7 @@ export async function HomeThermoParts({ locale, thermo }: { locale: string; ther
                       <span className="w-9 h-9 shrink-0 rounded-full flex items-center justify-center font-mono text-xs font-extrabold text-slate-950" style={{ background: c, boxShadow: `0 0 10px ${c}55` }}>{s}</span>
                       <span className="flex-1 min-w-0">
                         <span className="block text-sm font-semibold text-slate-100 truncate">{t(`parts.${key}`)}</span>
-                        <span className="block text-[11px] text-slate-500 font-mono">{formatPartValue(key, p.value)} · {t('weight', { w: p.weight })}</span>
+                        <span className="block text-[11px] text-slate-500 font-mono">{formatPartValue(key, p.value, locale)} · {t('weight', { w: p.weight })}</span>
                       </span>
                       <ChevronRight size={16} className="text-slate-600 group-hover:text-accent-400 transition" />
                     </Link>

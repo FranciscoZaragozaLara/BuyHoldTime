@@ -12,14 +12,14 @@ export type OrbHistoryRow = { month: string; date: string; value: number | null;
 /** Nombre del orbe en la card → clave del componente en `parts`. WTI no es componente (es bonus). */
 export const ORB_PART_KEY: Record<string, string> = {
   CAPE: 'CAPE', 'Fwd PE': 'FWD', 'CAPE Ratio': 'RATIO', CPI: 'CPI', Core: 'CORE',
-  '2Y Mom': 'Y2M', '30Y': '30Y', '30Y Mom': '30Y', 'Margin/GDP': 'MG', 'Margen/PIB': 'MG', VIX: 'VIX', 'Sent.': 'FG',
+  '2Y Mom': 'Y2M', '30Y': '30Y', '30Y Mom': '30Y', 'Margin/GDP': 'MG', 'Margen/PIB': 'MG', VIX: 'VIX', 'F&G': 'FG',
   MSACSR: 'MS', 'PIB real': 'PIB',
 };
 
 /** Componente del termómetro → nombre de su orbe (el mismo que en las cards, para compartir popover e historia). */
 export const PART_ORB_NAME: Record<string, string> = {
   CAPE: 'CAPE', FWD: 'Fwd PE', RATIO: 'CAPE Ratio', CPI: 'CPI', CORE: 'Core', Y2M: '2Y Mom', '30Y': '30Y',
-  MG: 'Margen/PIB', VIX: 'VIX', FG: 'Sent.', MS: 'MSACSR', PIB: 'PIB real',
+  MG: 'Margen/PIB', VIX: 'VIX', FG: 'F&G', MS: 'MSACSR', PIB: 'PIB real',
 };
 
 export function orbHistoryRows(data: MonthlyParts[] | undefined, orbName: string): OrbHistoryRow[] {

@@ -10,8 +10,8 @@ import { getLiveStaleTime, isMarketOpen } from '@/lib/queryClient';
 export type ThermoLive = {
   date: string; value: number | null;
   parts: { key: string; score: number; weight: number; value: number }[];
-  /** hy = serie de crédito del modelo (1.913 × BAA10Y); real = HY OAS de ICE, solo informativo. */
-  hy: { bonus: number; label: string; hy: number | null; z: number | null; d1: number | null; real?: { value: number; date: string } | null };
+  /** hy = serie de crédito del modelo (1.913 × BAA10Y). */
+  hy: { bonus: number; label: string; hy: number | null; z: number | null; d1: number | null };
   liq: { bonus: number; label: string; yoy: number | null; m0d3: number | null; drop: number | null };
   oil: { bonus: number; label: string; ratio: number | null; price: number | null };
   /** Régimen tendencial del S&P 500 de hoy (cierre en vivo vs SMA 50/200). */
@@ -62,7 +62,7 @@ export function useLiveTicker(ticker: string){
     refetchOnWindowFocus: false,
     refetchInterval: (q)=>{
       const t = (q.queryKey as string[])[1];
-      if (['DFEDTARU','DGS2','DGS10','DGS30','MSACSR','VIXCLS','BAMLH0A0HYM2','BAMLH0A0HYM2EY','CPIAUCSL','CPILFESL','M2SL','BOGMBASE','NYSE_ADV_VOL','NYSE_DEC_VOL','NSDQ_ADV_VOL','NSDQ_DEC_VOL','SPX_ADV_VOL','SPX_DEC_VOL','CAPE'].includes(t)) return false as any;
+      if (['DFEDTARU','DGS2','DGS10','DGS30','MSACSR','VIXCLS','HY_MODEL','CPIAUCSL','CPILFESL','M2SL','BOGMBASE','NYSE_ADV_VOL','NYSE_DEC_VOL','NSDQ_ADV_VOL','NSDQ_DEC_VOL','SPX_ADV_VOL','SPX_DEC_VOL','CAPE'].includes(t)) return false as any;
       return isMarketOpen() ? 5*60*1000 : false as any;
     },
   });

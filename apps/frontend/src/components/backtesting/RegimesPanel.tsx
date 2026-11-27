@@ -163,7 +163,7 @@ export function RegimesPanel() {
         }
         if(capeRes.ok) setCape(await capeRes.json());
         // marketHistory para mismos indicadores que tabla backtesting
-        const tickers=['TQQQ','QQQ','SPY','VOO','^GSPC','^IXIC','CPIAUCSL','CPILFESL','DFEDTARU','DGS2','DGS10','DGS30','BAMLH0A0HYM2','BAMLH0A0HYM2EY','GDP','FINRA_DEBIT','MSACSR','VIXCLS','FEAR_GREED'];
+        const tickers=['TQQQ','QQQ','SPY','VOO','^GSPC','^IXIC','CPIAUCSL','CPILFESL','DFEDTARU','DGS2','DGS10','DGS30','HY_MODEL','GDP','FINRA_DEBIT','MSACSR','VIXCLS','FEAR_GREED'];
         const to=new Date().toISOString().slice(0,10);
         const hist: Record<string,Map<string,number>>={};
         await Promise.all(tickers.map(async tck=>{
@@ -537,7 +537,7 @@ export function RegimesPanel() {
       try { queryClient.invalidateQueries({ queryKey: ['indicators'] }); } catch {}
       try { queryClient.invalidateQueries(); } catch {}
       // refetch marketHistory para tabla (mismos tickers que load inicial)
-      const tickers=['TQQQ','QQQ','SPY','VOO','^GSPC','^IXIC','CPIAUCSL','CPILFESL','DFEDTARU','DGS2','DGS10','DGS30','BAMLH0A0HYM2','BAMLH0A0HYM2EY','GDP','FINRA_DEBIT','MSACSR','VIXCLS','FEAR_GREED'];
+      const tickers=['TQQQ','QQQ','SPY','VOO','^GSPC','^IXIC','CPIAUCSL','CPILFESL','DFEDTARU','DGS2','DGS10','DGS30','HY_MODEL','GDP','FINRA_DEBIT','MSACSR','VIXCLS','FEAR_GREED'];
       const to=new Date().toISOString().slice(0,10);
       const hist: Record<string,Map<string,number>>={};
       await Promise.all(tickers.map(async tck=>{

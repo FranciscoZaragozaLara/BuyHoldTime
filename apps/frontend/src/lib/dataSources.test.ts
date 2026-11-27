@@ -10,7 +10,8 @@ describe('fuentes que se pueden nombrar', () => {
     expect(publicSourceLabel('FINRA')).toBe('FINRA');
   });
   test('comerciales o propietarias: no se muestran', () => {
-    for (const s of ['yahoo', 'yahoo ^VIX', 'yahoo CL=F', 'CNN', 'WSJ / Birinyi', 'GuruFocus', 'db-fallback', 'none', '', null, undefined]) {
+    expect(publicSourceLabel('CNN')).toBe('CNN'); // se cita con atribución
+    for (const s of ['yahoo', 'yahoo ^VIX', 'yahoo CL=F', 'WSJ / Birinyi', 'GuruFocus', 'db-fallback', 'none', '', null, undefined]) {
       expect(publicSourceLabel(s)).toBeNull();
     }
   });

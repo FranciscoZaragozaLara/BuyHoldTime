@@ -1,4 +1,5 @@
 // Componentes del termómetro BHT agrupados para la home, con el ancla de su tarjeta en Indicadores.
+import { bandOnlyText } from './bandOnly';
 export const HOME_PART_GROUPS: { key: string; parts: { key: string; anchor: string }[] }[] = [
   { key: 'valuation', parts: [{ key: 'CAPE', anchor: 'comp-valuation' }, { key: 'FWD', anchor: 'comp-valuation' }, { key: 'RATIO', anchor: 'comp-valuation' }] },
   { key: 'inflation', parts: [{ key: 'CPI', anchor: 'comp-inflation' }, { key: 'CORE', anchor: 'comp-inflation' }, { key: 'Y2M', anchor: 'comp-rates' }, { key: '30Y', anchor: 'comp-rates' }] },
@@ -10,9 +11,11 @@ export const HOME_BONUSES: { key: 'hy' | 'liq' | 'oil'; anchor: string }[] = [
 ];
 
 /** Valor legible de cada componente (% para tasas/inflación, x para múltiplos, meses para vivienda). */
-export function formatPartValue(key: string, v: number): string {
+export function formatPartValue(key: string, v: number, locale = 'es'): string {
+  const band = bandOnlyText(key, v, locale);
+  if (band) return band;
   switch (key) {
-    case 'CAPE': case 'FWD': return `${v.toFixed(2)}x`;
+    case 'CAPE': return `${v.toFixed(2)}x`;
     case 'RATIO': return `${v.toFixed(3)}x`;
     case 'CPI': case 'CORE': case 'Y2M': case '30Y': case 'MG': case 'PIB': return `${v.toFixed(2)}%`;
     case 'FG': return v.toFixed(0);

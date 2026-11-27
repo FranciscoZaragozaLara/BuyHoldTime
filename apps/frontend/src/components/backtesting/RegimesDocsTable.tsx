@@ -83,7 +83,7 @@ const ROWS_EN: Record<string, { regimen: string; mide: string; gatillo: string; 
     "mide": "Blindness + systemic liquidity — 4 phases + healing",
     "gatillo": "Armed HY<P20 in 6M → G1 Δ3M>1.5σ & >5.0% + <SMA50 (30%) → G2 Δ1M≥1.00% or >SMA36M×1.30 (70%) → G3 <SMA3M+>SMA30 (30%) → G4 <SMA12M+>SMA100 (70%) · V2 mutex",
     "crisis": "Bankruptcy/liquidity crisis — credit freeze",
-    "indicador": "BAMLH0A0HYM2 + SMA_3/12/36M + σ24M + SMA_50/30/100",
+    "indicador": "HY (1.913 × Baa, FRED BAA10Y) + SMA_3/12/36M + σ24M + SMA_50/30/100",
     "umbral": "Armed P20_36M in 6M · G1 >1.5σ & >5.0% · G2 +1.00% or ×1.30 (V2) · G3 <SMA3M · G4 <SMA12M · SPY 0.75% legacy"
   }
 };
@@ -116,7 +116,7 @@ const rows: Row[] = [
     mide: 'Ceguera + Liquidez sistémica — 4 fases + Sanación',
     gatillo: 'Armado HY<P20 en 6M → G1 Δ3M>1.5σ & >5.0% + <SMA50 (30%) → G2 Δ1M≥1.00% o >SMA36M×1.30 (70%) → G3 <SMA3M+>SMA30 (30%) → G4 <SMA12M+>SMA100 (70%) · V2 mutex',
     crisis: 'Crisis Quiebras/Liquidez — congelamiento crédito',
-    indicador: 'BAMLH0A0HYM2 + SMA_3/12/36M + σ24M + SMA_50/30/100',
+    indicador: 'HY (1.913 × Baa, FRED BAA10Y) + SMA_3/12/36M + σ24M + SMA_50/30/100',
     umbral: 'Armado P20_36M en 6M · G1 >1.5σ & >5.0% · G2 +1.00% o ×1.30 (V2) · G3 <SMA3M · G4 <SMA12M · SPY 0.75% legacy',
     icon: '😴',
     color: 'from-violet-500/20 to-purple-500/20',
@@ -228,7 +228,7 @@ export function RegimesDocsTable({ live }: { live?: RegimeLive }) {
         </div>
         <div className="px-3 py-2 bg-slate-800/50 border-t border-slate-800 text-xs text-slate-500 flex flex-wrap gap-3">
           <span>{L("💡 Click en el régimen para ver indicador y umbral", "💡 Click a regime to see indicator and threshold")}</span>
-          <span className="ml-auto">{L("CAPE = Shiller · OAS = BAMLH0A0HYM2 · Margin = FINRA_DEBIT/GDP · Fuente: ", "CAPE = Shiller · OAS = BAMLH0A0HYM2 · Margin = FINRA_DEBIT/GDP · Source: ")}<span className="font-mono">docs/regimes.md</span></span>
+          <span className="ml-auto">{L("CAPE = Shiller · HY = 1.913 × Baa (FRED BAA10Y) · Margin = FINRA_DEBIT/GDP · Fuente: ", "CAPE = Shiller · HY = 1.913 × Baa (FRED BAA10Y) · Margin = FINRA_DEBIT/GDP · Source: ")}<span className="font-mono">docs/regimes.md</span></span>
         </div>
       </div>
 
@@ -369,7 +369,7 @@ export function RegimesDocsTable({ live }: { live?: RegimeLive }) {
           {open === 'Complacencia Crediticia HY OAS' && (
             <div className="text-sm text-slate-300 space-y-3">
               <div className="font-semibold text-violet-300">{L("3. Complacencia Crediticia & Riesgo Sistémico (HY OAS) — 4 Fases + Sanación ", "3. Credit Complacency & Systemic Risk (HY OAS) — 4 Phases + Healing ")}<span className="text-caution-300 text-xs">{L("· Activo — SPY_REGIMEN3", "· Active")}</span></div>
-              <p className="text-slate-400 text-xs leading-relaxed">{L("Protege contra ", "Protects against ")}<b className="text-violet-300">{L("congelamiento del crédito, crisis de liquidez y quiebras sistémicas", "credit freezes, liquidity crises and systemic bankruptcies")}</b>{L(" vía ", " via ")}<b>HY OAS (BAMLH0A0HYM2)</b>{L(" + confirmación técnica ", " + technical confirmation ")}<b>SMA 50/30/100</b>{L(". Escala independiente de R1 y R2.", ". Scales independently of R1 and R2.")}</p>
+              <p className="text-slate-400 text-xs leading-relaxed">{L("Protege contra ", "Protects against ")}<b className="text-violet-300">{L("congelamiento del crédito, crisis de liquidez y quiebras sistémicas", "credit freezes, liquidity crises and systemic bankruptcies")}</b>{L(" vía ", " via ")}<b>HY (1.913 × Baa, FRED BAA10Y)</b>{L(" + confirmación técnica ", " + technical confirmation ")}<b>SMA 50/30/100</b>{L(". Escala independiente de R1 y R2.", ". Scales independently of R1 and R2.")}</p>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
                 <div className="bg-slate-900 rounded-lg p-3 border border-slate-700"><span className="text-slate-500 block">{L("El Combustible", "The Fuel")}</span><span className="text-slate-200">{L("Ceguera al riesgo — OAS muy bajo (Default Risk ignorado)", "Risk blindness — very low OAS (default risk ignored)")}</span></div>
                 <div className="bg-slate-900 rounded-lg p-3 border border-slate-700"><span className="text-slate-500 block">{L("La Chispa", "The Spark")}</span><span className="text-violet-300">{L("Congelamiento crédito / quiebra que dispara spreads", "Credit freeze / bankruptcy that spikes spreads")}</span></div>
@@ -378,7 +378,7 @@ export function RegimesDocsTable({ live }: { live?: RegimeLive }) {
                 <div className="bg-caution-950/30 rounded-lg p-3 border border-caution-800/50">
                   <div className="text-[11px] font-semibold text-caution-200">{L("F0 — Estado de Armado (Fase Vigilancia · 6M)", "F0 — Armed State (Watch Phase · 6M)")}</div>
                   <div className="text-xs text-caution-200 font-mono mt-1">{L("HY OAS < Percentil", "HY OAS < Percentile")}<sub>20,36M</sub>{L(" en algún momento últimos 6 meses", " at some point in the last 6 months")}</div>
-                  <div className="text-[11px] text-caution-300/70 mt-1">{L("BAMLH0A0HYM2 < P20_36M → complacencia extrema previa a burbuja. Sin armado no hay G1/G2.", "BAMLH0A0HYM2 < P20_36M → extreme complacency before a bubble. Without arming there is no G1/G2.")}</div>
+                  <div className="text-[11px] text-caution-300/70 mt-1">{L("HY < P20_36M → complacencia extrema previa a burbuja. Sin armado no hay G1/G2.", "HY < P20_36M → extreme complacency before a bubble. Without arming there is no G1/G2.")}</div>
                   {live && (()=>{ const r=live.r3;
                     if(r.armed) return <LiveLine tone="bad" icon="🔴"><b>{L("Armado.", "Armed.")}</b>{L(" El spread estuvo anormalmente barato en 6M — el crédito duerme, vigilando el salto.", " The spread was abnormally cheap within 6M — credit is asleep, watching for the jump.")}</LiveLine>;
                     return <LiveLine tone="idle" icon="⚪"><b>{L("No armado.", "Not armed.")}</b>{L(" Sin armado no hay G1/G2.", " Without arming there is no G1/G2.")}<br/><Leg name={L("Pata HY", "HY leg")} actual={r.hy} target={r.p20} dir="down" unit="%"/></LiveLine>; })()}

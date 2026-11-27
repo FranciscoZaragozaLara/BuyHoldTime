@@ -88,7 +88,7 @@ export function BhtHistoryBlock() {
 }
 
 // Orbe de cristal genérico con puntaje; click/hover muestra valor actual + tabla de ponderación.
-export function ScoreOrb({ name, value, dec = 2, weight, score, bands, blend = null, small = false }: { name: string; value: number; dec?: number; weight: number; score: number; bands: [number, number, string, string, string][]; blend?: MomBlend; small?: boolean }) {
+export function ScoreOrb({ name, value, dec = 2, weight, score, bands, blend = null, small = false, hideValue = false }: { hideValue?: boolean; name: string; value: number; dec?: number; weight: number; score: number; bands: [number, number, string, string, string][]; blend?: MomBlend; small?: boolean }) {
   const ti = useTranslations('Backtesting.indicators');
   const loc = useLocale();
   const [open, setOpen] = useState(false);
@@ -128,7 +128,7 @@ export function ScoreOrb({ name, value, dec = 2, weight, score, bands, blend = n
         <div ref={popRef} style={pos ? { left: pos.left, top: pos.top, maxHeight: pos.maxH } : { visibility: 'hidden' }} className={`fixed z-50 overflow-y-auto p-3 rounded-xl bg-slate-800 border border-slate-700 shadow-2xl text-left normal-case flex flex-col md:flex-row gap-4 ${hasHistory ? 'w-[min(96vw,1120px)]' : 'w-72'}`}>
           <div className="w-full md:w-64 shrink-0">
           <div className="text-xs font-semibold text-slate-100">{ti('orbRisk', { name })} <span className="font-mono" style={{ color: c }}>{score}/100</span></div>
-          <div className="text-[11px] text-slate-400 mt-0.5 font-mono">{name} {value.toFixed(dec)} → <span className="text-sky-300 font-semibold">{score}/100</span> · {ti('orbWeight', { weight })}</div>
+          <div className="text-[11px] text-slate-400 mt-0.5 font-mono">{name}{hideValue ? '' : ` ${value.toFixed(dec)}`} → <span className="text-sky-300 font-semibold">{score}/100</span> · {ti('orbWeight', { weight })}</div>
           {blend && (
             <div className="mt-1.5 rounded-lg bg-slate-900/70 border border-slate-700/60 px-2 py-1.5 font-mono text-[10px] leading-relaxed">
               <div className="text-slate-300">{ti('colLevel')} {blend.level.toFixed(2)} → {blend.levelScore.toFixed(1)} <span className="text-slate-500">×0.4</span></div>
@@ -149,7 +149,7 @@ export function ScoreOrb({ name, value, dec = 2, weight, score, bands, blend = n
           {hasHistory && (
             <div className="flex-1 min-w-0 md:border-l md:border-slate-700/70 md:pl-4 border-t md:border-t-0 border-slate-700/70 pt-2 md:pt-0">
               <div className="text-xs font-semibold text-slate-100 mb-1.5">{ti('historyTitle')}</div>
-              <OrbHistoryTable rows={histRows} loading={hist.isLoading} valueHeader={name} dec={dec} />
+              <OrbHistoryTable rows={histRows} loading={hist.isLoading} valueHeader={name} dec={dec} showValue={!hideValue} />
               <div className="text-[9px] text-slate-500 mt-1.5">{ti('historyNote')}</div>
             </div>
           )}

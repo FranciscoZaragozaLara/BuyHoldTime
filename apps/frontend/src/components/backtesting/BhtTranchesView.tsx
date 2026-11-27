@@ -44,7 +44,7 @@ type Net = {
   cycleEvents?: Array<{ date: string; rule: string; pct: number; price: number }>;
   cycleClosedAt?: string | null;
 };
-type Both = Partial<Record<Rule, Result | null>> & { sell?: Sell | null; net?: Net | null; hyReal?: number | null };
+type Both = Partial<Record<Rule, Result | null>> & { sell?: Sell | null; net?: Net | null };
 type Ath = { pct: number; date: string; price: number; window5y: boolean };
 
 const cache = new Map<string, Promise<Both | null>>();
@@ -169,7 +169,7 @@ export default function BhtTranchesView({ date, locale, initialRoute = 'qqq', ch
       <div className="text-[10px] uppercase tracking-wide font-bold" style={{ color: viewColor }}>{view === 'sell' ? t.sellTitle : t.title}</div>
 
       {r === undefined ? <div className="font-mono text-slate-500">{t.loading}</div> : r === null ? <div className="font-mono text-risk-300">{t.error}</div> : view === 'sell' ? (
-        sell ? <SellView sell={sell} es={es} t={t} one={one} three={three} fresh={fresh} hyReal={both?.hyReal} /> : <div className="font-mono text-risk-300">{t.error}</div>
+        sell ? <SellView sell={sell} es={es} t={t} one={one} three={three} fresh={fresh}  /> : <div className="font-mono text-risk-300">{t.error}</div>
       ) : (
         <div className={`space-y-2 pl-2 border-l-2 transition-opacity ${fresh ? '' : 'opacity-50'}`} style={{ borderColor: `${MODE_META.buy.color}88` }}>
           {/* Semáforo y episodio */}
@@ -219,12 +219,12 @@ export default function BhtTranchesView({ date, locale, initialRoute = 'qqq', ch
                 </tr>
                 <tr className="border-b border-slate-800/60">
                   <td><Mark ok={!r.today.veto} /></td><td className="text-slate-300 pr-2 whitespace-nowrap">{t.veto}</td>
-                  <td className={r.today.veto ? 'text-risk-300' : 'text-slate-400'}>{r.today.veto ? t.vetoOn : t.vetoOff} · HY {es ? 'modelo' : 'model'} (Baa×1.91) {r.today.oas?.toFixed(2) ?? '—'}% · máx63 {r.today.oasMax63?.toFixed(2) ?? '—'} · SMA20 {r.today.oasSma20?.toFixed(2) ?? '—'}{both?.hyReal != null && <span className="text-slate-500" title={es ? 'HY OAS real, solo referencia: las reglas usan la serie del modelo (1.913 × Baa) porque el real solo tiene 3 años en FRED' : 'Real HY OAS, reference only: the rules use the model series (1.913 × Baa) since the real one has only 3 years on FRED'}> · {es ? 'OAS real' : 'real OAS'} {both.hyReal.toFixed(2)}%</span>}</td>
+                  <td className={r.today.veto ? 'text-risk-300' : 'text-slate-400'}>{r.today.veto ? t.vetoOn : t.vetoOff} · HY {es ? 'modelo' : 'model'} (Baa×1.91) {r.today.oas?.toFixed(2) ?? '—'}% · máx63 {r.today.oasMax63?.toFixed(2) ?? '—'} · SMA20 {r.today.oasSma20?.toFixed(2) ?? '—'}</td>
                 </tr>
                 {r.today.credit && (
                   <tr className="border-b border-slate-800/60">
                     <td><Mark ok={!r.today.credit.crisis || r.today.credit.easing} /></td><td className="text-slate-300 pr-2 whitespace-nowrap">{t.credit}</td>
-                    <td className="text-slate-400"><CreditLine c={r.today.credit} es={es} t={t} hyReal={both?.hyReal} /></td>
+                    <td className="text-slate-400"><CreditLine c={r.today.credit} es={es} t={t}  /></td>
                   </tr>
                 )}
                 <tr className="border-b border-slate-800/60">
@@ -318,7 +318,7 @@ export default function BhtTranchesView({ date, locale, initialRoute = 'qqq', ch
 type TT = typeof T.es;
 /** Línea de crédito (CREDIT_CFG): estado y cada requisito en verde si cumple. Divergencia = OAS ≥ 1.5× su mínimo de 12 meses,
  *  Δ3M ≥ +0.5 y precio a menos de 7% de su máximo; en crisis, las compras esperan alivio (≥10% bajo su máx. de 63 días) o BHT ≤ 40. */
-function CreditLine({ c, es, t, hyReal }: { c: CreditState | undefined; es: boolean; t: TT; hyReal?: number | null }) {
+function CreditLine({ c, es, t }: { c: CreditState | undefined; es: boolean; t: TT }) {
   if (!c) return null;
   const st = creditStatus(c), M = CREDIT_META[st];
   const okC = (ok: boolean | null) => (ok == null ? 'text-slate-200' : ok ? 'text-risk-300 font-bold' : 'text-slate-200');
@@ -327,7 +327,7 @@ function CreditLine({ c, es, t, hyReal }: { c: CreditState | undefined; es: bool
     <div className="flex flex-col">
       <span className="font-bold" style={{ color: M.color }}>{es ? M.es : M.en}</span>
       <span>
-        HY <span className="text-slate-500">({es ? 'modelo' : 'model'}, Baa×1.91)</span> <b className="text-slate-200">{c.oas?.toFixed(2) ?? '—'}%</b>{hyReal != null && <span className="text-slate-500"> ({es ? 'OAS real' : 'real OAS'} {hyReal.toFixed(2)}%)</span>}
+        HY <span className="text-slate-500">({es ? 'modelo' : 'model'}, Baa×1.91)</span> <b className="text-slate-200">{c.oas?.toFixed(2) ?? '—'}%</b>
         {' = '}<b className={okC(c.ratio != null ? c.ratio >= 1.5 : null)}>{c.ratio?.toFixed(2) ?? '—'}×</b> {t.crMin} (≥ 1.5)
         {' · '}{t.crD3} <b className={okC(c.d3 != null ? c.d3 >= 0.5 : null)}>{sg(c.d3, 2)}</b> (≥ +0.5)
         {' · '}{t.crPx} <b className={okC(c.fromHi252 != null ? c.fromHi252 >= -7 : null)}>{sg(c.fromHi252)}%</b> (&gt; −7%)
@@ -339,7 +339,7 @@ function CreditLine({ c, es, t, hyReal }: { c: CreditState | undefined; es: bool
   );
 }
 /** Vista de la escalera de venta: ciclo de codicia, condiciones del día y los 5 tranches de venta (color rosa). */
-function SellView({ sell, es, t, one, three, fresh, hyReal }: { sell: Sell; es: boolean; t: TT; one: string; three: string; fresh: boolean; hyReal?: number | null }) {
+function SellView({ sell, es, t, one, three, fresh }: { sell: Sell; es: boolean; t: TT; one: string; three: string; fresh: boolean }) {
   const L = SELL_LIGHT[sell.light];
   const names: Record<string, [string, string]> = { V1: ['Codicia', 'Greed'], V2: ['Codicia extrema', 'Extreme greed'], V3: ['Euforia', 'Euphoria'], V4: ['Primera grieta', 'First crack'], V5: ['Tendencia rota', 'Broken trend'] };
   const td = sell.today;
@@ -363,7 +363,7 @@ function SellView({ sell, es, t, one, three, fresh, hyReal }: { sell: Sell; es: 
           <span>{t.below200} <span className={td.below200days >= 3 ? 'text-risk-300 font-bold' : 'text-slate-200'}>{td.below200days}</span></span>
           <span>{t.dcross} <span className={td.deathCross ? 'text-risk-300 font-bold' : 'text-slate-200'}>{td.deathCross ? t.yes : t.no}</span></span>
         </div>
-        {td.credit && <div className="mt-1 font-mono text-slate-400"><CreditLine c={td.credit} es={es} t={t} hyReal={hyReal} /></div>}
+        {td.credit && <div className="mt-1 font-mono text-slate-400"><CreditLine c={td.credit} es={es} t={t} /></div>}
       </div>
       <table className="w-full font-mono">
         <thead className="text-[9px] uppercase tracking-wide text-slate-500">

@@ -10,7 +10,7 @@ export function useRegimeEngine(cape: any[], marketHistoryRaw: Record<string, Ma
   const getMarginGdpRatio = (d: string) => marginGdpRatio(marketHistory['FINRA_DEBIT'], marketHistory['GDP'], d);
   // Régimen simple: Bull/Bear/Stress basado en umbrales (legacy, para columna Régimen)
   function getRegime(d:string, capeVal:number|null, ratio:number|null): string {
-    const hy=getClosestPrice(marketHistory['BAMLH0A0HYM2'],d);
+    const hy=getClosestPrice(marketHistory['HY_MODEL'],d);
     const mg=getMarginGdpRatio(d);
     if(capeVal!=null && capeVal>30) return 'Stress';
     if(hy!=null && hy>5) return 'Stress';
@@ -37,7 +37,7 @@ export function useRegimeEngine(cape: any[], marketHistoryRaw: Record<string, Ma
       const gdp=getRecentPrice(marketHistory['GDP'], d, 120);
       const mg = (finra!=null && gdp!=null && gdp!==0) ? (finra/1000)/gdp*100 : null;
       if(mg!=null) mgMap.set(d, mg);
-      const hy=getClosestPrice(marketHistory['BAMLH0A0HYM2'], d);
+      const hy=getClosestPrice(marketHistory['HY_MODEL'], d);
       if(hy!=null) hMap.set(d, hy);
     }
     return { marginGdpCache: mgMap, hyCache: hMap };
@@ -160,7 +160,7 @@ export function useRegimeEngine(cape: any[], marketHistoryRaw: Record<string, Ma
       }
     }
     // R3
-    let r3Active=false; let r3Hy:number|null=getClosestPrice(marketHistory['BAMLH0A0HYM2'], d); let r3P20:number|null=null; let r3Complacencia=false; let r3LtP20=false; let r3Lt35=false;
+    let r3Active=false; let r3Hy:number|null=getClosestPrice(marketHistory['HY_MODEL'], d); let r3P20:number|null=null; let r3Complacencia=false; let r3LtP20=false; let r3Lt35=false;
     if(r3Hy!=null){
       r3Lt35=r3Hy<3.5;
       if(idx>=0){
@@ -212,7 +212,7 @@ export function useRegimeEngine(cape: any[], marketHistoryRaw: Record<string, Ma
       if(rocs.length>=2){ const m=mean(rocs)!; sigma24=std(rocs,m); }
     }
     // HY OAS diario: Δ3M/Δ1M, σ24M, SMAs, P20_36M
-    const hyS = seriesOf('BAMLH0A0HYM2');
+    const hyS = seriesOf('HY_MODEL');
     let hy:number|null=null,d3m:number|null=null,sig:number|null=null,d1m:number|null=null,sma36:number|null=null,sma12m:number|null=null,sma3m:number|null=null,p20_36:number|null=null;
     if(hyS.length){
       hy = hyS[hyS.length-1][1];

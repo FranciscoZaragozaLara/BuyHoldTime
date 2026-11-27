@@ -47,8 +47,8 @@ export function CapeHistoryTable({ cape, capeRows, marketHistory: marketHistoryR
   const live2y = useLiveTicker('DGS2');
   const live10y = useLiveTicker('DGS10');
   const live30y = useLiveTicker('DGS30');
-  const liveHyOas = useLiveTicker('BAMLH0A0HYM2');
-  const liveHyEy = useLiveTicker('BAMLH0A0HYM2EY');
+  // Crédito con la serie del modelo (1.913 × spread Baa de FRED), la que usa el BHT; el HY OAS de ICE tiene licencia.
+  const liveHyOas = useLiveTicker('HY_MODEL');
   const liveCpi = useLiveTicker('CPIAUCSL');
   const liveCore = useLiveTicker('CPILFESL');
   const liveGdp = useLiveTicker('GDP');
@@ -167,7 +167,7 @@ export function CapeHistoryTable({ cape, capeRows, marketHistory: marketHistoryR
           <div className="flex items-center gap-2">
           <button onClick={()=>{
             const buildSheet = (view: 'daily'|'monthly'|'yearly')=>{
-              const headers = ['Fecha','SP500', view==='monthly' ? 'Change Monthly' : view==='yearly' ? 'Change Yearly' : 'Change Daily','BHT Index','Tendencia','Perf 1Y','Perf Total','CAGR','Nasdaq','TQQQ','SPX EPS','PE TTM','Fwd PE','CAPE Registrado','CAPE Ajustado','mean3y','RatioCape','FED Target','2Y','10Y','30Y','HY OAS','HY EY','HY 10Y+OAS','HY Bonus','LIQ Bonus','Oil Bonus','WTI','WTI xSMA36','M2','M2 YoY','M0','M0 Δ3M','CPI','Core CPI','GDP','FINRA Debit','Margin/GDP','MSACSR','VIX','Sentimiento','Vol SPY','OBV','Fuerza','Tend-OBV','NetAdv','Up/Down','CAPE SMA 3Y','CAPE SMA 5Y','CAPE SMA 10Y','CAPE EMA 3Y','CAPE EMA 5Y','CAPE EMA 10Y'];
+              const headers = ['Fecha','SP500', view==='monthly' ? 'Change Monthly' : view==='yearly' ? 'Change Yearly' : 'Change Daily','BHT Index','Tendencia','Perf 1Y','Perf Total','CAGR','Nasdaq','TQQQ','SPX EPS','PE TTM','CAPE Registrado','CAPE Ajustado','mean3y','RatioCape','FED Target','2Y','10Y','30Y','HY (modelo)','HY 10Y+HY','HY Bonus','LIQ Bonus','Oil Bonus','WTI','WTI xSMA36','M2','M2 YoY','M0','M0 Δ3M','CPI','Core CPI','GDP','FINRA Debit','Margin/GDP','MSACSR','VIX','Fear & Greed (CNN)','Vol SPY','OBV','Fuerza','Tend-OBV','NetAdv','Up/Down','CAPE SMA 3Y','CAPE SMA 5Y','CAPE SMA 10Y','CAPE EMA 3Y','CAPE EMA 5Y','CAPE EMA 10Y'];
               let rowsView: any[] = capeRows;
               if(view==='monthly'){
                 const byMonth = new Map<string, any>();
@@ -207,12 +207,10 @@ export function CapeHistoryTable({ cape, capeRows, marketHistory: marketHistoryR
                   if(sortCol==='dgs2') return getClosestPrice(marketHistory['DGS2'], d) ?? -1e9;
                   if(sortCol==='dgs10') return getClosestPrice(marketHistory['DGS10'], d) ?? -1e9;
                   if(sortCol==='dgs30') return getClosestPrice(marketHistory['DGS30'], d) ?? -1e9;
-                  if(sortCol==='hyOas') return getClosestPrice(marketHistory['BAMLH0A0HYM2'], d) ?? -1e9;
-                  if(sortCol==='hyEy') return getClosestPrice(marketHistory['BAMLH0A0HYM2EY'], d) ?? -1e9;
-                  if(sortCol==='hy10y') { const o=getClosestPrice(marketHistory['BAMLH0A0HYM2'], d); const t=getClosestPrice(marketHistory['DGS10'], d); return (o!=null&&t!=null)? o+t : -1e9; }
+                  if(sortCol==='hyOas') return getClosestPrice(marketHistory['HY_MODEL'], d) ?? -1e9;
+                  if(sortCol==='hy10y') { const o=getClosestPrice(marketHistory['HY_MODEL'], d); const t=getClosestPrice(marketHistory['DGS10'], d); return (o!=null&&t!=null)? o+t : -1e9; }
                   if(sortCol==='spxeps') return regEps(d) ?? -1e9;
                   if(sortCol==='spxpe') { const p=getClosestPrice(marketHistory['^GSPC'], d); const e=regEps(d); return (p!=null&&e!=null&&e!==0)? p/e : -1e9; }
-                  if(sortCol==='spxfwdpe') { const p=getClosestPrice(marketHistory['^GSPC'], d); const e=getRecentPrice(marketHistory['SPX_FWD_EPS'], d, 130); return (p!=null&&e!=null&&e!==0)? p/e : -1e9; }
                   if(sortCol==='cape') return r.cape ?? -1e9;
                   if(sortCol==='mean3y') return (r.mean3y ?? r.mean ?? -1e9);
                   if(sortCol==='ratio') return r.capeRatio ?? -1e9;
@@ -241,8 +239,7 @@ export function CapeHistoryTable({ cape, capeRows, marketHistory: marketHistoryR
               const rowsData = sortedView.map((r:any)=>{
                 const d=(r.date||'').slice(0,10);
                 const label = view==='yearly' ? d.slice(0,4) : view==='monthly' ? d.slice(0,7) : d;
-                const hyOas = getClosestPrice(marketHistory['BAMLH0A0HYM2'], d);
-                const hyEy = getClosestPrice(marketHistory['BAMLH0A0HYM2EY'], d);
+                const hyOas = getClosestPrice(marketHistory['HY_MODEL'], d);
                 const dgs10 = getClosestPrice(marketHistory['DGS10'], d);
                 const hy10y = (dgs10!=null && hyOas!=null) ? dgs10 + hyOas : '';
                 const thRow = thermoHist[d];
@@ -270,11 +267,9 @@ export function CapeHistoryTable({ cape, capeRows, marketHistory: marketHistoryR
                 const obvtXls = getClosestPrice(obvzMap, d);
                 const spxEpsXls = regEps(d);
                 const spxXls = getClosestPrice(marketHistory['^GSPC'], d);
-                const spxFwdEpsXls = getRecentPrice(marketHistory['SPX_FWD_EPS'], d, 130);
                 const peTtmXls = (spxXls!=null && spxEpsXls!=null && spxEpsXls!==0) ? spxXls/spxEpsXls : null;
-                const fwdPeXls = (spxXls!=null && spxFwdEpsXls!=null && spxFwdEpsXls!==0) ? spxXls/spxFwdEpsXls : null;
                 const brXls = breadthVals(d);
-                return [label, getClosestPrice(marketHistory['^GSPC'], d) ?? '', varDia != null ? Number(varDia.toFixed(2)) : '', thermoHist[d]?.value ?? '', (()=>{ const tr = toTrendRegime(thermoHist[d]?.trendRegime); return tr ? TREND_META[tr].es.name : ''; })(), perf1y != null ? Number(perf1y.toFixed(2)) : '', perfTot != null ? Number(perfTot.toFixed(2)) : '', cagr != null ? Number(cagr.toFixed(2)) : '', getClosestPrice(marketHistory['^IXIC'], d) ?? '', getClosestPrice(marketHistory['TQQQ'], d) ?? '', spxEpsXls != null ? Number(spxEpsXls.toFixed(2)) : '', peTtmXls != null ? Number(peTtmXls.toFixed(2)) : '', fwdPeXls != null ? Number(fwdPeXls.toFixed(2)) : '', r.cape ?? '', r.capeAdjusted ?? '', (r.mean3y ?? r.mean) ?? '', r.capeRatio ?? '', getClosestPrice(marketHistory['DFEDTARU'], d) ?? '', getClosestPrice(marketHistory['DGS2'], d) ?? '', getClosestPrice(marketHistory['DGS10'], d) ?? '', getClosestPrice(marketHistory['DGS30'], d) ?? '', hyOas ?? '', hyEy ?? '', hy10y, thRow?.bonus ?? '', thRow?.liqBonus ?? '', thRow?.oilBonus ?? '', wtiX ?? '', wtiRtX != null ? Number(wtiRtX.toFixed(3)) : '', m2vX ?? '', m2yX != null ? Number(m2yX.toFixed(2)) : '', m0vX ?? '', m0dX != null ? Number(m0dX.toFixed(2)) : '', cpi ?? '', core ?? '', gdp ?? '', finra ?? '', marginGdp != null ? Number(marginGdp.toFixed(2)) : '', msacsrXls ?? '', vixXls ?? '', fgXls ?? '', volXls ?? '', obvXls ?? '', fuerzaXls != null ? Number(fuerzaXls.toFixed(3)) : '', obvtXls != null ? Number(obvtXls.toFixed(3)) : '', brXls.net ?? '', brXls.ratio ?? '', (r.mean3y ?? -1e9) !== -1e9 ? (r.mean3y ?? r.mean) : '', r.mean5y ?? '', r.mean10y ?? '', (r.mean3y_ema ?? (r as any).mean3yEma) ?? '', (r.mean5y_ema ?? (r as any).mean5yEma) ?? '', (r.mean10y_ema ?? (r as any).mean10yEma) ?? ''];
+                return [label, getClosestPrice(marketHistory['^GSPC'], d) ?? '', varDia != null ? Number(varDia.toFixed(2)) : '', thermoHist[d]?.value ?? '', (()=>{ const tr = toTrendRegime(thermoHist[d]?.trendRegime); return tr ? TREND_META[tr].es.name : ''; })(), perf1y != null ? Number(perf1y.toFixed(2)) : '', perfTot != null ? Number(perfTot.toFixed(2)) : '', cagr != null ? Number(cagr.toFixed(2)) : '', getClosestPrice(marketHistory['^IXIC'], d) ?? '', getClosestPrice(marketHistory['TQQQ'], d) ?? '', spxEpsXls != null ? Number(spxEpsXls.toFixed(2)) : '', peTtmXls != null ? Number(peTtmXls.toFixed(2)) : '', r.cape ?? '', r.capeAdjusted ?? '', (r.mean3y ?? r.mean) ?? '', r.capeRatio ?? '', getClosestPrice(marketHistory['DFEDTARU'], d) ?? '', getClosestPrice(marketHistory['DGS2'], d) ?? '', getClosestPrice(marketHistory['DGS10'], d) ?? '', getClosestPrice(marketHistory['DGS30'], d) ?? '', hyOas ?? '', hy10y, thRow?.bonus ?? '', thRow?.liqBonus ?? '', thRow?.oilBonus ?? '', wtiX ?? '', wtiRtX != null ? Number(wtiRtX.toFixed(3)) : '', m2vX ?? '', m2yX != null ? Number(m2yX.toFixed(2)) : '', m0vX ?? '', m0dX != null ? Number(m0dX.toFixed(2)) : '', cpi ?? '', core ?? '', gdp ?? '', finra ?? '', marginGdp != null ? Number(marginGdp.toFixed(2)) : '', msacsrXls ?? '', vixXls ?? '', fgXls ?? '', volXls ?? '', obvXls ?? '', fuerzaXls != null ? Number(fuerzaXls.toFixed(3)) : '', obvtXls != null ? Number(obvtXls.toFixed(3)) : '', brXls.net ?? '', brXls.ratio ?? '', (r.mean3y ?? -1e9) !== -1e9 ? (r.mean3y ?? r.mean) : '', r.mean5y ?? '', r.mean10y ?? '', (r.mean3y_ema ?? (r as any).mean3yEma) ?? '', (r.mean5y_ema ?? (r as any).mean5yEma) ?? '', (r.mean10y_ema ?? (r as any).mean10yEma) ?? ''];
               });
               return { name: `CAPE ${view}`, headers, rows: rowsData };
             };
@@ -313,7 +308,6 @@ export function CapeHistoryTable({ cape, capeRows, marketHistory: marketHistoryR
                   {k:'tqqq', label:'TQQQ', cls:'text-right text-sky-300'},
                   {k:'spxeps', label:'SPX EPS', cls:'text-right text-accent-300'},
                   {k:'spxpe', label:'PE TTM', cls:'text-right text-accent-300'},
-                  {k:'spxfwdpe', label:'Fwd PE', cls:'text-right text-accent-300'},
                   {k:'cape', label:'CAPE Reg.', cls:'text-right', title:'CAPE registrado: S&P 500 ÷ denominador (E10) del último mes que Shiller había publicado ese día. Es el que usan el termómetro y el RatioCape.'},
                   {k:'capeAdj', label:'CAPE Ajust.', cls:'text-right text-slate-400', title:'CAPE ajustado (informativo): S&P 500 ÷ E10 del propio mes, con el dato final de Shiller. No se conocía ese día; vacío hasta que Shiller publica el mes.'},
                   {k:'mean3y', label:'mean3y', cls:'text-right text-caution-300'},
@@ -322,9 +316,8 @@ export function CapeHistoryTable({ cape, capeRows, marketHistory: marketHistoryR
                   {k:'dgs2', label:'2Y', cls:'text-right text-cyan-300'},
                   {k:'dgs10', label:'10Y', cls:'text-right text-cyan-300'},
                   {k:'dgs30', label:'30Y', cls:'text-right text-cyan-300'},
-                  {k:'hyOas', label:'HY OAS', cls:'text-right text-elevated-300'},
-                  {k:'hyEy', label:'HY EY', cls:'text-right text-elevated-300'},
-                  {k:'hy10y', label:'HY 10Y+OAS', cls:'text-right text-elevated-300'},
+                  {k:'hyOas', label:'HY (modelo)', cls:'text-right text-elevated-300'},
+                  {k:'hy10y', label:'HY 10Y+HY', cls:'text-right text-elevated-300'},
                   {k:'hyBonus', label:'HY Bonus', cls:'text-right text-elevated-300'},
                   {k:'liqBonus', label:'LIQ Bonus', cls:'text-right text-favorable-300'},
                   {k:'oilBonus', label:'Oil Bonus', cls:'text-right text-caution-300'},
@@ -341,7 +334,7 @@ export function CapeHistoryTable({ cape, capeRows, marketHistory: marketHistoryR
                   {k:'marginGdp', label:'Margin/GDP', cls:'text-right text-risk-300'},
                   {k:'msacsr', label:'MSACSR', cls:'text-right text-caution-300'},
                   {k:'vix', label:'VIX', cls:'text-right text-risk-300'},
-                  {k:'fg', label:'Sent.', cls:'text-right text-favorable-300'},
+                  {k:'fg', label:'F&G (CNN)', cls:'text-right text-favorable-300'},
                   {k:'volspy', label:'Vol SPY', cls:'text-right text-sky-300'},
                   {k:'obv', label:'OBV', cls:'text-right text-fuchsia-300'},
                   {k:'fuerza', label:'Fuerza', cls:'text-right text-risk-300'},
@@ -406,9 +399,8 @@ export function CapeHistoryTable({ cape, capeRows, marketHistory: marketHistoryR
                     if(sortCol==='dgs2') return getClosestPrice(marketHistory['DGS2'], d) ?? -Infinity;
                     if(sortCol==='dgs10') return getClosestPrice(marketHistory['DGS10'], d) ?? -Infinity;
                     if(sortCol==='dgs30') return getClosestPrice(marketHistory['DGS30'], d) ?? -Infinity;
-                    if(sortCol==='hyOas') return getClosestPrice(marketHistory['BAMLH0A0HYM2'], d) ?? -Infinity;
-                    if(sortCol==='hyEy') return getClosestPrice(marketHistory['BAMLH0A0HYM2EY'], d) ?? -Infinity;
-                    if(sortCol==='hy10y') { const o=getClosestPrice(marketHistory['BAMLH0A0HYM2'], d); const t=getClosestPrice(marketHistory['DGS10'], d); return (o!=null&&t!=null)? o+t : -Infinity; }
+                    if(sortCol==='hyOas') return getClosestPrice(marketHistory['HY_MODEL'], d) ?? -Infinity;
+                    if(sortCol==='hy10y') { const o=getClosestPrice(marketHistory['HY_MODEL'], d); const t=getClosestPrice(marketHistory['DGS10'], d); return (o!=null&&t!=null)? o+t : -Infinity; }
                     if(sortCol==='hyBonus') return thermoHist[d]?.bonus ?? -Infinity;
                     if(sortCol==='liqBonus') return thermoHist[d]?.liqBonus ?? -Infinity;
                     if(sortCol==='oilBonus') return thermoHist[d]?.oilBonus ?? -Infinity;
@@ -420,7 +412,6 @@ export function CapeHistoryTable({ cape, capeRows, marketHistory: marketHistoryR
                     if(sortCol==='m0d3') return monthlyPctLive(marketHistory['BOGMBASE'], d, 3) ?? -Infinity;
                     if(sortCol==='spxeps') return regEps(d) ?? -Infinity;
                     if(sortCol==='spxpe') { const p=getClosestPrice(marketHistory['^GSPC'], d); const e=regEps(d); return (p!=null&&e!=null&&e!==0)? p/e : -Infinity; }
-                    if(sortCol==='spxfwdpe') { const p=getClosestPrice(marketHistory['^GSPC'], d); const e=getRecentPrice(marketHistory['SPX_FWD_EPS'], d, 130); return (p!=null&&e!=null&&e!==0)? p/e : -Infinity; }
                     if(sortCol==='cape') return r.cape ?? -Infinity;
                     if(sortCol==='capeAdj') return r.capeAdjusted ?? -Infinity;
                     if(sortCol==='mean3y') return (r.mean3y ?? r.mean ?? -Infinity);
@@ -464,8 +455,7 @@ export function CapeHistoryTable({ cape, capeRows, marketHistory: marketHistoryR
                 const dgs2 = getClosestPrice(marketHistory['DGS2'], d);
                 const dgs10 = getClosestPrice(marketHistory['DGS10'], d);
                 const dgs30 = getClosestPrice(marketHistory['DGS30'], d);
-                const hyOas = getClosestPrice(marketHistory['BAMLH0A0HYM2'], d);
-                const hyEy = getClosestPrice(marketHistory['BAMLH0A0HYM2EY'], d);
+                const hyOas = getClosestPrice(marketHistory['HY_MODEL'], d);
                 const hy10y = (dgs10!=null && hyOas!=null) ? dgs10 + hyOas : null;
                 const thR = thermoHist[d];
                 const m2v = getRecentPrice(liqM2Map, d, 40);
@@ -525,13 +515,10 @@ export function CapeHistoryTable({ cape, capeRows, marketHistory: marketHistoryR
                 const fuerza = getClosestPrice(fuerzaMap, d);
                 const obvt = getClosestPrice(obvzMap, d);
                 const spxEps = regEps(d);
-                const spxFwdEps = getRecentPrice(marketHistory['SPX_FWD_EPS'], d, 130);
                 const br = breadthVals(d);
                 const fmtVol = (v:number|null) => v==null ? '—' : v>=1e9 ? `${(v/1e9).toFixed(2)}B` : `${(v/1e6).toFixed(1)}M`;
                 const hyOasLive = useLive ? liveHyOas.data?.close : null;
-                const hyEyLive = useLive ? liveHyEy.data?.close : null;
                 const hyOasDisp = (hyOasLive!=null) ? hyOasLive : hyOas;
-                const hyEyDisp = (hyEyLive!=null) ? hyEyLive : hyEy;
                 const hy10yDisp = (hyOasDisp!=null && dgs10Disp!=null) ? dgs10Disp + hyOasDisp : hy10y;
                 return (
                 <tr key={r.date} ref={isLast ? observerRef : null} className={`${isCurrent ? 'bg-accent-500/[0.08] border-l-2 border-l-accent-500 ring-1 ring-accent-500/15' : 'hover:bg-slate-900/40'} transition-colors`}>
@@ -547,7 +534,6 @@ export function CapeHistoryTable({ cape, capeRows, marketHistory: marketHistoryR
                   {(()=>{ if(tqqqDisp==null) return <td className="p-2 text-right font-mono text-sky-300 whitespace-nowrap">—</td>; return <td className="p-2 text-right font-mono text-sky-300 whitespace-nowrap cursor-help" onMouseEnter={(e)=> setStockHover({ticker:'TQQQ', d, x:e.clientX, y:e.clientY, cape: r.cape ?? null, ratio: r.capeRatio ?? null})} onMouseMove={(e)=> setStockHover(s=> s && s.ticker==='TQQQ' && s.d===d ? {...s, x:e.clientX, y:e.clientY}: s)} onMouseLeave={()=> setStockHover(null)}><span className="border-b border-dotted border-sky-400/40">${Number(tqqqDisp).toFixed(2)}</span></td>; })()}
                   <td className="p-2 text-right font-mono text-accent-300 whitespace-nowrap" title={`S&P 500 EPS TTM registrado ${d} — último mes de Shiller (ie_data.xls) publicado a esa fecha`}>{spxEps!=null?`$${spxEps.toFixed(2)}`:'—'}</td>
                   {(()=>{ const pe=(spxDisp!=null&&spxEps!=null&&spxEps!==0)? spxDisp/spxEps : null; if(pe==null) return <td className="p-2 text-right font-mono text-accent-300 whitespace-nowrap">—</td>; return <td className="p-2 text-right font-mono text-accent-300 whitespace-nowrap" title={`PE TTM ${d} — precio SPX / EPS TTM`}>{pe.toFixed(2)}</td>; })()}
-                  {(()=>{ const pe=(spxDisp!=null&&spxFwdEps!=null&&spxFwdEps!==0)? spxDisp/spxFwdEps : null; if(pe==null) return <td className="p-2 text-right font-mono text-accent-300 whitespace-nowrap">—</td>; return <td className="p-2 text-right font-mono text-accent-300 whitespace-nowrap" title={`Forward PE ${d} — precio SPX / EPS estimado 12m (operating)`}>{pe.toFixed(2)}</td>; })()}
                   <td className="p-2 text-right font-mono text-favorable-400 whitespace-nowrap" title={r.e10Month ? `CAPE registrado ${d}: S&P 500 ÷ E10 de ${String(r.e10Month).slice(0, 7)} (${r.e10 != null ? Number(r.e10).toFixed(2) : '—'})` : undefined}>{r.cape?.toFixed(2) ?? '—'}</td>
                   <td className="p-2 text-right font-mono text-slate-400 whitespace-nowrap" title={r.capeAdjusted == null ? 'Shiller aún no publica este mes' : 'Informativo: con el E10 final del propio mes'}>{r.capeAdjusted != null ? Number(r.capeAdjusted).toFixed(2) : '—'}</td>
                   <td className="p-2 text-right font-mono text-caution-300 whitespace-nowrap">{(r.mean3y ?? r.mean)?.toFixed(2) ?? '—'}</td>
@@ -556,9 +542,8 @@ export function CapeHistoryTable({ cape, capeRows, marketHistory: marketHistoryR
                   <td className="p-2 text-right font-mono text-cyan-300 whitespace-nowrap">{dgs2Disp!=null?`${Number(dgs2Disp).toFixed(2)}%`:'—'}</td>
                   <td className="p-2 text-right font-mono text-cyan-300 whitespace-nowrap">{dgs10Disp!=null?`${Number(dgs10Disp).toFixed(2)}%`:'—'}</td>
                   <td className="p-2 text-right font-mono text-cyan-300 whitespace-nowrap">{dgs30Disp!=null?`${Number(dgs30Disp).toFixed(2)}%`:'—'}</td>
-                  <td className="p-2 text-right font-mono text-elevated-300 whitespace-nowrap" title="BAMLH0A0HYM2 OAS">{hyOasDisp!=null?`${Number(hyOasDisp).toFixed(2)}%`:'—'}</td>
-                  <td className="p-2 text-right font-mono text-elevated-300 whitespace-nowrap" title="BAMLH0A0HYM2EY Effective Yield">{hyEyDisp!=null?`${Number(hyEyDisp).toFixed(2)}%`:'—'}</td>
-                  <td className="p-2 text-right font-mono text-elevated-300 whitespace-nowrap" title="DGS10 + OAS">{hy10yDisp!=null?`${Number(hy10yDisp).toFixed(2)}%`:'—'}</td>
+                  <td className="p-2 text-right font-mono text-elevated-300 whitespace-nowrap" title="Serie de crédito del modelo: 1.913 × spread Baa − Tesoro 10A (FRED BAA10Y)">{hyOasDisp!=null?`${Number(hyOasDisp).toFixed(2)}%`:'—'}</td>
+                  <td className="p-2 text-right font-mono text-elevated-300 whitespace-nowrap" title="Tesoro 10A + HY del modelo">{hy10yDisp!=null?`${Number(hy10yDisp).toFixed(2)}%`:'—'}</td>
                   {(()=>{ if(hyBv==null) return <td className="p-2 text-right font-mono text-slate-500 whitespace-nowrap">—</td>; const cls=hyBv>0?'text-elevated-300 bg-elevated-500/10 font-semibold':'text-slate-400'; return <td className={`p-2 text-right font-mono whitespace-nowrap rounded ${cls}`} title={`${adjLoc === 'es' ? 'Ajuste de crédito' : 'Credit adjustment'} ${d}${hyBLbl?` — ${hyBLbl}`:''}`}>{hyBv>0?`+${hyBv}`:'0'}</td>; })()}
                   {(()=>{ if(liqBv==null) return <td className="p-2 text-right font-mono text-slate-500 whitespace-nowrap">—</td>; const cls=liqBv>0?'text-elevated-300 bg-elevated-500/10 font-semibold':liqBv<0?'text-favorable-300 bg-favorable-500/10 font-semibold':'text-slate-400'; return <td className={`p-2 text-right font-mono whitespace-nowrap rounded ${cls}`} title={`${adjLoc === 'es' ? 'Ajuste de liquidez M2/M0' : 'M2/M0 liquidity adjustment'} ${d}${liqBLbl?` — ${liqBLbl}`:''}`}>{liqBv!==0?`${liqBv>0?'+':''}${liqBv}`:'0'}</td>; })()}
                   {(()=>{ if(oilBv==null) return <td className="p-2 text-right font-mono text-slate-500 whitespace-nowrap">—</td>; const cls=oilBv>0?'text-elevated-300 bg-elevated-500/10 font-semibold':oilBv<0?'text-favorable-300 bg-favorable-500/10 font-semibold':'text-slate-400'; return <td className={`p-2 text-right font-mono whitespace-nowrap rounded ${cls}`} title={`${adjLoc === 'es' ? 'Ajuste de petróleo WTI' : 'WTI oil adjustment'} ${d}${oilBLbl?` — ${oilBLbl}`:''}`}>{oilBv!==0?`${oilBv>0?'+':''}${oilBv}`:'0'}</td>; })()}
@@ -575,7 +560,7 @@ export function CapeHistoryTable({ cape, capeRows, marketHistory: marketHistoryR
                   {(()=>{ const v=getMarginGdpRatio(d); if(v==null) return <td className="p-2 text-right font-mono text-slate-500 whitespace-nowrap">—</td>; const cls=v>6?'text-risk-400 bg-risk-500/10 border-risk-500/20':v>4?'text-elevated-400 bg-elevated-500/10 border-elevated-500/20':v>2?'text-caution-400 bg-caution-500/10 border-caution-500/20':'text-favorable-400 bg-favorable-500/10 border-favorable-500/20'; return <td className={`p-2 text-right font-mono whitespace-nowrap font-semibold border rounded ${cls}`}>{v.toFixed(2)}%</td>; })()}
                   {(()=>{ if(msacsrDisp==null) return <td className="p-2 text-right font-mono text-slate-500 whitespace-nowrap">—</td>; const cls=msacsrDisp>6?'text-risk-400 bg-risk-500/10':msacsrDisp>=4?'text-caution-400 bg-caution-500/10':'text-favorable-400 bg-favorable-500/10'; return <td className={`p-2 text-right font-mono whitespace-nowrap font-semibold rounded ${cls}`} title={`MSACSR ${d} — meses de inventario casas nuevas`}>{Number(msacsrDisp).toFixed(1)} m</td>; })()}
                   {(()=>{ if(vixDisp==null) return <td className="p-2 text-right font-mono text-slate-500 whitespace-nowrap">—</td>; const cls=vixDisp>30?'text-risk-400 bg-risk-500/10':vixDisp>20?'text-caution-400 bg-caution-500/10':vixDisp>=12?'text-slate-200':'text-favorable-400 bg-favorable-500/10'; return <td className={`p-2 text-right font-mono whitespace-nowrap font-semibold rounded ${cls}`} title={`VIX ${d} — volatilidad implícita S&P 500`}>{Number(vixDisp).toFixed(2)}</td>; })()}
-                  {(()=>{ if(fgDisp==null) return <td className="p-2 text-right font-mono text-slate-500 whitespace-nowrap">—</td>; const cls=fgDisp>=55?'text-favorable-400 bg-favorable-500/10':fgDisp>=45?'text-slate-200':fgDisp>=25?'text-caution-400 bg-caution-500/10':'text-risk-400 bg-risk-500/10'; return <td className={`p-2 text-right font-mono whitespace-nowrap font-semibold rounded ${cls}`} title={`Sentimiento del mercado ${d} — 0 miedo extremo / 100 codicia extrema`}>{Number(fgDisp).toFixed(0)}</td>; })()}
+                  {(()=>{ if(fgDisp==null) return <td className="p-2 text-right font-mono text-slate-500 whitespace-nowrap">—</td>; const cls=fgDisp>=55?'text-favorable-400 bg-favorable-500/10':fgDisp>=45?'text-slate-200':fgDisp>=25?'text-caution-400 bg-caution-500/10':'text-risk-400 bg-risk-500/10'; return <td className={`p-2 text-right font-mono whitespace-nowrap font-semibold rounded ${cls}`} title={`Fear & Greed de CNN ${d} — 0 miedo extremo / 100 codicia extrema. Fuente: CNN Business`}>{Number(fgDisp).toFixed(0)}</td>; })()}
                   <td className="p-2 text-right font-mono text-sky-300 whitespace-nowrap" title={`Volumen SPY ${d} (acciones)`}>{fmtVol(volSpy)}</td>
                   <td className="p-2 text-right font-mono text-fuchsia-300 whitespace-nowrap" title={`OBV SPY ${d} — acumulado con signo del cierre`}>{obv!=null?fmtVol(obv):'—'}</td>
                   {(()=>{ if(fuerza==null) return <td className="p-2 text-right font-mono text-slate-500 whitespace-nowrap">—</td>; const cls=fuerza>=1?'text-favorable-400 bg-favorable-500/10':fuerza>=0.5?'text-green-400 bg-green-500/10':fuerza>0?'text-slate-200':fuerza>-0.5?'text-slate-200':fuerza>-1?'text-elevated-400 bg-elevated-500/10':'text-risk-400 bg-risk-500/10'; return <td className={`p-2 text-right font-mono whitespace-nowrap font-semibold rounded ${cls}`} title={`Fuerza diaria ${d} — (OBV hoy−OBV ayer)/SMA20(Vol): >+1 bullish extremo, <−1 bearish extremo`}>{fuerza>=0?'+':''}{fuerza.toFixed(2)}</td>; })()}
