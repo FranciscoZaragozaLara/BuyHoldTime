@@ -1,5 +1,8 @@
 import { Module } from '@nestjs/common';
 import { ScheduleModule } from '@nestjs/schedule';
+import { APP_GUARD } from '@nestjs/core';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import { throttlerOptions } from './config/rate-limit';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { PrismaModule } from './prisma/prisma.module';
@@ -16,6 +19,7 @@ import { ExperimentalModule } from './modules/experimental/experimental.module';
 @Module({
   imports: [
     ScheduleModule.forRoot(),
+    ThrottlerModule.forRoot(throttlerOptions),
     PrismaModule,
     TickerModule,
     IndicatorModule,
@@ -28,7 +32,7 @@ import { ExperimentalModule } from './modules/experimental/experimental.module';
     ExperimentalModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [AppService, { provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
 export class AppModule {}
 

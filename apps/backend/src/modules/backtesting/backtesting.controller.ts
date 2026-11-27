@@ -1,6 +1,7 @@
 import { Controller, Get, Post, Body, Query, Param, Res, UseGuards } from '@nestjs/common';
 import { AdminOrApiKeyGuard } from '../auth/guards/admin-or-api-key.guard';
 import { BacktestingService } from './backtesting.service';
+import { ExternalThrottle, HeavyThrottle } from '../../config/rate-limit';
 
 @Controller('api/backtesting')
 export class BacktestingController {
@@ -63,9 +64,11 @@ export class BacktestingController {
   getComparativa(@Query('runIds') runIds: string) { return this.svc.getComparativa(runIds.split(',')); }
 
   @Get('shiller-daily')
+  @HeavyThrottle()
   getShillerDaily(@Query('from') from?: string, @Query('to') to?: string) { return this.svc.getShillerDaily(from, to); }
 
   @Get('thermo-history')
+  @HeavyThrottle()
   getThermoHistory(@Query('from') from?: string, @Query('to') to?: string) { return this.svc.getThermoHistory(from, to); }
 
   // Historia mensual por componente del termómetro (cards de indicadores y popover del BHT; `to` = fecha final).
@@ -73,6 +76,7 @@ export class BacktestingController {
   getThermoPartsMonthly(@Query('months') months?: string, @Query('to') to?: string) { return this.svc.getThermoPartsMonthly(months ? Number(months) : 12, to); }
 
   @Get('bht-forward')
+  @HeavyThrottle()
   getBhtForward(@Query('from') from?: string, @Query('to') to?: string) { return this.svc.getBhtForward(from, to); }
 
   // Termómetro de hoy con datos en vivo (BHT + bonus HY/LIQ/Oil). Fuente única para el frontend;
@@ -104,6 +108,7 @@ export class BacktestingController {
   getBhtForwardDetail(@Query('date') date: string) { return this.svc.getBhtForwardDetail(date); }
 
   @Get('market-data/live')
+  @ExternalThrottle()
   getLive(@Query('ticker') ticker: string) {
     if (!ticker) return { error: 'ticker required' };
     return this.svc.getLivePrice(ticker);

@@ -105,3 +105,8 @@ Para desactivar el cron define `EDGAR_SYNC_CRON=off` en el servicio `backend`.
   Si quieres seguir lanzándolos desde fuera, expón la API con una regla de Traefik propia
   (`api.tudominio.com`) y usa `SYNC_API_KEY`.
 - Fija versiones exactas en `apps/backend/docker/python-requirements.txt` (`pip freeze`).
+- **Límite de peticiones por IP** (`apps/backend/src/config/rate-limit.ts`): el backend toma la IP del cliente del
+  `X-Forwarded-For` que pone Traefik (confía solo en loopback y redes privadas). La red interna (render de Next, cron,
+  scripts dentro del VPS) y las peticiones con `x-api-key` válida no se limitan. Si se pone Cloudflare u otro CDN
+  delante, todas las visitas llegarían con IPs del CDN: habría que leer `CF-Connecting-IP` (o fijar sus rangos como
+  proxies de confianza) antes de activarlo. Respuesta al pasar el límite: 429 con `Retry-After-short`/`-long`/`-global`.

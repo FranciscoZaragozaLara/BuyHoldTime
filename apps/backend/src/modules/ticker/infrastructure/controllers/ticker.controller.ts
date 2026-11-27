@@ -4,6 +4,7 @@ import { GetTickersUseCase } from '../../application/use-cases/get-tickers.use-c
 import { GetTickerDetailsUseCase } from '../../application/use-cases/get-ticker-details.use-case';
 import { SyncTickersUseCase } from '../../application/use-cases/sync-tickers.use-case';
 import { FastSyncTickersUseCase } from '../../application/use-cases/fast-sync-tickers.use-case';
+import { HeavyThrottle } from '../../../../config/rate-limit';
 
 @Controller('tickers')
 export class TickerController {
@@ -21,6 +22,7 @@ export class TickerController {
   }
 
   @Get(':symbol')
+  @HeavyThrottle()
   async getTickerDetails(
     @Param('symbol') symbol: string,
     @Query('limit') limit?: string,

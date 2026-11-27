@@ -7,6 +7,7 @@ const withNextIntl = createNextIntlPlugin();
 const nextConfig: NextConfig = {
   // Imagen Docker mínima (.next/standalone). La raíz del trazado es el monorepo.
   output: 'standalone',
+  poweredByHeader: false,
   outputFileTracingRoot: path.join(__dirname, '../../'),
 
   allowedDevOrigins: ['192.168.50.107:3002', '192.168.50.107', 'localhost:3002'],
@@ -33,6 +34,14 @@ const nextConfig: NextConfig = {
         headers: [
           { key: 'X-Content-Type-Options', value: 'nosniff' },
           { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+          // Nadie puede mostrar el sitio dentro de un iframe (clickjacking). frame-ancestors es el estándar;
+          // X-Frame-Options, para navegadores viejos.
+          { key: 'Content-Security-Policy', value: "frame-ancestors 'none'" },
+          { key: 'X-Frame-Options', value: 'DENY' },
+          { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=(), browsing-topics=()' },
+          // Solo HTTPS por 2 años (los navegadores lo ignoran en http://localhost). Sin includeSubDomains: otros
+          // subdominios del dominio podrían seguir en HTTP.
+          { key: 'Strict-Transport-Security', value: 'max-age=63072000' },
         ],
       },
     ];
