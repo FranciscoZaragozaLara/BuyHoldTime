@@ -170,7 +170,7 @@ export default async function HomePage({
             )}
             {fg && (
             <IndexSparklineCard
-                title="Fear & Greed Index"
+                title={t('cardFgTitle')}
                 valueStr={fearVal}
                 badgeText={fearStatus}
                 badgeType={fgLabel === 'fear' || fgLabel === 'extremeFear' ? 'error' : fgLabel ? 'warning' : 'info'}

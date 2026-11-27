@@ -2,6 +2,7 @@ import { Controller, Get, Post, Body, Query, Param, Res, UseGuards } from '@nest
 import { AdminOrApiKeyGuard } from '../auth/guards/admin-or-api-key.guard';
 import { BacktestingService } from './backtesting.service';
 import { ExternalThrottle, HeavyThrottle } from '../../config/rate-limit';
+import { publicSource } from './public-source';
 
 @Controller('api/backtesting')
 export class BacktestingController {
@@ -109,9 +110,10 @@ export class BacktestingController {
 
   @Get('market-data/live')
   @ExternalThrottle()
-  getLive(@Query('ticker') ticker: string) {
+  async getLive(@Query('ticker') ticker: string) {
     if (!ticker) return { error: 'ticker required' };
-    return this.svc.getLivePrice(ticker);
+    const r: any = await this.svc.getLivePrice(ticker);
+    return r ? { ...r, source: publicSource(r.source) } : r;
   }
 
   @Post('runs')

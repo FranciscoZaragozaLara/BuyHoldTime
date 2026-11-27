@@ -219,7 +219,7 @@ export default function BhtTranchesView({ date, locale, initialRoute = 'qqq', ch
                 </tr>
                 <tr className="border-b border-slate-800/60">
                   <td><Mark ok={!r.today.veto} /></td><td className="text-slate-300 pr-2 whitespace-nowrap">{t.veto}</td>
-                  <td className={r.today.veto ? 'text-risk-300' : 'text-slate-400'}>{r.today.veto ? t.vetoOn : t.vetoOff} · HY {es ? 'modelo' : 'model'} (Baa×1.91) {r.today.oas?.toFixed(2) ?? '—'}% · máx63 {r.today.oasMax63?.toFixed(2) ?? '—'} · SMA20 {r.today.oasSma20?.toFixed(2) ?? '—'}{both?.hyReal != null && <span className="text-slate-500" title={es ? 'HY OAS real de ICE, solo referencia: las reglas usan la serie del modelo (1.913 × Baa) porque el real solo tiene 3 años en FRED' : 'Real ICE HY OAS, reference only: the rules use the model series (1.913 × Baa) since the real one has only 3 years on FRED'}> · {es ? 'real ICE' : 'real ICE'} {both.hyReal.toFixed(2)}%</span>}</td>
+                  <td className={r.today.veto ? 'text-risk-300' : 'text-slate-400'}>{r.today.veto ? t.vetoOn : t.vetoOff} · HY {es ? 'modelo' : 'model'} (Baa×1.91) {r.today.oas?.toFixed(2) ?? '—'}% · máx63 {r.today.oasMax63?.toFixed(2) ?? '—'} · SMA20 {r.today.oasSma20?.toFixed(2) ?? '—'}{both?.hyReal != null && <span className="text-slate-500" title={es ? 'HY OAS real, solo referencia: las reglas usan la serie del modelo (1.913 × Baa) porque el real solo tiene 3 años en FRED' : 'Real HY OAS, reference only: the rules use the model series (1.913 × Baa) since the real one has only 3 years on FRED'}> · {es ? 'OAS real' : 'real OAS'} {both.hyReal.toFixed(2)}%</span>}</td>
                 </tr>
                 {r.today.credit && (
                   <tr className="border-b border-slate-800/60">
@@ -327,7 +327,7 @@ function CreditLine({ c, es, t, hyReal }: { c: CreditState | undefined; es: bool
     <div className="flex flex-col">
       <span className="font-bold" style={{ color: M.color }}>{es ? M.es : M.en}</span>
       <span>
-        HY <span className="text-slate-500">({es ? 'modelo' : 'model'}, Baa×1.91)</span> <b className="text-slate-200">{c.oas?.toFixed(2) ?? '—'}%</b>{hyReal != null && <span className="text-slate-500"> ({es ? 'real ICE' : 'real ICE'} {hyReal.toFixed(2)}%)</span>}
+        HY <span className="text-slate-500">({es ? 'modelo' : 'model'}, Baa×1.91)</span> <b className="text-slate-200">{c.oas?.toFixed(2) ?? '—'}%</b>{hyReal != null && <span className="text-slate-500"> ({es ? 'OAS real' : 'real OAS'} {hyReal.toFixed(2)}%)</span>}
         {' = '}<b className={okC(c.ratio != null ? c.ratio >= 1.5 : null)}>{c.ratio?.toFixed(2) ?? '—'}×</b> {t.crMin} (≥ 1.5)
         {' · '}{t.crD3} <b className={okC(c.d3 != null ? c.d3 >= 0.5 : null)}>{sg(c.d3, 2)}</b> (≥ +0.5)
         {' · '}{t.crPx} <b className={okC(c.fromHi252 != null ? c.fromHi252 >= -7 : null)}>{sg(c.fromHi252)}%</b> (&gt; −7%)

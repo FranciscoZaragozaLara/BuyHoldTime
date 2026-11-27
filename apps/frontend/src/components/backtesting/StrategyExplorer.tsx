@@ -481,7 +481,7 @@ export function StrategyExplorer({ strategyCode, runs: initialRuns, startDates, 
             </tbody>
           </table>
         </div>
-        <p className="text-[11px] text-slate-500">% {labels.primary} = valor {labels.primary} / cartera{labels.secondary ? ` · ${labels.secondary}/${labels.cash} según estrategia` : ` · ${labels.cash}`} · {labels.priceSecondary ? `${labels.pricePrimary}/${labels.priceSecondary}` : labels.pricePrimary} close del último día del mes (BtMarketData) · CAPE mensual forward-fill (Yale+multpl) · Ratio=CAPE/Mean · Régimen: accumulation/distribution/hold</p>
+        <p className="text-[11px] text-slate-500">% {labels.primary} = valor {labels.primary} / cartera{labels.secondary ? ` · ${labels.secondary}/${labels.cash} según estrategia` : ` · ${labels.cash}`} · {labels.priceSecondary ? `${labels.pricePrimary}/${labels.priceSecondary}` : labels.pricePrimary} close del último día del mes (BtMarketData) · CAPE mensual forward-fill (Shiller, Yale) · Ratio=CAPE/Mean · Régimen: accumulation/distribution/hold</p>
       </div>
     </div>
   );

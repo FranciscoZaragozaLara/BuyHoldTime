@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { notFound } from "next/navigation";
 import { NextIntlClientProvider } from "next-intl";
 import { getMessages } from "next-intl/server";
+import { publicMessages } from "@/lib/publicMessages";
 import { ReactNode } from "react";
 import { AuthProvider } from "@/context/AuthContext";
 import { QueryProvider } from "@/components/QueryProvider";
@@ -73,7 +74,8 @@ export default async function LocaleLayout({ children, params }: Props) {
     notFound();
   }
 
-  const messages = await getMessages();
+  // Sin el namespace Admin (solo /admin lo recibe, ver admin/layout.tsx).
+  const messages = publicMessages(await getMessages());
 
   return (
     <html

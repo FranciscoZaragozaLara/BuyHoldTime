@@ -96,7 +96,7 @@ const TICKER_SEEDS = [
 const INDICATOR_SEEDS = [
   {
     key: 'fear_greed',
-    name: 'Fear & Greed Index',
+    name: 'Market Sentiment Index',
     currentValue: 62.0,
     unit: '',
     status: 'Greed',

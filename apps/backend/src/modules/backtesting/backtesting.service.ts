@@ -19,6 +19,7 @@ import { PROVISIONAL_OF, rowsWithProvisional, withProvisional } from './provisio
 export const YAHOO_LIVE_ALIAS: Record<string, string> = { DCOILWTICO: 'CL=F', VIXCLS: '^VIX' };
 import { spliceSeries } from '../market-data/valuation-daily';
 import { computeThermoLive, LivePoints, THERMO_LIVE_TICKERS, THERMO_TICKERS, getHyBonus, getHySigma24, getLiqBonus, getOilBonus, lagSeries, CREDIT_BASE, creditFromBaa, PUB_LAG_DAYS, PriceMap } from './thermo-history';
+import { publicSource } from './public-source';
 
 // Día con mercado (lun–vie). Sáb/dom no operan y el BHT no se calcula.
 export function isTradingDayIso(isoDate: string): boolean {
@@ -736,7 +737,7 @@ export class BacktestingService {
         const q: any = await this.getLivePrice(t);
         if (q?.close == null || q.source === 'db-fallback' || !Number.isFinite(Number(q.close))) return;
         live[t] = { date: String(q.date).slice(0, 10), value: Number(q.close) };
-        liveMeta[t] = { date: String(q.date).slice(0, 10), source: String(q.source) };
+        liveMeta[t] = { date: String(q.date).slice(0, 10), source: publicSource(q.source) };
       } catch { /* sin dato en vivo: se usa la BD */ }
     }));
     // Sin mercado (fin de semana o feriado): CAPE del último día hábil, igual que el resto del BHT (computeThermoLive).

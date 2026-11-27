@@ -39,7 +39,7 @@ export const PART_META: Record<string, Meta> = {
   FWD: {
     category: 'valuation', cadence: 'daily',
     name: { es: 'P/E estimado (forward)', en: 'Forward P/E' },
-    meaning: { es: 'Precio ÷ utilidades estimadas a 12 meses (WSJ / Birinyi).', en: 'Price ÷ 12-month estimated earnings (WSJ / Birinyi).' },
+    meaning: { es: 'Precio ÷ utilidades estimadas por analistas para los próximos 12 meses.', en: 'Price ÷ analysts\' estimated earnings for the next 12 months.' },
     fmt: (v) => `${v.toFixed(2)}x`,
   },
   CPI: {
@@ -80,7 +80,7 @@ export const PART_META: Record<string, Meta> = {
   },
   FG: {
     category: 'sentiment', cadence: 'daily', stamp: 'FEAR_GREED',
-    name: { es: 'Miedo y Avaricia (CNN)', en: 'Fear & Greed (CNN)' },
+    name: { es: 'Sentimiento del mercado', en: 'Market sentiment' },
     meaning: { es: '0 = miedo extremo, 100 = avaricia extrema.', en: '0 = extreme fear, 100 = extreme greed.' },
     fmt: (v) => v.toFixed(0),
   },
@@ -255,8 +255,8 @@ export const PART_EXPLAIN: Record<string, Record<Loc, string>> = {
     en: 'The "fear index": it measures how much volatility the market expects over the next month. It works in reverse: a very high VIX means panic, and historically those have been good times to buy, so it lowers the risk.',
   },
   FG: {
-    es: 'El índice de Miedo y Avaricia de CNN, de 0 a 100, que combina varias señales del ánimo de los inversionistas. También funciona al revés: con miedo extremo suele haber oportunidades; con avaricia extrema, más riesgo.',
-    en: "CNN's Fear & Greed index, from 0 to 100, which combines several signals of investor mood. It also works in reverse: extreme fear tends to bring opportunities; extreme greed, more risk.",
+    es: 'Un índice de sentimiento de 0 a 100 que combina varias señales del ánimo de los inversionistas, del miedo a la avaricia. También funciona al revés: con miedo extremo suele haber oportunidades; con avaricia extrema, más riesgo.',
+    en: 'A 0–100 sentiment index that combines several signals of investor mood, from fear to greed. It also works in reverse: extreme fear tends to bring opportunities; extreme greed, more risk.',
   },
   PIB: {
     es: 'Cuánto creció la economía de EE. UU. en el último año, descontando la inflación. Un crecimiento muy fuerte suele darse en la parte final del ciclo, cuando ya hay presión de inflación y de tasas.',

@@ -26,7 +26,7 @@ export function EtfProfileCard({ snapshot }: { snapshot: { tables?: unknown; scr
           {es ? 'Perfil del ETF' : 'ETF Profile'}
         </h3>
         <p className="mt-1 text-xs text-slate-500">
-          {es ? 'Cartera reportada a la SEC (N-PORT) según GuruFocus.' : 'Portfolio reported to the SEC (N-PORT), per GuruFocus.'}
+          {es ? 'Cartera reportada a la SEC (formulario N-PORT).' : 'Portfolio reported to the SEC (Form N-PORT).'}
         </p>
       </div>
 

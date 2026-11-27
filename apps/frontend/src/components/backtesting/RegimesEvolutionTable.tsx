@@ -138,7 +138,7 @@ export function RegimesEvolutionTable({ cape, capeView, setCapeView, equity, mar
                 <th className="p-2 text-right" title="Treasury 30Y — curva larga (FRED DGS30)">30Y</th>
                 <th className="p-2 text-right" title="MSACSR — meses inventario casas nuevas">MSACSR</th>
                 <th className="p-2 text-right" title="VIX — volatilidad implícita S&P 500">VIX</th>
-                <th className="p-2 text-right" title="CNN Fear & Greed 0-100">F&G</th>
+                <th className="p-2 text-right" title="Sentimiento del mercado 0-100 (miedo ↔ avaricia)">Sent.</th>
               </tr>
             </thead>
             <tbody>
@@ -245,7 +245,7 @@ export function RegimesEvolutionTable({ cape, capeView, setCapeView, equity, mar
                     <td className="p-2 text-right font-mono text-accent-300">{y30!=null? `${y30.toFixed(2)}%`:'—'}</td>
                     {(()=>{ if(msacsrR==null) return <td className="p-2 text-right font-mono text-slate-500">—</td>; const cls=msacsrR>6?'text-risk-400 bg-risk-500/10':msacsrR>=4?'text-caution-400 bg-caution-500/10':'text-favorable-400 bg-favorable-500/10'; return <td className={`p-2 text-right font-mono font-semibold rounded ${cls}`} title={`MSACSR ${d}`}>{Number(msacsrR).toFixed(1)} m</td>; })()}
                     {(()=>{ if(vixR==null) return <td className="p-2 text-right font-mono text-slate-500">—</td>; const cls=vixR>30?'text-risk-400 bg-risk-500/10':vixR>20?'text-caution-400 bg-caution-500/10':vixR>=12?'text-slate-200':'text-favorable-400 bg-favorable-500/10'; return <td className={`p-2 text-right font-mono font-semibold rounded ${cls}`} title={`VIX ${d}`}>{Number(vixR).toFixed(2)}</td>; })()}
-                    {(()=>{ if(fgR==null) return <td className="p-2 text-right font-mono text-slate-500">—</td>; const cls=fgR>=55?'text-favorable-400 bg-favorable-500/10':fgR>=45?'text-slate-200':fgR>=25?'text-caution-400 bg-caution-500/10':'text-risk-400 bg-risk-500/10'; return <td className={`p-2 text-right font-mono font-semibold rounded ${cls}`} title={`Fear & Greed ${d}`}>{Number(fgR).toFixed(0)}</td>; })()}
+                    {(()=>{ if(fgR==null) return <td className="p-2 text-right font-mono text-slate-500">—</td>; const cls=fgR>=55?'text-favorable-400 bg-favorable-500/10':fgR>=45?'text-slate-200':fgR>=25?'text-caution-400 bg-caution-500/10':'text-risk-400 bg-risk-500/10'; return <td className={`p-2 text-right font-mono font-semibold rounded ${cls}`} title={`Sentimiento del mercado ${d}`}>{Number(fgR).toFixed(0)}</td>; })()}
                   </tr>
                 );
               })}

@@ -6,6 +6,7 @@ import { useLocale } from 'next-intl';
 import { ScoreOrb } from '@/components/backtesting/ThermoOrbs';
 import { capeScoreColor } from '@/components/backtesting/bhtBands';
 import { type ThermoLive, useThermoLive } from '@/components/backtesting/useThermoLive';
+import { publicSourceLabel } from '@/lib/dataSources';
 import { groupComponents, hyAdjustmentLabel, liqAdjustmentLabel, oilAdjustmentLabel, stampLabel, type LiveStamp } from '@/lib/bhtComponents';
 import { PART_ORB_NAME } from '@/lib/orbHistory';
 import { PART_BANDS, PART_DEC } from '@/lib/thermoScoring';
@@ -17,7 +18,7 @@ const T = {
     hy: 'Crédito (modelo Baa)', hyMean: 'Spread Baa − Tesoro 10 años × 1.913, la serie con la que se calibró el BHT. Suma puntos con crédito muy barato (complacencia) o cuando el crédito se tensa.',
     liq: 'Liquidez M2 / M0', liqMean: 'Resta puntos cuando la Fed inyecta dinero y suma cuando lo retira.',
     oil: 'Petróleo WTI', oilMean: 'Contra su media de 36 meses: suma puntos con choques de precio.',
-    real: 'HY real (ICE)', vsMean: 'vs media 36M', loading: 'Cargando componentes…',
+    real: 'HY OAS real', vsMean: 'vs media 36M', loading: 'Cargando componentes…',
   },
   en: {
     title: 'BHT Index components', sub: 'Each indicator gets a 0–100 risk score from its bands; the BHT is the weighted average plus adjustments. Tap an orb to see its bands and history.',
@@ -25,7 +26,7 @@ const T = {
     hy: 'Credit (Baa model)', hyMean: 'Baa − 10-year Treasury spread × 1.913, the series the BHT was calibrated on. Adds points when credit is very cheap (complacency) or when credit comes under stress.',
     liq: 'M2 / M0 liquidity', liqMean: 'Subtracts points when the Fed adds money and adds them when it drains it.',
     oil: 'WTI oil', oilMean: 'Versus its 36-month mean: adds points on price shocks.',
-    real: 'Real HY (ICE)', vsMean: 'vs 36M mean', loading: 'Loading components…',
+    real: 'Real HY OAS', vsMean: 'vs 36M mean', loading: 'Loading components…',
   },
 };
 const sgn = (v: number) => `${v > 0 ? '+' : v < 0 ? '−' : '±'}${Math.abs(v)}`;
@@ -38,7 +39,12 @@ export function BhtComponents({ initial }: { initial?: ThermoLive | null }) {
   if (!th) return <section className="rounded-2xl border border-slate-800 bg-slate-900/40 p-6 text-sm text-slate-500">{t.loading}</section>;
   const live: Record<string, LiveStamp> = { ...(th.live ?? {}), ...(th.cape ? { CAPE: { date: th.cape.date, source: 'Shiller' } } : {}) };
   const groups = groupComponents(th.parts, live, loc);
-  const stamp = (s: LiveStamp | null | undefined, cadence: 'daily' | 'monthly' | 'quarterly') => s ? <>{t.data} {stampLabel(s.date, cadence, loc)} · {s.source.replace(/^yahoo.*/i, 'Yahoo')}</> : null;
+  // Fecha del dato y, solo si es pública, su fuente (src/lib/dataSources.ts).
+  const stamp = (s: LiveStamp | null | undefined, cadence: 'daily' | 'monthly' | 'quarterly') => {
+    if (!s) return null;
+    const src = publicSourceLabel(s.source);
+    return <>{t.data} {stampLabel(s.date, cadence, loc)}{src ? ` · ${src}` : ''}</>;
+  };
 
   const adjustments = [
     // Crédito: el valor es la serie del modelo (1.913 × BAA10Y); el HY OAS real de ICE va debajo, solo informativo.
