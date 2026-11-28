@@ -95,6 +95,8 @@ usa solo como insumo de un cálculo propio y la UI muestra el resultado propio, 
 **Pendiente:**
 - El valor del P/E estimado sigue en el JSON público de `thermo-live` / `thermo-parts-monthly` (parte `FWD.value`) y
   en `/indicators` (`fwd_pe_ratio`): la UI ya no lo muestra; quitarlo del JSON exige derivar la banda en el backend.
-- Gráfica de valuación de `/indicators`: P/E mensual del Nasdaq 100 de GuruFocus (hasta oct-2026) y WSJ/Birinyi
-  (después). Necesita fuente propia (p. ej. P/E agregado del Nasdaq 100 con EDGAR de sus componentes, EXP-06).
+- ~~Gráfica de valuación de `/indicators`: P/E mensual del Nasdaq 100 de GuruFocus y WSJ/Birinyi~~ → hecho
+  (28-nov-2026, `feat/own-ndx-pe`): P/E propio con EDGAR de los miembros (`NDX_PE_EDGAR`, desde 2011). Sigue el P/E
+  mensual de QQQ guardado en el ticker (GuruFocus/WSJ, `historical_eps_quarterly.peRatio`) para las tablas de precios
+  de QQQ/TQQQ: revisar si se muestra en público y cambiarlo por `NDX_PE_EDGAR`.
 

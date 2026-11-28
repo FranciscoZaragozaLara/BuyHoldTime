@@ -28,14 +28,15 @@ describe('Nasdaq 100', () => {
     expect(pe.get('2026-10-15')).toBeCloseTo(600 / (620 / 27.12), 6);
     expect(pe.get('2026-11-17')).toBeCloseTo(29.55, 6); // último día disponible del mes en curso
   });
-  test('QQQ, TQQQ y P/E en el endpoint; meses sin P/E quedan en null', () => {
+  test('QQQ, TQQQ y P/E en el endpoint; los meses siguientes al último dato siguen con su EPS (hasta 2), antes no hay', () => {
     const v = buildValuationDaily(new Map(), new Map(), new Map(), new Map(), {
-      qqq: m({ '2026-10-30': 620, '2026-12-01': 630 }), tqqq: m({ '2026-10-30': 62.01 }), ndxMonthlyPe: new Map([['2026-10', 27.12]]),
+      qqq: m({ '2010-12-31': 50, '2026-10-30': 620, '2026-12-01': 630, '2027-01-04': 640 }), tqqq: m({ '2026-10-30': 62.01 }),
+      ndxMonthlyPe: new Map([['2026-10', 27.12]]),
     });
-    expect(v.dates).toEqual(['2026-10-30', '2026-12-01']);
-    expect(v.qqq).toEqual([620, 630]);
-    expect(v.tqqq).toEqual([62.01, null]);
-    expect(v.ndxPe).toEqual([27.12, null]);
+    expect(v.dates).toEqual(['2010-12-31', '2026-10-30', '2026-12-01', '2027-01-04']);
+    expect(v.qqq).toEqual([50, 620, 630, 640]);
+    expect(v.tqqq).toEqual([null, 62.01, null, null]);
+    expect(v.ndxPe).toEqual([null, 27.12, 27.56, null]); // dic: 630 ÷ (620 ÷ 27.12); ene, a 3 meses: sin dato
   });
 });
 

@@ -34,10 +34,14 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
   const [showBht, setShowBht] = useState(true);
   // Un instrumento a la vez: precio, SMA 50/200 y P/E son los suyos; CAPE y BHT no cambian.
   const [instrument, setInstrument] = useState<Instrument>('spx');
-  const INSTRUMENTS: Record<Instrument, { label: string; color: string; pe: string }> = {
+  // P/E del Nasdaq 100: cálculo propio con reportes a la SEC (NDX_PE_EDGAR del backend), solo desde 2011.
+  const ndxPeNote = locale === 'es'
+    ? 'P/E propio desde 2011: capitalización total ÷ utilidad neta de 12 meses de los miembros del índice en cada fecha (reportes a la SEC; sin las extranjeras que no reportan trimestres)'
+    : 'Our own P/E since 2011: total market cap ÷ trailing 12-month net income of the index members at each date (SEC filings; excludes foreign filers without quarterly reports)';
+  const INSTRUMENTS: Record<Instrument, { label: string; color: string; pe: string; peNote?: string }> = {
     spx: { label: 'S&P 500', color: TOKENS.accent, pe: 'P/E S&P 500' },
-    ndx: { label: 'Nasdaq 100 (QQQ)', color: '#3b82f6', pe: 'P/E Nasdaq 100' },
-    tqqq: { label: 'TQQQ', color: '#d946ef', pe: locale === 'es' ? 'P/E Nasdaq 100 (subyacente)' : 'P/E Nasdaq 100 (underlying)' },
+    ndx: { label: 'Nasdaq 100 (QQQ)', color: '#3b82f6', pe: 'P/E Nasdaq 100', peNote: ndxPeNote },
+    tqqq: { label: 'TQQQ', color: '#d946ef', pe: locale === 'es' ? 'P/E Nasdaq 100 (subyacente)' : 'P/E Nasdaq 100 (underlying)', peNote: ndxPeNote },
   };
   const inst = INSTRUMENTS[instrument];
   const [showMa50, setShowMa50] = useState(false);
@@ -613,6 +617,7 @@ export const MarketValueIndicatorClient: React.FC<MarketValueIndicatorClientProp
 
           <button
             onClick={() => setShowPeRatio(!showPeRatio)}
+            title={inst.peNote}
             className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border transition ${
               showPeRatio
                 ? 'bg-caution-500/10 border-caution-500/30 text-caution-300'

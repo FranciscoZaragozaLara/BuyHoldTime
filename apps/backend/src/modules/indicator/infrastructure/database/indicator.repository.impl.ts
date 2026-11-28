@@ -99,7 +99,7 @@ export class IndicatorRepositoryImpl implements IIndicatorRepository {
       const rows = await this.prisma.btMarketData.findMany({ where: { ticker, date: { gte: new Date(`${from}T00:00:00Z`) } }, select: { date: true, close: true } });
       return toMap(rows.map((r) => ({ d: r.date.toISOString().slice(0, 10), v: r.close })));
     };
-    const [spx, spxEps, cape, bht, qqqOld, qqq, tqqq, qqqTicker, ndxPeWsj, trendRows] = await Promise.all([
+    const [spx, spxEps, cape, bht, qqqOld, qqq, tqqq, ndxPeOwn, trendRows] = await Promise.all([
       daily('^GSPC', '1990-01-01'),
       daily('SPX_EPS', '1871-01-01'),
       this.prisma.$queryRawUnsafe(`SELECT date::text AS d, cape AS v FROM bt_shiller_daily WHERE cape IS NOT NULL AND date >= '1990-01-01'`).then((r) => toMap(r as Array<{ d: string; v: unknown }>)),
@@ -108,18 +108,17 @@ export class IndicatorRepositoryImpl implements IIndicatorRepository {
       this.prisma.$queryRawUnsafe(`SELECT h.date::text AS d, h.close AS v FROM historical_prices h JOIN tickers t ON t.id = h.ticker_id WHERE t.symbol = 'QQQ'`).then((r) => toMap(r as Array<{ d: string; v: unknown }>)),
       daily('QQQ', '1990-01-01'),
       daily('TQQQ', '1990-01-01'),
-      this.prisma.ticker.findFirst({ where: { symbol: 'QQQ' }, select: { historicalEpsQuarterly: true } }),
-      daily('NDX_PE', '2026-01-01'),
+      daily('NDX_PE_EDGAR', '2011-01-01'),
       this.prisma.$queryRawUnsafe(`SELECT date::text AS d, trend_regime AS r FROM bt_thermo_history WHERE trend_regime IS NOT NULL AND date >= '1990-01-01'`) as Promise<Array<{ d: string; r: string }>>,
     ]);
-    // P/E mensual del Nasdaq 100: entradas mensuales del ticker QQQ (GuruFocus hasta oct-2026, WSJ/Birinyi después).
+    // P/E mensual propio del Nasdaq 100 (EDGAR, desde 2011; un dato por mes en su último día con precio, que es el ancla
+    // del EPS implícito). Antes de 2011 no hay P/E: los datos de terceros (GuruFocus, WSJ/Birinyi) ya no se publican.
     const ndxMonthlyPe = new Map<string, number>();
-    for (const e of ((qqqTicker?.historicalEpsQuarterly as Array<{ date?: string; peRatio?: number | null }> | null) ?? [])) {
-      if (e?.date && e.peRatio != null && Number(e.peRatio) > 0) ndxMonthlyPe.set(String(e.date).slice(0, 7), Number(e.peRatio));
-    }
-    // Meses con dato de WSJ: el EPS implícito se ancla al viernes del dato, no al último cierre del mes.
     const ndxPeAnchors = new Map<string, string>();
-    for (const d of [...ndxPeWsj.keys()].sort()) ndxPeAnchors.set(d.slice(0, 7), d);
+    for (const d of [...ndxPeOwn.keys()].sort()) {
+      const v = ndxPeOwn.get(d)!;
+      if (v > 0) { ndxMonthlyPe.set(d.slice(0, 7), v); ndxPeAnchors.set(d.slice(0, 7), d); }
+    }
     // historical_prices trae el cierre sin ajustar y bt_market_data el ajustado: se unen con el factor del primer día común.
     const qqqAll = spliceSeries(qqqOld, qqq);
     const trend = new Map(trendRows.map((x) => [x.d, x.r]));

@@ -24,9 +24,11 @@ export class ExperimentalService {
   // Antes del cierre también se actualizan precios: sin ellos, los scores mezclaban QQQ de hoy con los ETFs de ayer.
   async nearClose() { if (this.cronOn) await this.run('prices,snapshot,scores,paper'); }
 
-  // Tras el sync diario (22:05) y la amplitud (22:35): precios, corrida mensual si toca y scores con los cierres.
+  // Tras el sync diario (22:05) y la amplitud (22:35): precios, corrida mensual si toca y scores con los cierres; luego
+  // el P/E propio del Nasdaq-100 (ndxpe: precios y reportes de EDGAR de los miembros → NDX_PE_EDGAR, que publica la
+  // gráfica de /indicators; los lunes también revisa la composición del índice).
   @Cron('50 22 * * 1-5', { timeZone: 'America/New_York' })
-  async afterClose() { if (this.cronOn) await this.run('prices,monthly,scores'); }
+  async afterClose() { if (this.cronOn) await this.run('prices,monthly,scores,ndxpe'); }
 
   run(steps = 'prices,monthly,snapshot,scores,paper'): Promise<{ ok: boolean; output: string }> {
     if (this.running) return Promise.resolve({ ok: false, output: 'ya hay una corrida en curso' });
