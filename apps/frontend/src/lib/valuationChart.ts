@@ -266,7 +266,8 @@ export const MARKER_MIN_PX = 30;
  * `minGapBars` sesiones. Se decide por prioridad (cruces, luego entradas, luego recordatorios; a igual prioridad,
  * $$ sobre $ y ¼$) y luego por fecha, así lo importante nunca se pierde. `indexOf` da la posición de cada fecha.
  * Ventas o compras que chocan con otra del mismo tipo no se pierden: su etiqueta se suma a la que queda en forma
- * compacta (p. ej. «V1/4», «T1/2·R50»), para que la gráfica no contradiga al detalle del día.
+ * compacta (p. ej. «V1/4», «T1/2·R50»), para que la gráfica no contradiga al detalle del día, y la marca se queda en
+ * su fecha real, más chica y sin texto (si no, una V2 de diciembre se veía solo en la etiqueta de la V5 de enero).
  */
 /** Etiqueta compacta de ventas agrupadas: «V4», «V1» → «V1/4»; con crisis de crédito («V4·C») → «V1/4·C». */
 export function mergeSellLabels(texts: string[]): string {
@@ -282,7 +283,10 @@ export function mergeBuyLabels(texts: string[]): string {
   return [ts.length ? `T${ts.join('/')}` : '', rs.join('·')].filter(Boolean).join('·');
 }
 
-export function thinMarkers<T extends Pick<SignalMarker, 'time' | 'kind' | 'priority' | 'position'> & { text?: string }>(markers: T[], indexOf: (time: string) => number | undefined, minGapBars: number): T[] {
+/** Tamaño de la marca sin texto de una señal agrupada en la etiqueta de otra. */
+export const MERGED_MARKER_SIZE = 0.5;
+
+export function thinMarkers<T extends Pick<SignalMarker, 'time' | 'kind' | 'priority' | 'position'> & { text?: string; size?: number }>(markers: T[], indexOf: (time: string) => number | undefined, minGapBars: number): T[] {
   if (minGapBars <= 1) return markers;
   const KIND_RANK: Partial<Record<SignalKind, number>> = { max: 4, sell: 4, strong: 3, danger: 3, buy: 2, starter: 1 };
   const order = markers
@@ -292,6 +296,7 @@ export function thinMarkers<T extends Pick<SignalMarker, 'time' | 'kind' | 'prio
   const taken: Record<string, Array<{ idx: number; k: number }>> = {};
   const keep = new Set<number>();
   const merged = new Map<number, Array<{ idx: number; text: string }>>();
+  const ghosts = new Set<number>();
   for (const x of order) {
     const lane = (taken[x.m.position] ??= []);
     const hit = lane.find((j) => Math.abs(j.idx - x.idx!) < minGapBars);
@@ -301,6 +306,7 @@ export function thinMarkers<T extends Pick<SignalMarker, 'time' | 'kind' | 'prio
         const list = merged.get(hit.k) ?? [{ idx: hit.idx, text: host.text ?? '' }];
         list.push({ idx: x.idx!, text: x.m.text });
         merged.set(hit.k, list);
+        ghosts.add(x.k);
       }
       continue;
     }
@@ -308,6 +314,7 @@ export function thinMarkers<T extends Pick<SignalMarker, 'time' | 'kind' | 'prio
     keep.add(x.k);
   }
   return markers.flatMap((m, k) => {
+    if (ghosts.has(k)) return [{ ...m, text: '', size: Math.min(m.size ?? 1, MERGED_MARKER_SIZE) }];
     if (!keep.has(k)) return [];
     const list = merged.get(k);
     return [list ? { ...m, text: m.kind === 'buy' ? mergeBuyLabels(list.sort((a, b) => a.idx - b.idx).map((t) => t.text)) : mergeSellLabels(list.map((t) => t.text)) } : m];

@@ -1,6 +1,6 @@
 import { TOKENS } from './designTokens';
 import { describe, expect, it } from 'vitest';
-import { athDrawdownLine, buildValuationChart, buyLadderMarkers, mergeBuyLabels, mergeSellLabels, netLadderMarkers, NET_COLOR, sellLadderMarkers, signalMarkers, signalState, thinMarkers, DEATH_CROSS_MIN_BHT, CROSS_MIN_SESSIONS, SIGNAL_REPEAT, type ChartPoint, type DailyValuation, type MonthlyRow } from './valuationChart';
+import { athDrawdownLine, buildValuationChart, buyLadderMarkers, mergeBuyLabels, mergeSellLabels, netLadderMarkers, NET_COLOR, sellLadderMarkers, signalMarkers, signalState, thinMarkers, DEATH_CROSS_MIN_BHT, MERGED_MARKER_SIZE, CROSS_MIN_SESSIONS, SIGNAL_REPEAT, type ChartPoint, type DailyValuation, type MonthlyRow } from './valuationChart';
 
 const monthly: MonthlyRow[] = [
   { date: '1989-11', sp500Price: 340, peRatio: 14, shillerPe: 17 },
@@ -121,7 +121,10 @@ describe('señales BHT × tendencia y cruces', () => {
     expect(m[2].color).toBe(TOKENS.risk);
     // el raleo por zoom conserva la venta más grave y le suma las que chocan (etiqueta compacta)
     const thin = thinMarkers(m, (t) => m.findIndex((x) => x.time === t), 10);
-    expect(thin.map((x) => [x.time, x.text])).toEqual([[day(3), 'V1/4/5·C']]);
+    // …y las agrupadas siguen en su fecha, chicas y sin texto
+    expect(thin.map((x) => [x.time, x.text])).toEqual([[day(1), ''], [day(3), 'V1/4/5·C'], [day(5), '']]);
+    expect(thin[0].size).toBe(MERGED_MARKER_SIZE);
+    expect(thin[0]).toMatchObject({ shape: 'arrowDown', color: m[0].color });
     expect(mergeSellLabels(['V4', 'V1'])).toBe('V1/4');
     // zoom cercano: cada venta con su etiqueta
     expect(thinMarkers(m, (t) => m.findIndex((x) => x.time === t), 1).map((x) => x.text)).toEqual(['V1', 'V5', 'V4·C']);
@@ -205,6 +208,6 @@ describe('athDrawdownLine', () => {
     const day = (k: number) => new Date(Date.UTC(2020, 0, 1) + k * 86400000).toISOString().slice(0, 10);
     const m = [...buyLadderMarkers([{ date: day(5), id: 'T1', price: 1, size: 1, backup: false }]), ...netLadderMarkers([{ date: day(2), rule: 'Ds', pct: 50, price: 1 }])];
     const thin = thinMarkers(m, (t) => Number(t.slice(8, 10)), 10);
-    expect(thin.map((x) => x.text)).toEqual(['T1·R50']);
+    expect(thin.map((x) => x.text)).toEqual(['T1·R50', '']);
   });
 });
